@@ -1,0 +1,178 @@
+<title>드래곤 도감 첫 세 마리</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root {
+    --bg: #EAECE7; --surface: #F7F8F5; --ink: #1A1F1C; --ink-2: #545C55; --ink-3: #7A837C;
+    --line: #CDD3C9; --accent: #1E6F52; --accent-ink: #13503B; --accent-soft: #DBE8E0; --ore: #8F6516;
+    --sans: "IBM Plex Sans KR", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    --sky1: #DCE9E1; --sky2: #EAECE7; --ground: #CFD8CC;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #131714; --surface: #1B201C; --ink: #E9ECE7; --ink-2: #A3ADA5; --ink-3: #808A82;
+    --line: #313830; --accent: #5FC99C; --accent-ink: #8BDCB8; --accent-soft: #1C2E26; --ore: #D6A845;
+    --sky1: #1C2E26; --sky2: #131714; --ground: #1F2622;
+  } }
+  :root[data-theme="dark"] {
+    --bg: #131714; --surface: #1B201C; --ink: #E9ECE7; --ink-2: #A3ADA5; --ink-3: #808A82;
+    --line: #313830; --accent: #5FC99C; --accent-ink: #8BDCB8; --accent-soft: #1C2E26; --ore: #D6A845;
+    --sky1: #1C2E26; --sky2: #131714; --ground: #1F2622;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; word-break: keep-all; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding-inline: 18px; padding-block: 28px 56px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 18px; margin-bottom: 14px; }
+  .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+  h1 { font-size: clamp(22px, 4.5vw, 30px); margin: 2px 0 0; letter-spacing: -.02em; font-weight: 700; }
+  .sub { color: var(--ink-2); font-size: 14px; margin: 0; }
+  .stage { position: relative; border: 1px solid var(--line); background: linear-gradient(to bottom, var(--sky1), var(--sky2) 70%); aspect-ratio: 16 / 9; max-width: 100%; overflow: hidden; touch-action: none; }
+  @media (max-width: 640px) { .stage { aspect-ratio: 4 / 5; } }
+  .stage canvas { display: block; width: 100%; height: 100%; }
+  .hint { position: absolute; left: 12px; bottom: 10px; font-family: var(--mono); font-size: 11px; color: var(--ink-3); letter-spacing: .06em; pointer-events: none; }
+  .tabs { display: flex; gap: 8px; margin: 14px 0 10px; flex-wrap: wrap; }
+  .tab { font-family: var(--sans); font-size: 14px; font-weight: 600; padding: 9px 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; display: flex; align-items: center; gap: 8px; }
+  .tab .sw { width: 12px; height: 12px; border: 1px solid rgba(0,0,0,.2); }
+  .tab[aria-selected="true"] { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .card { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 2px; background: var(--line); border: 1px solid var(--line); }
+  .card div { background: var(--surface); padding: 12px 14px; }
+  .card dt { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 3px; }
+  .card dd { margin: 0; font-size: 15px; font-weight: 500; }
+  .note { margin-top: 16px; font-size: 13.5px; color: var(--ink-2); max-width: 70ch; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="kicker">드래곤 도감 · 티어 1–3 + 16 · 복셀 모델 v1</div>
+      <h1>첫 세 마리, 그리고 마지막 한 마리</h1>
+    </div>
+    <p class="sub">아들의 스케치를 복셀로 옮긴 것. 알에서 나온 아기와, 다 자란 어른. 드래그하면 돌아간다.</p>
+  </header>
+
+  <div class="stage" id="stage"><div class="hint">드래그 · 회전 &nbsp;|&nbsp; 휠 · 확대</div></div>
+
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div class="tabs" id="stages"><button class="tab stage" data-stage="baby" id="stage-baby">🥚 아기</button><button class="tab stage" data-stage="adult" id="stage-adult">🔥 어른으로 키우기</button></div>
+  <dl class="card" id="card"></dl>
+
+  <p class="note">그림은 아들이 그린 세 장(나무·대지·철)을 기준으로 뿔·날개·꼬리 끝을 다르게 만들었다. 어른은 아기의 약 2배 크기로, 긴 뿔·척추 가시·이빨 줄·큰 날개·긴 꼬리·빛나는 눈이 붙는다. 모델 데이터는 <code>models/dragon_*.json</code>에 있고, 게임에서는 이 복셀을 그대로 엔티티 메시로 쓴다. 색·부위는 <code>dragon-voxels.js</code>의 파라미터라 아들이 바꿀 수 있다.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ===== 복셀 생성기 (models/dragon-voxels.js 와 동일) ===== */
+__GENERATOR__
+</script>
+<script>
+(function () {
+  const D = window.DragonVoxels;
+  const params = new URLSearchParams(location.search);
+  const only = params.get('only');                 // 스크린샷용: ?only=wood
+  let stage = params.get('stage') === 'adult' ? 'adult' : 'baby';
+  const ids = only ? [only] : D.ids;
+  const stageEl = document.getElementById('stage');
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  stageEl.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(32, 16 / 9, 0.1, 500);
+
+  // 조명: 부드러운 하늘 + 키라이트
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a9a86, 0.85));
+  const key = new THREE.DirectionalLight(0xffffff, 0.9); key.position.set(18, 30, 22); key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048); key.shadow.camera.left = -40; key.shadow.camera.right = 40; key.shadow.camera.top = 40; key.shadow.camera.bottom = -40;
+  scene.add(key);
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  // 바닥
+  const groundColor = getComputedStyle(document.documentElement).getPropertyValue('--ground').trim() || '#cfd8cc';
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1500, 1500), new THREE.MeshLambertMaterial({ color: new THREE.Color(groundColor) }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.01; ground.receiveShadow = true; scene.add(ground);
+
+  // 드래곤 인스턴스 메시 — 단계 바뀌면 다시 만든다
+  const cube = new THREE.BoxGeometry(1, 1, 1);
+  const groups = [];
+  function spacingFor(st) { return only ? 0 : (st === 'adult' ? 44 : 26); }
+  function buildDragons() {
+    groups.forEach(g => { scene.remove(g); g.children[0].geometry !== cube && g.children[0].geometry.dispose(); g.children[0].material.dispose(); });
+    groups.length = 0;
+    const spacing = spacingFor(stage);
+    ids.forEach((id, i) => {
+      const m = D.model(id, stage);
+      const mat = new THREE.MeshLambertMaterial();
+      const mesh = new THREE.InstancedMesh(cube, mat, m.voxels.length);
+      const dummy = new THREE.Object3D(); const col = new THREE.Color();
+      m.voxels.forEach((v, k) => { dummy.position.set(v.x, v.y + 0.5, v.z); dummy.updateMatrix(); mesh.setMatrixAt(k, dummy.matrix); mesh.setColorAt(k, col.set(v.c)); });
+      mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      const g = new THREE.Group(); g.add(mesh);
+      g.position.x = (i - (ids.length - 1) / 2) * spacing;
+      g.rotation.y = 0.6;               // 3/4 시점, 머리는 오른쪽 (스케치처럼)
+      g.userData = { id, meta: m };
+      scene.add(g); groups.push(g);
+    });
+    radius = stage === 'adult' ? (only ? 96 : 190) : (only ? 58 : 115);
+    target.y = stage === 'adult' ? 10 : 6;
+  }
+
+  // 카메라·조작
+  let theta = only ? 0.9 : 0.12, phi = 1.15, radius = 92, target = new THREE.Vector3(0, 6, 0);
+  buildDragons();
+  function updateCamera() {
+    camera.position.set(target.x + radius * Math.sin(phi) * Math.sin(theta), target.y + radius * Math.cos(phi), target.z + radius * Math.sin(phi) * Math.cos(theta));
+    camera.lookAt(target);
+  }
+  let dragging = false, lx = 0, ly = 0, auto = true;
+  stageEl.addEventListener('pointerdown', e => { dragging = true; auto = false; lx = e.clientX; ly = e.clientY; stageEl.setPointerCapture(e.pointerId); });
+  stageEl.addEventListener('pointermove', e => { if (!dragging) return; theta -= (e.clientX - lx) * 0.008; phi = Math.min(1.45, Math.max(0.5, phi - (e.clientY - ly) * 0.006)); lx = e.clientX; ly = e.clientY; });
+  stageEl.addEventListener('pointerup', () => { dragging = false; });
+  stageEl.addEventListener('wheel', e => { e.preventDefault(); radius = Math.min(240, Math.max(18, radius + e.deltaY * 0.05)); }, { passive: false });
+  // 두 손가락 확대
+  let pinch = null;
+  stageEl.addEventListener('touchmove', e => { if (e.touches.length === 2) { const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); if (pinch) radius = Math.min(240, Math.max(18, radius * (pinch / d))); pinch = d; } }, { passive: true });
+  stageEl.addEventListener('touchend', () => { pinch = null; });
+
+  // 탭·카드
+  const tabs = document.getElementById('tabs'), card = document.getElementById('card');
+  let selected = ids[0];
+  function renderCard() {
+    const m = D.model(selected, stage);
+    card.innerHTML = [
+      ['드래곤', `${m.name} <span style="color:var(--ink-3);font-weight:400">· 티어 ${m.tier}</span>`],
+      ['단계', stage === 'adult' ? '어른 — 다 자람. 더 크고 무섭다' : '아기 — 알에서 갓 나옴. 재료를 먹이면 빨리 자란다'],
+      ['색', m.colorName],
+      ['재료', m.recipe],
+      ['대표 스킬', m.signature],
+      ['빔', m.beam]
+    ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+    tabs.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.id === selected));
+    document.querySelectorAll('#stages .stage').forEach(b => b.setAttribute('aria-selected', b.dataset.stage === stage));
+    groups.forEach(g => g.userData.dim = g.userData.id !== selected);
+  }
+  ids.forEach(id => {
+    const m = D.model(id, 'baby');
+    const b = document.createElement('button'); b.className = 'tab'; b.role = 'tab'; b.dataset.id = id; b.id = 'tab-' + id;
+    b.innerHTML = `<span class="sw" style="background:${m.colors.body}"></span>${m.name}`;
+    b.addEventListener('click', () => { selected = id; renderCard(); }); tabs.appendChild(b);
+  });
+  document.querySelectorAll('#stages .stage').forEach(b => b.addEventListener('click', () => { if (stage === b.dataset.stage) return; stage = b.dataset.stage; buildDragons(); renderCard(); }));
+  renderCard();
+
+  // 리사이즈
+  function resize() { const w = stageEl.clientWidth, h = stageEl.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(stageEl); resize();
+
+  // 애니메이션: 숨쉬기 + 살짝 회전
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let t = 0;
+  function frame() {
+    t += 0.016;
+    if (auto && !reduce) theta += 0.0025;
+    groups.forEach((g, i) => { if (!reduce) g.position.y = Math.sin(t * 1.6 + i) * 0.15; });
+    updateCamera(); renderer.render(scene, camera); requestAnimationFrame(frame);
+  }
+  frame();
+  window.__ready = true;
+})();
+</script>

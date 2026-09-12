@@ -1,0 +1,1344 @@
+{
+  "_comment": "드래곤 목록 — 이 게임의 핵심. 아들이 2026-09-12에 정한 16종. tier = 아들이 줄 세운 순서(1 가장 약함 → 16 가장 셈). recipe = 알을 만드는 데 필요한 재료와 개수(아들이 정한 그대로). targetExpeditions = 이 드래곤을 얻는 데 걸리길 바라는 원정 횟수(아들: 약한 것 1~2, 중간 3~5, 최강 6~8) — 밸런스 조정 기준값. abilities = 드래곤이 하는 일. 모든 드래곤은 안장을 만들면 탈 수 있다. color/texture는 아들이 그림 그린 뒤 채운다. skills = 아들이 정한 고유 스킬(2026-09-12 2차 답변). 공통 기본 공격은 combat.commonSkills. 숫자(damage/stamina/cooldown)는 아빠 임시값.",
+  "rules": {
+    "obtainMethod": "egg",
+    "_obtainNote": "재료를 다 모으면 알이 나오고, 알에서 아기 드래곤이 나온다 (아들 답변 2)",
+    "growth": {
+      "startsAsBaby": true,
+      "feedWithRecipeMaterials": true,
+      "_note": "아기로 태어나고, 만들 때 쓴 재료를 먹이면 더 빨리 자란다 (아들 답변 4). 기본 성장 시간과 먹이당 단축량은 M6에서 정한다",
+      "baseGrowMinutes": 60,
+      "feedShortcutMinutes": 10,
+      "stages": [
+        "baby",
+        "adult"
+      ],
+      "_stageNote": "아기: 작고 둥글게(models/*.baby). 어른: 약 2배 크기, 긴 뿔·척추 가시·이빨 줄·큰 날개·긴 꼬리·빛나는 눈(models/*.adult). 어른이 되면 스킬 위력·기력 최대치 증가(값은 M6에서). 아빠 요청(2026-09-12): '컸을 때는 더 무섭고 크게'",
+      "adultMultipliers": {
+        "skillDamage": 1.5,
+        "staminaMax": 1.5,
+        "hp": 2.0,
+        "hitbox": 2.0,
+        "_note": "임시값"
+      }
+    },
+    "canDie": true,
+    "flees": false,
+    "permanent": true,
+    "_deathNote": "죽을 수는 있지만 도망치지 않고, 얻으면 영원히 내 것 (아들 답변 5). → 구현 해석: 죽으면 사라지지 않고 둥지로 돌아가 회복(원정 1회 동안 출전 불가). 아빠 확정 필요",
+    "rideRequires": "saddle",
+    "rideControls": {
+      "_note": "아들 답변 13: 조이스틱으로 이동, 점프 버튼으로 상승, 웅크리기(▼) 버튼으로 하강. 타고 걸을 수도 있지만 몸집이 커서 장애물에 잘 걸린다",
+      "up": "jump",
+      "down": "sneak",
+      "walkable": true,
+      "bigHitbox": true
+    },
+    "hatch": {
+      "_note": "알 부화에는 경험치 레벨을 소모한다(마인크래프트 인챈트 방식). 티어별 비용은 data/xp.json hatchLevelCostByTier. 레벨이 모자라면 알은 둥지에 보관된다",
+      "costsLevels": true
+    },
+    "completionReward": {
+      "_note": "전부 모으면 300 경험치 (아들 답변 15) + '드래곤 마스터' 칭호 + 마을 깃발. 경험치 시스템은 docs/XP-SYSTEM.md (마인크래프트 방식, 2026-09-12 도입 확정)",
+      "xp": 300,
+      "title": "드래곤 마스터"
+    },
+    "multiplayer": {
+      "_note": "아들 답변 12: 힘 합쳐 재료 모으기, 드래곤 대결, 드래곤 경주 전부. v1은 협동 재료 모으기, 대결·경주는 v1.1",
+      "coop": "v1",
+      "battle": "v1.1",
+      "race": "v1.1"
+    }
+  },
+  "materials": [
+    {
+      "id": "log",
+      "name": "나무 원목",
+      "from": [
+        "grass_island"
+      ],
+      "how": "나무 캐기",
+      "rarity": 1
+    },
+    {
+      "id": "sapling",
+      "name": "나무 묘목",
+      "from": [
+        "grass_island"
+      ],
+      "how": "나뭇잎 부수면 확률 드롭",
+      "rarity": 1
+    },
+    {
+      "id": "leaves",
+      "name": "나뭇잎",
+      "from": [
+        "grass_island"
+      ],
+      "how": "나뭇잎 캐기(가위 또는 맨손)",
+      "rarity": 1
+    },
+    {
+      "id": "dirt",
+      "name": "흙",
+      "from": [
+        "grass_island"
+      ],
+      "how": "캐기",
+      "rarity": 1
+    },
+    {
+      "id": "stone",
+      "name": "돌",
+      "from": [
+        "grass_island",
+        "cave"
+      ],
+      "how": "캐기(곡괭이)",
+      "rarity": 1
+    },
+    {
+      "id": "iron_ingot",
+      "name": "철",
+      "from": [
+        "cave",
+        "grass_island"
+      ],
+      "how": "철 광석 캐서 제련",
+      "rarity": 2
+    },
+    {
+      "id": "cake",
+      "name": "케이크",
+      "from": [
+        "craft"
+      ],
+      "how": "제작: 밀 3 + 설탕 2 + 우유 3 + 달걀 1 (초원 섬 농장·소·닭, 마을 농장)",
+      "rarity": 2
+    },
+    {
+      "id": "gold_ingot",
+      "name": "금",
+      "from": [
+        "cave",
+        "desert",
+        "nether"
+      ],
+      "how": "금 광석 캐서 제련, 사막 보물 상자",
+      "rarity": 2
+    },
+    {
+      "id": "diamond",
+      "name": "다이아몬드",
+      "from": [
+        "cave"
+      ],
+      "how": "동굴 깊은 곳 캐기(철 곡괭이 이상)",
+      "rarity": 3
+    },
+    {
+      "id": "netherite",
+      "name": "네더라이트",
+      "from": [
+        "nether"
+      ],
+      "how": "네더에만 있음. 고대 잔해 캐기(다이아 곡괭이)",
+      "rarity": 4
+    },
+    {
+      "id": "lava_bucket",
+      "name": "용암 양동이",
+      "from": [
+        "nether",
+        "cave"
+      ],
+      "how": "양동이로 용암 채취",
+      "rarity": 2
+    },
+    {
+      "id": "blaze_rod",
+      "name": "블레이즈 막대기",
+      "from": [
+        "nether"
+      ],
+      "how": "블레이즈 처치 시 확률 드롭",
+      "rarity": 3
+    },
+    {
+      "id": "ghast_tear",
+      "name": "가스트의 눈물",
+      "from": [
+        "nether",
+        "boss:giant_ghast"
+      ],
+      "how": "가스트를 죽여야만 나옴 / 초거대 가스트 처치 시 3개 확정 (v1.1)",
+      "rarity": 3
+    },
+    {
+      "id": "ice",
+      "name": "얼음",
+      "from": [
+        "snowfield"
+      ],
+      "how": "눈 바이옴에서 캐기(실크터치 또는 그냥 드롭 허용)",
+      "rarity": 2
+    },
+    {
+      "id": "snow_block",
+      "name": "눈 블록",
+      "from": [
+        "snowfield"
+      ],
+      "how": "눈 바이옴에서 눈덩이 4개로 제작 또는 캐기",
+      "rarity": 2
+    },
+    {
+      "id": "water_bucket",
+      "name": "물 양동이",
+      "from": [
+        "grass_island",
+        "snowfield"
+      ],
+      "how": "양동이(철 3)로 물 채취",
+      "rarity": 1
+    },
+    {
+      "id": "clock",
+      "name": "시계",
+      "from": [
+        "craft"
+      ],
+      "how": "제작: 금 4 + 레드스톤 1 (동굴)",
+      "rarity": 3
+    },
+    {
+      "id": "ender_pearl",
+      "name": "엔더 진주",
+      "from": [
+        "grass_island",
+        "desert",
+        "the_end",
+        "boss:enderman_king"
+      ],
+      "how": "밤에 나오는 엔더맨 처치 시 확률 드롭",
+      "rarity": 3
+    },
+    {
+      "id": "healing_potion",
+      "name": "치유의 물약",
+      "from": [
+        "the_end",
+        "craft"
+      ],
+      "how": "엔드 시티 상자, 또는 양조(네더 와트 + 반짝이는 수박)",
+      "rarity": 3
+    },
+    {
+      "id": "wooden_pickaxe",
+      "name": "나무 곡괭이",
+      "from": [
+        "craft"
+      ],
+      "how": "제작",
+      "rarity": 1
+    },
+    {
+      "id": "stone_pickaxe",
+      "name": "돌 곡괭이",
+      "from": [
+        "craft"
+      ],
+      "how": "제작",
+      "rarity": 1
+    },
+    {
+      "id": "iron_pickaxe",
+      "name": "철 곡괭이",
+      "from": [
+        "craft"
+      ],
+      "how": "제작",
+      "rarity": 2
+    },
+    {
+      "id": "golden_pickaxe",
+      "name": "금 곡괭이",
+      "from": [
+        "craft"
+      ],
+      "how": "제작",
+      "rarity": 2
+    },
+    {
+      "id": "diamond_pickaxe",
+      "name": "다이아몬드 곡괭이",
+      "from": [
+        "craft"
+      ],
+      "how": "제작",
+      "rarity": 3
+    },
+    {
+      "id": "netherite_pickaxe",
+      "name": "네더라이트 곡괭이",
+      "from": [
+        "craft"
+      ],
+      "how": "제작(대장간)",
+      "rarity": 4
+    },
+    {
+      "id": "tnt",
+      "name": "TNT",
+      "from": [
+        "craft"
+      ],
+      "how": "제작: 화약 5(밤 크리퍼) + 모래 4(사막) / 크리퍼 왕 처치 시 2개 확정 (v1.2)",
+      "rarity": 3
+    },
+    {
+      "id": "wither_skeleton_skull",
+      "name": "위더 스켈레톤 머리",
+      "from": [
+        "nether",
+        "boss:skeleton_king"
+      ],
+      "how": "네더 요새 위더 스켈레톤 처치 시 매우 낮은 확률 / 스켈레톤 왕 처치 시 3개 확정 (v1.2)",
+      "rarity": 5
+    },
+    {
+      "id": "dragon_breath",
+      "name": "드래곤의 숨결",
+      "from": [
+        "the_end"
+      ],
+      "how": "엔더 드래곤이 바닥에 뿌리는 보라색 먼지 공격(닿으면 HP 감소)을 유리병으로 담는다",
+      "rarity": 5
+    },
+    {
+      "id": "dragon_egg",
+      "name": "엔더 드래곤의 알",
+      "from": [
+        "the_end"
+      ],
+      "how": "엔더 드래곤을 잡아야만 나옴",
+      "rarity": 5
+    },
+    {
+      "id": "totem_of_undying",
+      "name": "불사의 토템",
+      "from": [
+        "boss:evoker"
+      ],
+      "how": "소환사 처치. 소지 시 1회 사망 방지 + HP 4 회복 (아들 설명)",
+      "rarity": 4,
+      "_note": "드래곤 재료는 아님 — 생존 아이템"
+    },
+    {
+      "id": "spider_crown",
+      "name": "거미 왕관",
+      "from": [
+        "boss:spider_king"
+      ],
+      "how": "거미 왕 처치. 꾸미기(모자)",
+      "rarity": 3,
+      "_note": "드래곤 재료는 아님"
+    }
+  ],
+  "dragons": [
+    {
+      "id": "wood",
+      "name": "나무 드래곤",
+      "tier": 1,
+      "targetExpeditions": [
+        1,
+        2
+      ],
+      "recipe": [
+        {
+          "material": "log",
+          "count": 5
+        },
+        {
+          "material": "sapling",
+          "count": 2
+        },
+        {
+          "material": "leaves",
+          "count": 2
+        }
+      ],
+      "texture": "dragon_wood",
+      "color": "#8B5A2B",
+      "skills": [
+        {
+          "id": "plant_tree",
+          "name": "나무 세우기",
+          "type": "utility",
+          "effect": "조준 지점에 나무 1그루 생성",
+          "stamina": 20,
+          "cooldownSec": 8,
+          "signature": true
+        },
+        {
+          "id": "beam",
+          "name": "녹색 빔",
+          "type": "beam",
+          "color": "#4CAF50",
+          "power": "약한",
+          "powerLevel": 1,
+          "stamina": 25,
+          "cooldownSec": 6
+        }
+      ],
+      "ride": true,
+      "model": "models/dragon_wood.json",
+      "sketch": "아들 그림 2026-09-12",
+      "_recipeNote": "아들 그림에는 '나무 묘목 1개', 1차 답변에는 '2개' — 확인 필요. 현재 2개 유지"
+    },
+    {
+      "id": "earth",
+      "name": "대지 드래곤",
+      "tier": 2,
+      "targetExpeditions": [
+        1,
+        2
+      ],
+      "recipe": [
+        {
+          "material": "dirt",
+          "count": 2
+        },
+        {
+          "material": "stone",
+          "count": 2
+        }
+      ],
+      "texture": "dragon_earth",
+      "color": "#7F7F7F",
+      "skills": [
+        {
+          "id": "drop_dirt_stone",
+          "name": "흙과 돌 떨어뜨리기",
+          "type": "falling_blocks",
+          "blocks": [
+            "dirt",
+            "stone"
+          ],
+          "damage": 4,
+          "stamina": 25,
+          "cooldownSec": 6,
+          "signature": true
+        },
+        {
+          "id": "beam",
+          "name": "회색 빔",
+          "type": "beam",
+          "color": "#9E9E9E",
+          "power": "약한",
+          "powerLevel": 1,
+          "stamina": 25,
+          "cooldownSec": 6
+        }
+      ],
+      "ride": true,
+      "model": "models/dragon_earth.json",
+      "sketch": "아들 그림 2026-09-12"
+    },
+    {
+      "id": "iron",
+      "name": "철 드래곤",
+      "tier": 3,
+      "targetExpeditions": [
+        1,
+        2
+      ],
+      "recipe": [
+        {
+          "material": "iron_ingot",
+          "count": 2
+        }
+      ],
+      "texture": "dragon_iron",
+      "color": "#9AA4AD",
+      "skills": [
+        {
+          "id": "throw_iron_block",
+          "name": "철 블록 날리기",
+          "type": "projectile",
+          "block": "iron_block",
+          "damage": 7,
+          "stamina": 20,
+          "cooldownSec": 4,
+          "signature": true
+        },
+        {
+          "id": "drop_anvil",
+          "name": "모루 떨어뜨리기",
+          "type": "falling_blocks",
+          "blocks": [
+            "anvil"
+          ],
+          "damage": 10,
+          "stamina": 30,
+          "cooldownSec": 10
+        },
+        {
+          "id": "beam",
+          "name": "은색 빔",
+          "type": "beam",
+          "color": "#CFD8DC",
+          "power": "약간 센",
+          "powerLevel": 2,
+          "stamina": 25,
+          "cooldownSec": 6
+        }
+      ],
+      "ride": true,
+      "model": "models/dragon_iron.json",
+      "sketch": "아들 그림 2026-09-12"
+    },
+    {
+      "id": "cake",
+      "name": "케이크 드래곤",
+      "tier": 4,
+      "targetExpeditions": [
+        2,
+        3
+      ],
+      "recipe": [
+        {
+          "material": "cake",
+          "count": 2
+        }
+      ],
+      "texture": "dragon_cake",
+      "color": null,
+      "skills": [
+        {
+          "id": "throw_cake",
+          "name": "케이크 날리기",
+          "type": "projectile",
+          "block": "cake",
+          "damage": 3,
+          "stamina": 15,
+          "cooldownSec": 3
+        },
+        {
+          "id": "heal_cake_beam",
+          "name": "힐 케이크 빔",
+          "type": "beam",
+          "target": "allies",
+          "heal": 6,
+          "color": "#F8BBD0",
+          "stamina": 35,
+          "cooldownSec": 12,
+          "signature": true,
+          "_note": "주인과 동료들에게 힐"
+        }
+      ],
+      "ride": true
+    },
+    {
+      "id": "gold",
+      "name": "금 드래곤",
+      "tier": 5,
+      "targetExpeditions": [
+        3,
+        5
+      ],
+      "recipe": [
+        {
+          "material": "gold_ingot",
+          "count": 2
+        }
+      ],
+      "texture": "dragon_gold",
+      "color": null,
+      "skills": [
+        {
+          "id": "throw_gold_block",
+          "name": "금 블록 날리기",
+          "type": "projectile",
+          "block": "gold_block",
+          "damage": 7,
+          "stamina": 20,
+          "cooldownSec": 4,
+          "signature": true
+        },
+        {
+          "id": "scatter_gold",
+          "name": "금 뿌리기",
+          "type": "aoe",
+          "effect": "주변 적 눈부심 + 금 조각 드롭(장식)",
+          "stamina": 25,
+          "cooldownSec": 10
+        },
+        {
+          "id": "beam",
+          "name": "금빛 빔",
+          "type": "beam",
+          "color": "#FFD54F",
+          "power": "약간 센",
+          "powerLevel": 2,
+          "stamina": 25,
+          "cooldownSec": 6
+        }
+      ],
+      "ride": true
+    },
+    {
+      "id": "diamond",
+      "name": "다이아몬드 드래곤",
+      "tier": 6,
+      "targetExpeditions": [
+        3,
+        5
+      ],
+      "recipe": [
+        {
+          "material": "diamond",
+          "count": 2
+        }
+      ],
+      "texture": "dragon_diamond",
+      "color": null,
+      "skills": [
+        {
+          "id": "throw_diamond_block",
+          "name": "다이아 블록 날리기",
+          "type": "projectile",
+          "block": "diamond_block",
+          "damage": 9,
+          "stamina": 20,
+          "cooldownSec": 4
+        },
+        {
+          "id": "diamond_tornado",
+          "name": "다이아 회오리",
+          "type": "aoe_spin",
+          "effect": "몸을 마구 돌리며 바람을 일으킴. 몸에 닿는 모든 것에 상당한 피해",
+          "damage": 12,
+          "radius": 4,
+          "durationSec": 3,
+          "stamina": 45,
+          "cooldownSec": 15,
+          "signature": true
+        },
+        {
+          "id": "beam",
+          "name": "밝은 민트색 빔",
+          "type": "beam",
+          "color": "#A7FFEB",
+          "power": "강력한",
+          "powerLevel": 3,
+          "stamina": 25,
+          "cooldownSec": 6
+        }
+      ],
+      "ride": true
+    },
+    {
+      "id": "netherite",
+      "name": "네더라이트 드래곤",
+      "tier": 7,
+      "targetExpeditions": [
+        3,
+        5
+      ],
+      "recipe": [
+        {
+          "material": "netherite",
+          "count": 2
+        }
+      ],
+      "texture": "dragon_netherite",
+      "color": null,
+      "skills": [
+        {
+          "id": "throw_netherite_block",
+          "name": "네더라이트 블록 날리기",
+          "type": "projectile",
+          "block": "netherite_block",
+          "damage": 12,
+          "stamina": 25,
+          "cooldownSec": 5
+        },
+        {
+          "id": "netherite_wall",
+          "name": "네더라이트 벽 세우기",
+          "type": "utility",
+          "effect": "전방 5×3 네더라이트 임시 벽 20초",
+          "stamina": 35,
+          "cooldownSec": 20,
+          "signature": true
+        },
+        {
+          "id": "netherite_rain",
+          "name": "네더라이트 블록 비",
+          "type": "falling_blocks",
+          "blocks": [
+            "netherite_block"
+          ],
+          "damage": 14,
+          "radius": 6,
+          "stamina": 50,
+          "cooldownSec": 25
+        },
+        {
+          "id": "beam",
+          "name": "아주 진한 보라빛 빔",
+          "type": "beam",
+          "color": "#4A148C",
+          "power": "강력한",
+          "powerLevel": 3,
+          "stamina": 25,
+          "cooldownSec": 6
+        }
+      ],
+      "ride": true
+    },
+    {
+      "id": "fire",
+      "name": "화염 드래곤",
+      "tier": 8,
+      "targetExpeditions": [
+        3,
+        5
+      ],
+      "recipe": [
+        {
+          "material": "lava_bucket",
+          "count": 1
+        },
+        {
+          "material": "blaze_rod",
+          "count": 2
+        },
+        {
+          "material": "ghast_tear",
+          "count": 1
+        }
+      ],
+      "_note": "불로 블록을 녹일 수 있다. 베드락·흑요석 제외 (아들 답변 3)",
+      "texture": "dragon_fire",
+      "color": "#E0562A",
+      "skills": [
+        {
+          "id": "breathe_fire",
+          "name": "불 뿜기",
+          "type": "cone",
+          "damage": 6,
+          "burnSec": 4,
+          "stamina": 15,
+          "cooldownSec": 2,
+          "signature": true
+        },
+        {
+          "id": "shoot_lava",
+          "name": "용암 쏘기",
+          "type": "projectile",
+          "block": "lava",
+          "damage": 8,
+          "burnSec": 6,
+          "stamina": 25,
+          "cooldownSec": 6
+        },
+        {
+          "id": "fire_rain",
+          "name": "하늘에서 불 떨어지기",
+          "type": "aoe_rain",
+          "damage": 5,
+          "radius": 6,
+          "durationSec": 5,
+          "stamina": 45,
+          "cooldownSec": 20
+        },
+        {
+          "id": "fire_aura",
+          "name": "몸에 불 두르기",
+          "type": "aura",
+          "damage": 3,
+          "durationSec": 10,
+          "stamina": 30,
+          "cooldownSec": 25
+        },
+        {
+          "id": "melt_blocks",
+          "name": "블록 녹이기",
+          "type": "utility",
+          "except": [
+            "bedrock",
+            "obsidian"
+          ],
+          "stamina": 10,
+          "cooldownSec": 1
+        }
+      ],
+      "ride": true
+    },
+    {
+      "id": "ice",
+      "name": "아이스 드래곤",
+      "tier": 9,
+      "targetExpeditions": [
+        3,
+        5
+      ],
+      "recipe": [
+        {
+          "material": "ice",
+          "count": 2
+        },
+        {
+          "material": "snow_block",
+          "count": 2
+        }
+      ],
+      "_note": "블록을 얼릴 수 있다 (아들 답변 3)",
+      "texture": "dragon_ice",
+      "color": "#8FD3F4",
+      "skills": [
+        {
+          "id": "shoot_ice",
+          "name": "얼음 쏘기",
+          "type": "projectile",
+          "damage": 6,
+          "slowSec": 3,
+          "stamina": 15,
+          "cooldownSec": 3,
+          "signature": true
+        },
+        {
+          "id": "freeze_hostiles",
+          "name": "나쁜 몹 얼리기",
+          "type": "aoe",
+          "effect": "반경 안 적대 몹 5초 동결",
+          "radius": 6,
+          "durationSec": 5,
+          "stamina": 40,
+          "cooldownSec": 18
+        },
+        {
+          "id": "freeze_blocks",
+          "name": "블록을 얼음으로",
+          "type": "utility",
+          "effect": "조준 블록(물·용암 포함)을 얼음으로 변환",
+          "stamina": 10,
+          "cooldownSec": 1
+        }
+      ],
+      "ride": true
+    },
+    {
+      "id": "water",
+      "name": "워터 드래곤",
+      "tier": 10,
+      "targetExpeditions": [
+        3,
+        5
+      ],
+      "recipe": [
+        {
+          "material": "water_bucket",
+          "count": 1
+        }
+      ],
+      "texture": "dragon_water",
+      "color": null,
+      "skills": [
+        {
+          "id": "shoot_water",
+          "name": "물 쏘기",
+          "type": "projectile",
+          "damage": 5,
+          "knockback": 4,
+          "stamina": 15,
+          "cooldownSec": 3,
+          "signature": true
+        },
+        {
+          "id": "tsunami",
+          "name": "쓰나미",
+          "type": "wave",
+          "damage": 10,
+          "knockback": 8,
+          "width": 9,
+          "stamina": 50,
+          "cooldownSec": 25
+        },
+        {
+          "id": "water_tornado",
+          "name": "물 회오리 소환",
+          "type": "summon_aoe",
+          "damage": 6,
+          "radius": 3,
+          "durationSec": 6,
+          "stamina": 40,
+          "cooldownSec": 20
+        },
+        {
+          "id": "water_breathing",
+          "name": "수중호흡 주기",
+          "type": "buff",
+          "target": "self_owner_allies",
+          "durationSec": 1200,
+          "stamina": 40,
+          "cooldownSec": 300,
+          "release": "v1.1",
+          "_note": "아들: 워터 드래곤에게 20분간 수중호흡을 받을 수 있다('디버프'라 썼지만 좋은 효과 → 버프)"
+        }
+      ],
+      "ride": true
+    },
+    {
+      "id": "time",
+      "name": "타임 드래곤",
+      "tier": 11,
+      "targetExpeditions": [
+        3,
+        5
+      ],
+      "recipe": [
+        {
+          "material": "clock",
+          "count": 4
+        }
+      ],
+      "texture": "dragon_time",
+      "color": null,
+      "skills": [
+        {
+          "id": "rewind_time",
+          "name": "시간 되돌리기",
+          "type": "world_rewind",
+          "effect": "플레이어들과 이 드래곤을 제외한 모든 것(적·몹·투사체·적이 부순 블록)을 10초 전 상태로 되돌린다. 위치 포함. 원정 타이머는 되돌리지 않는다",
+          "stamina": 60,
+          "cooldownSec": 60,
+          "rewindSec": 10,
+          "excludes": [
+            "players",
+            "self",
+            "allyDragons"
+          ],
+          "affects": [
+            "hostileMobs",
+            "bosses",
+            "projectiles",
+            "enemyBlockChanges"
+          ],
+          "timerAffected": false,
+          "_note": "아들 확정(2026-09-12): 플레이어와 자신 제외, 위치 포함, 원정 타이머 제외. 동료 드래곤 제외는 아빠 해석. 플레이어가 놓은 블록은 그대로 둔다(플레이어 제외의 연장)",
+          "_serverNote": "서버가 최근 10초 적 상태·적 블록 변경 링버퍼 보관(1초 간격). 발동 시 되감기 후 전원에게 스냅샷 브로드캐스트"
+        },
+        {
+          "id": "stop_time",
+          "name": "시간 멈추기",
+          "type": "global_freeze",
+          "effect": "30초 동안 적 전부 정지. 자신·플레이어·동료는 움직임",
+          "durationSec": 30,
+          "stamina": 80,
+          "cooldownSec": 120,
+          "signature": true,
+          "timerAffected": false,
+          "_note": "아들 확정: 원정 타이머는 멈추지 않는다"
+        },
+        {
+          "id": "beam",
+          "name": "진한 초록색 빔",
+          "type": "beam",
+          "color": "#1B5E20",
+          "power": "강력한",
+          "powerLevel": 3,
+          "stamina": 25,
+          "cooldownSec": 6
+        }
+      ],
+      "ride": true
+    },
+    {
+      "id": "teleport",
+      "name": "텔레포트 드래곤",
+      "tier": 12,
+      "targetExpeditions": [
+        6,
+        8
+      ],
+      "recipe": [
+        {
+          "material": "ender_pearl",
+          "count": 2
+        }
+      ],
+      "texture": "dragon_teleport",
+      "color": null,
+      "skills": [
+        {
+          "id": "teleport_self",
+          "name": "텔레포트",
+          "type": "utility",
+          "range": 32,
+          "stamina": 20,
+          "cooldownSec": 5,
+          "signature": true
+        },
+        {
+          "id": "banish",
+          "name": "상대를 다른 곳으로",
+          "type": "target_utility",
+          "effect": "조준한 적을 무작위 원거리로 이동",
+          "range": 24,
+          "stamina": 35,
+          "cooldownSec": 12
+        },
+        {
+          "id": "beam",
+          "name": "청녹색 빔",
+          "type": "beam",
+          "color": "#00897B",
+          "power": "강한",
+          "powerLevel": 3,
+          "stamina": 25,
+          "cooldownSec": 6
+        }
+      ],
+      "ride": true
+    },
+    {
+      "id": "healing",
+      "name": "치유 드래곤",
+      "tier": 13,
+      "targetExpeditions": [
+        6,
+        8
+      ],
+      "recipe": [
+        {
+          "material": "healing_potion",
+          "count": 6
+        }
+      ],
+      "texture": "dragon_healing",
+      "color": null,
+      "skills": [
+        {
+          "id": "heal_allies",
+          "name": "HP 회복",
+          "type": "heal",
+          "target": "self_owner_allies",
+          "heal": 8,
+          "radius": 8,
+          "stamina": 30,
+          "cooldownSec": 10,
+          "signature": true
+        },
+        {
+          "id": "shield",
+          "name": "뚫리지 않는 방어막",
+          "type": "shield",
+          "durationSec": 10,
+          "radius": 5,
+          "stamina": 60,
+          "cooldownSec": 45
+        },
+        {
+          "id": "beam",
+          "name": "붉은색 빔",
+          "type": "beam",
+          "color": "#C62828",
+          "power": "강한",
+          "powerLevel": 3,
+          "stamina": 25,
+          "cooldownSec": 6
+        }
+      ],
+      "ride": true
+    },
+    {
+      "id": "earthquake",
+      "name": "어스퀘이크 드래곤",
+      "tier": 14,
+      "targetExpeditions": [
+        6,
+        8
+      ],
+      "recipe": [
+        {
+          "material": "wooden_pickaxe",
+          "count": 1
+        },
+        {
+          "material": "stone_pickaxe",
+          "count": 1
+        },
+        {
+          "material": "iron_pickaxe",
+          "count": 1
+        },
+        {
+          "material": "golden_pickaxe",
+          "count": 1
+        },
+        {
+          "material": "diamond_pickaxe",
+          "count": 1
+        },
+        {
+          "material": "netherite_pickaxe",
+          "count": 1
+        }
+      ],
+      "texture": "dragon_earthquake",
+      "color": null,
+      "skills": [
+        {
+          "id": "dig_5x5",
+          "name": "주변 지형 5×5 캐기",
+          "type": "utility",
+          "effect": "조준 지점 중심 5×5×1 채굴, 드롭은 주인 가방으로",
+          "stamina": 30,
+          "cooldownSec": 8,
+          "signature": true,
+          "_serverNote": "서버 블록 변경 검증에서 드래곤 스킬 예외(도달 거리 무시). 보호 구역은 여전히 불가"
+        },
+        {
+          "id": "throw_pickaxes",
+          "name": "곡괭이 날리기",
+          "type": "projectile_burst",
+          "count": 6,
+          "damage": 4,
+          "stamina": 25,
+          "cooldownSec": 6
+        },
+        {
+          "id": "beam",
+          "name": "갈색 빔",
+          "type": "beam",
+          "color": "#6D4C41",
+          "power": "강한",
+          "powerLevel": 3,
+          "stamina": 25,
+          "cooldownSec": 6
+        }
+      ],
+      "ride": true
+    },
+    {
+      "id": "explosion",
+      "name": "폭발 드래곤",
+      "tier": 15,
+      "targetExpeditions": [
+        6,
+        8
+      ],
+      "recipe": [
+        {
+          "material": "tnt",
+          "count": 2
+        },
+        {
+          "material": "wither_skeleton_skull",
+          "count": 3
+        }
+      ],
+      "texture": "dragon_explosion",
+      "color": null,
+      "skills": [
+        {
+          "id": "self_detonate",
+          "name": "자기 몸 폭파",
+          "type": "self_aoe",
+          "damage": 20,
+          "radius": 6,
+          "selfHpCost": 0.5,
+          "effect": "부서지지 않지만 HP가 절반 깎임",
+          "stamina": 50,
+          "cooldownSec": 30
+        },
+        {
+          "id": "detonate_target",
+          "name": "원하는 곳 폭파",
+          "type": "target_aoe",
+          "damage": 15,
+          "radius": 4,
+          "range": 24,
+          "stamina": 35,
+          "cooldownSec": 10,
+          "signature": true
+        },
+        {
+          "id": "beam",
+          "name": "흰색 빔",
+          "type": "beam",
+          "color": "#FFFFFF",
+          "power": "매우 강력한",
+          "powerLevel": 4,
+          "stamina": 25,
+          "cooldownSec": 6
+        }
+      ],
+      "ride": true
+    },
+    {
+      "id": "ender",
+      "name": "엔더 드래곤",
+      "tier": 16,
+      "targetExpeditions": [
+        6,
+        8
+      ],
+      "recipe": [
+        {
+          "material": "dragon_breath",
+          "count": 4
+        },
+        {
+          "material": "dragon_egg",
+          "count": 1
+        }
+      ],
+      "texture": "dragon_ender",
+      "color": "#1E1B24",
+      "skills": [
+        {
+          "id": "beam",
+          "name": "가장 강력한 보라·검정 빔",
+          "type": "beam",
+          "color": "#6A1B9A",
+          "power": "가장 강력한",
+          "powerLevel": 5,
+          "stamina": 25,
+          "cooldownSec": 6
+        },
+        {
+          "id": "dragon_breath_pool",
+          "name": "드래곤의 숨결 뿌리기",
+          "type": "ground_aoe",
+          "damage": 4,
+          "radius": 3,
+          "durationSec": 8,
+          "stamina": 30,
+          "cooldownSec": 10,
+          "signature": true
+        },
+        {
+          "id": "purple_energy_balls",
+          "name": "하늘에서 보라색 에너지 볼",
+          "type": "aoe_rain",
+          "damage": 8,
+          "radius": 6,
+          "durationSec": 5,
+          "stamina": 45,
+          "cooldownSec": 20
+        },
+        {
+          "id": "purple_tornado",
+          "name": "보라색 회오리",
+          "type": "aoe_spin",
+          "damage": 10,
+          "radius": 5,
+          "durationSec": 4,
+          "stamina": 45,
+          "cooldownSec": 20
+        },
+        {
+          "id": "summon_enderman_army",
+          "name": "엔더맨 군대 소환",
+          "type": "summon",
+          "count": 6,
+          "durationSec": 30,
+          "friendly": true,
+          "stamina": 70,
+          "cooldownSec": 60
+        },
+        {
+          "id": "teleport_far",
+          "name": "1~60블록 텔레포트",
+          "type": "utility",
+          "rangeMin": 1,
+          "rangeMax": 60,
+          "stamina": 20,
+          "cooldownSec": 4
+        },
+        {
+          "id": "eye_lasers",
+          "name": "눈에서 보라색 레이저",
+          "type": "beam",
+          "color": "#B39DDB",
+          "power": "강한",
+          "stamina": 20,
+          "cooldownSec": 5,
+          "powerLevel": 3
+        }
+      ],
+      "ride": true,
+      "model": "models/dragon_ender.json",
+      "_modelNote": "자체 디자인 — 참고 이미지(마인크래프트 엔더 드래곤 모델)는 복제하지 않고, 아들 설계(검정·보라, 티어 16)를 우리 생성기 골격으로 만든 것"
+    }
+  ],
+  "combat": {
+    "_comment": "드래곤 전투 규칙 — 아들 설계(2026-09-12 스킬 답변). 모든 드래곤 공통 기본 공격 5종 + 드래곤별 고유 스킬. 빔은 색과 세기만 다른 공통 시스템.",
+    "commonSkills": [
+      {
+        "id": "tail_whip",
+        "name": "꼬리치기",
+        "type": "melee",
+        "damage": 3,
+        "knockback": 2
+      },
+      {
+        "id": "bite",
+        "name": "깨물기",
+        "type": "melee",
+        "damage": 4
+      },
+      {
+        "id": "headbutt",
+        "name": "머리 박치기",
+        "type": "melee",
+        "damage": 4,
+        "knockback": 3
+      },
+      {
+        "id": "claw_slam",
+        "name": "앞다리·뒷다리 내리치기",
+        "type": "melee",
+        "damage": 5,
+        "aoeRadius": 2
+      },
+      {
+        "id": "body_slam",
+        "name": "몸통 박치기",
+        "type": "melee",
+        "damage": 6,
+        "knockback": 4,
+        "selfStagger": true
+      }
+    ],
+    "friendlyFire": false,
+    "_friendlyFireNote": "아들이 스킬마다 '자신이나 주인, 동료들은 피해가 없음'을 반복해서 적음 → 전역 규칙으로: 드래곤 스킬은 자신·주인·같은 마을 파티원에게 절대 피해를 주지 않는다. 회오리·쓰나미·낙하물 전부 포함",
+    "beamPower": {
+      "_comment": "아들이 쓴 세기 표현 → 숫자. 피해 = baseDamagePerPower × powerLevel",
+      "약한": 1,
+      "약간 센": 2,
+      "강한": 3,
+      "강력한": 3,
+      "매우 강력한": 4,
+      "가장 강력한": 5,
+      "baseDamagePerPower": 4,
+      "rangeBlocks": 24,
+      "durationSec": 1.5
+    },
+    "stamina": {
+      "_comment": "드래곤 기력. 스킬마다 소모, 초당 회복. 폰에서 스킬 버튼 옆 작은 바. 아빠 임시안",
+      "max": 100,
+      "regenPerSec": 5
+    },
+    "activeSkillSlots": 4,
+    "_slotsNote": "폰 탑승 UI에 스킬 버튼 최대 4개. 기본 공격(꼬리·깨물기 등)은 탭 공격으로 자동 선택, 버튼을 차지하지 않는다",
+    "releasePlan": {
+      "v1": "기본 공격 5종 + 빔 + 드래곤별 대표 스킬 1개(signature: true)",
+      "v1.1": "나머지 스킬(시간 멈추기·되돌리기, 쓰나미, 엔더맨 군대, 방어막 등 복잡한 것)"
+    }
+  }
+}

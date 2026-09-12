@@ -1,0 +1,16 @@
+{
+  "name": "@dragon-village/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "M2에서 시작. 지금은 빈 껍데기.",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@dragon-village/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.6"
+  }
+}

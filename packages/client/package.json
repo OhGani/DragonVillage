@@ -1,0 +1,24 @@
+{
+  "name": "@dragon-village/client",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "dev:https": "cross-env DV_HTTPS=1 vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@dragon-village/shared": "workspace:*",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.6",
+    "@types/three": "^0.180.0",
+    "@vitejs/plugin-basic-ssl": "^2.1.0",
+    "cross-env": "^10.0.0",
+    "vite": "^7.1.7"
+  }
+}

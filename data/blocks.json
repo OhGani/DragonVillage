@@ -1,0 +1,561 @@
+{
+  "_comment": "블록 목록. 아들이 숫자를 바꿔도 돼. hardness = 부수는 데 걸리는 초(맨손). tool = 필요한 도구 종류(없으면 null). drops = 부수면 나오는 아이템(없으면 자기 자신). lightEmit = 빛 세기 0~15. texture = textures/ 폴더의 파일 이름(확장자 없이). 면마다 다르면 textureTop/textureSide/textureBottom. 광물(에메랄드·청금석·석영·레드스톤·고대 잔해), 흑요석 규칙, 장식·건축 블록은 아들 3차 디테일(2026-09-12) 반영. shape = 특수 형태 블록(계단·문·울타리 등, 모델은 M4에서).",
+  "blocks": [
+    {
+      "id": "air",
+      "name": "공기",
+      "solid": false,
+      "transparent": true
+    },
+    {
+      "id": "bedrock",
+      "name": "기반암",
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "bedrock",
+      "_note": "세계 맨 아래 한 겹. hardness 가 없으면 부술 수 없는 블록이야"
+    },
+    {
+      "id": "stone",
+      "name": "돌",
+      "hardness": 1.5,
+      "tool": "pickaxe",
+      "drops": "cobblestone",
+      "lightEmit": 0,
+      "texture": "stone"
+    },
+    {
+      "id": "cobblestone",
+      "name": "조약돌",
+      "hardness": 2.0,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "cobblestone"
+    },
+    {
+      "id": "dirt",
+      "name": "흙",
+      "hardness": 0.5,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "dirt"
+    },
+    {
+      "id": "grass",
+      "name": "잔디",
+      "hardness": 0.6,
+      "tool": null,
+      "drops": "dirt",
+      "lightEmit": 0,
+      "textureTop": "grass_top",
+      "textureSide": "grass_side",
+      "textureBottom": "dirt"
+    },
+    {
+      "id": "sand",
+      "name": "모래",
+      "hardness": 0.5,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "sand"
+    },
+    {
+      "id": "gravel",
+      "name": "자갈",
+      "hardness": 0.6,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "gravel"
+    },
+    {
+      "id": "log",
+      "name": "원목",
+      "hardness": 2.0,
+      "tool": null,
+      "lightEmit": 0,
+      "textureTop": "log_top",
+      "textureSide": "log_side",
+      "textureBottom": "log_top"
+    },
+    {
+      "id": "planks",
+      "name": "판자",
+      "hardness": 2.0,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "planks"
+    },
+    {
+      "id": "leaves",
+      "name": "나뭇잎",
+      "hardness": 0.2,
+      "tool": null,
+      "transparent": true,
+      "lightEmit": 0,
+      "texture": "leaves"
+    },
+    {
+      "id": "glass",
+      "name": "유리",
+      "hardness": 0.3,
+      "tool": null,
+      "transparent": true,
+      "drops": null,
+      "lightEmit": 0,
+      "texture": "glass"
+    },
+    {
+      "id": "water",
+      "name": "물",
+      "solid": false,
+      "transparent": true,
+      "lightEmit": 0,
+      "texture": "water"
+    },
+    {
+      "id": "torch",
+      "name": "횃불",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 14,
+      "texture": "torch"
+    },
+    {
+      "id": "coal_ore",
+      "name": "석탄 광석",
+      "hardness": 3.0,
+      "tool": "pickaxe",
+      "toolTier": 1,
+      "drops": "coal",
+      "lightEmit": 0,
+      "texture": "coal_ore"
+    },
+    {
+      "id": "iron_ore",
+      "name": "철 광석",
+      "hardness": 3.0,
+      "tool": "pickaxe",
+      "toolTier": 2,
+      "lightEmit": 0,
+      "texture": "iron_ore"
+    },
+    {
+      "id": "gold_ore",
+      "name": "금 광석",
+      "hardness": 3.0,
+      "tool": "pickaxe",
+      "toolTier": 3,
+      "lightEmit": 0,
+      "texture": "gold_ore"
+    },
+    {
+      "id": "diamond_ore",
+      "name": "다이아몬드 광석",
+      "hardness": 3.0,
+      "tool": "pickaxe",
+      "toolTier": 3,
+      "drops": "diamond",
+      "lightEmit": 0,
+      "texture": "diamond_ore"
+    },
+    {
+      "id": "netherrack",
+      "name": "네더랙",
+      "hardness": 0.4,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "netherrack"
+    },
+    {
+      "id": "lava",
+      "name": "용암",
+      "solid": false,
+      "transparent": false,
+      "lightEmit": 15,
+      "damage": 4,
+      "texture": "lava"
+    },
+    {
+      "id": "glowstone",
+      "name": "발광석",
+      "hardness": 0.3,
+      "tool": null,
+      "lightEmit": 15,
+      "texture": "glowstone"
+    },
+    {
+      "id": "snow",
+      "name": "눈",
+      "hardness": 0.2,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "snow"
+    },
+    {
+      "id": "ice",
+      "name": "얼음",
+      "hardness": 0.5,
+      "tool": "pickaxe",
+      "transparent": true,
+      "drops": null,
+      "lightEmit": 0,
+      "texture": "ice"
+    },
+    {
+      "id": "end_stone",
+      "name": "엔드 돌",
+      "hardness": 3.0,
+      "tool": "pickaxe",
+      "toolTier": 2,
+      "lightEmit": 0,
+      "texture": "end_stone"
+    },
+    {
+      "id": "emerald_ore",
+      "name": "에메랄드 광석",
+      "hardness": 3.0,
+      "tool": "pickaxe",
+      "toolTier": 2,
+      "drops": "emerald",
+      "lightEmit": 0,
+      "texture": "emerald_ore"
+    },
+    {
+      "id": "lapis_ore",
+      "name": "청금석 광석",
+      "hardness": 3.0,
+      "tool": "pickaxe",
+      "toolTier": 1,
+      "drops": "lapis",
+      "lightEmit": 0,
+      "texture": "lapis_ore",
+      "_note": "인챈트에 필요 (아들)"
+    },
+    {
+      "id": "nether_quartz_ore",
+      "name": "석영 광석",
+      "hardness": 3.0,
+      "tool": "pickaxe",
+      "toolTier": 1,
+      "drops": "quartz",
+      "lightEmit": 0,
+      "texture": "quartz_ore"
+    },
+    {
+      "id": "redstone_ore",
+      "name": "레드스톤 광석",
+      "hardness": 3.0,
+      "tool": "pickaxe",
+      "toolTier": 2,
+      "drops": "redstone",
+      "lightEmit": 0,
+      "texture": "redstone_ore"
+    },
+    {
+      "id": "ancient_debris",
+      "name": "고대 잔해",
+      "hardness": 30.0,
+      "tool": "pickaxe",
+      "toolTier": 3,
+      "lightEmit": 0,
+      "texture": "ancient_debris"
+    },
+    {
+      "id": "obsidian",
+      "name": "흑요석",
+      "hardness": 50.0,
+      "tool": "pickaxe",
+      "toolTier": 3,
+      "lightEmit": 0,
+      "texture": "obsidian",
+      "_note": "용암 블록에 물 양동이를 부으면 생성. 다이아 곡괭이(티어3)로만 캔다 (아들)"
+    },
+    {
+      "id": "hay_bale",
+      "name": "건초 더미",
+      "hardness": 0.5,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "hay_bale"
+    },
+    {
+      "id": "bookshelf",
+      "name": "책장",
+      "hardness": 1.5,
+      "tool": null,
+      "drops": "book",
+      "lightEmit": 0,
+      "texture": "bookshelf"
+    },
+    {
+      "id": "enchanting_table",
+      "name": "인챈트 테이블",
+      "hardness": 5.0,
+      "tool": "pickaxe",
+      "lightEmit": 7,
+      "texture": "enchanting_table",
+      "release": "v1.1"
+    },
+    {
+      "id": "cactus",
+      "name": "선인장",
+      "hardness": 0.4,
+      "tool": null,
+      "damage": 1,
+      "lightEmit": 0,
+      "texture": "cactus"
+    },
+    {
+      "id": "sugar_cane",
+      "name": "사탕수수",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "texture": "sugar_cane",
+      "_note": "물가에서 자란다"
+    },
+    {
+      "id": "pumpkin",
+      "name": "호박",
+      "hardness": 1.0,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "pumpkin"
+    },
+    {
+      "id": "carved_pumpkin",
+      "name": "조각된 호박",
+      "hardness": 1.0,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "carved_pumpkin"
+    },
+    {
+      "id": "jack_o_lantern",
+      "name": "잭오랜턴",
+      "hardness": 1.0,
+      "tool": null,
+      "lightEmit": 15,
+      "texture": "jack_o_lantern"
+    },
+    {
+      "id": "melon",
+      "name": "수박",
+      "hardness": 1.0,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "melon"
+    },
+    {
+      "id": "iron_block",
+      "name": "철 블록",
+      "hardness": 5.0,
+      "tool": "pickaxe",
+      "toolTier": 1,
+      "lightEmit": 0,
+      "texture": "iron_block"
+    },
+    {
+      "id": "gold_block",
+      "name": "금 블록",
+      "hardness": 3.0,
+      "tool": "pickaxe",
+      "toolTier": 2,
+      "lightEmit": 0,
+      "texture": "gold_block"
+    },
+    {
+      "id": "quartz_block",
+      "name": "석영 블록",
+      "hardness": 0.8,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "quartz_block"
+    },
+    {
+      "id": "netherite_block",
+      "name": "네더라이트 블록",
+      "hardness": 50.0,
+      "tool": "pickaxe",
+      "toolTier": 3,
+      "lightEmit": 0,
+      "texture": "netherite_block"
+    },
+    {
+      "id": "emerald_block",
+      "name": "에메랄드 블록",
+      "hardness": 5.0,
+      "tool": "pickaxe",
+      "toolTier": 2,
+      "lightEmit": 0,
+      "texture": "emerald_block"
+    },
+    {
+      "id": "diamond_block",
+      "name": "다이아몬드 블록",
+      "hardness": 5.0,
+      "tool": "pickaxe",
+      "toolTier": 2,
+      "lightEmit": 0,
+      "texture": "diamond_block"
+    },
+    {
+      "id": "oak_stairs",
+      "name": "계단",
+      "hardness": 2.0,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "planks",
+      "shape": "stairs"
+    },
+    {
+      "id": "oak_door",
+      "name": "문",
+      "hardness": 3.0,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "door",
+      "shape": "door"
+    },
+    {
+      "id": "oak_trapdoor",
+      "name": "다락문",
+      "hardness": 3.0,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "trapdoor",
+      "shape": "trapdoor"
+    },
+    {
+      "id": "oak_fence",
+      "name": "울타리",
+      "hardness": 2.0,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "planks",
+      "shape": "fence"
+    },
+    {
+      "id": "sign",
+      "name": "표지판",
+      "hardness": 1.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "texture": "sign",
+      "shape": "sign"
+    },
+    {
+      "id": "bed",
+      "name": "침대",
+      "hardness": 0.2,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "bed",
+      "shape": "bed",
+      "_note": "네더·엔드에서 클릭 시 폭발"
+    },
+    {
+      "id": "chest",
+      "name": "상자",
+      "hardness": 2.5,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "chest",
+      "shape": "chest"
+    },
+    {
+      "id": "furnace",
+      "name": "화로",
+      "hardness": 3.5,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "furnace"
+    },
+    {
+      "id": "brewing_stand",
+      "name": "양조기",
+      "hardness": 0.5,
+      "tool": null,
+      "lightEmit": 1,
+      "texture": "brewing_stand"
+    },
+    {
+      "id": "soul_sand",
+      "name": "영혼 모래",
+      "hardness": 0.5,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "soul_sand"
+    },
+    {
+      "id": "warped_fungus",
+      "name": "뒤틀린 균",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "texture": "warped_fungus"
+    },
+    {
+      "id": "wool",
+      "name": "양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "wool",
+      "dyeable": true,
+      "_note": "16색 염색 가능. 텍스처는 wool_<color>"
+    },
+    {
+      "id": "flower",
+      "name": "꽃",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "texture": "flower",
+      "variants": [
+        "poppy",
+        "dandelion",
+        "cornflower",
+        "allium",
+        "tulip_pink",
+        "oxeye_daisy"
+      ],
+      "_note": "부수면 색 염료 3개"
+    },
+    {
+      "id": "rail",
+      "name": "철도",
+      "hardness": 0.7,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "texture": "rail",
+      "release": "v1.1"
+    },
+    {
+      "id": "mob_spawner",
+      "name": "몹 스포너",
+      "hardness": 5.0,
+      "tool": "pickaxe",
+      "drops": null,
+      "lightEmit": 0,
+      "texture": "spawner",
+      "release": "v1.1",
+      "_note": "캐면 경험치 15–43"
+    },
+    {
+      "id": "water_deep",
+      "name": "깊은 물",
+      "solid": false,
+      "transparent": true,
+      "lightEmit": 0,
+      "texture": "water",
+      "_note": "심해 — 발광 오징어 서식"
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "_comment": "보스 몹 — 아들 설계(2026-09-12). 중간 보스 5 + 최종 보스 2군(엔더 드래곤, 네 왕). 공통점: 모두 우리 마을을 차지하고 싶어한다 → 마을 방어전(raids) 시스템의 근거. hp·drops·xp 숫자는 아빠 임시값, 설명은 아들 말 그대로. release = 어느 버전에 넣나(v1 / v1.1 / v1.2). 상세는 docs/BOSSES.md.",
+  "commonGoal": "모두 우리 마을을 차지하고 싶어한다",
+  "midBosses": [
+    {
+      "id": "giant_ghast",
+      "name": "초거대 가스트",
+      "sonDescription": "네더에 살고, 큰 화염을 쏜다. 아주아주 거대한 네더 요새에서 산다.",
+      "home": { "expedition": "nether", "structure": "giant_nether_fortress" },
+      "attacks": ["big_fireball", "summon_ghasts"],
+      "minions": ["ghast"],
+      "hp": 300,
+      "drops": [ { "material": "ghast_tear", "count": 3, "chance": 1.0 }, { "material": "blaze_rod", "count": 2, "chance": 1.0 } ],
+      "xp": 100,
+      "release": "v1.1"
+    },
+    {
+      "id": "spider_king",
+      "name": "거미 왕",
+      "sonDescription": "왕관을 쓰고 있는 거미. 독거미이며, 거미 군단을 다스린다.",
+      "home": { "expedition": "cave", "structure": "spider_king_den" },
+      "attacks": ["poison_bite", "web_shot", "summon_spiders"],
+      "minions": ["spider", "cave_spider"],
+      "hp": 200,
+      "drops": [ { "material": "string", "count": 8, "chance": 1.0 }, { "material": "spider_eye", "count": 4, "chance": 1.0 }, { "material": "spider_crown", "count": 1, "chance": 1.0, "_note": "꾸미기 아이템(모자)" } ],
+      "xp": 80,
+      "release": "v1",
+      "_why_v1": "동굴 원정지가 이미 있어 새 지형 없이 넣을 수 있는 첫 보스"
+    },
+    {
+      "id": "giant_warden",
+      "name": "거대 워든",
+      "sonDescription": "강력한 음파를 사용하고 맨손으로 내리치기도 한다. 워든 군대를 다스리기도 한다.",
+      "home": { "expedition": "deep_dark", "structure": "ancient_city" },
+      "attacks": ["sonic_boom", "smash", "summon_wardens"],
+      "minions": ["warden"],
+      "hp": 500,
+      "drops": [ { "material": "echo_shard", "count": 4, "chance": 1.0 }, { "material": "sculk", "count": 16, "chance": 1.0 } ],
+      "xp": 200,
+      "release": "v1.2"
+    },
+    {
+      "id": "evoker",
+      "name": "소환사 (우민 보스)",
+      "sonDescription": "우민들은 마을 옆 전초기지들과 삼림 대저택에서 온다. 보스는 소환사다. 소환사는 벡스 군단을 조종할 수 있고, 죽으면 4개의 HP를 더 주는 불사의 토템을 준다. 우민들은 파괴수를 타고 다닌다.",
+      "home": { "expedition": "village_raid", "structure": "pillager_outpost", "alsoIn": { "expedition": "dark_forest", "structure": "woodland_mansion" } },
+      "attacks": ["summon_vex", "fangs"],
+      "minions": ["pillager", "vindicator", "vex", "ravager"],
+      "ravagerRiders": true,
+      "hp": 150,
+      "drops": [ { "material": "totem_of_undying", "count": 1, "chance": 1.0, "_note": "죽을 때 HP 4를 더 준다(아들 설명). 소지 시 1회 사망 방지" }, { "material": "emerald", "count": 5, "chance": 1.0 } ],
+      "xp": 100,
+      "release": "v1",
+      "_why_v1": "'마을 옆 전초기지에서 온다' → 새 원정지 없이 마을 방어전으로 구현 가능. '마을을 차지하려 한다'는 공통 서사의 첫 체험"
+    },
+    {
+      "id": "giant_gorilla",
+      "name": "거대 고릴라",
+      "sonDescription": "고릴라 군단을 가지고 있으며, 사치스러운 정글 궁궐에 산다. 화가 나면 닥치는 대로 죽이거나 부순다.",
+      "home": { "expedition": "jungle", "structure": "jungle_palace" },
+      "attacks": ["ground_pound", "throw_blocks", "rage_mode"],
+      "rageMeter": true,
+      "minions": ["gorilla"],
+      "hp": 400,
+      "drops": [ { "material": "gold_ingot", "count": 10, "chance": 1.0 }, { "material": "emerald", "count": 8, "chance": 1.0 }, { "material": "banana", "count": 16, "chance": 1.0, "_note": "고릴라 드래곤 먹이? 아들에게" } ],
+      "xp": 150,
+      "release": "v1.2"
+    }
+  ],
+  "finalBosses": [
+    {
+      "id": "ender_dragon",
+      "name": "엔더 드래곤",
+      "sonDescription": "엔드에 살고, 드래곤의 숨결을 바닥에 뿌리고 엔더맨들로 공격한다.",
+      "home": { "expedition": "the_end", "structure": "end_island" },
+      "attacks": ["dragon_breath_pool", "summon_endermen", "charge"],
+      "minions": ["enderman"],
+      "hp": 200,
+      "drops": [ { "material": "dragon_egg", "count": 1, "chance": 1.0 }, { "material": "dragon_breath", "count": null, "chance": null, "_note": "전투 중 바닥 숨결을 유리병으로 채집" } ],
+      "xp": 500,
+      "release": "v1"
+    },
+    {
+      "id": "four_kings",
+      "name": "네 왕 — 거대화된 스켈레톤·크리퍼·엔더맨·좀비 왕",
+      "sonDescription": "엄청나게 거대화된 스켈레톤, 크리퍼, 엔더맨, 좀비 왕. 자신의 소형 버전 종족을 다스린다. 자신들의 첫 번째 왕들의 머리를 달고 있는 아주 거대한 고대성에 산다. 목표는 서버를 다스리는 것.",
+      "home": { "expedition": "ancient_castle", "structure": "ancient_castle" },
+      "kings": [
+        { "id": "skeleton_king", "name": "스켈레톤 왕", "minions": ["skeleton", "stray", "wither_skeleton"], "attacks": ["arrow_rain", "bone_wall"], "hp": 600, "drops": [ { "material": "wither_skeleton_skull", "count": 3, "chance": 1.0, "_note": "폭발 드래곤 재료 확정 드롭" } ], "xp": 300 },
+        { "id": "creeper_king", "name": "크리퍼 왕", "minions": ["creeper", "charged_creeper"], "attacks": ["mega_explosion", "creeper_swarm"], "hp": 600, "drops": [ { "material": "gunpowder", "count": 16, "chance": 1.0 }, { "material": "tnt", "count": 2, "chance": 1.0 } ], "xp": 300 },
+        { "id": "enderman_king", "name": "엔더맨 왕", "minions": ["enderman", "endermite"], "attacks": ["teleport_strike", "block_steal"], "hp": 600, "drops": [ { "material": "ender_pearl", "count": 8, "chance": 1.0 } ], "xp": 300 },
+        { "id": "zombie_king", "name": "좀비 왕", "minions": ["zombie", "husk", "zombie_villager"], "attacks": ["horde_call", "rotten_grab"], "hp": 600, "drops": [ { "material": "TODO", "count": 0, "_note": "아들에게: 좀비 왕은 뭘 떨궈?" } ], "xp": 300 }
+      ],
+      "order": "TODO(아들에게: 어떤 왕부터 싸워?)",
+      "ending": { "xp": 300, "title": "마을의 수호자", "_note": "네 왕을 모두 물리치면 마을을 노리는 자가 사라진다 = 엔딩. 드래곤 16종 완성 300xp와 별개" },
+      "release": "v1.2"
+    }
+  ],
+  "raids": {
+    "_comment": "마을 방어전 — '모두 우리 마을을 차지하고 싶어한다'의 구현. 원정과 같은 시간 규칙을 따르는 10분 세션. 절대 강제 시작되지 않는다(아이 시간 규칙·원정 출발 조건 동일 적용).",
+    "trigger": "host_starts",
+    "warningInAdvance": true,
+    "durationSec": 600,
+    "minVillageLevel": 2,
+    "maxPerWeek": 2,
+    "waves": 3,
+    "onFail": { "villageDamaged": false, "bossPlantsFlag": true, "_note": "마을은 서버가 원상복구. 보스 깃발이 입구에 꽂히고 다음 승리 때 사라진다. 잃는 것은 없다" },
+    "onWin": { "lootToStorage": true, "guardianFlag": true, "xpEach": 50 },
+    "v1Raiders": ["evoker"],
+    "laterRaiders": ["spider_king", "giant_ghast", "giant_gorilla", "giant_warden", "four_kings"]
+  }
+}

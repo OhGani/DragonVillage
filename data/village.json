@@ -1,0 +1,174 @@
+{
+  "_comment": "마을 풍경·주민·동물 — 아들 설계(2026-09-12 3차 '디테일'). 마을은 영구·공유 공간이라 여기 풍경이 게임의 얼굴. release = v1 / v1.1 / v2. 상세 docs/CONTENT.md",
+  "terrain": {
+    "release": "v1",
+    "surroundingTrees": "oak",
+    "bigFields": true,
+    "farm": true,
+    "river": {
+      "through": true,
+      "fish": [
+        "salmon"
+      ]
+    },
+    "_note": "마을 터 생성기(M1): 참나무 둘레, 큰 밭·농장, 마을을 가로지르는 강 + 연어"
+  },
+  "decor": [
+    {
+      "id": "hay_bale",
+      "name": "건초 더미",
+      "release": "v1"
+    },
+    {
+      "id": "fountain",
+      "name": "분수",
+      "release": "v1",
+      "footprint": [
+        5,
+        5,
+        3
+      ]
+    },
+    {
+      "id": "chest",
+      "name": "상자",
+      "release": "v1",
+      "_note": "아들: 상자가 엄청 많다. 공유 창고와 별개의 개인 상자"
+    },
+    {
+      "id": "sign",
+      "name": "표지판",
+      "release": "v1",
+      "_note": "보호 구역 지정에도 쓴다. 글쓰기는 정해진 문구만(자유 채팅 없음 규칙)"
+    },
+    {
+      "id": "fence",
+      "name": "울타리",
+      "release": "v1"
+    },
+    {
+      "id": "door",
+      "name": "문",
+      "release": "v1"
+    },
+    {
+      "id": "trapdoor",
+      "name": "다락문",
+      "release": "v1"
+    },
+    {
+      "id": "stairs",
+      "name": "계단",
+      "release": "v1"
+    },
+    {
+      "id": "bed",
+      "name": "침대",
+      "release": "v1",
+      "_note": "네더·엔드에서 설치 후 클릭하면 폭발 (아들)"
+    },
+    {
+      "id": "glass",
+      "name": "유리",
+      "release": "v1"
+    },
+    {
+      "id": "torch",
+      "name": "횃불",
+      "release": "v1"
+    },
+    {
+      "id": "jack_o_lantern",
+      "name": "잭오랜턴",
+      "release": "v1"
+    }
+  ],
+  "npcs": [
+    {
+      "id": "blacksmith",
+      "name": "대장장이",
+      "building": "forge",
+      "release": "v1",
+      "_note": "대장간의 주민. 도구 수리·제작 안내"
+    },
+    {
+      "id": "iron_golem",
+      "name": "철 골렘",
+      "release": "v1.1",
+      "_note": "마을 수호자. 방어전에서 우민과 싸운다"
+    },
+    {
+      "id": "trading_post",
+      "name": "주민 거래소",
+      "release": "v2",
+      "_note": "에메랄드 거래. 경제 시스템 필요. 무엇을 사고팔지 아들에게"
+    }
+  ],
+  "animals": [
+    {
+      "id": "dog",
+      "name": "강아지",
+      "release": "v1",
+      "tameable": true,
+      "tameWith": "bone",
+      "_note": "뼈다귀로 길들인다 (아들). 뼈는 스켈레톤 드롭"
+    },
+    {
+      "id": "cat",
+      "name": "고양이",
+      "release": "v1",
+      "tameable": true,
+      "tameWith": [
+        "salmon",
+        "cod"
+      ],
+      "_note": "물고기로 길들인다 (아들). 연어는 마을 강에서"
+    },
+    {
+      "id": "sheep",
+      "name": "양",
+      "release": "v1",
+      "drops": [
+        "wool",
+        "mutton"
+      ]
+    },
+    {
+      "id": "cow",
+      "name": "소",
+      "release": "v1",
+      "drops": [
+        "leather",
+        "beef",
+        "milk_bucket"
+      ]
+    },
+    {
+      "id": "rabbit",
+      "name": "토끼",
+      "release": "v1"
+    },
+    {
+      "id": "chicken",
+      "name": "닭",
+      "release": "v1",
+      "drops": [
+        "feather",
+        "egg"
+      ],
+      "baby": "chick"
+    },
+    {
+      "id": "pig",
+      "name": "돼지",
+      "release": "v1",
+      "rideable": {
+        "release": "v1.1",
+        "requires": [
+          "saddle",
+          "carrot_on_a_stick"
+        ]
+      }
+    }
+  ]
+}

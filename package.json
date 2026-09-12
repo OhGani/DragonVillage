@@ -1,0 +1,27 @@
+{
+  "name": "dragon-village",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "아빠와 초5 아들이 함께 만드는 웹 복셀 드래곤 원정 게임 (가칭)",
+  "packageManager": "pnpm@10.17.1",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "pnpm --filter @dragon-village/client dev",
+    "dev:https": "pnpm --filter @dragon-village/client dev:https",
+    "build": "pnpm --filter @dragon-village/client build",
+    "preview": "pnpm --filter @dragon-village/client preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "lint": "eslint .",
+    "textures": "node tools/gen-textures.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "eslint": "^9.36.0",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.44.0",
+    "vitest": "^3.2.4"
+  }
+}

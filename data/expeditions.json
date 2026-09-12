@@ -1,0 +1,452 @@
+{
+  "_comment": "원정지 목록. 아들 답변(질문 7·11)의 재료 출처에서 역산해 6곳으로 확정. durationSec = 원정 시간(초). nightStartsAt = 밤 시작 초(0이면 항상 어두움). treasures = 재료가 들어있는 보물 상자 수(아들: 상자엔 재료만 들어있으면 됨). unlockedBy = 여는 포탈 단계. materials = 여기서 나오는 드래곤 재료(dragons.json materials id). nightMobs = 밤에만 나오는 몹. bossOrRareMobs = 특정 재료를 위해 잡아야 하는 몹. 원정지 6곳은 v1, release 필드가 있는 4곳(어두운 숲·정글·깊은 어둠·고대성)은 보스 설계에서 추가된 v1.1/v1.2. boss = 이 원정지의 보스(bosses.json). sonDetails = 아들 3차 디테일(2026-09-12). release가 붙은 것은 v1.1.",
+  "returnGraceSec": 60,
+  "failedReturnKeepRatio": 0.5,
+  "minStartMarginMin": 3,
+  "expeditions": [
+    {
+      "id": "grass_island",
+      "name": "초원 섬",
+      "generator": "island",
+      "durationSec": 600,
+      "nightStartsAt": 360,
+      "treasures": 3,
+      "unlockedBy": "portal_1",
+      "danger": 1,
+      "materials": [
+        "log",
+        "sapling",
+        "leaves",
+        "dirt",
+        "stone",
+        "iron_ingot",
+        "water_bucket",
+        "ender_pearl"
+      ],
+      "animals": [
+        "cow",
+        "chicken",
+        "sheep"
+      ],
+      "crops": [
+        "wheat",
+        "sugar_cane",
+        "melon"
+      ],
+      "nightMobs": [
+        "zombie",
+        "creeper",
+        "enderman"
+      ],
+      "_note": "나무·대지·철·케이크(농장 재료)·워터 드래곤의 재료. 밤 크리퍼(화약→TNT), 엔더맨(엔더 진주 확률)",
+      "sonDetails": {
+        "details": [
+          "물가 사탕수수",
+          "호박·수박·감자 밭",
+          "동물: 양·소·토끼·닭·돼지",
+          "얕은 바다: 오징어(먹물 염료)",
+          "심해: 발광 오징어(v1.1)",
+          "꽃밭(염료), 양(양털)"
+        ],
+        "structuresAdd": [
+          {
+            "id": "shipwreck",
+            "name": "난파선",
+            "release": "v1.1",
+            "loot": [
+              "heart_of_the_sea",
+              "chest",
+              "furnace"
+            ],
+            "_note": "해안. 상자와 화로, 바다의 심장 (아들)"
+          }
+        ],
+        "nightMobsAdd": [
+          {
+            "id": "witch",
+            "release": "v1.1"
+          }
+        ],
+        "waterMobs": [
+          {
+            "id": "squid",
+            "depth": "shallow",
+            "release": "v1"
+          },
+          {
+            "id": "glow_squid",
+            "depth": "deep",
+            "release": "v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cave",
+      "name": "동굴",
+      "generator": "cave",
+      "durationSec": 600,
+      "nightStartsAt": 0,
+      "treasures": 4,
+      "unlockedBy": "portal_2",
+      "danger": 2,
+      "materials": [
+        "stone",
+        "iron_ingot",
+        "gold_ingot",
+        "diamond",
+        "redstone",
+        "lava_bucket"
+      ],
+      "nightMobs": [
+        "zombie",
+        "skeleton",
+        "spider"
+      ],
+      "depthBonus": {
+        "diamond": "y < 16",
+        "redstone": "y < 32"
+      },
+      "_note": "철·금·다이아·시계(레드스톤) 재료. 깊을수록 다이아",
+      "boss": {
+        "id": "spider_king",
+        "structure": "spider_king_den",
+        "spawnChance": 0.35,
+        "_note": "거미 왕의 굴 — 35% 확률로 생성. v1"
+      },
+      "sonDetails": {
+        "details": [
+          "폐광: 몹 스포너(좀비·스켈레톤·거미 계속 생성), 스포너 캐면 경험치 15–43 (v1.1)"
+        ],
+        "structuresAdd": [
+          {
+            "id": "abandoned_mineshaft",
+            "name": "폐광",
+            "release": "v1.1",
+            "hasSpawner": true,
+            "loot": [
+              "rail",
+              "minecart",
+              "iron_ingot",
+              "gold_ingot",
+              "lapis"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "desert",
+      "name": "사막",
+      "generator": "desert",
+      "durationSec": 600,
+      "nightStartsAt": 360,
+      "treasures": 4,
+      "unlockedBy": "portal_2",
+      "danger": 2,
+      "materials": [
+        "sand",
+        "gold_ingot",
+        "ender_pearl"
+      ],
+      "nightMobs": [
+        "husk",
+        "creeper",
+        "enderman"
+      ],
+      "structures": [
+        "desert_pyramid"
+      ],
+      "_note": "TNT용 모래, 피라미드 상자 금, 밤 엔더맨",
+      "sonDetails": {
+        "details": [
+          "작은 사막 마을",
+          "선인장"
+        ],
+        "structuresAdd": [
+          {
+            "id": "desert_village_small",
+            "name": "작은 사막 마을",
+            "release": "v1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "snowfield",
+      "name": "설원",
+      "generator": "snow",
+      "durationSec": 600,
+      "nightStartsAt": 300,
+      "treasures": 3,
+      "unlockedBy": "portal_3",
+      "danger": 3,
+      "materials": [
+        "ice",
+        "snow_block",
+        "water_bucket"
+      ],
+      "nightMobs": [
+        "stray",
+        "zombie"
+      ],
+      "_note": "아이스 드래곤 재료. 눈 바이옴에 가야만 있음 (아들 답변 7)",
+      "sonDetails": {
+        "details": [
+          "눈 골렘(v1)",
+          "높은 눈 산의 염소(v1.1)"
+        ],
+        "mobsAdd": [
+          {
+            "id": "snow_golem",
+            "release": "v1"
+          },
+          {
+            "id": "goat",
+            "release": "v1.1",
+            "where": "high_snow_mountain"
+          }
+        ]
+      }
+    },
+    {
+      "id": "nether",
+      "name": "네더",
+      "generator": "nether",
+      "durationSec": 600,
+      "nightStartsAt": 0,
+      "treasures": 3,
+      "unlockedBy": "portal_4",
+      "danger": 4,
+      "materials": [
+        "lava_bucket",
+        "blaze_rod",
+        "ghast_tear",
+        "netherite",
+        "gold_ingot",
+        "wither_skeleton_skull",
+        "nether_wart"
+      ],
+      "bossOrRareMobs": [
+        {
+          "mob": "ghast",
+          "drops": "ghast_tear",
+          "chance": 1.0,
+          "_note": "가스트를 죽여야만 나옴"
+        },
+        {
+          "mob": "blaze",
+          "drops": "blaze_rod",
+          "chance": 0.5,
+          "_note": "확률 드롭"
+        },
+        {
+          "mob": "wither_skeleton",
+          "drops": "wither_skeleton_skull",
+          "chance": 0.05,
+          "_note": "매우 낮은 확률 (아들 답변 11)"
+        }
+      ],
+      "structures": [
+        "nether_fortress"
+      ],
+      "_note": "화염·네더라이트·폭발 드래곤 재료. 네더라이트는 네더에만",
+      "boss": {
+        "id": "giant_ghast",
+        "structure": "giant_nether_fortress",
+        "spawnChance": 0.3,
+        "release": "v1.1"
+      },
+      "sonDetails": {
+        "details": [
+          "용암 위 스트라이더 — 안장 + 뒤틀린 균 낚싯대로 탑승(v1.1)",
+          "침대 설치 후 클릭 → 폭발(v1)",
+          "석영 광석, 고대 잔해"
+        ],
+        "mobsAdd": [
+          {
+            "id": "strider",
+            "release": "v1.1",
+            "rideable": true
+          }
+        ],
+        "rules": [
+          "bed_explodes"
+        ]
+      }
+    },
+    {
+      "id": "the_end",
+      "name": "엔드",
+      "generator": "end",
+      "durationSec": 900,
+      "nightStartsAt": 0,
+      "treasures": 2,
+      "unlockedBy": "portal_5",
+      "danger": 5,
+      "materials": [
+        "dragon_breath",
+        "dragon_egg",
+        "healing_potion",
+        "ender_pearl"
+      ],
+      "bossOrRareMobs": [
+        {
+          "mob": "ender_dragon",
+          "drops": "dragon_egg",
+          "chance": 1.0,
+          "_note": "엔더 드래곤을 잡아야만 나옴"
+        },
+        {
+          "mob": "ender_dragon",
+          "drops": "dragon_breath",
+          "chance": null,
+          "_note": "드래곤이 바닥에 뿌리는 보라색 먼지 공격을 유리병으로 담는다 — 처치 없이도 채집 가능"
+        },
+        {
+          "mob": "enderman",
+          "drops": "ender_pearl",
+          "chance": 0.5
+        }
+      ],
+      "structures": [
+        "end_city"
+      ],
+      "_note": "마지막 원정. 15분. 엔드 시티 상자에 치유의 물약. 엔더 드래곤 전투는 협동 전제(6명)",
+      "boss": {
+        "id": "ender_dragon",
+        "structure": "end_island",
+        "spawnChance": 1.0,
+        "_note": "항상 있음. 협동 최종 보스. v1"
+      },
+      "sonDetails": {
+        "details": [
+          "엔드 시티: 공중에 떠 있음. 입구 양조기(치유의 물약), 내부 상자 2 + 가운데 셜커 + 그 위 겉날개",
+          "셜커 공격 → 부양 디버프, 떨어지면 낙하 피해(v1.1)",
+          "침대 폭발(v1)"
+        ],
+        "mobsAdd": [
+          {
+            "id": "shulker",
+            "release": "v1.1",
+            "effect": "levitation"
+          }
+        ],
+        "lootAdd": [
+          {
+            "id": "elytra",
+            "release": "v1.1"
+          }
+        ],
+        "rules": [
+          "bed_explodes"
+        ]
+      }
+    },
+    {
+      "id": "dark_forest",
+      "name": "어두운 숲",
+      "generator": "dark_forest",
+      "durationSec": 600,
+      "nightStartsAt": 240,
+      "treasures": 3,
+      "unlockedBy": "portal_3",
+      "danger": 3,
+      "materials": [
+        "log",
+        "emerald",
+        "totem_of_undying"
+      ],
+      "structures": [
+        "woodland_mansion"
+      ],
+      "boss": {
+        "id": "evoker",
+        "structure": "woodland_mansion",
+        "spawnChance": 1.0
+      },
+      "release": "v1.1",
+      "_note": "삼림 대저택 — 소환사의 본거지 (아들 보스 설계)",
+      "sonDetails": {}
+    },
+    {
+      "id": "jungle",
+      "name": "정글",
+      "generator": "jungle",
+      "durationSec": 600,
+      "nightStartsAt": 360,
+      "treasures": 4,
+      "unlockedBy": "portal_3",
+      "danger": 3,
+      "materials": [
+        "gold_ingot",
+        "emerald",
+        "banana",
+        "melon"
+      ],
+      "structures": [
+        "jungle_palace"
+      ],
+      "boss": {
+        "id": "giant_gorilla",
+        "structure": "jungle_palace",
+        "spawnChance": 1.0
+      },
+      "release": "v1.2",
+      "_note": "사치스러운 정글 궁궐 — 거대 고릴라 (아들 보스 설계)",
+      "sonDetails": {}
+    },
+    {
+      "id": "deep_dark",
+      "name": "깊은 어둠",
+      "generator": "deep_dark",
+      "durationSec": 600,
+      "nightStartsAt": 0,
+      "treasures": 3,
+      "unlockedBy": "portal_4",
+      "danger": 4,
+      "materials": [
+        "echo_shard",
+        "sculk",
+        "diamond"
+      ],
+      "structures": [
+        "ancient_city"
+      ],
+      "boss": {
+        "id": "giant_warden",
+        "structure": "ancient_city",
+        "spawnChance": 1.0
+      },
+      "release": "v1.2",
+      "_note": "고대 도시 — 거대 워든 (아들 보스 설계)",
+      "sonDetails": {}
+    },
+    {
+      "id": "ancient_castle",
+      "name": "고대성",
+      "generator": "ancient_castle",
+      "durationSec": 900,
+      "nightStartsAt": 0,
+      "treasures": 0,
+      "unlockedBy": "portal_6",
+      "danger": 6,
+      "materials": [
+        "wither_skeleton_skull",
+        "gunpowder",
+        "ender_pearl"
+      ],
+      "structures": [
+        "ancient_castle"
+      ],
+      "boss": {
+        "id": "four_kings",
+        "structure": "ancient_castle",
+        "spawnChance": 1.0
+      },
+      "release": "v1.2",
+      "_note": "네 왕의 성 — 첫 번째 왕들의 머리가 걸려 있다. 엔딩 원정. 15분. 포탈 6단계(엔드 이후)",
+      "sonDetails": {}
+    }
+  ]
+}

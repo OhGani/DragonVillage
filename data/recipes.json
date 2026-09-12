@@ -1,0 +1,858 @@
+{
+  "_comment": "제작 레시피. 드래곤 재료 중 '제작'으로 얻는 것들과 안장·도구. station = 어디서 만드나(crafting_table 제작대 / forge 대장간 / brewing 양조기 / furnace 화로). 개수는 아빠 임시값, 아들이 바꿔도 됨. 아들 3차 디테일(2026-09-12)의 제작 사슬(종이→책→책장→인챈트 테이블)과 도구·장식 레시피 추가. release 없는 것은 v1.",
+  "recipes": [
+    {
+      "id": "saddle",
+      "name": "안장",
+      "station": "crafting_table",
+      "in": {
+        "leather": 5,
+        "iron_ingot": 2
+      },
+      "out": {
+        "saddle": 1
+      },
+      "_note": "안장을 만들면 드래곤을 탈 수 있다 (아들 답변 3). 가죽은 초원 섬 소"
+    },
+    {
+      "id": "bucket",
+      "name": "양동이",
+      "station": "crafting_table",
+      "in": {
+        "iron_ingot": 3
+      },
+      "out": {
+        "bucket": 1
+      }
+    },
+    {
+      "id": "glass_bottle",
+      "name": "유리병",
+      "station": "crafting_table",
+      "in": {
+        "glass": 3
+      },
+      "out": {
+        "glass_bottle": 3
+      },
+      "_note": "드래곤의 숨결을 담는다"
+    },
+    {
+      "id": "cake",
+      "name": "케이크",
+      "station": "crafting_table",
+      "in": {
+        "wheat": 3,
+        "sugar": 2,
+        "milk_bucket": 3,
+        "egg": 1
+      },
+      "out": {
+        "cake": 1
+      }
+    },
+    {
+      "id": "sugar",
+      "name": "설탕",
+      "station": "crafting_table",
+      "in": {
+        "sugar_cane": 1
+      },
+      "out": {
+        "sugar": 1
+      }
+    },
+    {
+      "id": "clock",
+      "name": "시계",
+      "station": "crafting_table",
+      "in": {
+        "gold_ingot": 4,
+        "redstone": 1
+      },
+      "out": {
+        "clock": 1
+      }
+    },
+    {
+      "id": "tnt",
+      "name": "TNT",
+      "station": "crafting_table",
+      "in": {
+        "gunpowder": 5,
+        "sand": 4
+      },
+      "out": {
+        "tnt": 1
+      }
+    },
+    {
+      "id": "snow_block",
+      "name": "눈 블록",
+      "station": "crafting_table",
+      "in": {
+        "snowball": 4
+      },
+      "out": {
+        "snow_block": 1
+      }
+    },
+    {
+      "id": "iron_ingot",
+      "name": "철",
+      "station": "furnace",
+      "in": {
+        "iron_ore": 1,
+        "coal": 1
+      },
+      "out": {
+        "iron_ingot": 1
+      }
+    },
+    {
+      "id": "gold_ingot",
+      "name": "금",
+      "station": "furnace",
+      "in": {
+        "gold_ore": 1,
+        "coal": 1
+      },
+      "out": {
+        "gold_ingot": 1
+      }
+    },
+    {
+      "id": "netherite",
+      "name": "네더라이트",
+      "station": "forge",
+      "in": {
+        "ancient_debris": 4,
+        "gold_ingot": 4
+      },
+      "out": {
+        "netherite": 1
+      }
+    },
+    {
+      "id": "wooden_pickaxe",
+      "name": "나무 곡괭이",
+      "station": "crafting_table",
+      "in": {
+        "planks": 3,
+        "stick": 2
+      },
+      "out": {
+        "wooden_pickaxe": 1
+      },
+      "toolTier": 0
+    },
+    {
+      "id": "stone_pickaxe",
+      "name": "돌 곡괭이",
+      "station": "crafting_table",
+      "in": {
+        "cobblestone": 3,
+        "stick": 2
+      },
+      "out": {
+        "stone_pickaxe": 1
+      },
+      "toolTier": 1
+    },
+    {
+      "id": "iron_pickaxe",
+      "name": "철 곡괭이",
+      "station": "forge",
+      "in": {
+        "iron_ingot": 3,
+        "stick": 2
+      },
+      "out": {
+        "iron_pickaxe": 1
+      },
+      "toolTier": 2
+    },
+    {
+      "id": "golden_pickaxe",
+      "name": "금 곡괭이",
+      "station": "forge",
+      "in": {
+        "gold_ingot": 3,
+        "stick": 2
+      },
+      "out": {
+        "golden_pickaxe": 1
+      },
+      "toolTier": 1
+    },
+    {
+      "id": "diamond_pickaxe",
+      "name": "다이아몬드 곡괭이",
+      "station": "forge",
+      "in": {
+        "diamond": 3,
+        "stick": 2
+      },
+      "out": {
+        "diamond_pickaxe": 1
+      },
+      "toolTier": 3
+    },
+    {
+      "id": "netherite_pickaxe",
+      "name": "네더라이트 곡괭이",
+      "station": "forge",
+      "in": {
+        "diamond_pickaxe": 1,
+        "netherite": 1
+      },
+      "out": {
+        "netherite_pickaxe": 1
+      },
+      "toolTier": 4
+    },
+    {
+      "id": "healing_potion",
+      "name": "치유의 물약",
+      "station": "brewing",
+      "in": {
+        "water_bottle": 1,
+        "nether_wart": 1,
+        "glistering_melon": 1
+      },
+      "out": {
+        "healing_potion": 1
+      },
+      "_note": "엔드 시티 상자에서도 나옴"
+    },
+    {
+      "id": "planks",
+      "name": "판자",
+      "station": "crafting_table",
+      "in": {
+        "log": 1
+      },
+      "out": {
+        "planks": 4
+      }
+    },
+    {
+      "id": "stick",
+      "name": "막대기",
+      "station": "crafting_table",
+      "in": {
+        "planks": 2
+      },
+      "out": {
+        "stick": 4
+      }
+    },
+    {
+      "id": "paper",
+      "name": "종이",
+      "station": "crafting_table",
+      "in": {
+        "sugar_cane": 3
+      },
+      "out": {
+        "paper": 3
+      },
+      "_note": "아들: 사탕수수 3개 → 종이"
+    },
+    {
+      "id": "book",
+      "name": "책",
+      "station": "crafting_table",
+      "in": {
+        "leather": 1,
+        "paper": 3
+      },
+      "out": {
+        "book": 1
+      }
+    },
+    {
+      "id": "writable_book",
+      "name": "깃펜과 책",
+      "station": "crafting_table",
+      "in": {
+        "book": 1,
+        "feather": 1
+      },
+      "out": {
+        "writable_book": 1
+      },
+      "release": "v1.1",
+      "_note": "적을 수 있게 됨. 자유 채팅 없음 규칙과 충돌 → 개인 일기(남에게 안 보임) 또는 정해진 문구만. 아빠 결정"
+    },
+    {
+      "id": "bookshelf",
+      "name": "책장",
+      "station": "crafting_table",
+      "in": {
+        "planks": 6,
+        "book": 3
+      },
+      "out": {
+        "bookshelf": 1
+      }
+    },
+    {
+      "id": "enchanting_table",
+      "name": "인챈트 테이블",
+      "station": "crafting_table",
+      "in": {
+        "obsidian": 4,
+        "diamond": 2,
+        "book": 1
+      },
+      "out": {
+        "enchanting_table": 1
+      },
+      "release": "v1.1",
+      "_note": "책장 15개를 주위 1칸 띄워 두면 최고 30레벨 인챈트 (아들). 경험치 소비처 2번"
+    },
+    {
+      "id": "obsidian_from_lava",
+      "name": "흑요석 만들기",
+      "station": "world",
+      "in": {
+        "water_bucket": 1,
+        "lava_source_block": 1
+      },
+      "out": {
+        "obsidian": 1
+      },
+      "_note": "용암 블록에 물을 부으면 흑요석. 유체 흐름 없이 규칙 하나로"
+    },
+    {
+      "id": "oak_stairs",
+      "name": "계단",
+      "station": "crafting_table",
+      "in": {
+        "planks": 6
+      },
+      "out": {
+        "oak_stairs": 4
+      }
+    },
+    {
+      "id": "oak_door",
+      "name": "문",
+      "station": "crafting_table",
+      "in": {
+        "planks": 6
+      },
+      "out": {
+        "oak_door": 3
+      }
+    },
+    {
+      "id": "oak_trapdoor",
+      "name": "다락문",
+      "station": "crafting_table",
+      "in": {
+        "planks": 6
+      },
+      "out": {
+        "oak_trapdoor": 2
+      }
+    },
+    {
+      "id": "oak_fence",
+      "name": "울타리",
+      "station": "crafting_table",
+      "in": {
+        "planks": 4,
+        "stick": 2
+      },
+      "out": {
+        "oak_fence": 3
+      }
+    },
+    {
+      "id": "sign",
+      "name": "표지판",
+      "station": "crafting_table",
+      "in": {
+        "planks": 6,
+        "stick": 1
+      },
+      "out": {
+        "sign": 3
+      }
+    },
+    {
+      "id": "glass",
+      "name": "유리",
+      "station": "furnace",
+      "in": {
+        "sand": 1,
+        "coal": 1
+      },
+      "out": {
+        "glass": 1
+      }
+    },
+    {
+      "id": "bed",
+      "name": "침대",
+      "station": "crafting_table",
+      "in": {
+        "wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "bed": 1
+      }
+    },
+    {
+      "id": "torch",
+      "name": "횃불",
+      "station": "crafting_table",
+      "in": {
+        "coal": 1,
+        "stick": 1
+      },
+      "out": {
+        "torch": 4
+      }
+    },
+    {
+      "id": "chest",
+      "name": "상자",
+      "station": "crafting_table",
+      "in": {
+        "planks": 8
+      },
+      "out": {
+        "chest": 1
+      }
+    },
+    {
+      "id": "furnace",
+      "name": "화로",
+      "station": "crafting_table",
+      "in": {
+        "cobblestone": 8
+      },
+      "out": {
+        "furnace": 1
+      }
+    },
+    {
+      "id": "bow",
+      "name": "활",
+      "station": "crafting_table",
+      "in": {
+        "stick": 3,
+        "string": 3
+      },
+      "out": {
+        "bow": 1
+      }
+    },
+    {
+      "id": "arrow",
+      "name": "화살",
+      "station": "crafting_table",
+      "in": {
+        "flint": 1,
+        "stick": 1,
+        "feather": 1
+      },
+      "out": {
+        "arrow": 4
+      }
+    },
+    {
+      "id": "iron_sword",
+      "name": "철 칼",
+      "station": "forge",
+      "in": {
+        "iron_ingot": 2,
+        "stick": 1
+      },
+      "out": {
+        "iron_sword": 1
+      }
+    },
+    {
+      "id": "iron_chestplate",
+      "name": "철 흉갑",
+      "station": "forge",
+      "in": {
+        "iron_ingot": 8
+      },
+      "out": {
+        "iron_chestplate": 1
+      }
+    },
+    {
+      "id": "iron_axe",
+      "name": "철 도끼",
+      "station": "forge",
+      "in": {
+        "iron_ingot": 3,
+        "stick": 2
+      },
+      "out": {
+        "iron_axe": 1
+      }
+    },
+    {
+      "id": "iron_hoe",
+      "name": "철 괭이",
+      "station": "forge",
+      "in": {
+        "iron_ingot": 2,
+        "stick": 2
+      },
+      "out": {
+        "iron_hoe": 1
+      }
+    },
+    {
+      "id": "iron_shovel",
+      "name": "철 삽",
+      "station": "forge",
+      "in": {
+        "iron_ingot": 1,
+        "stick": 2
+      },
+      "out": {
+        "iron_shovel": 1
+      }
+    },
+    {
+      "id": "flint_and_steel",
+      "name": "라이터",
+      "station": "crafting_table",
+      "in": {
+        "iron_ingot": 1,
+        "flint": 1
+      },
+      "out": {
+        "flint_and_steel": 1
+      }
+    },
+    {
+      "id": "fishing_rod",
+      "name": "낚싯대",
+      "station": "crafting_table",
+      "in": {
+        "stick": 3,
+        "string": 2
+      },
+      "out": {
+        "fishing_rod": 1
+      }
+    },
+    {
+      "id": "compass",
+      "name": "나침반",
+      "station": "crafting_table",
+      "in": {
+        "iron_ingot": 4,
+        "redstone": 1
+      },
+      "out": {
+        "compass": 1
+      },
+      "_note": "마을 포탈 방향을 가리킨다 — 원정 귀환에 유용"
+    },
+    {
+      "id": "shears",
+      "name": "가위",
+      "station": "crafting_table",
+      "in": {
+        "iron_ingot": 2
+      },
+      "out": {
+        "shears": 1
+      }
+    },
+    {
+      "id": "carved_pumpkin",
+      "name": "조각된 호박",
+      "station": "world",
+      "in": {
+        "pumpkin": 1,
+        "shears": 1
+      },
+      "out": {
+        "carved_pumpkin": 1,
+        "pumpkin_seeds": 4
+      }
+    },
+    {
+      "id": "jack_o_lantern",
+      "name": "잭오랜턴",
+      "station": "crafting_table",
+      "in": {
+        "carved_pumpkin": 1,
+        "torch": 1
+      },
+      "out": {
+        "jack_o_lantern": 1
+      }
+    },
+    {
+      "id": "iron_block",
+      "name": "철 블록",
+      "station": "crafting_table",
+      "in": {
+        "iron_ingot": 9
+      },
+      "out": {
+        "iron_block": 1
+      }
+    },
+    {
+      "id": "gold_block",
+      "name": "금 블록",
+      "station": "crafting_table",
+      "in": {
+        "gold_ingot": 9
+      },
+      "out": {
+        "gold_block": 1
+      }
+    },
+    {
+      "id": "quartz_block",
+      "name": "석영 블록",
+      "station": "crafting_table",
+      "in": {
+        "quartz": 4
+      },
+      "out": {
+        "quartz_block": 1
+      }
+    },
+    {
+      "id": "netherite_block",
+      "name": "네더라이트 블록",
+      "station": "forge",
+      "in": {
+        "netherite": 9
+      },
+      "out": {
+        "netherite_block": 1
+      }
+    },
+    {
+      "id": "emerald_block",
+      "name": "에메랄드 블록",
+      "station": "crafting_table",
+      "in": {
+        "emerald": 9
+      },
+      "out": {
+        "emerald_block": 1
+      }
+    },
+    {
+      "id": "diamond_block",
+      "name": "다이아몬드 블록",
+      "station": "crafting_table",
+      "in": {
+        "diamond": 9
+      },
+      "out": {
+        "diamond_block": 1
+      }
+    },
+    {
+      "id": "hay_bale",
+      "name": "건초 더미",
+      "station": "crafting_table",
+      "in": {
+        "wheat": 9
+      },
+      "out": {
+        "hay_bale": 1
+      }
+    },
+    {
+      "id": "carrot_on_a_stick",
+      "name": "당근 낚싯대",
+      "station": "crafting_table",
+      "in": {
+        "fishing_rod": 1,
+        "carrot": 1
+      },
+      "out": {
+        "carrot_on_a_stick": 1
+      },
+      "release": "v1.1",
+      "_note": "돼지 타기"
+    },
+    {
+      "id": "warped_fungus_on_a_stick",
+      "name": "뒤틀린 균 낚싯대",
+      "station": "crafting_table",
+      "in": {
+        "fishing_rod": 1,
+        "warped_fungus": 1
+      },
+      "out": {
+        "warped_fungus_on_a_stick": 1
+      },
+      "release": "v1.1",
+      "_note": "스트라이더 타기"
+    },
+    {
+      "id": "firework",
+      "name": "폭죽",
+      "station": "crafting_table",
+      "in": {
+        "paper": 1,
+        "gunpowder": 1
+      },
+      "out": {
+        "firework": 3
+      },
+      "release": "v1.1",
+      "_note": "겉날개 추진"
+    },
+    {
+      "id": "name_tag",
+      "name": "이름표",
+      "station": "anvil",
+      "in": {
+        "name_tag_blank": 1
+      },
+      "out": {
+        "name_tag": 1
+      },
+      "release": "v2",
+      "_note": "드래곤·동물에 이름 붙이기. 자유 입력이라 닉네임 필터 필요"
+    },
+    {
+      "id": "redstone_dust",
+      "name": "레드스톤 가루",
+      "station": "world",
+      "in": {
+        "redstone_ore": 1
+      },
+      "out": {
+        "redstone": 4
+      },
+      "_note": "회로는 없음(결정 7). 시계·나침반 재료로만"
+    },
+    {
+      "id": "wool_from_string",
+      "name": "양털 (거미줄)",
+      "station": "crafting_table",
+      "in": {
+        "string": 4
+      },
+      "out": {
+        "wool": 1
+      },
+      "_note": "아들: 거미줄 4개 = 양털 1개"
+    },
+    {
+      "id": "dye_from_flower",
+      "name": "염료",
+      "station": "world",
+      "in": {
+        "flower": 1
+      },
+      "out": {
+        "dye": 3
+      },
+      "_note": "꽃을 부수면 그 색 염료 3개 (아들). 색은 꽃 종류대로"
+    },
+    {
+      "id": "dye_wool",
+      "name": "양털 물들이기",
+      "station": "crafting_table",
+      "in": {
+        "wool": 1,
+        "dye": 1
+      },
+      "out": {
+        "colored_wool": 1
+      },
+      "_note": "염료로 양털 염색. 침대·깃발 색"
+    },
+    {
+      "id": "ink_dye",
+      "name": "검은 염료 (먹물)",
+      "station": "crafting_table",
+      "in": {
+        "ink_sac": 1
+      },
+      "out": {
+        "black_dye": 1
+      }
+    },
+    {
+      "id": "shield",
+      "name": "방패",
+      "station": "crafting_table",
+      "in": {
+        "planks": 6,
+        "iron_ingot": 1
+      },
+      "out": {
+        "shield": 1
+      },
+      "_note": "막기 — 폰에서는 웅크리기 길게 누르기"
+    },
+    {
+      "id": "boat",
+      "name": "보트",
+      "station": "crafting_table",
+      "in": {
+        "planks": 5
+      },
+      "out": {
+        "boat": 1
+      },
+      "release": "v1.1",
+      "_note": "몹을 태울 수 있음 (아들). 강·바다"
+    },
+    {
+      "id": "minecart",
+      "name": "수레",
+      "station": "forge",
+      "in": {
+        "iron_ingot": 5
+      },
+      "out": {
+        "minecart": 1
+      },
+      "release": "v1.1"
+    },
+    {
+      "id": "rail",
+      "name": "철도",
+      "station": "forge",
+      "in": {
+        "iron_ingot": 6,
+        "stick": 1
+      },
+      "out": {
+        "rail": 16
+      },
+      "release": "v1.1",
+      "_note": "수레+철도 이동. 마을 안 순환선 아이디어"
+    },
+    {
+      "id": "spear",
+      "name": "창",
+      "station": "forge",
+      "in": {
+        "iron_ingot": 1,
+        "stick": 2
+      },
+      "out": {
+        "spear": 1
+      },
+      "_note": "아들: 창이 있다. 칼보다 사거리 길고 느림. 던지기 가능 여부는 아들에게"
+    }
+  ]
+}
