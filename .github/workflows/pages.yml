@@ -1,0 +1,51 @@
+# main 에 push 될 때마다 클라이언트를 빌드해 GitHub Pages 로 배포한다.
+# 주소: https://ohgani.github.io/DragonVillage/
+# M0~M1(싱글, 서버 없음)은 정적 페이지로 충분. 서버가 생기는 M2 부터는 별도 호스팅.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # package.json 의 packageManager 버전을 쓴다
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r typecheck
+      - run: pnpm test
+      - run: pnpm build
+        env:
+          VITE_BASE: /DragonVillage/
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: packages/client/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

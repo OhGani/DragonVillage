@@ -10,6 +10,8 @@ export default defineConfig(() => {
   const plugins: PluginOption[] = [];
   if (https) plugins.push(basicSsl());
   return {
+    // GitHub Pages 는 /DragonVillage/ 하위에 배포된다 (CI 가 VITE_BASE 를 준다). 로컬은 /
+    base: process.env.VITE_BASE ?? '/',
     plugins,
     server: {
       host: true,
