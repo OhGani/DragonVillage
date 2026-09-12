@@ -47,7 +47,7 @@ export class TouchControls implements InputSource {
     let handled = false;
     for (const t of Array.from(e.changedTouches)) {
       // 핫바·버튼·오버레이 위에서 시작한 터치는 조작이 아니다 (preventDefault 하면 버튼 click 이 안 나온다)
-      if ((t.target as Element | null)?.closest?.('.hotbar, .tbtn, .sbtn, .topbar, .overlay, .help')) continue;
+      if ((t.target as Element | null)?.closest?.('.hotbar, .tbtn, .sbtn, .topbar, .overlay, .help-panel')) continue;
       handled = true;
       if (this.stick === null && t.clientX < w * 0.5) {
         this.stick = { id: t.identifier, ox: t.clientX, oy: t.clientY, dx: 0, dy: 0 };

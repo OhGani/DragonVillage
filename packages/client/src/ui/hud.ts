@@ -66,7 +66,7 @@ export class Hud {
           <button class="overlay-help">게임 방법 보기</button>
         </div>
       </div>
-      <div class="help" hidden>
+      <div class="help-panel" hidden>
         <div class="help-card">
           <div class="help-head">
             <h2>게임 방법</h2>
@@ -92,7 +92,8 @@ export class Hud {
     this.overlayBtn = q<HTMLButtonElement>('.overlay-btn');
     this.fullscreenBtn = q<HTMLButtonElement>('.fullscreen');
     this.debugBtn = q<HTMLButtonElement>('.debug');
-    this.helpEl = q('.help');
+    // 주의: 상단 '?' 버튼도 class 에 help 가 있으므로 창은 help-panel 로 구분한다
+    this.helpEl = q('.help-panel');
     q<HTMLElement>('.help-body').innerHTML = helpHtml(isTouch);
     const openHelp = (e: Event) => {
       e.preventDefault();
@@ -102,8 +103,8 @@ export class Hud {
       e.preventDefault();
       this.hideHelp();
     };
-    q<HTMLButtonElement>('.help').addEventListener('click', (e) => {
-      if (e.target === this.helpEl) this.hideHelp();
+    this.helpEl.addEventListener('click', (e) => {
+      if (e.target === this.helpEl) this.hideHelp(); // 카드 바깥(어두운 배경) 탭 = 닫기
     });
     q<HTMLButtonElement>('.sbtn.help').addEventListener('click', openHelp);
     q<HTMLButtonElement>('.overlay-help').addEventListener('click', openHelp);
