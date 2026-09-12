@@ -25,6 +25,9 @@ export class Hud {
   private readonly overlayBtn: HTMLButtonElement;
   readonly fullscreenBtn: HTMLButtonElement;
   readonly debugBtn: HTMLButtonElement;
+  private readonly helpEl: HTMLElement;
+  /** 게임 방법 창이 열리고 닫힐 때 (열리면 입력을 멈추기 위해) */
+  onHelpToggle: ((open: boolean) => void) | null = null;
   private slots: HotbarSlot[] = [];
   private selected = 0;
   private nameTimer: number | null = null;
@@ -49,6 +52,7 @@ export class Hud {
         <button class="tbtn sneak" aria-label="웅크리기">▼</button>
       </div>
       <div class="topbar">
+        <button class="sbtn help" aria-label="게임 방법">?</button>
         <button class="sbtn fullscreen" aria-label="전체화면">⛶</button>
         <button class="sbtn debug" aria-label="정보">i</button>
       </div>
@@ -59,6 +63,17 @@ export class Hud {
           <h1 class="overlay-title"></h1>
           <p class="overlay-sub"></p>
           <button class="overlay-btn"></button>
+          <button class="overlay-help">게임 방법 보기</button>
+        </div>
+      </div>
+      <div class="help" hidden>
+        <div class="help-card">
+          <div class="help-head">
+            <h2>게임 방법</h2>
+            <button class="help-close" aria-label="닫기">✕</button>
+          </div>
+          <div class="help-body"></div>
+          <button class="overlay-btn help-ok">알겠어요</button>
         </div>
       </div>`;
     root.appendChild(el);
@@ -77,6 +92,23 @@ export class Hud {
     this.overlayBtn = q<HTMLButtonElement>('.overlay-btn');
     this.fullscreenBtn = q<HTMLButtonElement>('.fullscreen');
     this.debugBtn = q<HTMLButtonElement>('.debug');
+    this.helpEl = q('.help');
+    q<HTMLElement>('.help-body').innerHTML = helpHtml(isTouch);
+    const openHelp = (e: Event) => {
+      e.preventDefault();
+      this.showHelp();
+    };
+    const closeHelp = (e: Event) => {
+      e.preventDefault();
+      this.hideHelp();
+    };
+    q<HTMLButtonElement>('.help').addEventListener('click', (e) => {
+      if (e.target === this.helpEl) this.hideHelp();
+    });
+    q<HTMLButtonElement>('.sbtn.help').addEventListener('click', openHelp);
+    q<HTMLButtonElement>('.overlay-help').addEventListener('click', openHelp);
+    q<HTMLButtonElement>('.help-close').addEventListener('click', closeHelp);
+    q<HTMLButtonElement>('.help-ok').addEventListener('click', closeHelp);
     this.touchUI = {
       surface: el,
       stickBase: q('.stick-base'),
@@ -177,4 +209,61 @@ export class Hud {
   get overlayVisible(): boolean {
     return this.overlay.classList.contains('show');
   }
+
+  showHelp(): void {
+    if (!this.helpEl.hidden) return;
+    this.helpEl.hidden = false;
+    this.helpEl.querySelector('.help-card')!.scrollTop = 0;
+    this.onHelpToggle?.(true);
+  }
+
+  hideHelp(): void {
+    if (this.helpEl.hidden) return;
+    this.helpEl.hidden = true;
+    this.onHelpToggle?.(false);
+  }
+
+  get helpVisible(): boolean {
+    return !this.helpEl.hidden;
+  }
+}
+
+/** 게임 방법 본문. 초5가 읽는다 — 짧고 쉬운 말, 지금 기기 기준 */
+function helpHtml(isTouch: boolean): string {
+  const rows: [string, string][] = isTouch
+    ? [
+        ['걷기', '화면 <b>왼쪽 반</b>을 누르면 그 자리에 스틱이 생겨요. 누른 채 밀기. 끝까지 앞으로 밀면 달리기'],
+        ['둘러보기', '화면 <b>오른쪽</b>을 드래그'],
+        ['블록 놓기', '놓을 자리를 <b>짧게 탭</b>'],
+        ['블록 부수기', '블록을 <b>꾹 누르기</b>. 게이지가 차고 금이 가면 부서져요'],
+        ['점프', '오른쪽 아래 <b>▲</b>'],
+        ['웅크리기', '<b>▼</b> (한 번 누르면 켜짐, 다시 누르면 꺼짐). 웅크리면 모서리에서 안 떨어져요'],
+        ['블록 고르기', '아래 칸(핫바)을 탭'],
+        ['FPS 보기', '오른쪽 위 <b>i</b>'],
+      ]
+    : [
+        ['걷기 / 달리기', '<b>W A S D</b> / Ctrl 누른 채 W'],
+        ['둘러보기', '마우스. 클릭하면 마우스가 잠기고, <b>ESC</b>로 풀려요'],
+        ['블록 놓기', '<b>오른쪽 클릭</b> (누르고 있으면 연속)'],
+        ['블록 부수기', '<b>왼쪽 클릭 꾹</b>. 금이 가면 부서져요'],
+        ['점프 / 웅크리기', '<b>Space</b> / <b>Shift</b>'],
+        ['블록 고르기', '<b>1~9</b> 또는 마우스 휠'],
+        ['정보', '<b>F3</b>'],
+      ];
+  const other = isTouch
+    ? 'PC 에서는: WASD 이동 · 마우스 둘러보기 · 왼쪽 클릭 꾹 부수기 · 오른쪽 클릭 놓기 · 1~9 블록'
+    : '폰에서는: 왼쪽 반 스틱 · 오른쪽 드래그 · 짧게 탭 놓기 · 꾹 눌러 부수기 · ▲ 점프';
+  const tips = [
+    '손에 든 블록이 오른쪽 아래에 보이고, 조준한 블록엔 검은 테두리가 생겨요. 닿는 거리는 5블록.',
+    '블록마다 부수는 시간이 달라요. 흙·모래 0.5초, 돌 1.5초, 원목·판자 2초. 맨 아래 기반암과 물은 못 부숴요.',
+    '내 몸이 있는 자리에는 블록을 놓을 수 없어요.',
+    '물에 들어가면 천천히 가라앉고, 점프를 누르면 위로 헤엄쳐요.',
+    '광장 남쪽에 뼈대만 있는 집이 있어요. 문·창문·지붕을 채워 봐요. 동쪽 언덕엔 계단·전망대·동굴 입구가 있어요.',
+    '세계 끝은 보이지 않는 벽. 떨어지면 광장으로 돌아와요. 아직 저장은 안 돼요 — 새로고침하면 처음으로.',
+  ];
+  return (
+    `<table class="help-table">${rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('')}</table>` +
+    `<p class="help-other">${other}</p>` +
+    `<h3>알아두면 좋아요</h3><ul class="help-tips">${tips.map((t) => `<li>${t}</li>`).join('')}</ul>`
+  );
 }

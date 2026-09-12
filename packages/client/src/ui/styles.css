@@ -336,6 +336,111 @@ body {
   transform: translateY(2px);
 }
 
+.overlay-help {
+  display: block;
+  margin: 12px auto 0;
+  padding: 8px 18px;
+  min-height: 44px;
+  font-family: inherit;
+  font-size: 15px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* ---------- 게임 방법 ---------- */
+.help {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 20, 40, 0.7);
+  pointer-events: auto;
+  z-index: 5;
+}
+.help-card {
+  width: min(560px, 94vw);
+  max-height: min(92vh, 92dvh);
+  overflow-y: auto;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.8);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  padding: 14px 18px 18px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.help-head h2 {
+  margin: 0;
+  font-size: 22px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.7);
+}
+.help-close {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 18px;
+  font-family: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.help-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.help-table th,
+.help-table td {
+  padding: 7px 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  text-align: left;
+  vertical-align: top;
+}
+.help-table th {
+  width: 34%;
+  white-space: nowrap;
+  color: #ffe08a;
+  font-weight: 700;
+}
+.help-table b {
+  color: #9be07a;
+}
+.help-other {
+  margin: 10px 0 0;
+  font-size: 13px;
+  opacity: 0.75;
+}
+.help-card h3 {
+  margin: 14px 0 6px;
+  font-size: 16px;
+  color: #ffe08a;
+}
+.help-tips {
+  margin: 0;
+  padding-left: 18px;
+}
+.help-tips li {
+  margin: 4px 0;
+}
+.help-ok {
+  display: block;
+  margin: 16px auto 0;
+}
+
 .error-box {
   color: #fff;
   padding: 24px;

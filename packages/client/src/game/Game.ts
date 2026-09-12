@@ -151,9 +151,18 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     if (!started) return;
     resume();
   };
+  // 게임 방법 창: 열리면 입력을 멈추고, 닫히면 (게임 중이었다면) 다시 시작
+  hud.onHelpToggle = (open) => {
+    if (open) {
+      input.paused = true;
+      kbm.enabled = false;
+    } else if (started && !hud.overlayVisible) {
+      resume();
+    }
+  };
   document.addEventListener('pointerlockchange', () => {
     if (isTouch || !started || kbm.lockFailed) return;
-    if (!kbm.locked && !hud.overlayVisible) pause();
+    if (!kbm.locked && !hud.overlayVisible && !hud.helpVisible) pause();
   });
   // HUD 가 캔버스를 덮고 있으므로 root 에서 듣는다 (오버레이 없이 잠금이 풀린 경우 대비)
   root.addEventListener('click', () => {
@@ -274,9 +283,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
 
   hud.showOverlay(
     '드래곤 마을 (가칭)',
-    isTouch
-      ? '왼쪽: 움직이기  ·  오른쪽: 둘러보기\n짧게 탭: 블록 놓기  ·  꾹 누르기: 부수기'
-      : 'WASD 이동  ·  마우스 둘러보기  ·  Space 점프\n좌클릭 꾹: 부수기  ·  우클릭: 놓기  ·  1~9 블록  ·  F3 정보',
+    isTouch ? '왼쪽 반: 움직이기  ·  오른쪽: 둘러보기\n짧게 탭: 놓기  ·  꾹: 부수기' : 'WASD 이동  ·  마우스 둘러보기\n좌클릭 꾹: 부수기  ·  우클릭: 놓기',
     isTouch ? '탭해서 시작' : '클릭해서 시작',
   );
 
