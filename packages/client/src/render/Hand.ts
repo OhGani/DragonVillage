@@ -6,8 +6,9 @@ import type { ChunkMaterials } from './ChunkMaterial';
 import { buffersToGeometry } from './geometry';
 
 const SWING_TIME = 0.24;
-const HAND_X = 0.6;
-const HAND_Y = -0.56;
+/** 화면 기준 위치(NDC, -1..1). 화면 비율이 달라도 항상 오른쪽 아래 모서리 → 가운데 핫바와 안 겹친다 */
+const HAND_NDC_X = 0.85;
+const HAND_NDC_Y = -0.7;
 const HAND_Z = -1.25;
 const HAND_SCALE = 0.34;
 const HAND_TILT = 0.3; // 윗면이 보이도록 살짝 기울임
@@ -28,7 +29,7 @@ export class HandView {
   ) {
     this.scene.add(this.anchor);
     this.anchor.add(this.pivot);
-    this.pivot.position.set(HAND_X, HAND_Y, HAND_Z);
+    this.pivot.position.set(0, 0, HAND_Z);
     this.pivot.rotation.set(HAND_TILT, HAND_TURN, 0);
   }
 
@@ -58,9 +59,15 @@ export class HandView {
     if (this.swingT >= 1 || this.swingT > 0.5) this.swingT = 0;
   }
 
-  update(dt: number, camera: THREE.Camera, walkCycle: number, walkStrength: number): void {
+  update(dt: number, camera: THREE.PerspectiveCamera, walkCycle: number, walkStrength: number): void {
     this.anchor.position.copy(camera.position);
     this.anchor.quaternion.copy(camera.quaternion);
+
+    // 화면 모서리 고정: HAND_Z 거리에서 보이는 반폭·반높이 × NDC
+    const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * -HAND_Z;
+    const halfW = halfH * camera.aspect;
+    const baseX = HAND_NDC_X * halfW;
+    const baseY = HAND_NDC_Y * halfH;
 
     let dx = 0,
       dy = 0,
@@ -76,7 +83,7 @@ export class HandView {
       dx -= s * 0.12;
       rx -= s * 1.1;
     }
-    this.pivot.position.set(HAND_X + dx, HAND_Y + dy, HAND_Z);
+    this.pivot.position.set(baseX + dx, baseY + dy, HAND_Z);
     this.pivot.rotation.x = HAND_TILT + rx;
   }
 
