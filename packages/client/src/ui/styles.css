@@ -7,6 +7,11 @@
   box-sizing: border-box;
 }
 
+/* hidden 속성은 어떤 display 규칙보다 우선 (안내 창 등이 display:flex 로 다시 보이는 문제 방지) */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
