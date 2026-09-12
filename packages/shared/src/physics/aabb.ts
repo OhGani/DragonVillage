@@ -151,6 +151,60 @@ export function moveBody(isSolid: SolidQuery, pos: Vec3, size: BodySize, vel: Ve
   }
 }
 
+export interface StepUpResult {
+  /** 올라간 높이 */
+  dy: number;
+  /** 턱 위에서 수평으로 움직인 뒤의 속도 (한 축이 막혔으면 0) */
+  vx: number;
+  vz: number;
+}
+
+const scratchMove: MoveResult = { onGround: false, hitX: false, hitY: false, hitZ: false, hitCeiling: false };
+
+/**
+ * 자동 턱 오르기. moveBody 로 옮긴 뒤 수평 충돌이 있었을 때 부른다.
+ * start = 이동 전 위치, pos = 이동 후 위치(충돌로 막힌). 시작 위치에서 maxStep 만큼 올라가 → 수평 이동 → 내려앉기를 시도해,
+ * 원래보다 더 멀리 갔고 더 높은 바닥에 섰으면 pos 를 그 자리로 옮기고 결과를 준다. 아니면 null (pos 그대로).
+ */
+export function tryStepUp(
+  isSolid: SolidQuery,
+  start: Vec3,
+  pos: Vec3,
+  size: BodySize,
+  vx: number,
+  vz: number,
+  dt: number,
+  maxStep = 1,
+): StepUpResult | null {
+  if (dt <= 0 || (vx === 0 && vz === 0)) return null;
+  const p: Vec3 = { x: start.x, y: start.y, z: start.z };
+  const v: Vec3 = { x: 0, y: maxStep / dt, z: 0 };
+  // 1) 위로 (머리 위 공간이 모자라면 포기)
+  moveBody(isSolid, p, size, v, dt, scratchMove);
+  if (p.y - start.y < maxStep - 0.05) return null;
+  // 2) 턱 높이에서 수평 이동
+  v.x = vx;
+  v.y = 0;
+  v.z = vz;
+  moveBody(isSolid, p, size, v, dt, scratchMove);
+  const movedTry = (p.x - start.x) ** 2 + (p.z - start.z) ** 2;
+  const movedOrig = (pos.x - start.x) ** 2 + (pos.z - start.z) ** 2;
+  if (movedTry <= movedOrig + 1e-9) return null;
+  const hvx = v.x,
+    hvz = v.z;
+  // 3) 내려앉기 — 턱 위에 서야 성공
+  v.x = 0;
+  v.y = -(maxStep + 0.05) / dt;
+  v.z = 0;
+  moveBody(isSolid, p, size, v, dt, scratchMove);
+  if (!scratchMove.onGround || p.y <= start.y + 1e-4) return null;
+  const dy = p.y - start.y;
+  pos.x = p.x;
+  pos.y = p.y;
+  pos.z = p.z;
+  return { dy, vx: hvx, vz: hvz };
+}
+
 /** 발밑(아주 조금 아래)에 solid 가 있는지 — 웅크리기 낙하 방지·onGround 보조 */
 export function hasGroundBelow(isSolid: SolidQuery, pos: Vec3, size: BodySize, probe = 0.05): boolean {
   const hw = size.w / 2;

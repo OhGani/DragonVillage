@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type MoveResult, bodyIntersects, bodyOverlapsBlock, hasGroundBelow, moveBody } from './aabb';
+import { type MoveResult, bodyIntersects, bodyOverlapsBlock, hasGroundBelow, moveBody, tryStepUp } from './aabb';
 
 const PLAYER = { w: 0.6, h: 1.8 };
 const floorAt = (fy: number) => (_x: number, y: number, _z: number) => y <= fy;
@@ -66,6 +66,56 @@ describe('moveBody', () => {
     moveBody(step, pos, PLAYER, vel, 1, out);
     expect(pos.x).toBeCloseTo(2 - 0.3, 3);
     expect(out.hitX).toBe(true);
+  });
+});
+
+describe('tryStepUp (자동 턱 오르기)', () => {
+  const H = 1 / 60;
+  // 바닥 y<=2, x>=3 은 한 칸 높은 턱(y=3)
+  const oneStep = (x: number, y: number) => y <= 2 || (x >= 3 && y === 3);
+  // x>=3 은 두 칸 벽
+  const twoWall = (x: number, y: number) => y <= 2 || (x >= 3 && (y === 3 || y === 4));
+  // 턱 위 천장이 낮음 (y=5): 몸 1.8 이 들어갈 자리가 없다
+  const lowCeiling = (x: number, y: number) => oneStep(x, y) || y === 5;
+
+  function walkInto(world: (x: number, y: number, z: number) => boolean) {
+    // 몸 오른쪽 끝이 2.99 → 한 스텝(4/60 ≈ 0.067)에 x=3 턱에 닿는다
+    const start = { x: 2.69, y: 3, z: 0.5 };
+    const pos = { ...start };
+    const vel = { x: 4, y: -0.5, z: 0 };
+    const out = fresh();
+    moveBody(world, pos, PLAYER, vel, H, out);
+    return { start, pos, out, vel };
+  }
+
+  it('한 칸 턱은 올라간다', () => {
+    const { start, pos, out } = walkInto(oneStep);
+    expect(out.hitX).toBe(true); // 먼저 막히고
+    const r = tryStepUp(oneStep, start, pos, PLAYER, 4, 0, H);
+    expect(r).not.toBeNull();
+    expect(pos.y).toBe(4); // 턱 위
+    expect(pos.x).toBeGreaterThan(start.x); // 앞으로도 갔다
+    expect(r!.dy).toBe(1);
+    expect(r!.vx).toBe(4); // 수평 속도 유지
+  });
+
+  it('두 칸 벽은 못 올라간다', () => {
+    const { start, pos } = walkInto(twoWall);
+    const before = { ...pos };
+    expect(tryStepUp(twoWall, start, pos, PLAYER, 4, 0, H)).toBeNull();
+    expect(pos).toEqual(before);
+  });
+
+  it('턱 위 천장이 낮으면 포기한다', () => {
+    const { start, pos } = walkInto(lowCeiling);
+    expect(tryStepUp(lowCeiling, start, pos, PLAYER, 4, 0, H)).toBeNull();
+  });
+
+  it('충돌 없이 걸을 땐 아무것도 안 한다', () => {
+    const flat = (_x: number, y: number) => y <= 2;
+    const { start, pos } = walkInto(flat);
+    expect(tryStepUp(flat, start, pos, PLAYER, 4, 0, H)).toBeNull();
+    expect(pos.y).toBe(3);
   });
 });
 
