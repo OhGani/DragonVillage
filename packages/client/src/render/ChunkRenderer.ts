@@ -70,8 +70,9 @@ export class ChunkRenderer {
   }
 
   /** 매 프레임: 가까운 dirty 청크부터 워커로 보내고, 거리 밖 청크는 숨긴다 */
-  update(px: number, pz: number): void {
+  update(px: number, py: number, pz: number): void {
     const pcx = Math.floor(px / CHUNK_SIZE),
+      pcy = Math.floor(py / CHUNK_SIZE),
       pcz = Math.floor(pz / CHUNK_SIZE);
 
     if (this.dirty.size > 0) {
@@ -79,8 +80,8 @@ export class ChunkRenderer {
       const list = [...this.dirty.values()];
       if (list.length > 1) {
         list.sort((a, b) => {
-          const da = (a.cx - pcx) ** 2 + (a.cz - pcz) ** 2 + (a.cy - 1) ** 2;
-          const db = (b.cx - pcx) ** 2 + (b.cz - pcz) ** 2 + (b.cy - 1) ** 2;
+          const da = (a.cx - pcx) ** 2 + (a.cz - pcz) ** 2 + (a.cy - pcy) ** 2;
+          const db = (b.cx - pcx) ** 2 + (b.cz - pcz) ** 2 + (b.cy - pcy) ** 2;
           return da - db;
         });
       }

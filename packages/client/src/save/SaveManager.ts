@@ -70,6 +70,19 @@ export class SaveManager {
     this.player = getter;
   }
 
+  /** 예전 세계 id 의 저장을 지운다 (M0 테스트 월드 → 마을). 지운 게 있었으면 true */
+  async discardLegacy(worldId: string): Promise<boolean> {
+    if (!this.store) return false;
+    try {
+      const meta = await this.store.loadMeta(worldId);
+      if (!meta) return false;
+      await this.store.clearWorld(worldId);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /** 저장된 청크로 월드를 덮어쓴다. 생성기 버전이 다르면 버린다 */
   async load(): Promise<LoadResult> {
     const none: LoadResult = { loaded: false, chunks: 0, player: null, discardedOldWorld: false, unknownIds: [] };

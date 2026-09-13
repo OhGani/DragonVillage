@@ -41,6 +41,16 @@
       "texture": "dirt"
     },
     {
+      "id": "farmland",
+      "name": "농지",
+      "hardness": 0.6,
+      "tool": null,
+      "drops": "dirt",
+      "lightEmit": 0,
+      "texture": "farmland",
+      "_note": "밭의 갈아 놓은 흙. 마을 터 생성기(M1)가 큰 밭에 깐다. 씨앗 심기·작물은 M4"
+    },
+    {
       "id": "grass",
       "name": "잔디",
       "hardness": 0.6,

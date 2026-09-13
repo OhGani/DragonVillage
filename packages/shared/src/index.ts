@@ -7,3 +7,4 @@ export * from './physics/aabb';
 export * from './math/prng';
 export * from './fluid/fluidSim';
 export * from './light/lightEngine';
+export * from './worldgen/village';

@@ -304,6 +304,15 @@ const TEX = {
       }
     }
   },
+  farmland: (c) => {
+    // 갈아 놓은 흙: 어두운 흙 + 가로 골(4줄마다 더 어둡게)
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const furrow = y % 4 === 1 ? 0.62 : y % 4 === 2 ? 0.85 : 1;
+        const n = (c.rnd() - 0.5) * 18;
+        c.set(x, y, 96 * furrow + n, 62 * furrow + n, 38 * furrow + n);
+      }
+  },
   hay_bale: (c) => {
     for (let y = 0; y < S; y++)
       for (let x = 0; x < S; x++) {

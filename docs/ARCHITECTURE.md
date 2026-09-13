@@ -37,8 +37,8 @@ textures/           16×16 PNG (아들 편집 영역) → 빌드 시 DataArrayTe
 
 ## 지형 생성 (shared/worldgen)
 
-- `simplex-noise` + 시드 PRNG(예: `alea` 또는 자체 xorshift). **`Math.random` 금지.** 클라·서버 결과가 비트 단위로 같아야 한다 → vitest에 스냅샷 테스트.
-- 마을 터: 평평한 초원 + 강 하나 + 포탈 자리. 시드는 마을 생성 시 결정.
+- `simplex-noise`(v4, `createNoise2D/3D(mulberry32(seed ^ salt))`) + 시드 PRNG(`math/prng`: mulberry32, hash3). **`Math.random` 금지.** 클라·서버 결과가 비트 단위로 같아야 한다 → vitest 지문(스냅샷) 테스트.
+- **마을 터 (`worldgen/village.ts`, 구현 2026-09-13, 결정 #59)**: 128³, 광장 높이 40. 높이 = 40 + 완만한 노이즈 ± 가장자리 언덕(가운데서 44칸 밖부터 7~12) , 광장·밭·포탈·집 자리는 평지. 강은 x 마다 중심 z(사인 + 노이즈)·반폭(노이즈)으로 정하고 기둥이 강 안이면 바닥을 파고 수면 39 까지 물, 강변은 40 이상. 땅속은 hash3 로 광물, 3D 노이즈 둘의 0 근처 면이 겹치는 곳을 굴로. 청크마다 `Uint16Array(4096)` 을 채워 `loadBlockIds` (setBlock 200만 번보다 10배 빠름), 나무·구조물만 setBlock. 2코어 VM 208ms. 시드는 M1 상수, M2 부터 마을 생성 시 서버가 정한다.
 - 원정지 생성기(종류별 함수, 아들 답변 후 확정):
   - 초원 섬: 원형 마스크 × 높이맵, 나무, 동물
   - 사막: 저주파 사구, 선인장, 피라미드형 보물

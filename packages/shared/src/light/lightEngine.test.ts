@@ -216,6 +216,31 @@ describe('LightEngine 블록라이트', () => {
   });
 });
 
+describe('LightEngine 빠른 초기 계산 = 단순 BFS', () => {
+  it('지붕·방·물·나뭇잎·언덕이 있는 세계에서 두 방식이 같다', () => {
+    const w = makeWorld();
+    for (let x = 4; x <= 12; x++) for (let z = 4; z <= 12; z++) w.setBlock(x, 18, z, STONE); // 지붕
+    for (let x = 12; x <= 20; x++)
+      for (let y = 11; y <= 17; y++)
+        for (let z = 12; z <= 20; z++) {
+          const wall = x === 12 || x === 20 || y === 11 || y === 17 || z === 12 || z === 20;
+          w.setBlock(x, y, z, wall ? STONE : AIR);
+        }
+    w.setBlock(16, 17, 16, AIR); // 천장 구멍
+    for (let x = 22; x <= 28; x++) for (let z = 20; z <= 26; z++) w.setBlock(x, GROUND, z, WATER);
+    for (let x = 0; x < 10; x++) for (let z = 20; z < 30; z++) w.setBlock(x, 22, z, LEAVES);
+    for (let x = 24; x < 32; x++) for (let z = 0; z < 8; z++) for (let y = GROUND + 1; y <= GROUND + 6; y++) w.setBlock(x, y, z, STONE); // 언덕
+    w.setBlock(30, 31, 30, STONE); // 맨 윗줄 블록
+    w.setBlock(31, 31, 31, LEAVES);
+    w.setBlock(8, 14, 8, TORCH);
+    const fast = new LightEngine(w, registry);
+    fast.computeAll();
+    const naive = new LightEngine(w, registry);
+    naive.computeAll(true);
+    expect(Buffer.from(fast.light).equals(Buffer.from(naive.light))).toBe(true);
+  });
+});
+
 describe('LightEngine 증분 갱신 = 전체 재계산', () => {
   it('무작위(시드) 블록 변경 200회 뒤에도 같다', () => {
     const w = makeWorld();

@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, FluidSim, LightEngine } from '@dragon-village/shared';
+import { CHUNK_SIZE, DEFAULT_VILLAGE_SEED, FluidSim, LightEngine, VILLAGE_GEN_VERSION, VILLAGE_WORLD_ID, generateVillage } from '@dragon-village/shared';
 import { BLOCKS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { GamepadInput } from '../input/gamepad';
@@ -17,7 +17,6 @@ import { Hud, type HotbarSlot } from '../ui/hud';
 import { renderBlockIcon } from '../ui/icons';
 import { MesherPool } from '../workers/MesherPool';
 import { SaveManager } from '../save/SaveManager';
-import { TEST_WORLD_GEN_VERSION, TEST_WORLD_ID, buildTestWorld } from '../world/testWorld';
 import { AutoQuality } from './AutoQuality';
 import { Interaction } from './Interaction';
 
@@ -44,11 +43,15 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const registry = BLOCKS;
   const atlas = await loadTextureAtlas();
   const blockInfo = buildMeshBlockInfo(registry, atlas.index);
-  const { world, spawn } = buildTestWorld(registry);
+  // ---- 마을 터 (M1): 시드로 언제나 같은 세계. M2 에서 시드는 서버가 준다 ----
+  const village = generateVillage(registry, DEFAULT_VILLAGE_SEED);
+  const { world, spawn } = village;
 
   // ---- 저장 불러오기 (M1): 만든 세계 위에 저장된 청크를 덮어쓴다 ----
-  const save = await SaveManager.create(world, registry, TEST_WORLD_ID, TEST_WORLD_GEN_VERSION);
+  const save = await SaveManager.create(world, registry, VILLAGE_WORLD_ID, VILLAGE_GEN_VERSION);
+  const legacyDiscarded = await save.discardLegacy('test-world'); // M0 테스트 월드 저장은 지운다
   const loadResult = await save.load();
+  if (legacyDiscarded) loadResult.discardedOldWorld = true;
   if (loadResult.player) {
     const p = loadResult.player;
     if (world.inBounds(Math.floor(p.x), Math.floor(Math.max(0, Math.min(world.sizeY - 2, p.y))), Math.floor(p.z))) {
@@ -294,7 +297,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       `위치 ${p.x.toFixed(2)} ${p.y.toFixed(2)} ${p.z.toFixed(2)}  yaw ${yawDeg.toFixed(0)}°  pitch ${((player.pitch * 180) / Math.PI).toFixed(0)}°  ${facing}`,
       `조준 ${tgt}`,
       `바닥 ${player.onGround ? 'O' : 'X'}  물 ${player.inWater ? 'O' : 'X'}  웅크림 ${player.sneaking ? 'O' : 'X'}  달리기 ${player.sprinting ? 'O' : 'X'}  액체 대기 ${fluids.pendingCount}`,
-      `빛 여기 하늘 ${light.skyAt(Math.floor(p.x), Math.floor(p.y + 1), Math.floor(p.z))} 블록 ${light.blockAt(Math.floor(p.x), Math.floor(p.y + 1), Math.floor(p.z))}  조명 처음 ${light.stats.initialMs.toFixed(0)}ms  최근 ${light.stats.lastFlushMs.toFixed(1)}ms/${light.stats.lastFlushCells}칸`,
+      `빛 여기 하늘 ${light.skyAt(Math.floor(p.x), Math.floor(p.y + 1), Math.floor(p.z))} 블록 ${light.blockAt(Math.floor(p.x), Math.floor(p.y + 1), Math.floor(p.z))}  조명 처음 ${light.stats.initialMs.toFixed(0)}ms  최근 ${light.stats.lastFlushMs.toFixed(1)}ms/${light.stats.lastFlushCells}칸  지형 생성 ${village.ms.toFixed(0)}ms  청크 ${world.chunkCount}`,
       `${isTouch ? '터치' : 'PC'}  ${navigator.hardwareConcurrency ?? '?'}코어  ${window.innerWidth}×${window.innerHeight}@${(window.devicePixelRatio || 1).toFixed(1)}`,
       `저장 ${save.available ? (save.lastError ? `오류: ${save.lastError}` : save.lastSavedAt ? `${Math.round((Date.now() - save.lastSavedAt) / 1000)}초 전` : '아직 없음') : '불가'}  대기 ${save.pendingCount}`,
     ].join('\n');
@@ -343,7 +346,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     hud.setProgress(interaction.progress);
     hud.setHeading(player.yaw);
 
-    chunks.update(player.pos.x, player.pos.z);
+    chunks.update(player.pos.x, player.pos.y, player.pos.z);
     materials.setTime(now / 1000);
     sky.update(camera.position);
     hand.setBlock(hud.selectedBlock);

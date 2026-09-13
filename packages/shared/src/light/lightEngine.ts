@@ -107,26 +107,68 @@ export class LightEngine implements PaddedLightSource {
 
   // ---------------------------------------------------------------- 처음부터 계산
 
-  /** 세계 전체를 처음부터 계산한다. 접속·지형 생성 뒤 한 번 */
-  computeAll(): void {
+  /**
+   * 세계 전체를 처음부터 계산한다. 접속·지형 생성 뒤 한 번.
+   * naive=true 는 맨 윗줄만 씨앗으로 넣고 전부 BFS 로 (느리지만 단순 — 테스트가 빠른 길과 비교하는 기준).
+   */
+  computeAll(naive = false): void {
     const t0 = now();
     this.light.fill(0);
     this.fillCells();
     this.tracking = false;
     this.pending.clear();
 
-    const { sx, sy, sz, cells, light, buckets } = this;
-    // 스카이: 맨 윗줄 위에 가상의 15 하늘이 있다고 보고 내려보낸다
-    const top = (sy - 1) * this.strideY;
-    for (let z = 0; z < sz; z++)
-      for (let x = 0; x < sx; x++) {
-        const i = top + z * sx + x;
-        const v = this.fromSkyAbove(cells[i] & 15);
-        if (v > 0) {
-          light[i] = v << 4;
-          buckets[v].push(i);
+    const { sx, sy, sz, cells, light, buckets, strideY } = this;
+    if (naive) {
+      // 스카이: 맨 윗줄 위에 가상의 15 하늘이 있다고 보고 내려보낸다
+      const top = (sy - 1) * strideY;
+      for (let z = 0; z < sz; z++)
+        for (let x = 0; x < sx; x++) {
+          const i = top + z * sx + x;
+          const v = this.fromSkyAbove(cells[i] & 15);
+          if (v > 0) {
+            light[i] = v << 4;
+            buckets[v].push(i);
+          }
         }
-      }
+    } else {
+      // 빠른 길: 기둥마다 위에서 내려오며 공기인 동안 15 를 바로 쓴다 (하늘 아래 공기는 전부 15 — BFS 필요 없음).
+      // BFS 씨앗은 15 기둥이 공기가 아닌 칸과 맞닿는 곳만: 기둥 맨 아래 칸 + 옆 기둥이 더 높은 구간.
+      const colTop = new Int32Array(sx * sz); // 기둥에서 위에서부터 첫 비공기 칸의 y (없으면 -1)
+      for (let z = 0; z < sz; z++)
+        for (let x = 0; x < sx; x++) {
+          let y = sy - 1;
+          let i = y * strideY + z * sx + x;
+          while (y >= 0 && (cells[i] & 15) === 0) {
+            light[i] = MAX_LIGHT << 4;
+            y--;
+            i -= strideY;
+          }
+          colTop[z * sx + x] = y;
+        }
+      for (let z = 0; z < sz; z++)
+        for (let x = 0; x < sx; x++) {
+          const t = colTop[z * sx + x];
+          const base = z * sx + x;
+          if (t === sy - 1) {
+            // 맨 윗줄부터 공기가 아니다: 가상 하늘에서 직접 받는다
+            const v = this.fromSkyAbove(cells[t * strideY + base] & 15);
+            if (v > 0) {
+              light[t * strideY + base] = (light[t * strideY + base] & 0x0f) | (v << 4);
+              buckets[v].push(t * strideY + base);
+            }
+            continue;
+          }
+          buckets[MAX_LIGHT].push((t + 1) * strideY + base); // 기둥 맨 아래 공기 칸
+          const seedWall = (tn: number) => {
+            for (let y = t + 2; y <= tn; y++) buckets[MAX_LIGHT].push(y * strideY + base);
+          };
+          if (x > 0) seedWall(colTop[base - 1]);
+          if (x < sx - 1) seedWall(colTop[base + 1]);
+          if (z > 0) seedWall(colTop[base - sx]);
+          if (z < sz - 1) seedWall(colTop[base + sx]);
+        }
+    }
     this.propagate(SKY);
 
     // 블록: 빛을 내는 블록 전부
