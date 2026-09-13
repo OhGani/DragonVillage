@@ -74,8 +74,10 @@ docs/
 
 ## 지금 상태 (2026-09-12)
 
-- 설계 v0.4 완료. **M0 코드 착수·구현 완료(2026-09-12)**: pnpm workspaces, `shared`(청크·월드·물리·blocks.json 검증), `client`(greedy meshing 워커, Three.js 렌더, 터치·키보드·게임패드 조작, HUD), `server` 빈 껍데기. 테스트 36개·벤치 1개. 실행 `pnpm dev` → 폰은 같은 와이파이에서 `http://<PC IP>:5173`.
-- M0 남은 것: 아빠 PC 감도 확인, 폰 실기기(아이폰·갤럭시) fps 측정, 아들 5분 플레이테스트 → `docs/PLAYTEST-LOG.md`.
+- 설계 v0.4 완료. **M0 코드 구현 완료(2026-09-12)**: pnpm workspaces, `shared`(청크·월드·물리·액체 시뮬·blocks.json 검증), `client`(greedy meshing 워커, Three.js 렌더, 터치·키보드·게임패드 조작, HUD), `server` 빈 껍데기. 테스트 50개·벤치 1개.
+- **배포·테스트 경로**: `main` 에 push → GitHub Actions 가 빌드해 `gh-pages` 로 배포 → https://ohgani.github.io/DragonVillage/ (2~3분). 아빠 개발 PC 가 IDC 에 있어 LAN 접속이 안 되므로 폰·PC 테스트는 이 주소로 한다. 로컬 `pnpm dev` 는 개발 중 확인용.
+- 2026-09-13 피드백 반영: 한 칸 턱 자동 오르기(`tryStepUp`), 물·용암 흐름(`shared/fluid`, 마인크래프트 규칙, 결정 #47), 핫바 10칸(9 물·0 용암, 들고 있으면 양동이처럼 원천 떠냄), 시작 화면 '게임 방법' 창, 손 블록 화면 모서리 고정, 전체화면 켜기/끄기 토글 + 웹 앱 매니페스트(아이폰은 홈 화면 추가로 전체화면).
+- M0 남은 것: 폰 실기기(아이폰·갤럭시) fps 측정, 아들 5분 플레이테스트 → `docs/PLAYTEST-LOG.md`. 아빠 피드백은 받는 대로 반영 중.
 - 개발 콘솔에서 `window.__dv` 로 월드·플레이어·청크 상태를 볼 수 있다 (dev 빌드만). `__dv.tick(dt)` 는 rAF 없이 한 프레임을 돌린다(자동 테스트용).
 - 아들 1차 기획 답변 반영 완료: 드래곤 16종·재료·티어(`data/dragons.json`), 원정지 6곳(`data/expeditions.json`), 레시피(`data/recipes.json`), 채팅 문구(`data/phrases.json`), 시간 규칙(`data/family-rules.json`). 상세는 `docs/QUESTIONS-FOR-SON.md`.
 - 경험치 시스템 도입 확정(마인크래프트 방식, `docs/XP-SYSTEM.md`, `data/xp.json`).
