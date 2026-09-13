@@ -128,17 +128,34 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     },
   });
 
+  // ---- 화면 크기 → 캔버스 버퍼 + 카메라 비율. 한 함수에서만 맞춘다 (어긋나면 화면이 눌려 보인다) ----
   const quality = new AutoQuality(renderer, isTouch);
-  const resize = () => {
+  let sizeW = 0,
+    sizeH = 0;
+  const applySize = (force = false) => {
     const w = root.clientWidth || window.innerWidth;
     const h = root.clientHeight || window.innerHeight;
+    if (w <= 0 || h <= 0) return;
+    if (!force && w === sizeW && h === sizeH) return;
+    sizeW = w;
+    sizeH = h;
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     renderer.setSize(w, h, false);
   };
-  resize();
+  quality.onChange = () => applySize(true); // 배율이 바뀌면 버퍼를 다시 만든다
+  applySize(true);
+  const resize = () => applySize();
   window.addEventListener('resize', resize);
   window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+  // 전체화면 전환·주소창 등 resize 이벤트 없이 크기가 바뀌는 경우까지
+  document.addEventListener('fullscreenchange', () => {
+    resize();
+    setTimeout(resize, 300);
+  });
+  window.visualViewport?.addEventListener('resize', resize);
+  const sizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null;
+  sizeObserver?.observe(root);
 
   // ---- 전체화면 / 디버그 버튼 ----
   let debugVisible = false;
@@ -251,7 +268,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     fps = 0,
     debugTimer = 0,
     drawCalls = 0,
-    triangles = 0;
+    triangles = 0,
+    sizeCheck = 0;
   const bobStrength = isTouch ? 0.6 : 1;
 
   const debugText = (): string => {
@@ -261,7 +279,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const t = interaction.target;
     const tgt = t ? `${registry.get(t.id).name} (${t.x}, ${t.y}, ${t.z}) 면 ${['+X', '-X', '+Y', '-Y', '+Z', '-Z'][t.face]}` : '없음';
     return [
-      `FPS ${fps}  프레임 ${quality.ema.toFixed(1)}ms  해상도 ×${quality.pixelRatio.toFixed(2)}  렌더거리 ${chunks.renderDistance}`,
+      `FPS ${fps}  프레임 ${quality.ema.toFixed(1)}ms  해상도 ×${quality.pixelRatio.toFixed(2)}  렌더거리 ${chunks.renderDistance}  화면 ${sizeW}×${sizeH} 버퍼 ${renderer.domElement.width}×${renderer.domElement.height} 비율 ${camera.aspect.toFixed(2)}`,
       `드로우 ${drawCalls}  삼각형 ${(triangles / 1000).toFixed(1)}k`,
       `청크 보임 ${chunks.stats.visibleChunks}  큐 ${chunks.queued}  진행 ${chunks.inflight}  워커 ${pool.size}`,
       `메싱 최근 ${chunks.stats.lastMs.toFixed(1)}ms  평균 ${chunks.stats.avgMs.toFixed(1)}ms  최대 ${chunks.stats.maxMs.toFixed(1)}ms  총 ${chunks.stats.meshed}`,
@@ -284,6 +302,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     // 시계가 뒤로 가면(테스트용 tick 과 rAF 가 섞일 때 등) 0 으로 — 음수 dt 는 물리·액체 누적을 되감는다
     const dt = Math.max(0, Math.min(0.1, (now - last) / 1000));
     last = Math.max(last, now);
+
+    // 안전망: 15프레임마다 크기 재확인 (이벤트를 놓쳐도 0.25초 안에 복구)
+    if ((sizeCheck = (sizeCheck + 1) % 15) === 0) applySize();
 
     const inp = input.frame(dt);
     if (inp.toggleDebug) debugVisible = !debugVisible;
@@ -402,6 +423,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       atlas.texture.dispose();
       renderer.dispose();
       window.removeEventListener('resize', resize);
+      sizeObserver?.disconnect();
       root.innerHTML = '';
     },
   };

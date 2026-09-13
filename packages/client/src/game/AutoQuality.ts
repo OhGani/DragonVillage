@@ -24,10 +24,9 @@ export class AutoQuality {
     this.apply();
   }
 
+  /** 배율만 바꾼다. 실제 크기(setSize)와 카메라 비율은 onChange 를 받은 Game 이 한 곳에서 맞춘다 */
   private apply(): void {
     this.renderer.setPixelRatio(this.pixelRatio);
-    const c = this.renderer.domElement;
-    this.renderer.setSize(c.clientWidth || window.innerWidth, c.clientHeight || window.innerHeight, false);
     this.onChange?.(this.pixelRatio);
   }
 
