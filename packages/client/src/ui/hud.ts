@@ -53,7 +53,7 @@ export class Hud {
       </div>
       <div class="topbar">
         <button class="sbtn help" aria-label="게임 방법">?</button>
-        <button class="sbtn fullscreen" aria-label="전체화면">⛶</button>
+        <button class="sbtn fullscreen" aria-label="전체화면">⛶ 전체화면</button>
         <button class="sbtn debug" aria-label="정보">i</button>
       </div>
       <pre class="debug-text" hidden></pre>
@@ -121,7 +121,18 @@ export class Hud {
     this.overlay.addEventListener('click', (e) => {
       if (e.target === this.overlay) this.onOverlayClick?.();
     });
-    if (!document.fullscreenEnabled) this.fullscreenBtn.hidden = true;
+  }
+
+  /**
+   * 전체화면 버튼 상태.
+   * mode: 'off' 켤 수 있음 / 'on' 켜져 있음(끄기) / 'unavailable' 브라우저가 못 함(누르면 안내) / 'hidden' 이미 앱으로 전체화면
+   */
+  setFullscreen(mode: 'off' | 'on' | 'unavailable' | 'hidden'): void {
+    const b = this.fullscreenBtn;
+    b.hidden = mode === 'hidden';
+    b.classList.toggle('active', mode === 'on');
+    b.textContent = mode === 'on' ? '⛶ 전체화면 끄기' : '⛶ 전체화면';
+    b.setAttribute('aria-label', mode === 'on' ? '전체화면 끄기' : '전체화면');
   }
 
   setSlots(slots: HotbarSlot[]): void {

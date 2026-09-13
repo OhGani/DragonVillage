@@ -120,16 +120,52 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   // ---- 전체화면 / 디버그 버튼 ----
   let debugVisible = false;
   hud.debugBtn.addEventListener('click', () => (debugVisible = !debugVisible));
-  hud.fullscreenBtn.addEventListener('click', () => void enterFullscreen());
-  async function enterFullscreen(): Promise<void> {
+
+  // 홈 화면에 추가해서 앱처럼 열렸으면 이미 전체화면
+  const standalone =
+    window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  // 아이폰 사파리는 전체화면 API 가 없다 → 홈 화면 추가 안내
+  const fullscreenAvailable = !!document.fullscreenEnabled && typeof document.documentElement.requestFullscreen === 'function';
+  const IOS_HINT = '이 브라우저는 전체화면이 안 돼요.\n공유 버튼 → "홈 화면에 추가" 로 열면 전체화면이 돼요.';
+
+  const updateFullscreenButton = () => {
+    if (standalone) hud.setFullscreen('hidden');
+    else if (!fullscreenAvailable) hud.setFullscreen('unavailable');
+    else hud.setFullscreen(document.fullscreenElement ? 'on' : 'off');
+  };
+  updateFullscreenButton();
+  document.addEventListener('fullscreenchange', updateFullscreenButton);
+
+  async function enterFullscreen(): Promise<boolean> {
+    if (!fullscreenAvailable) return false;
     try {
       if (!document.fullscreenElement) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
       const o = screen.orientation as ScreenOrientation & { lock?: (t: string) => Promise<void> };
       if (o.lock) await o.lock('landscape').catch(() => undefined);
+      return true;
     } catch {
-      /* iOS Safari 등 미지원 */
+      return false;
     }
   }
+  async function exitFullscreen(): Promise<void> {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+    } catch {
+      /* 무시 */
+    }
+  }
+  hud.fullscreenBtn.addEventListener('click', () => {
+    if (!fullscreenAvailable) {
+      hud.toast(IOS_HINT, 7000);
+      return;
+    }
+    if (document.fullscreenElement) void exitFullscreen();
+    else
+      void enterFullscreen().then((ok) => {
+        if (!ok) hud.toast('전체화면을 켤 수 없었어요. 다시 한 번 눌러 보세요.', 4000);
+      });
+  });
 
   // ---- 시작 / 일시정지 ----
   let started = false;
@@ -307,8 +343,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       if (started) return;
       started = true;
       if (isTouch) {
-        void enterFullscreen();
-        if (window.innerHeight > window.innerWidth) hud.toast('폰을 가로로 돌리면 더 편해요', 3500);
+        if (fullscreenAvailable) void enterFullscreen();
+        else if (!standalone) hud.toast(IOS_HINT, 7000);
+        if (window.innerHeight > window.innerWidth && (fullscreenAvailable || standalone)) hud.toast('폰을 가로로 돌리면 더 편해요', 3500);
       }
       resume();
     },

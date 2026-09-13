@@ -7,6 +7,8 @@
 
 `main` 에 push 하면 GitHub Actions 가 빌드해서 **https://ohgani.github.io/DragonVillage/** 에 올린다 (2~3분). 폰·PC 어디서든 이 주소로 접속하면 된다. 개발 PC 가 IDC 에 있어 LAN 접속이 안 되므로 폰 테스트는 이 주소를 쓴다.
 
+**폰 전체화면**: 안드로이드(크롬·삼성 인터넷)는 오른쪽 위 "전체화면" 버튼. 아이폰 사파리는 전체화면 API 가 없어서 공유 → **홈 화면에 추가**로 열어야 전체화면이 된다(매니페스트 포함, 아이콘은 `tools/gen-icons.mjs`).
+
 ## 실행
 
 Node 20 이상. pnpm 은 corepack 으로.
