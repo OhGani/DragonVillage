@@ -284,6 +284,97 @@ body {
   touch-action: manipulation;
 }
 
+/* ---------- 나침반 (위 가운데) ---------- */
+.compass {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  pointer-events: none; /* 드래그(둘러보기)를 막지 않는다 */
+}
+.compass-dial {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.38);
+}
+/* 눈금판: 보는 방향이 맨 위에 오도록 JS 가 돌린다 */
+.compass-rose {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+.compass-label {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 2px #000;
+  will-change: transform;
+}
+.compass-n {
+  left: calc(50% - 9px);
+  top: 3px;
+  color: #ff5f52;
+}
+.compass-s {
+  left: calc(50% - 9px);
+  bottom: 3px;
+}
+.compass-e {
+  right: 3px;
+  top: calc(50% - 9px);
+}
+.compass-w {
+  left: 3px;
+  top: calc(50% - 9px);
+}
+/* 가운데 점 + 위쪽 고정 화살표(= 내가 보는 쪽) */
+.compass-dial::after {
+  content: '';
+  position: absolute;
+  left: calc(50% - 3px);
+  top: calc(50% - 3px);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+}
+.compass-pointer {
+  position: absolute;
+  left: calc(50% - 6px);
+  top: -8px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 9px solid #fff;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));
+}
+.compass-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px #000;
+  background: rgba(0, 0, 0, 0.38);
+  border-radius: 4px;
+  padding: 1px 7px;
+}
+.hud.touch .compass-dial {
+  width: 56px;
+  height: 56px;
+}
+
 /* ---------- 디버그 ---------- */
 .debug-text {
   position: absolute;

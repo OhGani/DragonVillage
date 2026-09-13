@@ -36,7 +36,8 @@ export interface GameHandle {
   dispose(): void;
 }
 
-const FACING = ['남', '남서', '서', '북서', '북', '북동', '동', '남동'];
+/** yaw 0°·45°·… 순서 (yaw 0 = -Z 북, yaw 90° = -X 서). 나침반의 HEADING_NAMES 와 반대 방향으로 돈다 */
+const FACING = ['북', '북서', '서', '남서', '남', '남동', '동', '북동'];
 
 export async function createGame(root: HTMLElement, opts: GameOptions): Promise<GameHandle> {
   const { isTouch } = opts;
@@ -340,6 +341,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       highlight.setProgress(interaction.progress);
     } else highlight.clearTarget();
     hud.setProgress(interaction.progress);
+    hud.setHeading(player.yaw);
 
     chunks.update(player.pos.x, player.pos.z);
     materials.setTime(now / 1000);
