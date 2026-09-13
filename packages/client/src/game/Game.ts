@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, FluidSim } from '@dragon-village/shared';
+import { CHUNK_SIZE, FluidSim, LightEngine } from '@dragon-village/shared';
 import { BLOCKS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { GamepadInput } from '../input/gamepad';
@@ -21,8 +21,8 @@ import { TEST_WORLD_GEN_VERSION, TEST_WORLD_ID, buildTestWorld } from '../world/
 import { AutoQuality } from './AutoQuality';
 import { Interaction } from './Interaction';
 
-/** M0 핫바(10칸, 키 1~9·0) — 아들이 blocks.json 에 있는 id 로 바꿔도 된다 */
-const HOTBAR_IDS = ['grass', 'dirt', 'stone', 'planks', 'log', 'leaves', 'glass', 'sand', 'water', 'lava'];
+/** M0 핫바(10칸, 키 1~9·0) — 아들이 blocks.json 에 있는 id 로 바꿔도 된다. 8번 발광석은 조명 확인용(M1) */
+const HOTBAR_IDS = ['grass', 'dirt', 'stone', 'planks', 'log', 'leaves', 'glass', 'glowstone', 'water', 'lava'];
 /** 액체 시뮬레이션 틱 (20Hz) */
 const FLUID_DT = 0.05;
 
@@ -58,6 +58,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
   }
 
+  // ---- 조명 (M1): 블록이 모두 자리 잡은 뒤 한 번 전체 계산. 이후는 바뀐 칸만 ----
+  const light = new LightEngine(world, registry);
+  light.computeAll();
+
   // ---- 렌더러 ----
   const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance', stencil: false });
   renderer.domElement.className = 'game';
@@ -72,7 +76,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
 
   const materials = createChunkMaterials(atlas.texture);
   const pool = new MesherPool(blockInfo);
-  const chunks = new ChunkRenderer(world, materials, pool, scene);
+  const chunks = new ChunkRenderer(world, light, materials, pool, scene);
   chunks.renderDistance = isTouch ? 5 : 8;
   const applyFog = () => {
     const d = chunks.renderDistance * CHUNK_SIZE;
@@ -114,16 +118,19 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   save.bindPlayer(() => ({ x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw, pitch: player.pitch }));
   save.attachLifecycle();
   const fluids = new FluidSim(world, registry);
+  fluids.onBlockSet = (x, y, z) => light.markChanged(x, y, z); // 흐르는 용암은 빛을 내고, 물은 빛을 조금 막는다
   let fluidAcc = 0;
   const interaction = new Interaction(world, registry, player, {
     onBlocksChanged: (dirty) => chunks.markDirtyAll(dirty),
     onSwing: () => hand.swing(),
     onPlaced: (x, y, z) => {
       fluids.touch(x, y, z);
+      light.markChanged(x, y, z);
       save.markBlock(x, y, z);
     },
     onBroken: (x, y, z) => {
       fluids.touch(x, y, z);
+      light.markChanged(x, y, z);
       save.markBlock(x, y, z);
     },
   });
@@ -286,6 +293,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       `위치 ${p.x.toFixed(2)} ${p.y.toFixed(2)} ${p.z.toFixed(2)}  yaw ${yawDeg.toFixed(0)}°  pitch ${((player.pitch * 180) / Math.PI).toFixed(0)}°  ${facing}`,
       `조준 ${tgt}`,
       `바닥 ${player.onGround ? 'O' : 'X'}  물 ${player.inWater ? 'O' : 'X'}  웅크림 ${player.sneaking ? 'O' : 'X'}  달리기 ${player.sprinting ? 'O' : 'X'}  액체 대기 ${fluids.pendingCount}`,
+      `빛 여기 하늘 ${light.skyAt(Math.floor(p.x), Math.floor(p.y + 1), Math.floor(p.z))} 블록 ${light.blockAt(Math.floor(p.x), Math.floor(p.y + 1), Math.floor(p.z))}  조명 처음 ${light.stats.initialMs.toFixed(0)}ms  최근 ${light.stats.lastFlushMs.toFixed(1)}ms/${light.stats.lastFlushCells}칸`,
       `${isTouch ? '터치' : 'PC'}  ${navigator.hardwareConcurrency ?? '?'}코어  ${window.innerWidth}×${window.innerHeight}@${(window.devicePixelRatio || 1).toFixed(1)}`,
       `저장 ${save.available ? (save.lastError ? `오류: ${save.lastError}` : save.lastSavedAt ? `${Math.round((Date.now() - save.lastSavedAt) / 1000)}초 전` : '아직 없음') : '불가'}  대기 ${save.pendingCount}`,
     ].join('\n');
@@ -324,6 +332,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       fluidAcc -= FLUID_DT;
     }
     save.markChunks(fluids.takeChanged());
+    // 이 프레임에 바뀐 블록들의 빛을 한 번에 다시 계산 → 빛이 바뀐 청크도 다시 메싱
+    chunks.markDirtyAll(light.flush());
 
     if (interaction.target) {
       highlight.setTarget(interaction.target.x, interaction.target.y, interaction.target.z);
@@ -383,6 +393,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       hand,
       highlight,
       fluids,
+      light,
       save,
       /** rAF 없이 프레임을 돌린다 (숨겨진 탭에서의 자동 테스트용) */
       tick: (dtSec: number, render = false) => tick(last + dtSec * 1000, render),

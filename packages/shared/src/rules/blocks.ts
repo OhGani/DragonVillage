@@ -19,6 +19,7 @@ const RawBlock = z.object({
   toolTier: z.number().int().min(0).max(4, '0~4 사이여야 해요').optional(),
   drops: z.string().nullable().optional(),
   lightEmit: z.number().int().min(0, '0~15 사이여야 해요').max(15, '0~15 사이여야 해요').optional(),
+  lightFilter: z.number().int().min(0, '0~15 사이여야 해요').max(15, '0~15 사이여야 해요').optional(),
   damage: z.number().min(0, '0 이상이어야 해요').optional(),
   texture: TextureName.optional(),
   textureTop: TextureName.optional(),
@@ -65,6 +66,7 @@ const FIELD_KO: Record<string, string> = {
   toolTier: 'toolTier(도구 등급)',
   drops: 'drops(떨어지는 아이템)',
   lightEmit: 'lightEmit(빛 세기)',
+  lightFilter: 'lightFilter(빛을 얼마나 막는지)',
   damage: 'damage(닿으면 받는 피해)',
   texture: 'texture(그림 파일 이름)',
   textureTop: 'textureTop(윗면 그림)',
@@ -101,6 +103,11 @@ export interface BlockDef {
   /** 부수면 나오는 아이템 id. null = 아무것도 안 나옴 */
   readonly drops: string | null;
   readonly lightEmit: number;
+  /**
+   * 빛을 얼마나 막는지 0~15. 0 = 공기처럼 그대로 통과, 15 = 완전히 막음(불투명 블록).
+   * 물·나뭇잎·얼음은 1(한 칸마다 조금씩 어두워짐). JSON 에 없으면 자동으로 정한다.
+   */
+  readonly lightFilter: number;
   readonly damage: number;
   /** [윗면, 옆면, 아랫면] 텍스처 이름. air 는 null */
   readonly textures: readonly [top: string, side: string, bottom: string] | null;
@@ -192,6 +199,15 @@ export class BlockRegistry {
   }
 }
 
+/** lightFilter 기본값: 불투명 15, 용암 15(빛을 내니 상관없음), 물 1, 그 외(공기·유리·횃불) 0 */
+function defaultLightFilter(isAir: boolean, solid: boolean, transparent: boolean, fluid: FluidKind | null): number {
+  if (isAir) return 0;
+  if (fluid === 'lava') return 15;
+  if (fluid === 'water') return 1;
+  if (solid && !transparent) return 15;
+  return 0;
+}
+
 function describePath(path: PropertyKey[], raw: unknown): string {
   // path 예: ['blocks', 3, 'hardness']
   if (path[0] !== 'blocks' || typeof path[1] !== 'number') return path.map(String).join('.');
@@ -275,6 +291,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       toolTier: b.toolTier ?? 0,
       drops: b.drops === undefined ? b.id : b.drops,
       lightEmit: b.lightEmit ?? 0,
+      lightFilter: b.lightFilter ?? defaultLightFilter(isAir, solid, transparent, b.fluid ?? null),
       damage: b.damage ?? 0,
       textures,
       shape: b.shape ?? null,

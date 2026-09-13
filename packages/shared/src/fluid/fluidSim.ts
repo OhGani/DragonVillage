@@ -53,6 +53,8 @@ export class FluidSim {
   private tickCount = 0;
   private readonly obsidian: number;
   private readonly cobble: number;
+  /** 블록이 실제로 바뀔 때마다 (조명 갱신용) */
+  onBlockSet: ((x: number, y: number, z: number) => void) | null = null;
 
   constructor(
     private readonly world: VoxelWorld,
@@ -130,6 +132,7 @@ export class FluidSim {
         cy = y >> 4,
         cz = z >> 4;
       this.changed.set(chunkKey(cx, cy, cz), { cx, cy, cz });
+      this.onBlockSet?.(x, y, z);
     }
   }
 

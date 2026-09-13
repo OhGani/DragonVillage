@@ -65,7 +65,7 @@ docs/
 
 ## 작업 방식
 
-- 마일스톤 단위로 진행. 현재: **M1 (월드의 뼈대)** — 1단계 저장 완료(2026-09-13), 다음은 조명 → 마을 터 생성기. `docs/ROADMAP.md` M1 분해 참고. M0 는 아들 폰 피드백으로 실질 통과(정식 5분 관찰과 fps 수치는 `PLAYTEST-LOG.md` 에 채우는 중).
+- 마일스톤 단위로 진행. 현재: **M1 (월드의 뼈대)** — 1단계 저장·2단계 조명 완료(2026-09-13), 다음은 3단계 마을 터 생성기. `docs/ROADMAP.md` M1 분해 참고. M0 는 아들 폰 피드백으로 실질 통과(정식 5분 관찰과 fps 수치는 `PLAYTEST-LOG.md` 에 채우는 중).
 - 각 마일스톤은 "아들이 손에 쥐고 해볼 수 있는 빌드"로 끝난다. 완료 기준을 만족하기 전에 다음으로 가지 않는다.
 - 2주마다 플레이테스트. 아들의 피드백은 `docs/PLAYTEST-LOG.md`에 날짜별로 기록(파일 없으면 생성).
 - 성능 목표: PC 60fps, 중급 폰(아이폰 12 / 갤럭시 A5x급) 30fps 이상. 청크 재메싱 프레임당 상한 2.
@@ -86,6 +86,7 @@ docs/
 - 아들 6차 디테일(2026-09-13) 반영: **놓은 방향으로만 흐르는 물·용암(구현, 결정 #52)**, 철 골렘 규칙·피글린/요새·해피 가스트·주민 거래·인벤토리 화면 스펙(`CONTENT.md` 6차, `mobs.json`·`village.json`·`recipes.json station: inventory`). 버전 배치 결정 #53.
 - 아들 7차 디테일(2026-09-13) 반영: **폰 스틱 왼쪽 아래 고정 + 좌우 회전 감도 ↑(구현, 결정 #54)**, 농사·동물·주민 규칙(`recipes.json` 설탕·황금 사과/당근, `mobs.json` breedWith/followsWhenHolding/horse, `village.json npcs.villager`, `blocks.json leaves.shearDrops`). `CONTENT.md` 7차, 결정 #55.
 - **M1-1 저장 완료(2026-09-13)**: `shared/chunk/serialize`(문자열 팔레트+RLE), `client/save`(IndexedDB `dragoncraft`, 바뀐 청크만·위치 저장, 탭 닫힘 시 즉시). 지형 버전 `TEST_WORLD_GEN_VERSION` 이 바뀌면 저장 폐기. '처음 세계로 되돌리기'는 게임 방법 창. 결정 #56.
+- **M1-2 조명 완료(2026-09-13)**: `shared/light/lightEngine`(스카이·블록 0~15 flood fill, 세계 전체 평면 배열, 증분 갱신 = 전체 재계산 테스트), 워커가 18³ 빛 조각에서 꼭짓점 빛을 뽑아 `meta.w` 로, 셰이더 밝기 곡선 + 따뜻한 블록라이트. `blocks.json` 에 `lightFilter` 추가(나뭇잎·얼음 1). 핫바 8번 발광석. 결정 #57.
 - 아빠 결정 대기 → `docs/DESIGN.md` 10절 (이모지 13→12, 방어전 패배 시 주민 처리).
 - 드래곤 고유 스킬 16종 전부 접수·반영(`docs/DRAGON-SKILLS.md`, `dragons.json` skills). v1은 기본 공격 + 빔 + signature 스킬 1개만.
 - 아들 그림 3장(나무·대지·철) 접수 → `models/`에 복셀 모델 3종 생성. 나머지 13종은 같은 생성기에 파라미터만 추가.

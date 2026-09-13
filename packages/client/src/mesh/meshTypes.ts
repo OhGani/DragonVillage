@@ -24,7 +24,7 @@ export interface MeshBlockInfo {
 export interface MeshBuffers {
   positions: Float32Array; // xyz
   uvs: Float32Array; // uv (블록 단위, 반복)
-  /** [텍스처 레이어, AO 0..3, 면 0..5, 0] */
+  /** [텍스처 레이어, AO 0..3, 면 0..5, 빛 (스카이 << 4 | 블록)] */
   meta: Uint8Array;
   indices: Uint32Array;
   vertexCount: number;
@@ -39,7 +39,7 @@ export interface MeshResult {
 /** 워커 메시지 */
 export type MesherRequest =
   | { type: 'init'; blockInfo: MeshBlockInfo[] }
-  | { type: 'mesh'; jobId: number; cx: number; cy: number; cz: number; padded: Uint16Array };
+  | { type: 'mesh'; jobId: number; cx: number; cy: number; cz: number; padded: Uint16Array; light: Uint8Array };
 
 export type MesherResponse = {
   type: 'mesh';

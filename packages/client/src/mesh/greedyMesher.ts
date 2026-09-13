@@ -1,12 +1,15 @@
 /**
- * Greedy meshing + 정점 AO. 순수 함수 — 워커와 테스트가 같이 쓴다.
+ * Greedy meshing + 정점 AO + 정점 빛(부드러운 조명). 순수 함수 — 워커와 테스트가 같이 쓴다.
  *
- * 입력: 18×18×18 패딩 블록 번호 배열(paddedIndex 순서), 블록 정보 표.
- * 출력: 불투명(컷아웃 포함)·반투명 두 버퍼.
+ * 입력: 18×18×18 패딩 블록 번호 배열(paddedIndex 순서), 블록 정보 표, (선택) 같은 모양의 빛 배열.
+ * 출력: 불투명(컷아웃 포함)·반투명 두 버퍼. meta = [텍스처, AO, 면, 빛(스카이<<4|블록)].
+ *
+ * 꼭짓점 빛 = 그 꼭짓점에 닿는 바깥쪽 4칸(면 앞 칸 + 옆 2칸 + 모서리 칸)의 평균. 불투명 칸은 빼고 센다.
+ * 빛 배열이 없으면(손에 든 블록) 하늘 15·블록 0.
  *
  * 면 번호: 0 +X, 1 -X, 2 +Y, 3 -Y, 4 +Z, 5 -Z
  */
-import { CHUNK_SIZE, paddedIndex } from '@dragon-village/shared';
+import { CHUNK_SIZE, OUTSIDE_LIGHT, paddedIndex } from '@dragon-village/shared';
 import { LAYER_NONE, LAYER_TRANSLUCENT, type MeshBlockInfo, type MeshBuffers, type MeshResult } from './meshTypes';
 
 const N = CHUNK_SIZE;
@@ -73,7 +76,7 @@ class GeomBuilder {
   }
 
   /**
-   * 사각형 하나. corners 는 [x,y,z,u,v,ao] × 4, 이미 바깥에서 볼 때 반시계 순서.
+   * 사각형 하나. corners 는 [x,y,z,u,v,ao,빛] × 4, 이미 바깥에서 볼 때 반시계 순서.
    */
   quad(corners: number[][], layer: number, face: number): void {
     this.ensure();
@@ -91,7 +94,7 @@ class GeomBuilder {
       this.meta[m] = layer;
       this.meta[m + 1] = c[5];
       this.meta[m + 2] = face;
-      this.meta[m + 3] = 0;
+      this.meta[m + 3] = c[6] ?? OUTSIDE_LIGHT;
     }
     // AO 이방성 보정: 대각선이 더 어두운 쪽 꼭짓점을 지나게
     const flip = corners[0][5] + corners[2][5] > corners[1][5] + corners[3][5];
@@ -128,37 +131,81 @@ class GeomBuilder {
   }
 }
 
-export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[]): MeshResult {
+export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], light?: Uint8Array): MeshResult {
   const opaque = new GeomBuilder();
   const trans = new GeomBuilder();
   const maskF = new Int32Array(N * N);
   const maskB = new Int32Array(N * N);
+  /** 면마다 네 꼭짓점 빛(8비트 × 4) — 병합 키의 두 번째 절반 */
+  const maskFL = new Int32Array(N * N);
+  const maskBL = new Int32Array(N * N);
   const p = [0, 0, 0];
   const q = [0, 0, 0];
 
-  const cast = (x: number, y: number, z: number): boolean => {
-    const bi = info[padded[paddedIndex(x, y, z)]];
-    return bi !== undefined && bi.castAO;
-  };
+  /** cornerAt 가 마지막으로 계산한 꼭짓점 빛 (스카이<<4 | 블록) */
+  let cornerLight = OUTSIDE_LIGHT;
 
-  /** 블록 p 의 면(축 d, 방향 s)에서 꼭짓점 (su, sv) 의 AO 0..3 */
-  const aoAt = (d: number, s: number, u: number, su: number, v: number, sv: number): number => {
+  /**
+   * 블록 p 의 면(축 d, 방향 s)에서 꼭짓점 (su, sv) 의 AO 0..3 을 돌려주고, 같은 4칸으로 빛 평균을 cornerLight 에 둔다.
+   * 4칸 = 면 앞 칸(adj), 옆 칸 둘(side1, side2), 모서리 칸(corner).
+   */
+  const cornerAt = (d: number, s: number, u: number, su: number, v: number, sv: number): number => {
     q[0] = p[0];
     q[1] = p[1];
     q[2] = p[2];
     q[d] += s;
+    const adjIdx = paddedIndex(q[0], q[1], q[2]);
     const qu = q[u],
       qv = q[v];
     q[u] = qu + su;
-    const side1 = cast(q[0], q[1], q[2]) ? 1 : 0;
+    const i1 = paddedIndex(q[0], q[1], q[2]);
     q[u] = qu;
     q[v] = qv + sv;
-    const side2 = cast(q[0], q[1], q[2]) ? 1 : 0;
+    const i2 = paddedIndex(q[0], q[1], q[2]);
     q[u] = qu + su;
-    const corner = cast(q[0], q[1], q[2]) ? 1 : 0;
-    if (side1 && side2) return 0;
-    return 3 - (side1 + side2 + corner);
+    const i3 = paddedIndex(q[0], q[1], q[2]);
+    const b1 = info[padded[i1]],
+      b2 = info[padded[i2]],
+      b3 = info[padded[i3]];
+    const c1 = b1 !== undefined && b1.castAO,
+      c2 = b2 !== undefined && b2.castAO,
+      c3 = b3 !== undefined && b3.castAO;
+
+    if (light) {
+      const la = light[adjIdx];
+      let sky = la >> 4,
+        blk = la & 15,
+        n = 1;
+      const o1 = b1 !== undefined && b1.opaque,
+        o2 = b2 !== undefined && b2.opaque;
+      if (!o1) {
+        const l = light[i1];
+        sky += l >> 4;
+        blk += l & 15;
+        n++;
+      }
+      if (!o2) {
+        const l = light[i2];
+        sky += l >> 4;
+        blk += l & 15;
+        n++;
+      }
+      // 옆 두 칸이 다 막혀 있으면 모서리 칸의 빛은 이 꼭짓점에 못 닿는다
+      if (!(o1 && o2) && !(b3 !== undefined && b3.opaque)) {
+        const l = light[i3];
+        sky += l >> 4;
+        blk += l & 15;
+        n++;
+      }
+      cornerLight = (Math.round(sky / n) << 4) | Math.round(blk / n);
+    } else cornerLight = OUTSIDE_LIGHT;
+
+    if (c1 && c2) return 0;
+    return 3 - ((c1 ? 1 : 0) + (c2 ? 1 : 0) + (c3 ? 1 : 0));
   };
+
+  /** 액체 칸은 자기 칸의 빛을 그대로 쓴다 */
+  const lightOfCell = (x: number, y: number, z: number): number => (light ? light[paddedIndex(x, y, z)] : OUTSIDE_LIGHT);
 
   const visible = (a: MeshBlockInfo, aId: number, bId: number): boolean => {
     const b = info[bId];
@@ -174,6 +221,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[]):
    * 꼭짓점 순서는 법선 방향으로 자동 정리.
    */
   const fluidQuad = (builder: GeomBuilder, face: number, x: number, y: number, z: number, h0: number, h1: number, layer: number) => {
+    const lt = lightOfCell(x, y, z);
     let c: number[][];
     switch (face) {
       case 0:
@@ -232,7 +280,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[]):
     if (cross[0] * n[0] + cross[1] * n[1] + cross[2] * n[2] < 0) c = [c[0], c[3], c[2], c[1]];
     const U = FACE_U[face],
       V = FACE_V[face];
-    const corners = c.map((p) => [p[0], p[1], p[2], p[0] * U[0] + p[1] * U[1] + p[2] * U[2], p[0] * V[0] + p[1] * V[1] + p[2] * V[2], 3]);
+    const corners = c.map((p) => [p[0], p[1], p[2], p[0] * U[0] + p[1] * U[1] + p[2] * U[2], p[0] * V[0] + p[1] * V[1] + p[2] * V[2], 3, lt]);
     builder.quad(corners, layer, face);
   };
 
@@ -266,7 +314,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[]):
         }
   };
 
-  const emit = (mask: Int32Array, d: number, u: number, v: number, face: number, plane: number, front: boolean): void => {
+  const emit = (mask: Int32Array, maskL: Int32Array, d: number, u: number, v: number, face: number, plane: number, front: boolean): void => {
     const U = FACE_U[face],
       V = FACE_V[face];
     for (let a = 0; a < N; a++) {
@@ -276,10 +324,15 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[]):
           b++;
           continue;
         }
+        const kl = maskL[a * N + b];
         let w = 1;
-        while (b + w < N && mask[a * N + b + w] === k) w++;
+        while (b + w < N && mask[a * N + b + w] === k && maskL[a * N + b + w] === kl) w++;
         let h = 1;
-        outer: for (; a + h < N; h++) for (let t = 0; t < w; t++) if (mask[(a + h) * N + b + t] !== k) break outer;
+        outer: for (; a + h < N; h++)
+          for (let t = 0; t < w; t++) {
+            const m = (a + h) * N + b + t;
+            if (mask[m] !== k || maskL[m] !== kl) break outer;
+          }
 
         const id = k >>> 8;
         const ao = k & 0xff;
@@ -297,13 +350,18 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[]):
           c[v] = b + sv * w;
           const uu = c[0] * U[0] + c[1] * U[1] + c[2] * U[2];
           const vv = c[0] * V[0] + c[1] * V[1] + c[2] * V[2];
-          corners.push([c[0], c[1], c[2], uu, vv, (ao >> (ci * 2)) & 3]);
+          corners.push([c[0], c[1], c[2], uu, vv, (ao >> (ci * 2)) & 3, (kl >>> (ci * 8)) & 0xff]);
         }
         // cross(e_u, e_v) = +e_d 이므로 앞면(+d)은 c0..c3 그대로, 뒷면은 뒤집는다
         const ordered = front ? corners : [corners[0], corners[3], corners[2], corners[1]];
         (bi.layer === LAYER_TRANSLUCENT ? trans : opaque).quad(ordered, layer, face);
 
-        for (let da = 0; da < h; da++) for (let t = 0; t < w; t++) mask[(a + da) * N + b + t] = 0;
+        for (let da = 0; da < h; da++)
+          for (let t = 0; t < w; t++) {
+            const m = (a + da) * N + b + t;
+            mask[m] = 0;
+            maskL[m] = 0;
+          }
         b += w;
       }
     }
@@ -324,29 +382,50 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[]):
           const id = padded[paddedIndex(p[0], p[1], p[2])];
           const bi = info[id];
           let kf = 0,
-            kb = 0;
+            kb = 0,
+            kfl = 0,
+            kbl = 0;
           if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0) {
             p[d] = i + 1;
             const idF = padded[paddedIndex(p[0], p[1], p[2])];
             p[d] = i;
             if (visible(bi, id, idF)) {
-              const ao = aoAt(d, 1, u, -1, v, -1) | (aoAt(d, 1, u, 1, v, -1) << 2) | (aoAt(d, 1, u, 1, v, 1) << 4) | (aoAt(d, 1, u, -1, v, 1) << 6);
-              kf = (id << 8) | ao;
+              // 꼭짓점 순서 c0 (-,-) c1 (+u,-) c2 (+u,+v) c3 (-,+v) — emit 과 같아야 한다
+              const a0 = cornerAt(d, 1, u, -1, v, -1),
+                l0 = cornerLight;
+              const a1 = cornerAt(d, 1, u, 1, v, -1),
+                l1 = cornerLight;
+              const a2 = cornerAt(d, 1, u, 1, v, 1),
+                l2 = cornerLight;
+              const a3 = cornerAt(d, 1, u, -1, v, 1),
+                l3 = cornerLight;
+              kf = (id << 8) | a0 | (a1 << 2) | (a2 << 4) | (a3 << 6);
+              kfl = l0 | (l1 << 8) | (l2 << 16) | (l3 << 24);
             }
             p[d] = i - 1;
             const idB = padded[paddedIndex(p[0], p[1], p[2])];
             p[d] = i;
             if (visible(bi, id, idB)) {
-              const ao = aoAt(d, -1, u, -1, v, -1) | (aoAt(d, -1, u, 1, v, -1) << 2) | (aoAt(d, -1, u, 1, v, 1) << 4) | (aoAt(d, -1, u, -1, v, 1) << 6);
-              kb = (id << 8) | ao;
+              const a0 = cornerAt(d, -1, u, -1, v, -1),
+                l0 = cornerLight;
+              const a1 = cornerAt(d, -1, u, 1, v, -1),
+                l1 = cornerLight;
+              const a2 = cornerAt(d, -1, u, 1, v, 1),
+                l2 = cornerLight;
+              const a3 = cornerAt(d, -1, u, -1, v, 1),
+                l3 = cornerLight;
+              kb = (id << 8) | a0 | (a1 << 2) | (a2 << 4) | (a3 << 6);
+              kbl = l0 | (l1 << 8) | (l2 << 16) | (l3 << 24);
             }
           }
           maskF[n] = kf;
           maskB[n] = kb;
+          maskFL[n] = kfl;
+          maskBL[n] = kbl;
         }
       }
-      emit(maskF, d, u, v, faceF, i + 1, true);
-      emit(maskB, d, u, v, faceB, i, false);
+      emit(maskF, maskFL, d, u, v, faceF, i + 1, true);
+      emit(maskB, maskBL, d, u, v, faceB, i, false);
     }
   }
   emitFluids();

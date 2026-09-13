@@ -1,5 +1,5 @@
 {
-  "_comment": "블록 목록. 아들이 숫자를 바꿔도 돼. hardness = 부수는 데 걸리는 초(맨손). tool = 필요한 도구 종류(없으면 null). drops = 부수면 나오는 아이템(없으면 자기 자신). lightEmit = 빛 세기 0~15. texture = textures/ 폴더의 파일 이름(확장자 없이). 면마다 다르면 textureTop/textureSide/textureBottom. 광물(에메랄드·청금석·석영·레드스톤·고대 잔해), 흑요석 규칙, 장식·건축 블록은 아들 3차 디테일(2026-09-12) 반영. shape = 특수 형태 블록(계단·문·울타리 등, 모델은 M4에서). fluid = 액체 종류(water 또는 lava): 벽이 없으면 옆으로 퍼지고 아래로 흐른다.",
+  "_comment": "블록 목록. 아들이 숫자를 바꿔도 돼. hardness = 부수는 데 걸리는 초(맨손). tool = 필요한 도구 종류(없으면 null). drops = 부수면 나오는 아이템(없으면 자기 자신). lightEmit = 빛 세기 0~15 (횃불 14, 발광석·용암 15). lightFilter = 빛을 얼마나 막는지 0~15 (안 적으면 자동: 불투명 블록 15, 물 1, 유리·공기 0. 나뭇잎·얼음은 1로 적어 둠). texture = textures/ 폴더의 파일 이름(확장자 없이). 면마다 다르면 textureTop/textureSide/textureBottom. 광물(에메랄드·청금석·석영·레드스톤·고대 잔해), 흑요석 규칙, 장식·건축 블록은 아들 3차 디테일(2026-09-12) 반영. shape = 특수 형태 블록(계단·문·울타리 등, 모델은 M4에서). fluid = 액체 종류(water 또는 lava): 벽이 없으면 옆으로 퍼지고 아래로 흐른다.",
   "blocks": [
     {
       "id": "air",
@@ -92,6 +92,7 @@
       "tool": null,
       "transparent": true,
       "lightEmit": 0,
+      "lightFilter": 1,
       "texture": "leaves",
       "shearDrops": ["stick", "sapling", "apple"],
       "_note": "아들 7차: 가위로 자르면 막대기나 그 나무 묘목이 나오고, 참나무에서는 사과도. 맨손으로 부수면 사라짐 (M4 아이템 드롭)"
@@ -204,6 +205,7 @@
       "transparent": true,
       "drops": null,
       "lightEmit": 0,
+      "lightFilter": 1,
       "texture": "ice",
       "_note": "아들 7차: 물은 눈 바이옴(설원)에서 얼음으로 언다. 설원 원정지 생성기(M3)에서 물 표면을 얼음으로"
     },

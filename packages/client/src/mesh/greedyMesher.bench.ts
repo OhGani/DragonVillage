@@ -51,15 +51,27 @@ const surface = padded((x, y, z) => {
 const checker = padded((x, y, z) => ((x + y + z) & 1 ? STONE : 0));
 // 꽉 찬 청크 (내부 면 없음, 겉면 6개)
 const full = padded(() => STONE);
+// 빛: 위는 하늘 15, 아래로 갈수록 어둡고 한쪽 구석에 광원 — 병합이 실제처럼 갈라지도록
+const light = new Uint8Array(PADDED_VOLUME);
+for (let y = -1; y <= 16; y++)
+  for (let z = -1; z <= 16; z++)
+    for (let x = -1; x <= 16; x++) {
+      const sky = Math.max(0, Math.min(15, y + 4));
+      const blk = Math.max(0, 14 - Math.abs(x - 3) - Math.abs(y - 8) - Math.abs(z - 3));
+      light[paddedIndex(x, y, z)] = (sky << 4) | blk;
+    }
 
 describe('greedyMesh', () => {
   bench('지표면 청크', () => {
+    greedyMesh(surface, info, light);
+  });
+  bench('지표면 청크 (빛 없이)', () => {
     greedyMesh(surface, info);
   });
   bench('체커보드 (최악)', () => {
-    greedyMesh(checker, info);
+    greedyMesh(checker, info, light);
   });
   bench('꽉 찬 청크', () => {
-    greedyMesh(full, info);
+    greedyMesh(full, info, light);
   });
 });

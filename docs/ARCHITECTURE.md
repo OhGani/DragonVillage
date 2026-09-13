@@ -11,7 +11,7 @@ packages/shared/    순수 TypeScript. DOM·Node API 의존 없음. 클라·서�
   rules/            data/*.json 로더 + 스키마 검증(zod), 원정 출발 조건, 시간 정산, 경험치 레벨 공식(xp.ts) 순수 함수
 packages/client/    Vite + Three.js
   render/           ChunkMesh, DataArrayTexture 로더, 프러스텀 컬링, 청크 관리자
-  workers/          mesher.worker.ts (greedy meshing + 조명 flood fill)
+  workers/          mesher.worker.ts (greedy meshing + 정점 AO·빛)
   input/            touch.ts, keyboard.ts, gamepad.ts → 공통 InputState
   net/              WebSocket 클라이언트, 낙관적 적용·롤백, 보간
   ui/               로비, HUD, 가방, 도감, 정산, 가족(아이 화면)
@@ -57,10 +57,14 @@ textures/           16×16 PNG (아들 편집 영역) → 빌드 시 DataArrayTe
 - 텍스처: `DataArrayTexture`(WebGL2), `NearestFilter`, 16×16 레이어. 아틀라스 밉맵 블리딩 회피.
 - 정점 속성: position, uv, layer index, light(스카이·블록 니블), AO.
 
-## 조명
+## 조명 (구현 2026-09-13, 결정 #57)
 
-- 스카이라이트·블록라이트 0–15, flood fill, 워커에서 계산. 청크당 2KB.
-- 정점별 AO(인접 3블록 규칙). 체감 대비 구현비가 가장 싼 부분.
+- 스카이라이트·블록라이트 0–15, flood fill (`shared/light/lightEngine.ts`). **세계 전체 평면 배열, 블록당 1바이트**(위 4비트 스카이, 아래 4비트 블록 — 테스트 월드 1MB, 마을 8×8×8 청크 2MB). 메인 스레드가 계산한다(워커는 세계 전체를 모른다). 메싱 워커에는 청크 + 이웃 1칸의 18³ 빛 조각만 블록 조각과 함께 넘긴다.
+- 규칙: 스카이 15 는 공기(`lightFilter` 0)를 **아래로** 지날 때만 그대로, 그 외엔 한 칸마다 max(1, lightFilter) 씩. 블록라이트는 `lightEmit` 에서 시작해 같은 식으로. 불투명 15, 물·나뭇잎·얼음 1, 유리 0.
+- 블록 변경: 더 막게 됐거나 빛이 줄었으면 걷어내기 BFS(그 빛에 의지하던 이웃을 따라가며 0) → 가장자리·이웃·새 발광에서 다시 채우기(레벨 버킷, 높은 것부터). 한 프레임의 변경을 모아 `flush` 한 번. 결과가 전체 재계산과 같음을 테스트로 강제(결정론).
+- 꼭짓점 빛 = 면 바깥 4칸(앞·옆 둘·모서리) 평균, 불투명 칸 제외 → `meta.w` (스카이<<4 | 블록). 병합 키에 포함되므로 빛이 다른 면은 greedy 로 합치지 않는다.
+- 셰이더: 밝기 = 0.05 + 0.95·max(스카이·`uSkyLight`, 블록)^1.5, 블록라이트가 우세하면 따뜻한 색. 면 음영·AO 와 곱한다. 안개 색도 그 자리 밝기만큼(동굴 안에서 멀리가 하늘색으로 뜨지 않게).
+- 정점별 AO(인접 3블록 규칙)는 M0 부터. 체감 대비 구현비가 가장 싼 부분.
 
 ## 물리 (shared/physics)
 

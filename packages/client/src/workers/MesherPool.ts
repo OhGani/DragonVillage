@@ -38,15 +38,16 @@ export class MesherPool {
     return this.pending.size;
   }
 
-  mesh(cx: number, cy: number, cz: number, padded: Uint16Array): Promise<MesherResponse> {
+  /** padded(18³ 블록 번호)와 light(18³ 빛) 는 워커로 transfer 되어 이후 쓸 수 없다 */
+  mesh(cx: number, cy: number, cz: number, padded: Uint16Array, light: Uint8Array): Promise<MesherResponse> {
     let wi = 0;
     for (let i = 1; i < this.busy.length; i++) if (this.busy[i] < this.busy[wi]) wi = i;
     const jobId = this.nextJob++;
     this.busy[wi]++;
     return new Promise<MesherResponse>((resolve, reject) => {
       this.pending.set(jobId, { resolve, reject, worker: wi });
-      const req: MesherRequest = { type: 'mesh', jobId, cx, cy, cz, padded };
-      this.workers[wi].postMessage(req, [padded.buffer as ArrayBuffer]);
+      const req: MesherRequest = { type: 'mesh', jobId, cx, cy, cz, padded, light };
+      this.workers[wi].postMessage(req, [padded.buffer as ArrayBuffer, light.buffer as ArrayBuffer]);
     });
   }
 

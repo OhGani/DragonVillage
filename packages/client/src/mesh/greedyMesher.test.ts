@@ -201,3 +201,82 @@ describe('greedyMesh', () => {
     expect(quadCount(r.opaque)).toBe(11);
   });
 });
+
+describe('greedyMesh 정점 빛', () => {
+  function lightArr(fill: (x: number, y: number, z: number) => number): Uint8Array {
+    const arr = new Uint8Array(PADDED_VOLUME);
+    for (let y = -1; y <= 16; y++) for (let z = -1; z <= 16; z++) for (let x = -1; x <= 16; x++) arr[paddedIndex(x, y, z)] = fill(x, y, z);
+    return arr;
+  }
+  const single = padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? STONE : 0));
+
+  it('빛 배열이 없으면 하늘 15·블록 0 (손에 든 블록)', () => {
+    const r = greedyMesh(single, info);
+    for (let i = 0; i < r.opaque!.vertexCount; i++) expect(r.opaque!.meta[i * 4 + 3]).toBe(0xf0);
+  });
+
+  it('면의 바깥쪽 4칸 평균이 꼭짓점 빛이 된다', () => {
+    // x=4 평면(돌의 -X 쪽)만 하늘 3·블록 9, 나머지는 15·0
+    const r = greedyMesh(
+      single,
+      info,
+      lightArr((x) => (x === 4 ? (3 << 4) | 9 : 0xf0)),
+    );
+    const b = r.opaque!;
+    for (let i = 0; i < b.vertexCount; i++) {
+      const face = b.meta[i * 4 + 2],
+        lt = b.meta[i * 4 + 3];
+      if (face === 1) expect(lt).toBe((3 << 4) | 9); // -X 면의 4칸이 모두 x=4 평면
+      if (face === 0) expect(lt).toBe(0xf0); // +X 면은 x=6 평면
+    }
+  });
+
+  it('불투명 칸은 평균에서 빠진다 (바닥 위 블록의 옆면 아래 꼭짓점)', () => {
+    // 바닥(y=0) 위 블록(8,1,8). 블록 옆 공기(y=1)는 하늘 10, 바닥 위 공기(y=1) 전부 10, 그 위(y>=2)는 15
+    const world = padded((x, y, z) => (y === 0 ? STONE : x === 8 && y === 1 && z === 8 ? STONE : 0));
+    const r = greedyMesh(
+      world,
+      info,
+      lightArr((_x, y) => (y <= 1 ? 10 << 4 : 0xf0)),
+    );
+    const b = r.opaque!;
+    // 블록(8,1,8)의 +X 면: 아래 꼭짓점은 (9,1,*)=10 과 옆 (9,0,*)=바닥(불투명, 제외) → 10. 위 꼭짓점은 (9,1)=10 과 (9,2)=15 → 평균 12~13
+    let low = -1,
+      high = -1;
+    for (let i = 0; i < b.vertexCount; i++) {
+      if (b.meta[i * 4 + 2] !== 0) continue;
+      const px = b.positions[i * 3],
+        py = b.positions[i * 3 + 1];
+      if (px !== 9) continue; // 블록의 +X 면 (x=9 평면)
+      const sky = b.meta[i * 4 + 3] >> 4;
+      if (py === 1) low = sky;
+      if (py === 2) high = sky;
+    }
+    expect(low).toBe(10);
+    expect(high).toBeGreaterThan(10);
+    expect(high).toBeLessThan(15);
+  });
+
+  it('빛이 다른 면은 greedy 로 합쳐지지 않는다', () => {
+    const two = padded((x, y, z) => (y === 5 && z === 5 && (x === 5 || x === 6) ? STONE : 0));
+    const same = greedyMesh(two, info, lightArr(() => 0xf0));
+    expect(quadCount(same.opaque)).toBe(6);
+    // 왼쪽 블록 바로 위 칸만 어둡게 → 윗면이 둘로 갈라진다 (다른 면은 그 칸을 안 본다)
+    const split = greedyMesh(
+      two,
+      info,
+      lightArr((x, y, z) => (x === 5 && y === 6 && z === 5 ? 8 << 4 : 0xf0)),
+    );
+    expect(quadCount(split.opaque)).toBe(7);
+  });
+
+  it('액체 면은 자기 칸의 빛을 쓴다', () => {
+    const r = greedyMesh(
+      padded((x, y, z) => (x === 8 && y === 8 && z === 8 ? WATER : 0)),
+      info,
+      lightArr((x, y, z) => (x === 8 && y === 8 && z === 8 ? (14 << 4) | 2 : 0xf0)),
+    );
+    const b = r.translucent!;
+    for (let i = 0; i < b.vertexCount; i++) expect(b.meta[i * 4 + 3]).toBe((14 << 4) | 2);
+  });
+});

@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, type ChunkCoord, type VoxelWorld, chunkKey } from '@dragon-village/shared';
+import { CHUNK_SIZE, type ChunkCoord, type PaddedLightSource, type VoxelWorld, chunkKey } from '@dragon-village/shared';
 import * as THREE from 'three';
 import type { MesherResponse } from '../mesh/meshTypes';
 import type { MesherPool } from '../workers/MesherPool';
@@ -40,6 +40,7 @@ export class ChunkRenderer {
 
   constructor(
     private readonly world: VoxelWorld,
+    private readonly lights: PaddedLightSource,
     private readonly materials: ChunkMaterials,
     private readonly pool: MesherPool,
     scene: THREE.Scene,
@@ -129,10 +130,11 @@ export class ChunkRenderer {
     }
     e.inflight = true;
     const version = chunk.version;
-    // 워커로 transfer 되므로 매번 새 버퍼가 필요하다 (scratch 는 재사용 불가) — 작아서(11.6KB) 괜찮다
+    // 워커로 transfer 되므로 매번 새 버퍼가 필요하다 (scratch 는 재사용 불가) — 작아서(11.6KB + 5.8KB) 괜찮다
     const padded = this.world.buildPadded(c.cx, c.cy, c.cz, this.paddedScratch ?? undefined);
     this.paddedScratch = null;
-    void this.pool.mesh(c.cx, c.cy, c.cz, padded).then(
+    const light = this.lights.buildPaddedLight(c.cx, c.cy, c.cz);
+    void this.pool.mesh(c.cx, c.cy, c.cz, padded, light).then(
       (res) => {
         e.inflight = false;
         this.apply(e, res);

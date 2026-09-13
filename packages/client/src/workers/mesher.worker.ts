@@ -11,7 +11,7 @@ self.onmessage = (e: MessageEvent<MesherRequest>) => {
     return;
   }
   const t0 = performance.now();
-  const result = greedyMesh(msg.padded, blockInfo);
+  const result = greedyMesh(msg.padded, blockInfo, msg.light);
   const ms = performance.now() - t0;
   const res: MesherResponse = { type: 'mesh', jobId: msg.jobId, cx: msg.cx, cy: msg.cy, cz: msg.cz, result, ms };
   (self as unknown as Worker).postMessage(res, transferables(result));
