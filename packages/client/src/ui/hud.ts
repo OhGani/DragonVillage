@@ -28,6 +28,8 @@ export class Hud {
   private readonly helpEl: HTMLElement;
   /** 게임 방법 창이 열리고 닫힐 때 (열리면 입력을 멈추기 위해) */
   onHelpToggle: ((open: boolean) => void) | null = null;
+  /** '처음 세계로 되돌리기' 버튼 */
+  onResetWorld: (() => void) | null = null;
   private slots: HotbarSlot[] = [];
   private selected = 0;
   private nameTimer: number | null = null;
@@ -74,6 +76,7 @@ export class Hud {
           </div>
           <div class="help-body"></div>
           <button class="overlay-btn help-ok">알겠어요</button>
+          <button class="help-reset">처음 세계로 되돌리기 (만든 것이 지워져요)</button>
         </div>
       </div>`;
     root.appendChild(el);
@@ -110,6 +113,10 @@ export class Hud {
     q<HTMLButtonElement>('.overlay-help').addEventListener('click', openHelp);
     q<HTMLButtonElement>('.help-close').addEventListener('click', closeHelp);
     q<HTMLButtonElement>('.help-ok').addEventListener('click', closeHelp);
+    q<HTMLButtonElement>('.help-reset').addEventListener('click', (e) => {
+      e.preventDefault();
+      this.onResetWorld?.();
+    });
     this.touchUI = {
       surface: el,
       stickBase: q('.stick-base'),
@@ -273,7 +280,8 @@ function helpHtml(isTouch: boolean): string {
     '물에 들어가면 천천히 가라앉고, 점프를 누르면 위로 헤엄쳐요.',
     '내가 놓은 물·용암은 내가 보는 방향으로만 흘러요(아래로는 떨어져요). 원래 있던 연못은 벽이 없으면 사방으로 퍼져요. 물이나 용암을 들고 원천을 꾹 누르면(PC: 왼쪽 클릭) 떠낼 수 있어요. 물이 용암을 만나면 돌이 돼요.',
     '광장 남쪽에 뼈대만 있는 집이 있어요. 문·창문·지붕을 채워 봐요. 동쪽 언덕엔 계단·전망대·동굴 입구가 있어요.',
-    '세계 끝은 보이지 않는 벽. 떨어지면 광장으로 돌아와요. 아직 저장은 안 돼요 — 새로고침하면 처음으로.',
+    '세계 끝은 보이지 않는 벽. 떨어지면 광장으로 돌아와요.',
+    '만든 것은 이 폰(또는 PC) 브라우저에 자동으로 저장돼요. 다른 기기에서는 안 보여요 — 친구와 같은 마을은 나중에(멀티) 생겨요.',
   ];
   return (
     `<table class="help-table">${rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('')}</table>` +

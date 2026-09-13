@@ -16,7 +16,8 @@ import { loadTextureAtlas } from '../render/textures';
 import { Hud, type HotbarSlot } from '../ui/hud';
 import { renderBlockIcon } from '../ui/icons';
 import { MesherPool } from '../workers/MesherPool';
-import { buildTestWorld } from '../world/testWorld';
+import { SaveManager } from '../save/SaveManager';
+import { TEST_WORLD_GEN_VERSION, TEST_WORLD_ID, buildTestWorld } from '../world/testWorld';
 import { AutoQuality } from './AutoQuality';
 import { Interaction } from './Interaction';
 
@@ -43,6 +44,19 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const atlas = await loadTextureAtlas();
   const blockInfo = buildMeshBlockInfo(registry, atlas.index);
   const { world, spawn } = buildTestWorld(registry);
+
+  // ---- 저장 불러오기 (M1): 만든 세계 위에 저장된 청크를 덮어쓴다 ----
+  const save = await SaveManager.create(world, registry, TEST_WORLD_ID, TEST_WORLD_GEN_VERSION);
+  const loadResult = await save.load();
+  if (loadResult.player) {
+    const p = loadResult.player;
+    if (world.inBounds(Math.floor(p.x), Math.floor(Math.max(0, Math.min(world.sizeY - 2, p.y))), Math.floor(p.z))) {
+      spawn.x = p.x;
+      spawn.y = p.y;
+      spawn.z = p.z;
+      spawn.yaw = p.yaw;
+    }
+  }
 
   // ---- 렌더러 ----
   const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance', stencil: false });
@@ -96,13 +110,22 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
 
   // ---- 플레이어 ----
   const player = new Player(world, registry, spawn, spawn.yaw);
+  if (loadResult.player) player.pitch = loadResult.player.pitch;
+  save.bindPlayer(() => ({ x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw, pitch: player.pitch }));
+  save.attachLifecycle();
   const fluids = new FluidSim(world, registry);
   let fluidAcc = 0;
   const interaction = new Interaction(world, registry, player, {
     onBlocksChanged: (dirty) => chunks.markDirtyAll(dirty),
     onSwing: () => hand.swing(),
-    onPlaced: (x, y, z) => fluids.touch(x, y, z),
-    onBroken: (x, y, z) => fluids.touch(x, y, z),
+    onPlaced: (x, y, z) => {
+      fluids.touch(x, y, z);
+      save.markBlock(x, y, z);
+    },
+    onBroken: (x, y, z) => {
+      fluids.touch(x, y, z);
+      save.markBlock(x, y, z);
+    },
   });
 
   const quality = new AutoQuality(renderer, isTouch);
@@ -193,6 +216,15 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     if (!started) return;
     resume();
   };
+  // 처음 세계로 되돌리기 (게임 방법 창 맨 아래)
+  hud.onResetWorld = () => {
+    if (!save.available) {
+      hud.toast('이 브라우저는 저장이 안 돼서 되돌릴 것도 없어요.', 4000);
+      return;
+    }
+    if (!window.confirm('정말 처음 세계로 되돌릴까요?\n지금까지 만든 것이 모두 지워져요.')) return;
+    void save.clear().then(() => window.location.reload());
+  };
   // 게임 방법 창: 열리면 입력을 멈추고, 닫히면 (게임 중이었다면) 다시 시작
   hud.onHelpToggle = (open) => {
     if (open) {
@@ -237,6 +269,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       `조준 ${tgt}`,
       `바닥 ${player.onGround ? 'O' : 'X'}  물 ${player.inWater ? 'O' : 'X'}  웅크림 ${player.sneaking ? 'O' : 'X'}  달리기 ${player.sprinting ? 'O' : 'X'}  액체 대기 ${fluids.pendingCount}`,
       `${isTouch ? '터치' : 'PC'}  ${navigator.hardwareConcurrency ?? '?'}코어  ${window.innerWidth}×${window.innerHeight}@${(window.devicePixelRatio || 1).toFixed(1)}`,
+      `저장 ${save.available ? (save.lastError ? `오류: ${save.lastError}` : save.lastSavedAt ? `${Math.round((Date.now() - save.lastSavedAt) / 1000)}초 전` : '아직 없음') : '불가'}  대기 ${save.pendingCount}`,
     ].join('\n');
   };
 
@@ -269,6 +302,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       chunks.markDirtyAll(fluids.tick());
       fluidAcc -= FLUID_DT;
     }
+    save.markChunks(fluids.takeChanged());
 
     if (interaction.target) {
       highlight.setTarget(interaction.target.x, interaction.target.y, interaction.target.z);
@@ -328,6 +362,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       hand,
       highlight,
       fluids,
+      save,
       /** rAF 없이 프레임을 돌린다 (숨겨진 탭에서의 자동 테스트용) */
       tick: (dtSec: number, render = false) => tick(last + dtSec * 1000, render),
     };
@@ -343,6 +378,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     start() {
       if (started) return;
       started = true;
+      if (loadResult.loaded) hud.toast(`저장된 세계를 불러왔어요 (청크 ${loadResult.chunks}개)`, 3500);
+      else if (loadResult.discardedOldWorld) hud.toast('세계가 새로 바뀌어서 예전 저장은 지웠어요. 새로 시작!', 5000);
+      else if (!save.available) hud.toast('이 브라우저에서는 만든 것이 저장되지 않아요.', 5000);
+      if (loadResult.unknownIds.length) hud.toast(`모르는 블록 ${loadResult.unknownIds.join(', ')} 은(는) 공기로 바꿨어요`, 6000);
       if (isTouch) {
         if (fullscreenAvailable) void enterFullscreen();
         else if (!standalone) hud.toast(IOS_HINT, 7000);
@@ -352,6 +391,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     },
     dispose() {
       running = false;
+      void save.flush(true).finally(() => save.dispose());
       input.dispose();
       chunks.dispose();
       pool.dispose();

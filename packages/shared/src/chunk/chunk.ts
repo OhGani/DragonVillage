@@ -68,6 +68,38 @@ export class Chunk {
       for (let z = 0; z < CHUNK_SIZE; z++) for (let x = 0; x < CHUNK_SIZE; x++) this.set(x, y, z, id);
   }
 
+  /** 전역 블록 번호 배열(4096, localIndex 순서)로 채운다 */
+  toBlockIds(out: Uint16Array = new Uint16Array(CHUNK_VOLUME)): Uint16Array {
+    for (let i = 0; i < CHUNK_VOLUME; i++) out[i] = this.palette[this.data[i]];
+    return out;
+  }
+
+  /** 전역 블록 번호 배열(4096)로 통째로 바꾼다 (저장 복원용). 팔레트를 다시 만든다 */
+  loadBlockIds(ids: ArrayLike<number>): void {
+    if (ids.length !== CHUNK_VOLUME) throw new RangeError(`청크 데이터 길이가 ${ids.length} — 4096 이어야 해요`);
+    this.palette.length = 1;
+    this.palette[0] = AIR_ID;
+    this.lookup.clear();
+    this.lookup.set(AIR_ID, 0);
+    this.nonAir = 0;
+    for (let i = 0; i < CHUNK_VOLUME; i++) {
+      const id = ids[i];
+      if (id === AIR_ID) {
+        this.data[i] = 0;
+        continue;
+      }
+      let pi = this.lookup.get(id);
+      if (pi === undefined) {
+        pi = this.palette.length;
+        this.palette.push(id);
+        this.lookup.set(id, pi);
+      }
+      this.data[i] = pi;
+      this.nonAir++;
+    }
+    this.version++;
+  }
+
   /** 쓰이지 않는 팔레트 항목 제거 (직렬화 전에 호출). air 는 항상 0번 유지 */
   compactPalette(): void {
     const used = new Uint8Array(this.palette.length);

@@ -6,6 +6,9 @@ import { type BlockRegistry, VoxelWorld, type WorldBounds, hash3 } from '@dragon
 
 export const TEST_WORLD_BOUNDS: WorldBounds = { sizeCX: 8, sizeCY: 4, sizeCZ: 8 };
 const SEED = 20260912;
+/** 저장 키. 지형이 바뀌면(M1 마을 터 생성기) 이 값을 올려 옛 저장을 버린다 */
+export const TEST_WORLD_ID = 'test-world';
+export const TEST_WORLD_GEN_VERSION = 1;
 
 export interface SpawnInfo {
   x: number;

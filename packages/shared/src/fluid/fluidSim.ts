@@ -48,6 +48,8 @@ function posKey(x: number, y: number, z: number): number {
 export class FluidSim {
   private readonly pending = new Map<number, number>();
   private readonly dirty = new Map<number, ChunkCoord>();
+  /** 블록이 실제로 바뀐 청크 (저장용 — dirty 는 이웃 재메싱까지 포함해 더 넓다) */
+  private readonly changed = new Map<number, ChunkCoord>();
   private tickCount = 0;
   private readonly obsidian: number;
   private readonly cobble: number;
@@ -123,6 +125,19 @@ export class FluidSim {
   private set(x: number, y: number, z: number, id: number): void {
     const res = this.world.setBlock(x, y, z, id);
     for (const c of res.dirty) this.dirty.set(chunkKey(c.cx, c.cy, c.cz), c);
+    if (res.changed) {
+      const cx = x >> 4,
+        cy = y >> 4,
+        cz = z >> 4;
+      this.changed.set(chunkKey(cx, cy, cz), { cx, cy, cz });
+    }
+  }
+
+  /** 마지막 호출 뒤 블록이 바뀐 청크 좌표를 꺼내고 비운다 (저장 표시용) */
+  takeChanged(): ChunkCoord[] {
+    const out = [...this.changed.values()];
+    this.changed.clear();
+    return out;
   }
 
   private sameKind(id: number, kind: FluidKind): BlockDef | null {

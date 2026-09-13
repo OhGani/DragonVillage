@@ -475,6 +475,20 @@ body {
   display: block;
   margin: 16px auto 0;
 }
+.help-reset {
+  display: block;
+  margin: 18px auto 0;
+  padding: 8px 12px;
+  min-height: 40px;
+  font-family: inherit;
+  font-size: 13px;
+  color: rgba(255, 200, 200, 0.85);
+  background: transparent;
+  border: 1px solid rgba(255, 140, 140, 0.4);
+  border-radius: 6px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
 
 .error-box {
   color: #fff;
