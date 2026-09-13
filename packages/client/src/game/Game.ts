@@ -335,7 +335,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
 
   hud.showOverlay(
     '드래곤 크래프트',
-    isTouch ? '왼쪽 반: 움직이기  ·  오른쪽: 둘러보기\n짧게 탭: 놓기  ·  꾹: 부수기' : 'WASD 이동  ·  마우스 둘러보기\n좌클릭 꾹: 부수기  ·  우클릭: 놓기',
+    isTouch ? '왼쪽 아래 스틱: 움직이기  ·  드래그: 둘러보기\n짧게 탭: 놓기  ·  꾹: 부수기' : 'WASD 이동  ·  마우스 둘러보기\n좌클릭 꾹: 부수기  ·  우클릭: 놓기',
     isTouch ? '탭해서 시작' : '클릭해서 시작',
   );
 

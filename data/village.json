@@ -87,6 +87,21 @@
   ],
   "npcs": [
     {
+      "id": "villager",
+      "name": "주민",
+      "release": "v1.1",
+      "breedWith": "bread",
+      "panic": {
+        "onSeeHostile": true,
+        "summonsIronGolem": true
+      },
+      "zombieBite": {
+        "becomes": "zombie_villager",
+        "cureWith": "golden_apple"
+      },
+      "_note": "아들 7차(2026-09-13): 주민이 몹을 보고 놀라면 철 골렘을 소환해 공격하게 한다. 좀비에게 물리면 좀비 주민이 되고 황금 사과로 되돌린다. 빵을 주면 아기 주민을 낳는다"
+    },
+    {
       "id": "blacksmith",
       "name": "대장장이",
       "building": "forge",

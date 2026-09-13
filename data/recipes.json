@@ -54,13 +54,40 @@
     {
       "id": "sugar",
       "name": "설탕",
-      "station": "crafting_table",
+      "station": "inventory",
       "in": {
         "sugar_cane": 1
       },
       "out": {
-        "sugar": 1
-      }
+        "sugar": 2
+      },
+      "_note": "아들 7차: 사탕수수 1개당 설탕 2개. 사탕수수는 물가에서 자란다"
+    },
+    {
+      "id": "golden_apple",
+      "name": "황금 사과",
+      "station": "crafting_table",
+      "in": {
+        "apple": 1,
+        "gold_ingot": 8
+      },
+      "out": {
+        "golden_apple": 1
+      },
+      "_note": "아들 7차: 사과 주위로 금 8개를 두른다. 좀비 주민을 되돌린다"
+    },
+    {
+      "id": "golden_carrot",
+      "name": "황금 당근",
+      "station": "crafting_table",
+      "in": {
+        "carrot": 1,
+        "gold_ingot": 8
+      },
+      "out": {
+        "golden_carrot": 1
+      },
+      "_note": "아들 7차: 당근 주위로 금 8개"
     },
     {
       "id": "clock",

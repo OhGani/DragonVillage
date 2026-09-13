@@ -84,6 +84,7 @@ docs/
 - 보스·마을 방어전 설계 반영(`docs/BOSSES.md`, `data/bosses.json`). v1은 거미 왕·우민 방어전·엔더 드래곤만. `release` 필드가 v1이 아닌 것은 만들지 않는다.
 - 아들 5차 답변(2026-09-13) 반영: 게임·마을 이름, 보스 드롭 전부(`bosses.json`), 네 왕은 한 번에·고대성 방 4개, 방어전 예고는 종·패배 시 철 골렘 잡혀감·주민 피해, 엔딩은 다른 차원 포탈, 드래곤 사망은 둥지 회복 확정, **시간 규칙 평일 20/주말 30**(원정 13분 충돌 해소, `family-rules.json`). 남은 질문은 `docs/QUESTIONS-FOR-SON.md` 맨 아래.
 - 아들 6차 디테일(2026-09-13) 반영: **놓은 방향으로만 흐르는 물·용암(구현, 결정 #52)**, 철 골렘 규칙·피글린/요새·해피 가스트·주민 거래·인벤토리 화면 스펙(`CONTENT.md` 6차, `mobs.json`·`village.json`·`recipes.json station: inventory`). 버전 배치 결정 #53.
+- 아들 7차 디테일(2026-09-13) 반영: **폰 스틱 왼쪽 아래 고정 + 좌우 회전 감도 ↑(구현, 결정 #54)**, 농사·동물·주민 규칙(`recipes.json` 설탕·황금 사과/당근, `mobs.json` breedWith/followsWhenHolding/horse, `village.json npcs.villager`, `blocks.json leaves.shearDrops`). `CONTENT.md` 7차, 결정 #55.
 - 아빠 결정 대기 → `docs/DESIGN.md` 10절 (이모지 13→12, 방어전 패배 시 주민 처리).
 - 드래곤 고유 스킬 16종 전부 접수·반영(`docs/DRAGON-SKILLS.md`, `dragons.json` skills). v1은 기본 공격 + 빔 + signature 스킬 1개만.
 - 아들 그림 3장(나무·대지·철) 접수 → `models/`에 복셀 모델 3종 생성. 나머지 13종은 같은 생성기에 파라미터만 추가.

@@ -92,7 +92,9 @@
       "tool": null,
       "transparent": true,
       "lightEmit": 0,
-      "texture": "leaves"
+      "texture": "leaves",
+      "shearDrops": ["stick", "sapling", "apple"],
+      "_note": "아들 7차: 가위로 자르면 막대기나 그 나무 묘목이 나오고, 참나무에서는 사과도. 맨손으로 부수면 사라짐 (M4 아이템 드롭)"
     },
     {
       "id": "glass",
@@ -202,7 +204,8 @@
       "transparent": true,
       "drops": null,
       "lightEmit": 0,
-      "texture": "ice"
+      "texture": "ice",
+      "_note": "아들 7차: 물은 눈 바이옴(설원)에서 얼음으로 언다. 설원 원정지 생성기(M3)에서 물 표면을 얼음으로"
     },
     {
       "id": "end_stone",

@@ -1,7 +1,11 @@
 import type { InputSource, InputState } from './InputState';
 
-const TOUCH_SENS = 0.0048; // 라디안/CSS픽셀
-const STICK_RADIUS = 56; // CSS px
+/** 시점 감도 (라디안/CSS픽셀). 좌우는 아들 피드백(7차)으로 더 빠르게 */
+const TOUCH_SENS_X = 0.0082;
+const TOUCH_SENS_Y = 0.0056;
+const STICK_RADIUS = 56; // CSS px — 스틱 노브가 움직이는 최대 거리
+/** 스틱 바깥 이만큼까지는 스틱으로 친다 (엄지가 살짝 벗어나도 잡히게) */
+const STICK_GRAB_MARGIN = 28;
 const DEADZONE = 0.12;
 const HOLD_MS = 220; // 이보다 오래 누르면 부수기
 const TAP_MOVE_PX = 14; // 이보다 많이 움직이면 탭이 아니라 드래그
@@ -27,8 +31,8 @@ interface LookTouch {
 
 /**
  * 폰 조작:
- *  - 왼쪽 반 터치 → 엄지 자리에 스틱 생성, 드래그로 이동
- *  - 오른쪽(또는 두 번째 손가락) 드래그 → 시점
+ *  - 왼쪽 아래 **고정 스틱**(항상 보임)을 누른 채 밀면 이동. 스틱 자리에서만 (아들 7차)
+ *  - 그 밖의 곳 드래그 → 시점
  *  - 짧은 탭 → 놓기, 꾹 누름 → 부수기 (누른 채 드래그해도 계속 부순다)
  *  - 점프 버튼, 웅크리기 토글 버튼
  */
@@ -42,16 +46,27 @@ export class TouchControls implements InputSource {
   private sneakOn = false;
   lastActive = 0;
 
+  /** 스틱 원판 중심과, 그 근처(여유 포함)에 닿았는지 */
+  private stickCenter(): { cx: number; cy: number } {
+    const r = this.ui.stickBase.getBoundingClientRect();
+    return { cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+  }
+  private onStickArea(x: number, y: number): boolean {
+    const r = this.ui.stickBase.getBoundingClientRect();
+    const m = STICK_GRAB_MARGIN;
+    return x >= r.left - m && x <= r.right + m && y >= r.top - m && y <= r.bottom + m;
+  }
+
   private readonly onStart = (e: TouchEvent) => {
-    const w = window.innerWidth;
     let handled = false;
     for (const t of Array.from(e.changedTouches)) {
       // 핫바·버튼·오버레이 위에서 시작한 터치는 조작이 아니다 (preventDefault 하면 버튼 click 이 안 나온다)
       if ((t.target as Element | null)?.closest?.('.hotbar, .tbtn, .sbtn, .topbar, .overlay, .help-panel')) continue;
       handled = true;
-      if (this.stick === null && t.clientX < w * 0.5) {
-        this.stick = { id: t.identifier, ox: t.clientX, oy: t.clientY, dx: 0, dy: 0 };
-        this.showStick();
+      if (this.stick === null && this.onStickArea(t.clientX, t.clientY)) {
+        const { cx, cy } = this.stickCenter();
+        this.stick = { id: t.identifier, ox: cx, oy: cy, dx: 0, dy: 0 };
+        this.moveStick(t.clientX, t.clientY);
       } else if (this.look === null) {
         this.look = {
           id: t.identifier,
@@ -73,16 +88,7 @@ export class TouchControls implements InputSource {
     if (this.stick || this.look) e.preventDefault();
     for (const t of Array.from(e.changedTouches)) {
       if (this.stick && t.identifier === this.stick.id) {
-        let dx = t.clientX - this.stick.ox,
-          dy = t.clientY - this.stick.oy;
-        const len = Math.hypot(dx, dy);
-        if (len > STICK_RADIUS) {
-          dx *= STICK_RADIUS / len;
-          dy *= STICK_RADIUS / len;
-        }
-        this.stick.dx = dx;
-        this.stick.dy = dy;
-        this.showStick();
+        this.moveStick(t.clientX, t.clientY);
       } else if (this.look && t.identifier === this.look.id) {
         const L = this.look;
         const mx = t.clientX - L.lastX,
@@ -91,18 +97,35 @@ export class TouchControls implements InputSource {
         L.lastY = t.clientY;
         if (L.mode === 'undecided' && Math.hypot(t.clientX - L.startX, t.clientY - L.startY) > TAP_MOVE_PX) L.mode = 'look';
         if (L.mode !== 'undecided') {
-          this.lookDX += mx * TOUCH_SENS;
-          this.lookDY += my * TOUCH_SENS;
+          this.lookDX += mx * TOUCH_SENS_X;
+          this.lookDY += my * TOUCH_SENS_Y;
         }
       }
     }
   };
+
+  /** 손가락 위치 → 스틱 노브 (중심 기준, 반지름 제한) */
+  private moveStick(x: number, y: number): void {
+    if (!this.stick) return;
+    let dx = x - this.stick.ox,
+      dy = y - this.stick.oy;
+    const len = Math.hypot(dx, dy);
+    if (len > STICK_RADIUS) {
+      dx *= STICK_RADIUS / len;
+      dy *= STICK_RADIUS / len;
+    }
+    this.stick.dx = dx;
+    this.stick.dy = dy;
+    this.ui.stickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+    this.ui.stickBase.classList.add('active');
+  }
   private readonly onEnd = (e: TouchEvent) => {
     let handled = false;
     for (const t of Array.from(e.changedTouches)) {
       if (this.stick && t.identifier === this.stick.id) {
         this.stick = null;
-        this.ui.stickBase.hidden = true;
+        this.ui.stickKnob.style.transform = 'translate(0px, 0px)';
+        this.ui.stickBase.classList.remove('active');
         handled = true;
       } else if (this.look && t.identifier === this.look.id) {
         if (this.look.mode === 'undecided' && performance.now() - this.look.startTime < HOLD_MS) this.secondaryTap = true;
@@ -139,16 +162,7 @@ export class TouchControls implements InputSource {
     ui.jumpButton.addEventListener('touchend', this.onJumpEnd, opt);
     ui.jumpButton.addEventListener('touchcancel', this.onJumpEnd, opt);
     ui.sneakButton.addEventListener('touchstart', this.onSneak, opt);
-    ui.stickBase.hidden = true;
-  }
-
-  private showStick(): void {
-    if (!this.stick) return;
-    const b = this.ui.stickBase;
-    b.hidden = false;
-    b.style.left = `${this.stick.ox}px`;
-    b.style.top = `${this.stick.oy}px`;
-    this.ui.stickKnob.style.transform = `translate(${this.stick.dx}px, ${this.stick.dy}px)`;
+    ui.stickBase.hidden = false; // 고정 스틱은 항상 보인다
   }
 
   poll(out: InputState): void {

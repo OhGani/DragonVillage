@@ -1,5 +1,5 @@
 {
-  "_comment": "몹과 처치 보상 — 아들 4차 디테일(2026-09-12). drops = [아이템, 개수 범위, 확률]. xp는 xp.json과 동일값 유지. 보스는 bosses.json.",
+  "_comment": "몹과 처치 보상 — 아들 4차 디테일(2026-09-12), 6·7차(2026-09-13). drops = [아이템, 개수 범위, 확률]. xp는 xp.json과 동일값 유지. 보스는 bosses.json. breedWith = 교배 먹이, followsWhenHolding = 이 아이템을 들고 있으면 야생·사육 동물이 쫓아온다(아들 7차, 모든 동물 공통).",
   "hostile": [
     {
       "id": "piglin",
@@ -298,8 +298,19 @@
       "_note": "아들 6차(2026-09-13): 네더 바닥의 마른 가스트를 캐서 물에 불리면 해피 가스트가 되고, 타고 다니며 불을 뿜게 할 수 있다. 날아다니는 탈것이라 드래곤 탑승(v1) 다음인 v1.2"
     },
     {
+      "id": "horse",
+      "name": "말",
+      "release": "v1.1",
+      "rideWith": "saddle",
+      "drops": [["leather", [0, 2], 1.0]],
+      "xp": 1,
+      "_note": "아들 7차: 말에 안장을 씌우면 탈 수 있다. 탈것 시스템(v1.1)과 함께"
+    },
+    {
       "id": "cow",
       "name": "소",
+      "breedWith": "wheat",
+      "followsWhenHolding": "wheat",
       "drops": [
         [
           "leather",
@@ -323,6 +334,8 @@
     {
       "id": "sheep",
       "name": "양",
+      "breedWith": "wheat",
+      "followsWhenHolding": "wheat",
       "drops": [
         [
           "wool",
@@ -347,6 +360,10 @@
     {
       "id": "chicken",
       "name": "닭",
+      "breedWith": "wheat_seeds",
+      "followsWhenHolding": "wheat_seeds",
+      "eggHatchesChickChance": 0.125,
+      "_eggNote": "아들 7차: 달걀에서는 확률적으로 병아리가 나온다. 1/8 은 아빠 임시값",
       "drops": [
         [
           "feather",
@@ -370,6 +387,8 @@
     {
       "id": "pig",
       "name": "돼지",
+      "breedWith": "carrot",
+      "followsWhenHolding": "carrot",
       "drops": [
         [
           "porkchop",

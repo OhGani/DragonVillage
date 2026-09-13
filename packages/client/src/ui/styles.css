@@ -183,15 +183,35 @@ body {
 .touch .touch-controls {
   display: block;
 }
+/* 고정 스틱: 왼쪽 아래, 항상 보임. 이 자리에서만 이동 (아들 7차) */
 .stick-base {
   position: absolute;
+  left: calc(max(20px, env(safe-area-inset-left)) + 24px);
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 76px);
   width: 128px;
   height: 128px;
-  margin: -64px 0 0 -64px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.1);
   border: 2px solid rgba(255, 255, 255, 0.35);
   pointer-events: none;
+}
+.stick-base.active {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+/* 스틱 안 방향 표시 */
+.stick-base::before {
+  content: '▲\A◀ ▶\A▼';
+  white-space: pre;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.9;
+  color: rgba(255, 255, 255, 0.35);
 }
 .stick-knob {
   position: absolute;
