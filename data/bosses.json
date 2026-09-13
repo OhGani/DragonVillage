@@ -1,5 +1,5 @@
 {
-  "_comment": "보스 몹 — 아들 설계(2026-09-12). 중간 보스 5 + 최종 보스 2군(엔더 드래곤, 네 왕). 공통점: 모두 우리 마을을 차지하고 싶어한다 → 마을 방어전(raids) 시스템의 근거. hp·drops·xp 숫자는 아빠 임시값, 설명은 아들 말 그대로. release = 어느 버전에 넣나(v1 / v1.1 / v1.2). 상세는 docs/BOSSES.md.",
+  "_comment": "보스 몹 — 아들 설계(2026-09-12), 드롭·네 왕 전투·방어전 답변(2026-09-13). 중간 보스 5 + 최종 보스 2군(엔더 드래곤, 네 왕). 공통점: 모두 우리 마을을 차지하고 싶어한다 → 마을 방어전(raids) 시스템의 근거. drops 의 개수는 아들이 정한 그대로(결정 21: 개수는 아들, 난이도는 출현율로). hp·xp 는 아빠 임시값. release = 어느 버전에 넣나(v1 / v1.1 / v1.2). 상세는 docs/BOSSES.md.",
   "commonGoal": "모두 우리 마을을 차지하고 싶어한다",
   "midBosses": [
     {
@@ -10,7 +10,17 @@
       "attacks": ["big_fireball", "summon_ghasts"],
       "minions": ["ghast"],
       "hp": 300,
-      "drops": [ { "material": "ghast_tear", "count": 3, "chance": 1.0 }, { "material": "blaze_rod", "count": 2, "chance": 1.0 } ],
+      "drops": [
+        { "material": "dried_ghast", "name": "마른 가스트", "count": 5, "chance": 1.0 },
+        { "material": "lava_bucket", "name": "용암 양동이", "count": 2, "chance": 1.0 },
+        { "material": "wooden_pickaxe", "name": "나무 곡괭이", "count": 1, "chance": 1.0 },
+        { "material": "stone_pickaxe", "name": "돌 곡괭이", "count": 1, "chance": 1.0 },
+        { "material": "iron_pickaxe", "name": "철 곡괭이", "count": 1, "chance": 1.0 },
+        { "material": "golden_pickaxe", "name": "금 곡괭이", "count": 1, "chance": 1.0 },
+        { "material": "diamond_pickaxe", "name": "다이아 곡괭이", "count": 1, "chance": 1.0 },
+        { "material": "netherite_pickaxe", "name": "네더라이트 곡괭이", "count": 1, "chance": 1.0 }
+      ],
+      "_dropsNote": "아들(2026-09-13). 곡괭이 6종 = 어스퀘이크 드래곤 재료 그대로 → 이 보스가 어스퀘이크 드래곤의 공급처. 아빠 메모: 화염 드래곤 재료(가스트의 눈물)도 떨구게 할지 아들과 확인",
       "xp": 100,
       "release": "v1.1"
     },
@@ -22,7 +32,13 @@
       "attacks": ["poison_bite", "web_shot", "summon_spiders"],
       "minions": ["spider", "cave_spider"],
       "hp": 200,
-      "drops": [ { "material": "string", "count": 8, "chance": 1.0 }, { "material": "spider_eye", "count": 4, "chance": 1.0 }, { "material": "spider_crown", "count": 1, "chance": 1.0, "_note": "꾸미기 아이템(모자)" } ],
+      "drops": [
+        { "material": "string", "name": "실", "count": 64, "chance": 1.0 },
+        { "material": "clock", "name": "시계", "count": 5, "chance": 1.0 },
+        { "material": "tnt", "name": "TNT", "count": 64, "chance": 1.0 },
+        { "material": "flint_and_steel", "name": "라이터", "count": 1, "chance": 1.0 }
+      ],
+      "_dropsNote": "아들(2026-09-13). 시계 5 = 타임 드래곤 재료(시계 4), TNT = 폭발 드래곤 재료 → 거미 왕이 두 드래곤의 공급처. 아빠 메모: 왕관(꾸미기 모자)도 주면 좋겠다 — 아들과 확인",
       "xp": 80,
       "release": "v1",
       "_why_v1": "동굴 원정지가 이미 있어 새 지형 없이 넣을 수 있는 첫 보스"
@@ -35,7 +51,11 @@
       "attacks": ["sonic_boom", "smash", "summon_wardens"],
       "minions": ["warden"],
       "hp": 500,
-      "drops": [ { "material": "echo_shard", "count": 4, "chance": 1.0 }, { "material": "sculk", "count": 16, "chance": 1.0 } ],
+      "drops": [
+        { "material": "ice", "name": "얼음 블록", "count": 64, "chance": 1.0 },
+        { "material": "netherite_sword", "name": "네더라이트 칼", "count": 1, "chance": 1.0 }
+      ],
+      "_dropsNote": "아들(2026-09-13). 얼음 = 아이스 드래곤 재료",
       "xp": 200,
       "release": "v1.2"
     },
@@ -48,7 +68,16 @@
       "minions": ["pillager", "vindicator", "vex", "ravager"],
       "ravagerRiders": true,
       "hp": 150,
-      "drops": [ { "material": "totem_of_undying", "count": 1, "chance": 1.0, "_note": "죽을 때 HP 4를 더 준다(아들 설명). 소지 시 1회 사망 방지" }, { "material": "emerald", "count": 5, "chance": 1.0 } ],
+      "drops": [
+        { "material": "totem_of_undying", "name": "불사의 토템", "count": 10, "chance": 1.0, "_note": "죽을 때 HP 4를 더 준다(아들 설명). 소지 시 1회 사망 방지" }
+      ],
+      "minionDrops": {
+        "_comment": "아들(2026-09-13): 일반 우민은 가끔 도끼, 아니면 석궁. 파괴수는 익힌 파괴수 고기 3개. 벡스는 가끔 폭죽 2개. '가끔' = chance 0.3(아빠 임시)",
+        "pillager": [{ "material": "crossbow", "name": "석궁", "count": 1, "chance": 0.3 }],
+        "vindicator": [{ "material": "iron_axe", "name": "도끼", "count": 1, "chance": 0.3 }],
+        "ravager": [{ "material": "cooked_ravager_meat", "name": "익힌 파괴수 고기", "count": 3, "chance": 1.0, "_note": "아들 원문 '인 익힌' — 안 익힌(날것)인지 확인" }],
+        "vex": [{ "material": "firework_rocket", "name": "폭죽", "count": 2, "chance": 0.3 }]
+      },
       "xp": 100,
       "release": "v1",
       "_why_v1": "'마을 옆 전초기지에서 온다' → 새 원정지 없이 마을 방어전으로 구현 가능. '마을을 차지하려 한다'는 공통 서사의 첫 체험"
@@ -62,7 +91,16 @@
       "rageMeter": true,
       "minions": ["gorilla"],
       "hp": 400,
-      "drops": [ { "material": "gold_ingot", "count": 10, "chance": 1.0 }, { "material": "emerald", "count": 8, "chance": 1.0 }, { "material": "banana", "count": 16, "chance": 1.0, "_note": "고릴라 드래곤 먹이? 아들에게" } ],
+      "drops": [
+        { "material": "raw_gorilla_meat", "name": "안 익힌 고릴라 고기", "count": 10, "chance": 1.0 },
+        { "material": "diamond", "name": "다이아", "count": 64, "chance": 1.0 },
+        { "material": "emerald", "name": "에메랄드", "count": 64, "chance": 1.0 },
+        { "material": "gold_ingot", "name": "금", "count": 64, "chance": 1.0 },
+        { "material": "iron_ingot", "name": "철", "count": 64, "chance": 1.0 },
+        { "material": "quartz", "name": "석영", "count": 64, "chance": 1.0 },
+        { "material": "netherite_ingot", "name": "네더라이트", "count": 64, "chance": 1.0 }
+      ],
+      "_dropsNote": "아들(2026-09-13). '사치스러운 궁궐'답게 보물 창고급. 아빠 메모: 개수는 아들 것 그대로 두고, 이 보스의 등장 횟수(v1.2, 주 1회 등)로 균형",
       "xp": 150,
       "release": "v1.2"
     }
@@ -76,7 +114,11 @@
       "attacks": ["dragon_breath_pool", "summon_endermen", "charge"],
       "minions": ["enderman"],
       "hp": 200,
-      "drops": [ { "material": "dragon_egg", "count": 1, "chance": 1.0 }, { "material": "dragon_breath", "count": null, "chance": null, "_note": "전투 중 바닥 숨결을 유리병으로 채집" } ],
+      "drops": [
+        { "material": "dragon_egg", "name": "드래곤 알", "count": 1, "chance": 1.0 },
+        { "material": "dragon_breath", "name": "드래곤의 숨결", "count": null, "chance": null, "_note": "전투 중 바닥 숨결을 유리병으로 채집" }
+      ],
+      "_dropsNote": "아들(2026-09-13) 재확인: 드래곤 알",
       "xp": 500,
       "release": "v1"
     },
@@ -86,13 +128,74 @@
       "sonDescription": "엄청나게 거대화된 스켈레톤, 크리퍼, 엔더맨, 좀비 왕. 자신의 소형 버전 종족을 다스린다. 자신들의 첫 번째 왕들의 머리를 달고 있는 아주 거대한 고대성에 산다. 목표는 서버를 다스리는 것.",
       "home": { "expedition": "ancient_castle", "structure": "ancient_castle" },
       "kings": [
-        { "id": "skeleton_king", "name": "스켈레톤 왕", "minions": ["skeleton", "stray", "wither_skeleton"], "attacks": ["arrow_rain", "bone_wall"], "hp": 600, "drops": [ { "material": "wither_skeleton_skull", "count": 3, "chance": 1.0, "_note": "폭발 드래곤 재료 확정 드롭" } ], "xp": 300 },
-        { "id": "creeper_king", "name": "크리퍼 왕", "minions": ["creeper", "charged_creeper"], "attacks": ["mega_explosion", "creeper_swarm"], "hp": 600, "drops": [ { "material": "gunpowder", "count": 16, "chance": 1.0 }, { "material": "tnt", "count": 2, "chance": 1.0 } ], "xp": 300 },
-        { "id": "enderman_king", "name": "엔더맨 왕", "minions": ["enderman", "endermite"], "attacks": ["teleport_strike", "block_steal"], "hp": 600, "drops": [ { "material": "ender_pearl", "count": 8, "chance": 1.0 } ], "xp": 300 },
-        { "id": "zombie_king", "name": "좀비 왕", "minions": ["zombie", "husk", "zombie_villager"], "attacks": ["horde_call", "rotten_grab"], "hp": 600, "drops": [ { "material": "TODO", "count": 0, "_note": "아들에게: 좀비 왕은 뭘 떨궈?" } ], "xp": 300 }
+        {
+          "id": "skeleton_king",
+          "name": "스켈레톤 왕",
+          "minions": ["skeleton", "stray", "wither_skeleton"],
+          "attacks": ["arrow_rain", "bone_wall"],
+          "hp": 600,
+          "drops": [
+            { "material": "bone", "name": "뼈", "count": 64, "chance": 1.0 },
+            { "material": "bow", "name": "활", "count": 1, "chance": 1.0 },
+            { "material": "arrow", "name": "화살", "count": 128, "chance": 1.0 }
+          ],
+          "_dropsNote": "아들(2026-09-13). 아빠 메모: 폭발 드래곤 재료인 위더 스켈레톤 머리(일반 드롭 5%)의 안정 공급처가 필요하면 여기 3개 추가 — 아들과 확인",
+          "xp": 300
+        },
+        {
+          "id": "creeper_king",
+          "name": "크리퍼 왕",
+          "minions": ["creeper", "charged_creeper"],
+          "attacks": ["mega_explosion", "creeper_swarm"],
+          "hp": 600,
+          "drops": [
+            { "material": "gunpowder", "name": "화약", "count": 64, "chance": 1.0 },
+            { "material": "healing_potion", "name": "치유의 물약", "count": 64, "chance": 1.0 }
+          ],
+          "_dropsNote": "아들(2026-09-13). 치유의 물약 = 치유 드래곤 재료(6)",
+          "xp": 300
+        },
+        {
+          "id": "enderman_king",
+          "name": "엔더맨 왕",
+          "minions": ["enderman", "endermite"],
+          "attacks": ["teleport_strike", "block_steal"],
+          "hp": 600,
+          "drops": [{ "material": "ender_pearl", "name": "엔더 진주", "count": 256, "chance": 1.0 }],
+          "_dropsNote": "아들(2026-09-13). 엔더 진주 = 텔레포트 드래곤 재료(2)",
+          "xp": 300
+        },
+        {
+          "id": "zombie_king",
+          "name": "좀비 왕",
+          "minions": ["zombie", "husk", "zombie_villager"],
+          "attacks": ["horde_call", "rotten_grab"],
+          "hp": 600,
+          "drops": [
+            { "material": "chicken", "name": "닭고기", "count": 64, "chance": 1.0 },
+            { "material": "milk_bucket", "name": "우유", "count": 64, "chance": 1.0 }
+          ],
+          "_dropsNote": "아들(2026-09-13)",
+          "xp": 300
+        }
       ],
-      "order": "TODO(아들에게: 어떤 왕부터 싸워?)",
-      "ending": { "xp": 300, "title": "마을의 수호자", "_note": "네 왕을 모두 물리치면 마을을 노리는 자가 사라진다 = 엔딩. 드래곤 16종 완성 300xp와 별개" },
+      "battle": {
+        "order": "all_at_once",
+        "_orderNote": "아들(2026-09-13): 네 왕은 한 번에 싸운다. 고대성은 방 4개를 차례로 지나간다",
+        "rooms": [
+          { "id": "entrance", "name": "입구", "mobsPerKind": 2, "_note": "일반 몹 4종족(스켈레톤·크리퍼·엔더맨·좀비) 각 2마리" },
+          { "id": "early", "name": "초반 방", "mobsPerKind": 8 },
+          { "id": "middle", "name": "중간 방", "mobsPerKind": 14 },
+          { "id": "final", "name": "최종 방", "mobsPerKind": 30, "bosses": ["skeleton_king", "creeper_king", "enderman_king", "zombie_king"], "_note": "보스 4마리 + 일반 몹 종족별 30마리" }
+        ],
+        "_dadNote": "6명 협동 기준 숫자. 인원이 적으면 서버가 mobsPerKind 를 비례 축소(아빠 임시 규칙)"
+      },
+      "ending": {
+        "xp": 300,
+        "title": "마을의 수호자",
+        "portalToNewDimension": true,
+        "_note": "아들(2026-09-13): 네 왕을 다 잡으면 다른 차원으로 들어가는 포탈이 나온다. 그 차원은 v2 이후. 드래곤 16종 완성 300xp와 별개"
+      },
       "release": "v1.2"
     }
   ],
@@ -100,11 +203,19 @@
     "_comment": "마을 방어전 — '모두 우리 마을을 차지하고 싶어한다'의 구현. 원정과 같은 시간 규칙을 따르는 10분 세션. 절대 강제 시작되지 않는다(아이 시간 규칙·원정 출발 조건 동일 적용).",
     "trigger": "host_starts",
     "warningInAdvance": true,
+    "warningMethod": "bell",
+    "_warningNote": "아들(2026-09-13): 우민들이 오기 전에 마을 종을 친다",
     "durationSec": 600,
     "minVillageLevel": 2,
     "maxPerWeek": 2,
     "waves": 3,
-    "onFail": { "villageDamaged": false, "bossPlantsFlag": true, "_note": "마을은 서버가 원상복구. 보스 깃발이 입구에 꽂히고 다음 승리 때 사라진다. 잃는 것은 없다" },
+    "onFail": {
+      "villageDamaged": false,
+      "bossPlantsFlag": true,
+      "ironGolemCaptured": true,
+      "villagersOutsideDie": true,
+      "_note": "마을은 서버가 원상복구. 보스 깃발이 입구에 꽂히고 다음 승리 때 사라진다. 아들(2026-09-13) 추가: 철 골렘을 잡아가고, 싸우는 중에 집에 들어가지 못한 주민은 죽는다. 철 골렘·주민은 v1.1 이라 v1 방어전은 깃발만. 아빠 결정 필요: 주민 '죽음'을 영구로 할지, 잡혀간 뒤 다음 승리 때 돌아오게 할지('성장은 쌓이기만' 원칙)"
+    },
     "onWin": { "lootToStorage": true, "guardianFlag": true, "xpEach": 50 },
     "v1Raiders": ["evoker"],
     "laterRaiders": ["spider_king", "giant_ghast", "giant_gorilla", "giant_warden", "four_kings"]

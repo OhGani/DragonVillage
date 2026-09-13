@@ -1,5 +1,7 @@
 {
   "_comment": "마을 풍경·주민·동물 — 아들 설계(2026-09-12 3차 '디테일'). 마을은 영구·공유 공간이라 여기 풍경이 게임의 얼굴. release = v1 / v1.1 / v2. 상세 docs/CONTENT.md",
+  "name": "드래곤 빌리지",
+  "_nameNote": "아들이 정한 우리 마을 이름(2026-09-13). 게임 이름은 '드래곤 크래프트(Dragon Craft)'. 다른 가족의 마을은 M2 에서 각자 이름을 짓는다",
   "terrain": {
     "release": "v1",
     "surroundingTrees": "oak",

@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "version": "0.0.1",
-  "description": "아빠와 초5 아들이 함께 만드는 웹 복셀 드래곤 원정 게임 (가칭)",
+  "description": "드래곤 크래프트 (Dragon Craft) — 아빠와 초5 아들이 함께 만드는 웹 복셀 드래곤 원정 게임",
   "packageManager": "pnpm@10.17.1",
   "engines": { "node": ">=20" },
   "scripts": {

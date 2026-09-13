@@ -1,6 +1,6 @@
 {
-  "name": "드래곤 마을 (가칭)",
-  "short_name": "드래곤 마을",
+  "name": "드래곤 크래프트 (Dragon Craft)",
+  "short_name": "드래곤 크래프트",
   "description": "아빠와 아들이 만드는 복셀 드래곤 원정 게임",
   "start_url": "./",
   "scope": "./",

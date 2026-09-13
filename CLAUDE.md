@@ -1,6 +1,6 @@
-# CLAUDE.md — dragon-village (가칭)
+# CLAUDE.md — 드래곤 크래프트 (Dragon Craft)
 
-아빠(개발)와 초5 아들(기획)이 함께 만드는 **웹 기반 복셀 드래곤 수집 게임**.
+아빠(개발)와 초5 아들(기획)이 함께 만드는 **웹 기반 복셀 드래곤 수집 게임**. 게임 이름 **드래곤 크래프트**, 우리 마을 이름 **드래곤 빌리지** (아들, 2026-09-13). 저장소는 `OhGani/DragonVillage`.
 마인크래프트 세계관을 배경으로, 15분짜리 원정에서 재료를 모아 드래곤을 얻고,
 영구 마을을 친구들과 함께 키운다. 부모가 정한 게임 시간 규칙 안에서 돌아간다.
 
@@ -82,9 +82,10 @@ docs/
 - 아들 1차 기획 답변 반영 완료: 드래곤 16종·재료·티어(`data/dragons.json`), 원정지 6곳(`data/expeditions.json`), 레시피(`data/recipes.json`), 채팅 문구(`data/phrases.json`), 시간 규칙(`data/family-rules.json`). 상세는 `docs/QUESTIONS-FOR-SON.md`.
 - 경험치 시스템 도입 확정(마인크래프트 방식, `docs/XP-SYSTEM.md`, `data/xp.json`).
 - 보스·마을 방어전 설계 반영(`docs/BOSSES.md`, `data/bosses.json`). v1은 거미 왕·우민 방어전·엔더 드래곤만. `release` 필드가 v1이 아닌 것은 만들지 않는다.
-- 아빠 결정 대기 → `docs/DESIGN.md` 10절. 그중 **평일 10분 vs 원정 13분 충돌**은 M3 전에 결정.
+- 아들 5차 답변(2026-09-13) 반영: 게임·마을 이름, 보스 드롭 전부(`bosses.json`), 네 왕은 한 번에·고대성 방 4개, 방어전 예고는 종·패배 시 철 골렘 잡혀감·주민 피해, 엔딩은 다른 차원 포탈, 드래곤 사망은 둥지 회복 확정, **시간 규칙 평일 20/주말 30**(원정 13분 충돌 해소, `family-rules.json`). 남은 질문은 `docs/QUESTIONS-FOR-SON.md` 맨 아래.
+- 아빠 결정 대기 → `docs/DESIGN.md` 10절 (이모지 13→12, 방어전 패배 시 주민 처리).
 - 드래곤 고유 스킬 16종 전부 접수·반영(`docs/DRAGON-SKILLS.md`, `dragons.json` skills). v1은 기본 공격 + 빔 + signature 스킬 1개만.
 - 아들 그림 3장(나무·대지·철) 접수 → `models/`에 복셀 모델 3종 생성. 나머지 13종은 같은 생성기에 파라미터만 추가.
 - 아들 3차 '디테일' 반영(`docs/CONTENT.md`, `data/village.json`, blocks·recipes·expeditions 확장). v1에 추가된 것은 블록·레시피·동물·장식만. 인챈트·탈것·거래·구조물 생성기는 v1.1/v2.
 - 아들 4차 디테일 반영(`CONTENT.md` 하단, `data/mobs.json` 신규 — 몹 보상표·오징어·폐광 스포너·염료·방패·수레/보트).
-- 아직 없는 것: 게임·마을 이름. 저장소명 `dragon-village`는 가칭.
+- 이름 확정(2026-09-13): 게임 **드래곤 크래프트(Dragon Craft)**, 마을 **드래곤 빌리지**. 패키지 스코프 `@dragon-village/*` 와 로컬 폴더명 `dragon-village` 는 그대로 둔다(바꿀 이유 없음).
