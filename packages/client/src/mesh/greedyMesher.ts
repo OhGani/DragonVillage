@@ -28,6 +28,21 @@ const FACE_V: readonly (readonly [number, number, number])[] = [
   [0, 1, 0],
   [0, 1, 0],
 ];
+const FACE_NORMAL: readonly (readonly [number, number, number])[] = [
+  [1, 0, 0],
+  [-1, 0, 0],
+  [0, 1, 0],
+  [0, -1, 0],
+  [0, 0, 1],
+  [0, 0, -1],
+];
+/** 액체 옆면: [면, dx, dz] */
+const FLUID_SIDES: readonly (readonly [number, number, number])[] = [
+  [0, 1, 0],
+  [1, -1, 0],
+  [4, 0, 1],
+  [5, 0, -1],
+];
 
 class GeomBuilder {
   positions: Float32Array;
@@ -150,8 +165,105 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[]):
     if (!b) return true;
     if (b.opaque) return false;
     if (aId === bId && a.sameCull) return false;
-    if (a.layer === LAYER_TRANSLUCENT && b.layer === LAYER_TRANSLUCENT) return false;
+    if (a.layer === LAYER_TRANSLUCENT && b.layer === LAYER_TRANSLUCENT && b.fluidKind === 0) return false;
     return true;
+  };
+
+  /**
+   * 액체 사각형 하나. face 의 평면에 h0..h1 높이(옆면) 또는 h1 높이(윗면)로 그린다.
+   * 꼭짓점 순서는 법선 방향으로 자동 정리.
+   */
+  const fluidQuad = (builder: GeomBuilder, face: number, x: number, y: number, z: number, h0: number, h1: number, layer: number) => {
+    let c: number[][];
+    switch (face) {
+      case 0:
+        c = [
+          [x + 1, y + h0, z],
+          [x + 1, y + h0, z + 1],
+          [x + 1, y + h1, z + 1],
+          [x + 1, y + h1, z],
+        ];
+        break;
+      case 1:
+        c = [
+          [x, y + h0, z],
+          [x, y + h0, z + 1],
+          [x, y + h1, z + 1],
+          [x, y + h1, z],
+        ];
+        break;
+      case 2:
+        c = [
+          [x, y + h1, z],
+          [x + 1, y + h1, z],
+          [x + 1, y + h1, z + 1],
+          [x, y + h1, z + 1],
+        ];
+        break;
+      case 3:
+        c = [
+          [x, y, z],
+          [x + 1, y, z],
+          [x + 1, y, z + 1],
+          [x, y, z + 1],
+        ];
+        break;
+      case 4:
+        c = [
+          [x, y + h0, z + 1],
+          [x + 1, y + h0, z + 1],
+          [x + 1, y + h1, z + 1],
+          [x, y + h1, z + 1],
+        ];
+        break;
+      default:
+        c = [
+          [x, y + h0, z],
+          [x + 1, y + h0, z],
+          [x + 1, y + h1, z],
+          [x, y + h1, z],
+        ];
+    }
+    // 법선과 맞게 반시계 순서로
+    const n = FACE_NORMAL[face];
+    const e1 = [c[1][0] - c[0][0], c[1][1] - c[0][1], c[1][2] - c[0][2]];
+    const e3 = [c[3][0] - c[0][0], c[3][1] - c[0][1], c[3][2] - c[0][2]];
+    const cross = [e1[1] * e3[2] - e1[2] * e3[1], e1[2] * e3[0] - e1[0] * e3[2], e1[0] * e3[1] - e1[1] * e3[0]];
+    if (cross[0] * n[0] + cross[1] * n[1] + cross[2] * n[2] < 0) c = [c[0], c[3], c[2], c[1]];
+    const U = FACE_U[face],
+      V = FACE_V[face];
+    const corners = c.map((p) => [p[0], p[1], p[2], p[0] * U[0] + p[1] * U[1] + p[2] * U[2], p[0] * V[0] + p[1] * V[1] + p[2] * V[2], 3]);
+    builder.quad(corners, layer, face);
+  };
+
+  /** 액체 전용 패스: 블록마다 높이가 다르므로 greedy 없이 낱개로 */
+  const emitFluids = () => {
+    for (let y = 0; y < N; y++)
+      for (let z = 0; z < N; z++)
+        for (let x = 0; x < N; x++) {
+          const bi = info[padded[paddedIndex(x, y, z)]];
+          if (bi === undefined || bi.fluidKind === 0) continue;
+          const h = bi.fluidHeight,
+            kind = bi.fluidKind;
+          const builder = bi.layer === LAYER_TRANSLUCENT ? trans : opaque;
+          const nb = (dx: number, dy: number, dz: number) => info[padded[paddedIndex(x + dx, y + dy, z + dz)]];
+          const up = nb(0, 1, 0);
+          if (up === undefined || up.fluidKind !== kind) fluidQuad(builder, 2, x, y, z, 0, h, bi.tex[2]);
+          const dn = nb(0, -1, 0);
+          if (dn === undefined || !(dn.opaque || dn.fluidKind === kind)) fluidQuad(builder, 3, x, y, z, 0, h, bi.tex[3]);
+          for (const [face, dx, dz] of FLUID_SIDES) {
+            const nbr = nb(dx, 0, dz);
+            let from = 0;
+            if (nbr !== undefined) {
+              if (nbr.opaque) continue;
+              if (nbr.fluidKind === kind) {
+                if (nbr.fluidHeight >= h - 1e-6) continue; // 이웃이 더 높거나 같으면 가려진다
+                from = nbr.fluidHeight; // 이웃 위로 드러난 부분만
+              }
+            }
+            fluidQuad(builder, face, x, y, z, from, h, bi.tex[face]);
+          }
+        }
   };
 
   const emit = (mask: Int32Array, d: number, u: number, v: number, face: number, plane: number, front: boolean): void => {
@@ -213,7 +325,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[]):
           const bi = info[id];
           let kf = 0,
             kb = 0;
-          if (bi !== undefined && bi.layer !== LAYER_NONE) {
+          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0) {
             p[d] = i + 1;
             const idF = padded[paddedIndex(p[0], p[1], p[2])];
             p[d] = i;
@@ -237,6 +349,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[]):
       emit(maskB, d, u, v, faceB, i, false);
     }
   }
+  emitFluids();
 
   return { opaque: opaque.build(), translucent: trans.build() };
 }

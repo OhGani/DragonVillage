@@ -135,7 +135,7 @@ export class Hud {
       if (s.icon) d.appendChild(s.icon);
       const key = document.createElement('span');
       key.className = 'slot-key';
-      key.textContent = String(i + 1);
+      key.textContent = String((i + 1) % 10); // 10번째 칸은 0
       d.appendChild(key);
       d.addEventListener('pointerdown', (e) => {
         e.preventDefault();
@@ -248,7 +248,7 @@ function helpHtml(isTouch: boolean): string {
         ['블록 놓기', '<b>오른쪽 클릭</b> (누르고 있으면 연속)'],
         ['블록 부수기', '<b>왼쪽 클릭 꾹</b>. 금이 가면 부서져요'],
         ['점프 / 웅크리기', '<b>Space</b> / <b>Shift</b>'],
-        ['블록 고르기', '<b>1~9</b> 또는 마우스 휠'],
+        ['블록 고르기', '<b>1~9, 0</b> 또는 마우스 휠'],
         ['정보', '<b>F3</b>'],
       ];
   const other = isTouch
@@ -260,6 +260,7 @@ function helpHtml(isTouch: boolean): string {
     '블록마다 부수는 시간이 달라요. 흙·모래 0.5초, 돌 1.5초, 원목·판자 2초. 맨 아래 기반암과 물은 못 부숴요.',
     '내 몸이 있는 자리에는 블록을 놓을 수 없어요.',
     '물에 들어가면 천천히 가라앉고, 점프를 누르면 위로 헤엄쳐요.',
+    '물·용암은 벽이 없으면 옆으로 퍼지고 아래로 흘러요. 물이나 용암을 들고 원천을 꾹 누르면(PC: 왼쪽 클릭) 떠낼 수 있어요. 물이 용암을 만나면 돌이 돼요.',
     '광장 남쪽에 뼈대만 있는 집이 있어요. 문·창문·지붕을 채워 봐요. 동쪽 언덕엔 계단·전망대·동굴 입구가 있어요.',
     '세계 끝은 보이지 않는 벽. 떨어지면 광장으로 돌아와요. 아직 저장은 안 돼요 — 새로고침하면 처음으로.',
   ];

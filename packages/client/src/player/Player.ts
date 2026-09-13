@@ -61,9 +61,9 @@ export class Player {
 
   private readonly isSolid = (x: number, y: number, z: number): boolean => this.registry.isSolid(this.world.getBlock(x, y, z));
 
+  /** 물·용암 등 액체 안인지 */
   private isWaterAt(x: number, y: number, z: number): boolean {
-    const id = this.registry.get(this.world.getBlock(Math.floor(x), Math.floor(y), Math.floor(z))).id;
-    return id === 'water' || id === 'water_deep';
+    return this.registry.get(this.world.getBlock(Math.floor(x), Math.floor(y), Math.floor(z))).fluid !== null;
   }
 
   respawn(): void {

@@ -41,7 +41,12 @@ export class Interaction {
   ) {}
 
   private readonly getBlock = (x: number, y: number, z: number) => this.world.getBlock(x, y, z);
-  private readonly targetable = (id: number) => this.registry.isSolid(id);
+  /** 물·용암을 들고 있으면 양동이처럼 액체도 조준한다 */
+  private readonly targetable = (id: number) => this.registry.isSolid(id) || (this.bucketMode && this.registry.isFluid(id));
+
+  get bucketMode(): boolean {
+    return this.selectedBlock > 0 && this.registry.get(this.selectedBlock).fluid !== null;
+  }
 
   update(input: InputState, dt: number): void {
     const eye = this.player.eye;
@@ -64,8 +69,20 @@ export class Interaction {
         this.swingTimer = 0.25;
       }
       const def = this.registry.get(t.id);
-      if (def.hardness === null) {
-        this.progress = 0; // 부술 수 없음 (기반암·물)
+      if (def.fluid) {
+        // 양동이처럼 원천만 바로 떠낸다 (흐르는 물은 원천이 사라지면 저절로 마른다)
+        this.progress = 0;
+        if (this.cooldown <= 0 && def.fluidLevel === 0) {
+          const res = this.world.setBlock(t.x, t.y, t.z, AIR_ID);
+          if (res.changed) {
+            this.events.onBlocksChanged(res.dirty);
+            this.events.onBroken?.(t.x, t.y, t.z, t.id);
+          }
+          this.breakingKey = -1;
+          this.cooldown = BREAK_COOLDOWN;
+        }
+      } else if (def.hardness === null) {
+        this.progress = 0; // 부술 수 없음 (기반암)
       } else if (this.cooldown <= 0) {
         this.progress += def.hardness <= 0 ? 1 : dt / def.hardness;
         if (this.progress >= 1) {

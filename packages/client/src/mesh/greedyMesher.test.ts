@@ -10,7 +10,7 @@ const registry = parseBlocks({
     { id: 'stone', name: '돌', hardness: 1, texture: 'stone' },
     { id: 'grass', name: '잔디', hardness: 1, textureTop: 'grass_top', textureSide: 'grass_side', textureBottom: 'dirt' },
     { id: 'glass', name: '유리', hardness: 1, transparent: true, texture: 'glass' },
-    { id: 'water', name: '물', solid: false, transparent: true, texture: 'water' },
+    { id: 'water', name: '물', solid: false, transparent: true, fluid: 'water', texture: 'water' },
   ],
 });
 const texIndex = new Map([
@@ -167,6 +167,29 @@ describe('greedyMesh', () => {
     );
     expect(quadCount(r.opaque)).toBe(6); // 유리 2개가 한 덩어리처럼 6면 (greedy 로 옆면 병합)
     expect(quadCount(r.translucent)).toBe(6);
+  });
+
+  it('액체: 원천 윗면은 8/9 높이, 같은 물끼리 맞닿은 면은 없고 낮은 이웃 위로 드러난 부분만 그린다', () => {
+    const W3 = registry.fluidVariant(WATER, 3);
+    const r = greedyMesh(
+      padded((x, y, z) => (y === 4 && z === 4 && x === 4 ? WATER : y === 4 && z === 4 && x === 5 ? W3 : 0)),
+      info,
+    );
+    const b = r.translucent!;
+    // 원천: 위·아래·옆 4 (동쪽은 부분) = 6, 흐름3: 위·아래·옆 3 = 5
+    expect(quadCount(r.translucent)).toBe(11);
+    checkWinding(b);
+    let topY = -1,
+      partialMin = 99;
+    for (let i = 0; i < b.vertexCount; i++) {
+      const face = b.meta[i * 4 + 2];
+      const px = b.positions[i * 3],
+        py = b.positions[i * 3 + 1];
+      if (face === 2 && px <= 5) topY = Math.max(topY, py); // 원천 윗면
+      if (face === 0 && px === 5) partialMin = Math.min(partialMin, py); // 원천의 +X 옆면 아랫변
+    }
+    expect(topY).toBeCloseTo(4 + 8 / 9, 5);
+    expect(partialMin).toBeCloseTo(4 + 5 / 9, 5); // 이웃(흐름3, 높이 5/9) 위부터
   });
 
   it('유리 속 돌: 돌의 면은 보이고 유리의 안쪽 면도 보인다', () => {

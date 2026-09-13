@@ -1,4 +1,4 @@
-import { CHUNK_SIZE } from '@dragon-village/shared';
+import { CHUNK_SIZE, FluidSim } from '@dragon-village/shared';
 import { BLOCKS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { GamepadInput } from '../input/gamepad';
@@ -20,8 +20,10 @@ import { buildTestWorld } from '../world/testWorld';
 import { AutoQuality } from './AutoQuality';
 import { Interaction } from './Interaction';
 
-/** M0 핫바 — 아들이 blocks.json 에 있는 id 로 바꿔도 된다 */
-const HOTBAR_IDS = ['grass', 'dirt', 'stone', 'cobblestone', 'planks', 'log', 'leaves', 'glass', 'sand'];
+/** M0 핫바(10칸, 키 1~9·0) — 아들이 blocks.json 에 있는 id 로 바꿔도 된다 */
+const HOTBAR_IDS = ['grass', 'dirt', 'stone', 'planks', 'log', 'leaves', 'glass', 'sand', 'water', 'lava'];
+/** 액체 시뮬레이션 틱 (20Hz) */
+const FLUID_DT = 0.05;
 
 export interface GameOptions {
   isTouch: boolean;
@@ -94,9 +96,13 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
 
   // ---- 플레이어 ----
   const player = new Player(world, registry, spawn, spawn.yaw);
+  const fluids = new FluidSim(world, registry);
+  let fluidAcc = 0;
   const interaction = new Interaction(world, registry, player, {
     onBlocksChanged: (dirty) => chunks.markDirtyAll(dirty),
     onSwing: () => hand.swing(),
+    onPlaced: (x, y, z) => fluids.touch(x, y, z),
+    onBroken: (x, y, z) => fluids.touch(x, y, z),
   });
 
   const quality = new AutoQuality(renderer, isTouch);
@@ -193,7 +199,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       `메싱 최근 ${chunks.stats.lastMs.toFixed(1)}ms  평균 ${chunks.stats.avgMs.toFixed(1)}ms  최대 ${chunks.stats.maxMs.toFixed(1)}ms  총 ${chunks.stats.meshed}`,
       `위치 ${p.x.toFixed(2)} ${p.y.toFixed(2)} ${p.z.toFixed(2)}  yaw ${yawDeg.toFixed(0)}°  pitch ${((player.pitch * 180) / Math.PI).toFixed(0)}°  ${facing}`,
       `조준 ${tgt}`,
-      `바닥 ${player.onGround ? 'O' : 'X'}  물 ${player.inWater ? 'O' : 'X'}  웅크림 ${player.sneaking ? 'O' : 'X'}  달리기 ${player.sprinting ? 'O' : 'X'}`,
+      `바닥 ${player.onGround ? 'O' : 'X'}  물 ${player.inWater ? 'O' : 'X'}  웅크림 ${player.sneaking ? 'O' : 'X'}  달리기 ${player.sprinting ? 'O' : 'X'}  액체 대기 ${fluids.pendingCount}`,
       `${isTouch ? '터치' : 'PC'}  ${navigator.hardwareConcurrency ?? '?'}코어  ${window.innerWidth}×${window.innerHeight}@${(window.devicePixelRatio || 1).toFixed(1)}`,
     ].join('\n');
   };
@@ -218,6 +224,14 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     player.update(inp, dt);
     interaction.update(inp, dt);
     player.applyToCamera(camera, bobStrength);
+
+    // 액체는 20Hz 고정 틱. 너무 밀리면(탭 숨김 등) 버린다
+    fluidAcc += dt;
+    if (fluidAcc > FLUID_DT * 4) fluidAcc = FLUID_DT * 4;
+    while (fluidAcc >= FLUID_DT) {
+      chunks.markDirtyAll(fluids.tick());
+      fluidAcc -= FLUID_DT;
+    }
 
     if (interaction.target) {
       highlight.setTarget(interaction.target.x, interaction.target.y, interaction.target.z);
@@ -276,6 +290,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       quality,
       hand,
       highlight,
+      fluids,
       /** rAF 없이 프레임을 돌린다 (숨겨진 탭에서의 자동 테스트용) */
       tick: (dtSec: number, render = false) => tick(last + dtSec * 1000, render),
     };

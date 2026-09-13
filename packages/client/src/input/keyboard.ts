@@ -30,6 +30,7 @@ export class KeyboardMouse implements InputSource {
     if (e.code.startsWith('Digit')) {
       const n = Number(e.code.slice(5));
       if (n >= 1 && n <= 9) this.slotSelect = n - 1;
+      else if (n === 0) this.slotSelect = 9; // 10번째 칸
     }
     if (e.code === 'F3') {
       this.toggleDebug = true;

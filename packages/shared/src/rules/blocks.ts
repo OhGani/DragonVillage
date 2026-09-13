@@ -28,7 +28,12 @@ const RawBlock = z.object({
   release: z.string().optional(),
   dyeable: z.boolean().optional(),
   variants: z.array(z.string()).optional(),
+  fluid: z.enum(['water', 'lava']).optional(),
 });
+
+export type FluidKind = 'water' | 'lava';
+/** 흐르는 액체 단계 수 (원천 0 + 1..7) */
+export const MAX_FLUID_LEVEL = 7;
 
 const BlocksFile = z.object({
   _comment: z.string().optional(),
@@ -55,6 +60,7 @@ const FIELD_KO: Record<string, string> = {
   shape: 'shape(특수 모양)',
   release: 'release(버전)',
   variants: 'variants(종류 목록)',
+  fluid: 'fluid(액체 종류)',
 };
 
 /** 데이터 파일 문제. message 전체가 아들이 읽을 수 있는 한국어다. */
@@ -87,13 +93,45 @@ export interface BlockDef {
   readonly textures: readonly [top: string, side: string, bottom: string] | null;
   readonly shape: string | null;
   readonly release: string;
+  /** 액체 종류. null = 액체 아님 */
+  readonly fluid: FluidKind | null;
+  /** 액체 단계. 0 = 원천, 1..7 = 흐르는 것(숫자가 크면 얕음). 액체 아니면 0 */
+  readonly fluidLevel: number;
+  /** 같은 액체 원천의 블록 번호. 액체 아니면 -1 */
+  readonly fluidSource: number;
+  /** 코드가 만든 내부 블록(흐르는 액체 단계). 핫바·도감에 안 보임 */
+  readonly internal: boolean;
 }
 
 export class BlockRegistry {
   private readonly byId = new Map<string, BlockDef>();
+  /** 원천 번호 → [원천, 단계1, ..., 단계7] 번호 */
+  private readonly fluidLevels = new Map<number, number[]>();
 
   constructor(readonly defs: readonly BlockDef[]) {
-    for (const d of defs) this.byId.set(d.id, d);
+    for (const d of defs) {
+      this.byId.set(d.id, d);
+      if (d.fluid) {
+        let arr = this.fluidLevels.get(d.fluidSource);
+        if (!arr) {
+          arr = [];
+          this.fluidLevels.set(d.fluidSource, arr);
+        }
+        arr[d.fluidLevel] = d.num;
+      }
+    }
+  }
+
+  isFluid(num: number): boolean {
+    return this.get(num).fluid !== null;
+  }
+
+  /** 액체 원천 번호 + 단계 → 블록 번호. 단계 0 은 원천 자신 */
+  fluidVariant(source: number, level: number): number {
+    const arr = this.fluidLevels.get(source);
+    if (!arr) throw new Error(`액체가 아닌 블록 번호: ${source}`);
+    const n = arr[Math.max(0, Math.min(MAX_FLUID_LEVEL, level))];
+    return n ?? source;
   }
 
   get count(): number {
@@ -129,9 +167,9 @@ export class BlockRegistry {
     return d.solid && !d.transparent;
   }
 
-  /** v1 에 들어가는 블록만 (release 없음 또는 'v1') */
+  /** v1 에 들어가는 블록만 (release 없음 또는 'v1'), 내부 블록 제외 */
   v1(): BlockDef[] {
-    return this.defs.filter((d) => d.release === 'v1');
+    return this.defs.filter((d) => d.release === 'v1' && !d.internal);
   }
 }
 
@@ -154,6 +192,7 @@ function koreanizeMessage(msg: string): string {
   if (/expected array/i.test(msg)) return '목록([ ... ])이어야 해요';
   if (/expected object/i.test(msg)) return '{ ... } 모양이어야 해요';
   if (/expected int|integer/i.test(msg)) return '정수(소수점 없는 수)여야 해요';
+  if (/invalid option|invalid enum|expected one of/i.test(msg)) return `쓸 수 있는 값이 아니에요 (${msg.replace(/^Invalid option: /, '')})`;
   if (/invalid input/i.test(msg)) return '값이 이상해요';
   return msg;
 }
@@ -204,6 +243,8 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       }
     }
 
+    if (b.fluid && solid) problems.push(`블록 '${b.id}'(${b.name}): 액체(fluid)는 solid 가 false 여야 해요`);
+
     return {
       num,
       id: b.id,
@@ -219,8 +260,30 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       textures,
       shape: b.shape ?? null,
       release: b.release ?? 'v1',
+      fluid: b.fluid ?? null,
+      fluidLevel: 0,
+      fluidSource: b.fluid ? num : -1,
+      internal: false,
     };
   });
+
+  // 액체마다 흐르는 단계 1..7 을 내부 블록으로 만든다 (아들 JSON 은 원천 하나만 적는다)
+  for (const src of [...defs]) {
+    if (!src.fluid) continue;
+    for (let level = 1; level <= MAX_FLUID_LEVEL; level++) {
+      defs.push({
+        ...src,
+        num: defs.length,
+        id: `${src.id}~${level}`,
+        name: `${src.name}(흐름 ${level})`,
+        hardness: null,
+        drops: null,
+        fluidLevel: level,
+        fluidSource: src.num,
+        internal: true,
+      });
+    }
+  }
 
   if (defs.length > 65535) problems.push(`블록이 너무 많아요 (최대 65535개)`);
   if (problems.length) throw new DataError(fileName, problems);

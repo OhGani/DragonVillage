@@ -15,6 +15,10 @@ export interface MeshBlockInfo {
   sameCull: boolean;
   /** 면별 텍스처 레이어: +X -X +Y -Y +Z -Z */
   tex: [number, number, number, number, number, number];
+  /** 액체 종류: 0 아님, 1 물, 2 용암. 액체는 greedy 대신 높이가 있는 전용 패스로 그린다 */
+  fluidKind: number;
+  /** 액체 윗면 높이 0..1 (원천 8/9, 흐를수록 낮아짐). 액체 아니면 0 */
+  fluidHeight: number;
 }
 
 export interface MeshBuffers {
