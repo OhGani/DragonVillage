@@ -22,8 +22,13 @@ const GRAVITY = 32;
 const TERMINAL = 78;
 const JUMP_V = 9.0; // ≈ 1.27 블록
 const STEP = 1 / 60;
-/** 앞으로 걸을 때 자동으로 올라가는 턱 높이 (블록). 웅크리기·물속에선 끔 */
+/** 앞으로 걸을 때 자동으로 올라가는 턱 높이 (블록). 웅크리기에선 끔 */
 const AUTO_STEP = 1.0;
+/**
+ * 물속에서 둑에 닿았을 때 올라서는 높이. 수면(물 블록 윗면)보다 한 칸 높은 강변·밭 물길 가장자리를
+ * 헤엄치며 밀면 올라선다 — 아니면 물길·강에 빠졌을 때 나올 길이 없다 (아빠 피드백 2026-09-13)
+ */
+const WATER_STEP = 1.3;
 /** 턱을 오른 뒤 카메라가 따라 올라오는 속도 (1/초) */
 const STEP_CAM_SMOOTH = 14;
 const MAX_PITCH = (89.5 * Math.PI) / 180;
@@ -124,8 +129,16 @@ export class Player {
 
     // 수직
     if (this.inWater) {
-      const target = input.jump ? 4.0 : -2.2;
-      vel.y += (target - vel.y) * Math.min(1, 6 * h);
+      // 얕은 물(발 위 한 칸이 물이 아님)에서 바닥을 딛고 있으면 진짜 점프 — 밭 물길에서 뛰어나올 수 있다
+      if (input.jump && this.onGround && !this.isWaterAt(pos.x, pos.y + 1.0, pos.z)) {
+        vel.y = JUMP_V;
+        this.onGround = false;
+      } else {
+        // 물속에서 벽(둑)을 밀고 있으면 점프를 안 눌러도 떠오른다 → 수면에서 둑 오르기로 이어진다 (초5가 강에 빠져도 앞으로만 밀면 나온다)
+        const pushingWall = (this.moveOut.hitX || this.moveOut.hitZ) && (input.moveX !== 0 || input.moveZ !== 0);
+        const target = input.jump || pushingWall ? 4.0 : -2.2;
+        vel.y += (target - vel.y) * Math.min(1, 6 * h);
+      }
     } else {
       vel.y -= GRAVITY * h;
       if (vel.y < -TERMINAL) vel.y = -TERMINAL;
@@ -144,9 +157,9 @@ export class Player {
     moveBody(this.isSolid, pos, PLAYER_SIZE, vel, h, this.moveOut);
     this.onGround = this.moveOut.onGround;
 
-    // 한 칸 턱 자동 오르기 (앞으로 걷다 막혔을 때)
-    if (wasGround && !this.inWater && !this.sneaking && (this.moveOut.hitX || this.moveOut.hitZ)) {
-      const r = tryStepUp(this.isSolid, { x: px, y: py, z: pz }, pos, PLAYER_SIZE, vx0, vz0, h, AUTO_STEP);
+    // 한 칸 턱 자동 오르기 (앞으로 걷다 막혔을 때). 물속에서는 바닥을 딛지 않아도(헤엄) 둑을 밀면 올라선다
+    if (!this.sneaking && (wasGround || this.inWater) && (this.moveOut.hitX || this.moveOut.hitZ)) {
+      const r = tryStepUp(this.isSolid, { x: px, y: py, z: pz }, pos, PLAYER_SIZE, vx0, vz0, h, this.inWater ? WATER_STEP : AUTO_STEP);
       if (r) {
         vel.x = r.vx;
         vel.z = r.vz;
