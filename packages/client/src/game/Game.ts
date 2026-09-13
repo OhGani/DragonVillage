@@ -248,8 +248,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
 
   /** 한 프레임. render=false 면 화면은 안 그린다 (테스트·숨김 탭용) */
   const tick = (now: number, render: boolean) => {
-    const dt = Math.min(0.1, (now - last) / 1000);
-    last = now;
+    // 시계가 뒤로 가면(테스트용 tick 과 rAF 가 섞일 때 등) 0 으로 — 음수 dt 는 물리·액체 누적을 되감는다
+    const dt = Math.max(0, Math.min(0.1, (now - last) / 1000));
+    last = Math.max(last, now);
 
     const inp = input.frame(dt);
     if (inp.toggleDebug) debugVisible = !debugVisible;

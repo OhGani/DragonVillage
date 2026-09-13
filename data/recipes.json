@@ -1,5 +1,5 @@
 {
-  "_comment": "제작 레시피. 드래곤 재료 중 '제작'으로 얻는 것들과 안장·도구. station = 어디서 만드나(crafting_table 제작대 / forge 대장간 / brewing 양조기 / furnace 화로). 개수는 아빠 임시값, 아들이 바꿔도 됨. 아들 3차 디테일(2026-09-12)의 제작 사슬(종이→책→책장→인챈트 테이블)과 도구·장식 레시피 추가. release 없는 것은 v1.",
+  "_comment": "제작 레시피. 드래곤 재료 중 '제작'으로 얻는 것들과 안장·도구. station = 어디서 만드나(inventory 가방 안 2×2 칸 / crafting_table 제작대 3×3 / forge 대장간 / brewing 양조기 / furnace 화로). 개수는 아빠 임시값, 아들이 바꿔도 됨. 아들 3차 디테일(2026-09-12)의 제작 사슬(종이→책→책장→인챈트 테이블)과 도구·장식 레시피 추가. 6차(2026-09-13): 가방 2×2 칸 레시피(판자·제작대·양털·염료·염색). release 없는 것은 v1.",
   "recipes": [
     {
       "id": "saddle",
@@ -228,13 +228,26 @@
     {
       "id": "planks",
       "name": "판자",
-      "station": "crafting_table",
+      "station": "inventory",
       "in": {
         "log": 1
       },
       "out": {
         "planks": 4
-      }
+      },
+      "_note": "아들 6차: 가방 오른쪽 2×2 칸에 원목을 두면 판자 4개"
+    },
+    {
+      "id": "crafting_table",
+      "name": "제작대",
+      "station": "inventory",
+      "in": {
+        "planks": 4
+      },
+      "out": {
+        "crafting_table": 1
+      },
+      "_note": "아들 6차: 판자 4개로 제작대 1개. 제작대는 9칸(3×3)이라 여러 가지를 만들 수 있다"
     },
     {
       "id": "stick",
@@ -744,39 +757,39 @@
     {
       "id": "wool_from_string",
       "name": "양털 (거미줄)",
-      "station": "crafting_table",
+      "station": "inventory",
       "in": {
         "string": 4
       },
       "out": {
         "wool": 1
       },
-      "_note": "아들: 거미줄 4개 = 양털 1개"
+      "_note": "아들: 거미줄(실) 4개 = 양털 1개. 6차: 가방 2×2 칸에서"
     },
     {
       "id": "dye_from_flower",
       "name": "염료",
-      "station": "world",
+      "station": "inventory",
       "in": {
         "flower": 1
       },
       "out": {
         "dye": 3
       },
-      "_note": "꽃을 부수면 그 색 염료 3개 (아들). 색은 꽃 종류대로"
+      "_note": "가방 2×2 칸에 꽃을 두면 꽃 색깔에 맞는 염료 3개 (아들 6차). 4차에선 '꽃을 부수면'이었는데 6차 방식으로"
     },
     {
       "id": "dye_wool",
       "name": "양털 물들이기",
-      "station": "crafting_table",
+      "station": "inventory",
       "in": {
-        "wool": 1,
+        "white_wool": 1,
         "dye": 1
       },
       "out": {
         "colored_wool": 1
       },
-      "_note": "염료로 양털 염색. 침대·깃발 색"
+      "_note": "흰 양털만 염색할 수 있다. 흰 양털 1 + 원하는 염료 1 → 그 색 양털 1 (아들 6차). 침대·깃발 색"
     },
     {
       "id": "ink_dye",

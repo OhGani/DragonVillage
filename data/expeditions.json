@@ -248,9 +248,12 @@
         }
       ],
       "structures": [
-        "nether_fortress"
+        "nether_fortress",
+        "bastion"
       ],
+      "groundBlocks": ["dried_ghast"],
       "_note": "화염·네더라이트·폭발 드래곤 재료. 네더라이트는 네더에만",
+      "_note6": "아들 6차(2026-09-13): 피글린 요새(bastion)에 상자가 많고 잡다한 것이 들어 있다(v1.1). 바닥에 마른 가스트가 있어 캐서 물에 불리면 해피 가스트(v1.2). 피글린 vs 좀비 피글린 전쟁은 mobs.json",
       "boss": {
         "id": "giant_ghast",
         "structure": "giant_nether_fortress",

@@ -342,6 +342,12 @@ const TEX = {
     for (let y = 10; y < 13; y++) for (let x = 5; x < 11; x++) if (c.rnd() < 0.6) c.set(x, y, 240, 140 + c.rnd() * 60, 30);
   },
   lava: (c) => c.noise([214, 90, 20], 22).blotch(0.12).ore([255, 210, 60], 5),
+  dried_ghast: (c) => {
+    c.noise([206, 202, 196], 8).blotch(0.06);
+    // 감은 눈 두 개와 입
+    for (const x of [4, 5, 10, 11]) c.set(x, 6, 70, 66, 70);
+    for (let x = 6; x <= 9; x++) c.set(x, 11, 70, 66, 70);
+  },
 };
 
 mkdirSync(OUT, { recursive: true });

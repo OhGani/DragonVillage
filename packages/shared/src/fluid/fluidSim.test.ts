@@ -109,6 +109,64 @@ describe('FluidSim — 물', () => {
   });
 });
 
+describe('FluidSim — 플레이어가 놓은 방향 액체 (아들 6차)', () => {
+  const EAST = 1;
+
+  it('동쪽으로 놓은 물은 동쪽으로만 7칸 흐른다', () => {
+    const w = flatWorld();
+    const sim = new FluidSim(w, registry);
+    w.setBlock(16, 1, 16, registry.fluidVariant(WATER, 0, EAST));
+    sim.touch(16, 1, 16);
+    run(sim, 60);
+    expect(countKind(w, 'water')).toBe(8); // 원천 + 동쪽 7칸
+    for (let x = 17; x <= 23; x++) expect(registry.get(w.getBlock(x, 1, 16)).fluidLevel).toBe(x - 16);
+    expect(w.getBlock(15, 1, 16)).toBe(0); // 뒤
+    expect(w.getBlock(16, 1, 17)).toBe(0); // 옆
+    expect(w.getBlock(24, 1, 16)).toBe(0); // 8칸째
+    expect(registry.get(w.getBlock(20, 1, 16)).fluidDir).toBe(EAST);
+  });
+
+  it('원천을 없애면 방향 물도 말라붙는다', () => {
+    const w = flatWorld();
+    const sim = new FluidSim(w, registry);
+    w.setBlock(16, 1, 16, registry.fluidVariant(WATER, 0, EAST));
+    sim.touch(16, 1, 16);
+    run(sim, 60);
+    w.setBlock(16, 1, 16, 0);
+    sim.touch(16, 1, 16);
+    run(sim, 120);
+    expect(countKind(w, 'water')).toBe(0);
+  });
+
+  it('구멍으로 떨어진 뒤에도 같은 방향으로 흐른다', () => {
+    const w = new VoxelWorld({ sizeCX: 2, sizeCY: 1, sizeCZ: 2 });
+    for (let x = 0; x < 32; x++) for (let z = 0; z < 32; z++) for (let y = 0; y <= 4; y++) w.setBlock(x, y, z, STONE);
+    for (let x = 17; x <= 19; x++) for (let y = 1; y <= 4; y++) w.setBlock(x, y, 16, 0); // 동쪽에 3칸 넓이 구멍
+    w.setBlock(16, 5, 16, registry.fluidVariant(WATER, 0, EAST));
+    const sim = new FluidSim(w, registry);
+    sim.touch(16, 5, 16);
+    run(sim, 120);
+    expect(registry.get(w.getBlock(17, 1, 16)).fluidLevel).toBe(1); // 떨어진 물
+    expect(registry.get(w.getBlock(19, 1, 16)).fluid).toBe('water'); // 바닥에서 동쪽으로 계속
+    expect(registry.get(w.getBlock(19, 1, 16)).fluidDir).toBe(EAST);
+    expect(w.getBlock(15, 5, 16)).toBe(0); // 서쪽(뒤)으로는 안 간다
+    expect(w.getBlock(16, 5, 17)).toBe(0); // 옆으로도 안 간다
+  });
+
+  it('놓은 방향 물이 연못(사방 물)을 만나면 연못이 더 세다', () => {
+    const w = flatWorld();
+    w.setBlock(20, 1, 16, WATER); // 연못 원천
+    w.setBlock(16, 1, 16, registry.fluidVariant(WATER, 0, EAST));
+    const sim = new FluidSim(w, registry);
+    sim.touch(16, 1, 16);
+    sim.touch(20, 1, 16);
+    run(sim, 80);
+    expect(registry.get(w.getBlock(20, 1, 16)).fluidLevel).toBe(0); // 원천은 덮어쓰이지 않는다
+    expect(registry.get(w.getBlock(19, 1, 16)).fluidLevel).toBe(1); // 연못 물(사방, 1)이 방향 물(3)보다 세서 이긴다
+    expect(registry.get(w.getBlock(19, 1, 16)).fluidDir).toBe(0);
+  });
+});
+
 describe('FluidSim — 용암', () => {
   it('용암은 3칸까지, 단계 2씩 약해진다', () => {
     const w = flatWorld();
@@ -155,6 +213,14 @@ describe('레지스트리 액체 변형', () => {
     expect(d.solid).toBe(false);
     expect(registry.v1().some((x) => x.internal)).toBe(false);
     expect(registry.get(registry.fluidVariant(LAVA, 6)).name).toBe('용암(흐름 6)');
+    // 방향 변형: 원천(단계 0) 포함 4방향 × 8단계
+    const east = registry.fluidVariant(WATER, 0, 1);
+    expect(registry.get(east).fluidDir).toBe(1);
+    expect(registry.get(east).fluidLevel).toBe(0);
+    expect(registry.get(east).id).toBe('water>e');
+    expect(registry.get(registry.fluidVariant(WATER, 3, 4)).name).toBe('물(북쪽으로, 흐름 3)');
+    expect(registry.get(registry.fluidVariant(WATER, 3, 4)).id).toBe('water>n~3');
+    expect(registry.fluidVariant(WATER, 0, 0)).toBe(WATER);
   });
 
   it('액체인데 solid 면 에러', () => {

@@ -34,6 +34,19 @@ const RawBlock = z.object({
 export type FluidKind = 'water' | 'lava';
 /** 흐르는 액체 단계 수 (원천 0 + 1..7) */
 export const MAX_FLUID_LEVEL = 7;
+/**
+ * 액체 방향. 0 = 사방(자연 연못), 1 +X 동, 2 -X 서, 3 +Z 남, 4 -Z 북.
+ * 플레이어가 놓은 물·용암은 놓은 방향으로만 흐른다 (아들 6차, 결정 #52).
+ */
+export const FLUID_DIR_VEC: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
+const FLUID_DIR_ID = ['', 'e', 'w', 's', 'n'];
+const FLUID_DIR_KO = ['', '동쪽으로', '서쪽으로', '남쪽으로', '북쪽으로'];
 
 const BlocksFile = z.object({
   _comment: z.string().optional(),
@@ -99,25 +112,27 @@ export interface BlockDef {
   readonly fluidLevel: number;
   /** 같은 액체 원천의 블록 번호. 액체 아니면 -1 */
   readonly fluidSource: number;
+  /** 흐르는 방향. 0 사방, 1 +X, 2 -X, 3 +Z, 4 -Z (FLUID_DIR_VEC). 액체 아니면 0 */
+  readonly fluidDir: number;
   /** 코드가 만든 내부 블록(흐르는 액체 단계). 핫바·도감에 안 보임 */
   readonly internal: boolean;
 }
 
 export class BlockRegistry {
   private readonly byId = new Map<string, BlockDef>();
-  /** 원천 번호 → [원천, 단계1, ..., 단계7] 번호 */
-  private readonly fluidLevels = new Map<number, number[]>();
+  /** 원천 번호 → [방향][단계] 블록 번호 */
+  private readonly fluidLevels = new Map<number, number[][]>();
 
   constructor(readonly defs: readonly BlockDef[]) {
     for (const d of defs) {
       this.byId.set(d.id, d);
       if (d.fluid) {
-        let arr = this.fluidLevels.get(d.fluidSource);
-        if (!arr) {
-          arr = [];
-          this.fluidLevels.set(d.fluidSource, arr);
+        let byDir = this.fluidLevels.get(d.fluidSource);
+        if (!byDir) {
+          byDir = [];
+          this.fluidLevels.set(d.fluidSource, byDir);
         }
-        arr[d.fluidLevel] = d.num;
+        (byDir[d.fluidDir] ??= [])[d.fluidLevel] = d.num;
       }
     }
   }
@@ -126,11 +141,15 @@ export class BlockRegistry {
     return this.get(num).fluid !== null;
   }
 
-  /** 액체 원천 번호 + 단계 → 블록 번호. 단계 0 은 원천 자신 */
-  fluidVariant(source: number, level: number): number {
-    const arr = this.fluidLevels.get(source);
-    if (!arr) throw new Error(`액체가 아닌 블록 번호: ${source}`);
-    const n = arr[Math.max(0, Math.min(MAX_FLUID_LEVEL, level))];
+  /**
+   * 액체 원천 번호 + 단계 + 방향 → 블록 번호.
+   * 단계 0·방향 0 은 원천 자신. 방향 1..4 는 플레이어가 놓은 액체(그 방향으로만 흐름).
+   */
+  fluidVariant(source: number, level: number, dir = 0): number {
+    const byDir = this.fluidLevels.get(source);
+    if (!byDir) throw new Error(`액체가 아닌 블록 번호: ${source}`);
+    const arr = byDir[dir] ?? byDir[0];
+    const n = arr?.[Math.max(0, Math.min(MAX_FLUID_LEVEL, level))];
     return n ?? source;
   }
 
@@ -263,25 +282,34 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       fluid: b.fluid ?? null,
       fluidLevel: 0,
       fluidSource: b.fluid ? num : -1,
+      fluidDir: 0,
       internal: false,
     };
   });
 
-  // 액체마다 흐르는 단계 1..7 을 내부 블록으로 만든다 (아들 JSON 은 원천 하나만 적는다)
+  // 액체마다 내부 블록을 만든다 (아들 JSON 은 원천 하나만 적는다):
+  //  - 사방 흐름 1..7 (자연 연못이 퍼질 때)
+  //  - 방향 4가지 × (원천 0 + 흐름 1..7) (플레이어가 놓은 액체는 놓은 방향으로만 흐른다)
   for (const src of [...defs]) {
     if (!src.fluid) continue;
-    for (let level = 1; level <= MAX_FLUID_LEVEL; level++) {
-      defs.push({
-        ...src,
-        num: defs.length,
-        id: `${src.id}~${level}`,
-        name: `${src.name}(흐름 ${level})`,
-        hardness: null,
-        drops: null,
-        fluidLevel: level,
-        fluidSource: src.num,
-        internal: true,
-      });
+    for (let dir = 0; dir < FLUID_DIR_VEC.length; dir++) {
+      for (let level = dir === 0 ? 1 : 0; level <= MAX_FLUID_LEVEL; level++) {
+        const dirPart = dir ? `>${FLUID_DIR_ID[dir]}` : '';
+        const levelPart = level ? `~${level}` : '';
+        const nameParts = [dir ? FLUID_DIR_KO[dir] : '', level ? `흐름 ${level}` : ''].filter(Boolean);
+        defs.push({
+          ...src,
+          num: defs.length,
+          id: `${src.id}${dirPart}${levelPart}`,
+          name: `${src.name}(${nameParts.join(', ')})`,
+          hardness: null,
+          drops: null,
+          fluidLevel: level,
+          fluidSource: src.num,
+          fluidDir: dir,
+          internal: true,
+        });
+      }
     }
   }
 

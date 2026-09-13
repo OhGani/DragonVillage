@@ -559,6 +559,16 @@
       "lightEmit": 0,
       "texture": "water",
       "_note": "심해 — 발광 오징어 서식"
+    },
+    {
+      "id": "dried_ghast",
+      "name": "마른 가스트",
+      "hardness": 0.5,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "dried_ghast",
+      "release": "v1.2",
+      "_note": "네더 바닥에 있다. 캐서 물에 불리면 해피 가스트가 된다 (아들 6차). 해피 가스트 탑승은 v1.2"
     }
   ]
 }

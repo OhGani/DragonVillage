@@ -97,13 +97,23 @@
       "id": "iron_golem",
       "name": "철 골렘",
       "release": "v1.1",
-      "_note": "마을 수호자. 방어전에서 우민과 싸운다"
+      "behavior": {
+        "attacksWhoeverHurtsVillagers": true,
+        "includesPlayers": true,
+        "meleeOnly": true,
+        "_note": "아들 6차: 주민을 누군가 공격하면 철 골렘이 공격한다 — 플레이어라도. 블록을 3칸 쌓고 올라가 칼로 치면 골렘은 반격 못 함(근접 공격만)"
+      },
+      "drops": [["iron_ingot", [2, 2], 1.0]],
+      "_note": "마을 수호자. 방어전에서 우민과 싸운다. 죽이면 철 2개 (아들 6차)"
     },
     {
       "id": "trading_post",
       "name": "주민 거래소",
       "release": "v2",
-      "_note": "에메랄드 거래. 경제 시스템 필요. 무엇을 사고팔지 아들에게"
+      "currency": "emerald",
+      "playerCanSell": true,
+      "priceByValue": true,
+      "_note": "아들 6차(2026-09-13): 에메랄드로 사고팔고, 플레이어가 가진 아이템을 팔아도 된다. 아이템이 비쌀수록 에메랄드가 많이 든다. 무엇을 파는지 목록은 아직"
     }
   ],
   "animals": [

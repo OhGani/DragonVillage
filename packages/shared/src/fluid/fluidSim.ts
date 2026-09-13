@@ -7,13 +7,15 @@
  * - 물: 7칸, 0.25초마다. 용암: 3칸(단계 2씩), 1.5초마다.
  * - 무한 물: 흐르는 물 옆에 원천이 2개 이상이고 아래가 단단하면 원천이 된다.
  * - 물이 용암 원천을 만나면 흑요석, 그 외 물·용암이 만나면 조약돌.
+ * - 플레이어가 놓은 액체(방향 1..4)는 **놓은 방향으로만** 옆으로 흐른다(아들 6차). 아래로는 똑같이 떨어지고,
+ *   떨어진 뒤에도 같은 방향을 유지한다. 자연 연못(방향 0)은 사방으로 퍼진다.
  *
  * 결정론적: 난수 없음, 같은 순서(좌표 키 오름차순)로 처리. 클라(M0~M1)와 서버(M2~)가 같은 코드를 돈다.
  * 틱은 20Hz 기준.
  */
 import type { ChunkCoord } from '../chunk/world';
 import { VoxelWorld, chunkKey } from '../chunk/world';
-import { AIR_ID, type BlockDef, type BlockRegistry, type FluidKind } from '../rules/blocks';
+import { AIR_ID, type BlockDef, type BlockRegistry, FLUID_DIR_VEC, type FluidKind } from '../rules/blocks';
 
 export interface FluidRules {
   /** 옆으로 퍼질 수 있는 최대 단계 */
@@ -137,7 +139,7 @@ export class FluidSim {
     return d.fluidLevel > level; // 같은 액체는 더 세게 만들 수 있을 때만
   }
 
-  private flowInto(x: number, y: number, z: number, kind: FluidKind, source: number, level: number, targetId: number): void {
+  private flowInto(x: number, y: number, z: number, kind: FluidKind, source: number, level: number, dir: number, targetId: number): void {
     const t = this.registry.get(targetId);
     if (t.fluid && t.fluid !== kind) {
       // 물 + 용암 원천 = 흑요석, 그 외 = 조약돌
@@ -146,7 +148,7 @@ export class FluidSim {
       this.touchNeighbors(x, y, z);
       return;
     }
-    this.set(x, y, z, this.registry.fluidVariant(source, level));
+    this.set(x, y, z, this.registry.fluidVariant(source, level, dir));
     this.schedule(x, y, z);
     this.touchNeighbors(x, y, z);
   }
@@ -159,24 +161,33 @@ export class FluidSim {
     const kind = def.fluid;
     const rules = FLUID_RULES[kind];
     const source = def.fluidSource;
+    const dir = def.fluidDir;
+    const [fdx, fdz] = FLUID_DIR_VEC[dir];
     let level = def.fluidLevel;
 
-    // 1) 흐르는 액체: 세기 다시 계산
+    // 1) 흐르는 액체: 세기 다시 계산 — 의지할 곳(위, 또는 더 센 이웃)이 없으면 약해진다
     if (level > 0) {
-      let minSide = Infinity;
-      let sources = 0;
-      for (const [dx, dz] of SIDES) {
-        const nd = this.sameKind(world.getBlock(x + dx, y, z + dz), kind);
-        if (!nd) continue;
-        if (nd.fluidLevel < minSide) minSide = nd.fluidLevel;
-        if (nd.fluidLevel === 0) sources++;
-      }
       const above = this.sameKind(world.getBlock(x, y + 1, z), kind);
-      let next = above ? rules.step : minSide + rules.step;
-      if (kind === 'water' && sources >= 2) {
-        const belowId = world.getBlock(x, y - 1, z);
-        const belowFluid = this.sameKind(belowId, kind);
-        if (this.registry.isSolid(belowId) || (belowFluid && belowFluid.fluidLevel === 0) || y === 0) next = 0; // 무한 물
+      let next: number;
+      if (dir === 0) {
+        let minSide = Infinity;
+        let sources = 0;
+        for (const [dx, dz] of SIDES) {
+          const nd = this.sameKind(world.getBlock(x + dx, y, z + dz), kind);
+          if (!nd) continue;
+          if (nd.fluidLevel < minSide) minSide = nd.fluidLevel;
+          if (nd.fluidLevel === 0) sources++;
+        }
+        next = above ? rules.step : minSide + rules.step;
+        if (kind === 'water' && sources >= 2) {
+          const belowId = world.getBlock(x, y - 1, z);
+          const belowFluid = this.sameKind(belowId, kind);
+          if (this.registry.isSolid(belowId) || (belowFluid && belowFluid.fluidLevel === 0) || y === 0) next = 0; // 무한 물
+        }
+      } else {
+        // 방향 액체는 뒤(상류) 한 칸만 본다
+        const upstream = this.sameKind(world.getBlock(x - fdx, y, z - fdz), kind);
+        next = above ? rules.step : (upstream ? upstream.fluidLevel : Infinity) + rules.step;
       }
       if (next > rules.maxLevel) {
         this.set(x, y, z, AIR_ID);
@@ -184,30 +195,31 @@ export class FluidSim {
         return;
       }
       if (next !== level) {
-        this.set(x, y, z, this.registry.fluidVariant(source, next));
+        this.set(x, y, z, this.registry.fluidVariant(source, next, dir));
         level = next;
         this.schedule(x, y, z);
         this.touchNeighbors(x, y, z);
       }
     }
 
-    // 2) 퍼지기: 아래로 먼저
+    // 2) 퍼지기: 아래로 먼저 (방향은 유지)
     let sideways: boolean;
     if (y > 0) {
       const belowId = world.getBlock(x, y - 1, z);
-      if (this.canFlowInto(belowId, kind, rules.step)) this.flowInto(x, y - 1, z, kind, source, rules.step, belowId);
+      if (this.canFlowInto(belowId, kind, rules.step)) this.flowInto(x, y - 1, z, kind, source, rules.step, dir, belowId);
       const belowDef = this.registry.get(world.getBlock(x, y - 1, z));
       sideways = belowDef.solid || belowDef.fluid === kind;
     } else sideways = true;
 
     if (sideways && level + rules.step <= rules.maxLevel) {
       const nextLevel = level + rules.step;
-      for (const [dx, dz] of SIDES) {
+      const targets: readonly (readonly [number, number])[] = dir === 0 ? SIDES : [[fdx, fdz]];
+      for (const [dx, dz] of targets) {
         const nx = x + dx,
           nz = z + dz;
         if (!world.inBounds(nx, y, nz)) continue;
         const nid = world.getBlock(nx, y, nz);
-        if (this.canFlowInto(nid, kind, nextLevel)) this.flowInto(nx, y, nz, kind, source, nextLevel, nid);
+        if (this.canFlowInto(nid, kind, nextLevel)) this.flowInto(nx, y, nz, kind, source, nextLevel, dir, nid);
       }
     }
   }
