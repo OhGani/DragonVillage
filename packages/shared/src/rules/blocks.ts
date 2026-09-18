@@ -220,7 +220,7 @@ function describePath(path: PropertyKey[], raw: unknown): string {
   return `${idx + 1}번째 블록(id: ${id})${fieldKo ? `의 ${fieldKo}` : ''}`;
 }
 
-function koreanizeMessage(msg: string): string {
+export function koreanizeMessage(msg: string): string {
   if (/expected number/i.test(msg)) return '숫자여야 해요';
   if (/expected string/i.test(msg)) return '글자(따옴표 안)여야 해요';
   if (/expected boolean/i.test(msg)) return 'true 또는 false 여야 해요';

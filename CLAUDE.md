@@ -77,6 +77,7 @@ docs/
 - 설계 v0.4 완료. **M0 코드 구현 완료(2026-09-12)**: pnpm workspaces, `shared`(청크·월드·물리·액체 시뮬·blocks.json 검증), `client`(greedy meshing 워커, Three.js 렌더, 터치·키보드·게임패드 조작, HUD), `server` 빈 껍데기. 테스트 50개·벤치 1개.
 - **배포·테스트 경로 (M2 부터)**: 게임은 IDC PC 의 서버 **http://115.68.221.179:5173** 에서 돈다(`packages/server`, 클라 빌드를 같이 서빙, 결정 #60). 클라를 고치면 `pnpm build`, 서버를 고치면 서버 재시작. `/health` 로 상태 확인. GitHub Pages(https://ohgani.github.io/DragonVillage/)는 CI 겸 서버 주소 안내 페이지. 개발용 Vite 는 5174(`pnpm dev`, `/ws` 프록시), 서버 개발은 `pnpm server:dev`.
 - **M2 구현 완료(2026-09-18)**: `shared/protocol`(바이너리 코덱·JSON 로비, 문자열 블록 id), `packages/server`(ws + better-sqlite3, 마을 룸·검증·액체 틱·저장·백업, 기본 마을 코드 482913), 클라 `net/`(NetClient·RemotePlayers)·`ui/lobby`. IndexedDB 저장과 클라 액체 시뮬은 삭제(서버가 진실). 테스트 114개.
+- **물약 양조 데이터 준비(2026-09-18, 8차)**: `data/potions.json`(물약 19종·보조 재료 5종·재료 출처, 마인크래프트 1.21 규칙) + `shared/rules/potions.ts`(검증 + `brew()` 양조 규칙, 테스트 13개). `recipes.json` 에 양조기·물약 재료 레시피, 단발 치유 레시피 삭제. 양조기 UI 는 M4, 체력 물약 효과는 M7. 결정 #61. 테스트 127개.
 - 2026-09-13 피드백 반영: 한 칸 턱 자동 오르기(`tryStepUp`), 물·용암 흐름(`shared/fluid`, 마인크래프트 규칙, 결정 #47), 핫바 10칸(9 물·0 용암, 들고 있으면 양동이처럼 원천 떠냄), 시작 화면 '게임 방법' 창, 손 블록 화면 모서리 고정, 전체화면 켜기/끄기 토글 + 웹 앱 매니페스트(아이폰은 홈 화면 추가로 전체화면).
 - M0 남은 것: 폰 실기기(아이폰·갤럭시) fps 측정, 아들 5분 플레이테스트 → `docs/PLAYTEST-LOG.md`. 아빠 피드백은 받는 대로 반영 중.
 - 개발 콘솔에서 `window.__dv` 로 월드·플레이어·청크 상태를 볼 수 있다 (dev 빌드만). `__dv.tick(dt)` 는 rAF 없이 한 프레임을 돌린다(자동 테스트용).

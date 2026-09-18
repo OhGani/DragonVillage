@@ -8,7 +8,7 @@ packages/shared/    순수 TypeScript. DOM·Node API 의존 없음. 클라·서�
   worldgen/         시드 PRNG, simplex 래퍼, 마을 터 생성기, 원정지 생성기 N종, 보물 구조물 배치
   physics/          AABB 스윕, Amanatides–Woo 레이캐스트
   protocol/         메시지 타입, 인코더/디코더, 상수
-  rules/            data/*.json 로더 + 스키마 검증(zod), 원정 출발 조건, 시간 정산, 경험치 레벨 공식(xp.ts) 순수 함수
+  rules/            data/*.json 로더 + 스키마 검증(zod), 양조 규칙(potions.ts brew — 클라 미리보기·서버 양조 공용), 원정 출발 조건, 시간 정산, 경험치 레벨 공식(xp.ts) 순수 함수
 packages/client/    Vite + Three.js
   render/           ChunkMesh, DataArrayTexture 로더, 프러스텀 컬링, 청크 관리자
   workers/          mesher.worker.ts (greedy meshing + 정점 AO·빛)

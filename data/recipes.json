@@ -1,5 +1,5 @@
 {
-  "_comment": "제작 레시피. 드래곤 재료 중 '제작'으로 얻는 것들과 안장·도구. station = 어디서 만드나(inventory 가방 안 2×2 칸 / crafting_table 제작대 3×3 / forge 대장간 / brewing 양조기 / furnace 화로). 개수는 아빠 임시값, 아들이 바꿔도 됨. 아들 3차 디테일(2026-09-12)의 제작 사슬(종이→책→책장→인챈트 테이블)과 도구·장식 레시피 추가. 6차(2026-09-13): 가방 2×2 칸 레시피(판자·제작대·양털·염료·염색). release 없는 것은 v1.",
+  "_comment": "제작 레시피. 드래곤 재료 중 '제작'으로 얻는 것들과 안장·도구. station = 어디서 만드나(inventory 가방 안 2×2 칸 / crafting_table 제작대 3×3 / forge 대장간 / brewing 양조기 / furnace 화로). 개수는 아빠 임시값, 아들이 바꿔도 됨. 아들 3차 디테일(2026-09-12)의 제작 사슬(종이→책→책장→인챈트 테이블)과 도구·장식 레시피 추가. 6차(2026-09-13): 가방 2×2 칸 레시피(판자·제작대·양털·염료·염색). release 없는 것은 v1. 8차(2026-09-18): 양조 물약은 data/potions.json 으로 옮겼다(양조 규칙이 따로 있어서). 여기에는 양조기와 물약 재료 만드는 법만 — water_bottle·brewing_stand·blaze_powder·fermented_spider_eye·glistering_melon·gold_nugget·magma_cream·glowstone_dust·turtle_shell(v1.1)·slime_block(v2).",
   "recipes": [
     {
       "id": "saddle",
@@ -237,20 +237,6 @@
         "netherite_pickaxe": 1
       },
       "toolTier": 4
-    },
-    {
-      "id": "healing_potion",
-      "name": "치유의 물약",
-      "station": "brewing",
-      "in": {
-        "water_bottle": 1,
-        "nether_wart": 1,
-        "glistering_melon": 1
-      },
-      "out": {
-        "healing_potion": 1
-      },
-      "_note": "엔드 시티 상자에서도 나옴"
     },
     {
       "id": "planks",
@@ -893,6 +879,134 @@
         "spear": 1
       },
       "_note": "아들: 창이 있다. 칼보다 사거리 길고 느림. 던지기 가능 여부는 아들에게"
+    },
+    {
+      "id": "water_bottle",
+      "name": "물병",
+      "station": "world",
+      "in": {
+        "glass_bottle": 1,
+        "water_source_block": 1
+      },
+      "out": {
+        "water_bottle": 1
+      },
+      "_note": "유리병을 들고 물을 누르면 물병. 물은 없어지지 않음. 양조의 시작 (potions.json)"
+    },
+    {
+      "id": "brewing_stand",
+      "name": "양조기",
+      "station": "crafting_table",
+      "in": {
+        "blaze_rod": 1,
+        "cobblestone": 3
+      },
+      "out": {
+        "brewing_stand": 1
+      },
+      "_note": "블레이즈 막대기 1개를 조약돌 3개 위에. 물약은 여기서 만든다 (potions.json). 엔드 시티 입구에도 있음(아들 3차)"
+    },
+    {
+      "id": "blaze_powder",
+      "name": "블레이즈 가루",
+      "station": "inventory",
+      "in": {
+        "blaze_rod": 1
+      },
+      "out": {
+        "blaze_powder": 2
+      },
+      "_note": "양조기 연료이자 힘의 물약 재료. 블레이즈 막대기는 네더 블레이즈 (화염 드래곤 재료와 같은 아이템)"
+    },
+    {
+      "id": "fermented_spider_eye",
+      "name": "발효된 거미 눈",
+      "station": "crafting_table",
+      "in": {
+        "spider_eye": 1,
+        "sugar": 1,
+        "brown_mushroom": 1
+      },
+      "out": {
+        "fermented_spider_eye": 1
+      },
+      "_note": "물약을 반대로 뒤집는 재료 (신속→감속, 치유→고통, 야간 투시→투명화, 물병→나약함)"
+    },
+    {
+      "id": "glistering_melon",
+      "name": "반짝이는 수박 조각",
+      "station": "crafting_table",
+      "in": {
+        "melon_slice": 1,
+        "gold_nugget": 8
+      },
+      "out": {
+        "glistering_melon": 1
+      },
+      "_note": "치유의 물약 재료. 수박 조각 주위로 금 조각 8개. (가이드의 \"수박 조각 + 발광석 가루\"는 마인크래프트에 없는 식)"
+    },
+    {
+      "id": "gold_nugget",
+      "name": "금 조각",
+      "station": "inventory",
+      "in": {
+        "gold_ingot": 1
+      },
+      "out": {
+        "gold_nugget": 9
+      },
+      "_note": "금 주괴 1 → 금 조각 9. 반대로 조각 9 → 주괴 1 도 됨"
+    },
+    {
+      "id": "magma_cream",
+      "name": "마그마 크림",
+      "station": "inventory",
+      "in": {
+        "slime_ball": 1,
+        "blaze_powder": 1
+      },
+      "out": {
+        "magma_cream": 1
+      },
+      "_note": "화염 저항의 물약 재료. 네더 마그마 큐브가 생기면 거기서도 나옴"
+    },
+    {
+      "id": "glowstone_dust",
+      "name": "발광석 가루",
+      "station": "world",
+      "in": {
+        "glowstone": 1
+      },
+      "out": {
+        "glowstone_dust": 2
+      },
+      "_note": "발광석 블록을 부수면 가루 2~4 (여기선 2). 물약 단계 올리기 재료"
+    },
+    {
+      "id": "turtle_shell",
+      "name": "거북 등딱지",
+      "station": "crafting_table",
+      "in": {
+        "scute": 5
+      },
+      "out": {
+        "turtle_shell": 1
+      },
+      "release": "v1.1",
+      "_note": "거북 도사의 물약 재료. 인갑은 아기 거북이가 자라며 떨어뜨림 — 거북이가 게임에 들어올 때"
+    },
+    {
+      "id": "slime_block",
+      "name": "슬라임 블록",
+      "station": "crafting_table",
+      "in": {
+        "slime_ball": 9
+      },
+      "out": {
+        "slime_block": 1
+      },
+      "release": "v2",
+      "_note": "장역화 물약 재료 (1.21). 슬라임이 게임에 들어올 때"
     }
   ]
 }
