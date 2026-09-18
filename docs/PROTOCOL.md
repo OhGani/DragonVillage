@@ -1,8 +1,10 @@
-# 클라이언트–서버 프로토콜 (초안)
+# 클라이언트–서버 프로토콜
 
-WebSocket. 게임 메시지는 **바이너리**(첫 1바이트 = 타입, 이하 페이로드, little-endian). 로비·가족 기능은 **JSON 텍스트 프레임**(타입 0x00 접두 없이 문자열로 시작하면 JSON으로 처리).
+WebSocket. 게임 메시지는 **바이너리**(첫 1바이트 = 타입, 이하 페이로드, little-endian). 로비·가족 기능은 **JSON 텍스트 프레임**.
 
-인코더/디코더는 `packages/shared/protocol`에 두고 클라·서버가 같은 코드를 쓴다. 모든 메시지에 vitest 라운드트립 테스트.
+인코더/디코더는 `packages/shared/src/protocol`에 두고 클라·서버가 같은 코드를 쓴다. 모든 메시지에 vitest 라운드트립 테스트.
+
+**구현 상태(2026-09-18, M2)**: `messages.ts` 에 M2 범위 구현 — PlayerMove·PlayersState·BlockChangeReq/Changed/Rejected·**BlockBatch(0x13, 서버 액체 흐름 묶음)**·ChunkData·Ping/Pong 과 JSON hello/join/create/welcome/ready/playerJoined/playerLeft/error. 아래 표와 다른 점: **블록은 숫자 대신 문자열 id**(결정 #39, `u8 len + UTF-8`), **ChunkData(0x20)는 diff 목록 대신 `serialize.ts` 청크 blob 통째**(결정 #60), yaw/pitch 는 f32. 원정·경험치·가족 메시지(0x30~0x61)는 M3·M5 에서.
 
 ## 바이너리 메시지
 

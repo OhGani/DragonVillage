@@ -17,8 +17,10 @@ const PLACE_REPEAT = 0.25; // 우클릭 유지 시 반복 간격
 export interface InteractionEvents {
   onBlocksChanged(dirty: readonly ChunkCoord[]): void;
   onSwing(): void;
-  onPlaced?(x: number, y: number, z: number, id: number): void;
-  onBroken?(x: number, y: number, z: number, id: number): void;
+  /** 놓았다: id 새 블록, prev 그 자리에 있던 블록 (서버가 거절하면 되돌릴 때 쓴다) */
+  onPlaced?(x: number, y: number, z: number, id: number, prev: number): void;
+  /** 부쐈다: prev 가 부서진 블록 */
+  onBroken?(x: number, y: number, z: number, prev: number): void;
 }
 
 /** 조준·부수기·놓기. 서버가 생기면(M2) setBlock 이 요청으로 바뀌고 나머지는 그대로. */
@@ -133,7 +135,7 @@ export class Interaction {
     const res = this.world.setBlock(x, y, z, blockNum);
     if (res.changed) {
       this.events.onBlocksChanged(res.dirty);
-      this.events.onPlaced?.(x, y, z, blockNum);
+      this.events.onPlaced?.(x, y, z, blockNum, cur);
       this.events.onSwing();
     }
   }

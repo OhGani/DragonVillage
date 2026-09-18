@@ -3,14 +3,21 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "M2에서 시작. 지금은 빈 껍데기.",
+  "description": "드래곤 크래프트 서버 — ws + better-sqlite3, 마을 룸, 세계의 진실 (M2)",
   "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@dragon-village/shared": "workspace:*"
+    "@dragon-village/shared": "workspace:*",
+    "better-sqlite3": "^13.0.3",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
-    "@types/node": "^22.18.6"
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^22.18.6",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.23.13"
   }
 }

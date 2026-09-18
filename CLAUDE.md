@@ -65,7 +65,7 @@ docs/
 
 ## 작업 방식
 
-- 마일스톤 단위로 진행. 현재: **M1 (월드의 뼈대)** — 1 저장·2 조명·3 마을 터 생성기 구현 완료(2026-09-13), 남은 것은 4단계 마무리(아들 플레이테스트: 집 짓기 → 폰 끄기 → 다음 날 켜기). `docs/ROADMAP.md` M1 분해 참고. M0 는 아들 폰 피드백으로 실질 통과(정식 5분 관찰과 fps 수치는 `PLAYTEST-LOG.md` 에 채우는 중).
+- 마일스톤 단위로 진행. 현재: **M2 (멀티 코어 — 마을)** 착수 2026-09-18 — 프로토콜·서버·클라이언트 구현 완료, 남은 것은 아빠 PC + 아들 폰 실접속 확인(M1-4 아들 이틀 테스트도 이 빌드에서). `docs/ROADMAP.md` M2 분해 참고. `docs/ROADMAP.md` M1 분해 참고. M0 는 아들 폰 피드백으로 실질 통과(정식 5분 관찰과 fps 수치는 `PLAYTEST-LOG.md` 에 채우는 중).
 - 각 마일스톤은 "아들이 손에 쥐고 해볼 수 있는 빌드"로 끝난다. 완료 기준을 만족하기 전에 다음으로 가지 않는다.
 - 2주마다 플레이테스트. 아들의 피드백은 `docs/PLAYTEST-LOG.md`에 날짜별로 기록(파일 없으면 생성).
 - 성능 목표: PC 60fps, 중급 폰(아이폰 12 / 갤럭시 A5x급) 30fps 이상. 청크 재메싱 프레임당 상한 2.
@@ -75,7 +75,8 @@ docs/
 ## 지금 상태 (2026-09-12)
 
 - 설계 v0.4 완료. **M0 코드 구현 완료(2026-09-12)**: pnpm workspaces, `shared`(청크·월드·물리·액체 시뮬·blocks.json 검증), `client`(greedy meshing 워커, Three.js 렌더, 터치·키보드·게임패드 조작, HUD), `server` 빈 껍데기. 테스트 50개·벤치 1개.
-- **배포·테스트 경로**: `main` 에 push → GitHub Actions 가 빌드해 `gh-pages` 로 배포 → https://ohgani.github.io/DragonVillage/ (2~3분). 아빠 개발 PC 가 IDC 에 있어 LAN 접속이 안 되므로 폰·PC 테스트는 이 주소로 한다. 로컬 `pnpm dev` 는 개발 중 확인용.
+- **배포·테스트 경로 (M2 부터)**: 게임은 IDC PC 의 서버 **http://115.68.221.179:5173** 에서 돈다(`packages/server`, 클라 빌드를 같이 서빙, 결정 #60). 클라를 고치면 `pnpm build`, 서버를 고치면 서버 재시작. `/health` 로 상태 확인. GitHub Pages(https://ohgani.github.io/DragonVillage/)는 CI 겸 서버 주소 안내 페이지. 개발용 Vite 는 5174(`pnpm dev`, `/ws` 프록시), 서버 개발은 `pnpm server:dev`.
+- **M2 구현 완료(2026-09-18)**: `shared/protocol`(바이너리 코덱·JSON 로비, 문자열 블록 id), `packages/server`(ws + better-sqlite3, 마을 룸·검증·액체 틱·저장·백업, 기본 마을 코드 482913), 클라 `net/`(NetClient·RemotePlayers)·`ui/lobby`. IndexedDB 저장과 클라 액체 시뮬은 삭제(서버가 진실). 테스트 114개.
 - 2026-09-13 피드백 반영: 한 칸 턱 자동 오르기(`tryStepUp`), 물·용암 흐름(`shared/fluid`, 마인크래프트 규칙, 결정 #47), 핫바 10칸(9 물·0 용암, 들고 있으면 양동이처럼 원천 떠냄), 시작 화면 '게임 방법' 창, 손 블록 화면 모서리 고정, 전체화면 켜기/끄기 토글 + 웹 앱 매니페스트(아이폰은 홈 화면 추가로 전체화면).
 - M0 남은 것: 폰 실기기(아이폰·갤럭시) fps 측정, 아들 5분 플레이테스트 → `docs/PLAYTEST-LOG.md`. 아빠 피드백은 받는 대로 반영 중.
 - 개발 콘솔에서 `window.__dv` 로 월드·플레이어·청크 상태를 볼 수 있다 (dev 빌드만). `__dv.tick(dt)` 는 rAF 없이 한 프레임을 돌린다(자동 테스트용).

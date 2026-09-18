@@ -1,4 +1,16 @@
-import { CHUNK_SIZE, DEFAULT_VILLAGE_SEED, FluidSim, LightEngine, VILLAGE_GEN_VERSION, VILLAGE_WORLD_ID, generateVillage } from '@dragon-village/shared';
+import {
+  AIR_ID,
+  type BlockChangedMsg,
+  CHUNK_SIZE,
+  FLAG_GROUND,
+  FLAG_SNEAK,
+  FLAG_SPRINT,
+  FLAG_WATER,
+  LightEngine,
+  REJECT_KO,
+  decodeChunk,
+  generateVillage,
+} from '@dragon-village/shared';
 import { BLOCKS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { GamepadInput } from '../input/gamepad';
@@ -6,6 +18,8 @@ import { InputManager } from '../input/InputManager';
 import { KeyboardMouse } from '../input/keyboard';
 import { TouchControls } from '../input/touch';
 import { buildMeshBlockInfo } from '../mesh/blockInfo';
+import type { NetClient, Welcome } from '../net/NetClient';
+import { RemotePlayers } from '../net/RemotePlayers';
 import { Player } from '../player/Player';
 import { SKY_COLOR, createChunkMaterials } from '../render/ChunkMaterial';
 import { ChunkRenderer } from '../render/ChunkRenderer';
@@ -16,17 +30,19 @@ import { loadTextureAtlas } from '../render/textures';
 import { Hud, type HotbarSlot } from '../ui/hud';
 import { renderBlockIcon } from '../ui/icons';
 import { MesherPool } from '../workers/MesherPool';
-import { SaveManager } from '../save/SaveManager';
 import { AutoQuality } from './AutoQuality';
 import { Interaction } from './Interaction';
 
-/** M0 핫바(10칸, 키 1~9·0) — 아들이 blocks.json 에 있는 id 로 바꿔도 된다. 8번 발광석은 조명 확인용(M1) */
+/** 핫바(10칸, 키 1~9·0) — 아들이 blocks.json 에 있는 id 로 바꿔도 된다. 8번 발광석은 조명 확인용 */
 const HOTBAR_IDS = ['grass', 'dirt', 'stone', 'planks', 'log', 'leaves', 'glass', 'glowstone', 'water', 'lava'];
-/** 액체 시뮬레이션 틱 (20Hz) */
-const FLUID_DT = 0.05;
+/** 위치 전송 간격 (20Hz) */
+const MOVE_SEND_MS = 50;
 
 export interface GameOptions {
   isTouch: boolean;
+  /** 이미 마을에 들어간 연결 */
+  net: NetClient;
+  welcome: Welcome;
 }
 
 export interface GameHandle {
@@ -39,30 +55,23 @@ export interface GameHandle {
 const FACING = ['북', '북서', '서', '남서', '남', '남동', '동', '북동'];
 
 export async function createGame(root: HTMLElement, opts: GameOptions): Promise<GameHandle> {
-  const { isTouch } = opts;
+  const { isTouch, net, welcome } = opts;
   const registry = BLOCKS;
   const atlas = await loadTextureAtlas();
   const blockInfo = buildMeshBlockInfo(registry, atlas.index);
-  // ---- 마을 터 (M1): 시드로 언제나 같은 세계. M2 에서 시드는 서버가 준다 ----
-  const village = generateVillage(registry, DEFAULT_VILLAGE_SEED);
-  const { world, spawn } = village;
 
-  // ---- 저장 불러오기 (M1): 만든 세계 위에 저장된 청크를 덮어쓴다 ----
-  const save = await SaveManager.create(world, registry, VILLAGE_WORLD_ID, VILLAGE_GEN_VERSION);
-  const legacyDiscarded = await save.discardLegacy('test-world'); // M0 테스트 월드 저장은 지운다
-  const loadResult = await save.load();
-  if (legacyDiscarded) loadResult.discardedOldWorld = true;
-  if (loadResult.player) {
-    const p = loadResult.player;
-    if (world.inBounds(Math.floor(p.x), Math.floor(Math.max(0, Math.min(world.sizeY - 2, p.y))), Math.floor(p.z))) {
-      spawn.x = p.x;
-      spawn.y = p.y;
-      spawn.z = p.z;
-      spawn.yaw = p.yaw;
-    }
-  }
+  // ---- 세계: 서버가 준 시드로 똑같이 만들고, 서버가 보낸 바뀐 청크를 덮어쓴다 (서버가 진실, 규칙 1) ----
+  const village = generateVillage(registry, welcome.village.seed);
+  const { world } = village;
+  const applyChunk = (cx: number, cy: number, cz: number, bytes: Uint8Array): void => {
+    if (!world.chunkInBounds(cx, cy, cz)) return;
+    decodeChunk(bytes, registry, world.getOrCreateChunk(cx, cy, cz));
+  };
+  for (const c of welcome.chunks) applyChunk(c.cx, c.cy, c.cz, c.bytes);
+  const spawn = { x: welcome.spawn.x, y: welcome.spawn.y, z: welcome.spawn.z, yaw: welcome.spawn.yaw };
+  const myIdx = welcome.playerIdx;
 
-  // ---- 조명 (M1): 블록이 모두 자리 잡은 뒤 한 번 전체 계산. 이후는 바뀐 칸만 ----
+  // ---- 조명: 블록이 모두 자리 잡은 뒤 한 번 전체 계산. 이후는 바뀐 칸만 ----
   const light = new LightEngine(world, registry);
   light.computeAll();
 
@@ -94,6 +103,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const sky = new Sky(scene);
   const highlight = new BlockHighlight(scene);
   const hand = new HandView(materials, blockInfo);
+  const remote = new RemotePlayers(scene);
+  for (const p of welcome.players) remote.upsert(p);
 
   // ---- HUD ----
   const hud = new Hud(root, isTouch);
@@ -106,6 +117,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     return { blockNum: def.num, name: def.name, icon: renderBlockIcon(top, side, 40) };
   });
   hud.setSlots(slots);
+  const updateVillageInfo = () =>
+    hud.setVillageInfo(`마을 "${welcome.village.name}" · 코드 ${welcome.village.code} · 지금 ${remote.count + 1}명 (친구에게 코드를 알려 주면 같은 마을에 들어와요)`);
+  updateVillageInfo();
 
   // ---- 입력 ----
   const input = new InputManager();
@@ -118,24 +132,90 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
 
   // ---- 플레이어 ----
   const player = new Player(world, registry, spawn, spawn.yaw);
-  if (loadResult.player) player.pitch = loadResult.player.pitch;
-  save.bindPlayer(() => ({ x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw, pitch: player.pitch }));
-  save.attachLifecycle();
-  const fluids = new FluidSim(world, registry);
-  fluids.onBlockSet = (x, y, z) => light.markChanged(x, y, z); // 흐르는 용암은 빛을 내고, 물은 빛을 조금 막는다
-  let fluidAcc = 0;
+  player.pitch = welcome.spawn.pitch;
+
+  // ---- 블록 변경: 먼저 화면에 그리고(낙관) 서버가 거절하면 되돌린다 ----
+  const pending = new Map<number, { x: number; y: number; z: number; prev: number }>();
+  let seq = 0;
+  const sendBlock = (x: number, y: number, z: number, newNum: number, prev: number) => {
+    seq = (seq + 1) & 0xffff;
+    pending.set(seq, { x, y, z, prev });
+    net.sendBlockChange({ seq, x, y, z, id: registry.get(newNum).id });
+    if (pending.size > 200) pending.delete(pending.keys().next().value!); // 응답이 영영 안 오면 오래된 것부터 잊는다
+  };
+  const forgetPendingAt = (x: number, y: number, z: number) => {
+    for (const [k, v] of pending) if (v.x === x && v.y === y && v.z === z) pending.delete(k);
+  };
+  /** 서버가 확정한 블록을 세계에 넣는다 */
+  const applyServerBlock = (x: number, y: number, z: number, id: string) => {
+    const def = registry.find(id);
+    const num = def ? def.num : AIR_ID;
+    const res = world.setBlock(x, y, z, num);
+    if (res.changed) {
+      chunks.markDirtyAll(res.dirty);
+      light.markChanged(x, y, z);
+    }
+  };
+
   const interaction = new Interaction(world, registry, player, {
     onBlocksChanged: (dirty) => chunks.markDirtyAll(dirty),
     onSwing: () => hand.swing(),
-    onPlaced: (x, y, z) => {
-      fluids.touch(x, y, z);
+    onPlaced: (x, y, z, id, prev) => {
       light.markChanged(x, y, z);
-      save.markBlock(x, y, z);
+      sendBlock(x, y, z, id, prev);
     },
-    onBroken: (x, y, z) => {
-      fluids.touch(x, y, z);
+    onBroken: (x, y, z, prev) => {
       light.markChanged(x, y, z);
-      save.markBlock(x, y, z);
+      sendBlock(x, y, z, AIR_ID, prev);
+    },
+  });
+
+  // ---- 서버에서 오는 것 ----
+  let disconnected = false;
+  net.attach({
+    onChunk: (m) => {
+      applyChunk(m.cx, m.cy, m.cz, m.bytes);
+      chunks.markDirty(m.cx, m.cy, m.cz);
+      // 청크 통째로 바뀌었으니 그 안의 빛은 전부 다시
+      for (let y = 0; y < CHUNK_SIZE; y++) for (let z = 0; z < CHUNK_SIZE; z++) for (let x = 0; x < CHUNK_SIZE; x++) light.markChanged(m.cx * 16 + x, m.cy * 16 + y, m.cz * 16 + z);
+    },
+    onBlockChanged: (m: BlockChangedMsg) => {
+      forgetPendingAt(m.x, m.y, m.z);
+      applyServerBlock(m.x, m.y, m.z, m.id);
+    },
+    onBlockBatch: (m) => {
+      for (const b of m.blocks) applyServerBlock(b.x, b.y, b.z, b.id);
+    },
+    onRejected: (m) => {
+      const p = pending.get(m.seq);
+      pending.delete(m.seq);
+      if (p) {
+        const res = world.setBlock(p.x, p.y, p.z, p.prev);
+        if (res.changed) {
+          chunks.markDirtyAll(res.dirty);
+          light.markChanged(p.x, p.y, p.z);
+        }
+      }
+      hud.toast(REJECT_KO[m.reason] ?? '서버가 거절했어요', 2500);
+    },
+    onPlayers: (list) => remote.setState(list, myIdx),
+    onPlayerJoined: (p) => {
+      remote.upsert(p);
+      hud.toast(`${p.nick} 님이 들어왔어요`, 3000);
+      updateVillageInfo();
+    },
+    onPlayerLeft: (idx) => {
+      const nick = remote.nickOf(idx);
+      remote.remove(idx);
+      if (nick) hud.toast(`${nick} 님이 나갔어요`, 3000);
+      updateVillageInfo();
+    },
+    onError: (_code, message) => hud.toast(message, 4000),
+    onClose: (reason) => {
+      disconnected = true;
+      input.paused = true;
+      kbm.enabled = false;
+      hud.showOverlay('서버와 연결이 끊어졐어요', reason + '\n다시 들어가려면 아래를 눌러요.', '다시 연결');
     },
   });
 
@@ -227,6 +307,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     hud.showOverlay('잠깐 멈춤', 'ESC 로 나왔어요. 다시 들어가려면 아래를 눌러요.', '계속하기');
   };
   const resume = () => {
+    if (disconnected) return;
     hud.hideOverlay();
     input.paused = false;
     kbm.enabled = true;
@@ -241,17 +322,12 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
   };
   hud.onOverlayClick = () => {
-    if (!started) return;
-    resume();
-  };
-  // 처음 세계로 되돌리기 (게임 방법 창 맨 아래)
-  hud.onResetWorld = () => {
-    if (!save.available) {
-      hud.toast('이 브라우저는 저장이 안 돼서 되돌릴 것도 없어요.', 4000);
+    if (disconnected) {
+      window.location.reload();
       return;
     }
-    if (!window.confirm('정말 처음 세계로 되돌릴까요?\n지금까지 만든 것이 모두 지워져요.')) return;
-    void save.clear().then(() => window.location.reload());
+    if (!started) return;
+    resume();
   };
   // 게임 방법 창: 열리면 입력을 멈추고, 닫히면 (게임 중이었다면) 다시 시작
   hud.onHelpToggle = (open) => {
@@ -263,7 +339,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
   };
   document.addEventListener('pointerlockchange', () => {
-    if (isTouch || !started || kbm.lockFailed) return;
+    if (isTouch || !started || kbm.lockFailed || disconnected) return;
     if (!kbm.locked && !hud.overlayVisible && !hud.helpVisible) pause();
   });
   // HUD 가 캔버스를 덮고 있으므로 root 에서 듣는다 (오버레이 없이 잠금이 풀린 경우 대비)
@@ -280,8 +356,15 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     debugTimer = 0,
     drawCalls = 0,
     triangles = 0,
-    sizeCheck = 0;
+    sizeCheck = 0,
+    moveAcc = 0;
   const bobStrength = isTouch ? 0.6 : 1;
+
+  const sendMove = () => {
+    if (!net.connected) return;
+    const flags = (player.sneaking ? FLAG_SNEAK : 0) | (player.sprinting ? FLAG_SPRINT : 0) | (player.onGround ? FLAG_GROUND : 0) | (player.inWater ? FLAG_WATER : 0);
+    net.sendMove({ x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw, pitch: player.pitch, flags });
+  };
 
   const debugText = (): string => {
     const p = player.pos;
@@ -296,10 +379,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       `메싱 최근 ${chunks.stats.lastMs.toFixed(1)}ms  평균 ${chunks.stats.avgMs.toFixed(1)}ms  최대 ${chunks.stats.maxMs.toFixed(1)}ms  총 ${chunks.stats.meshed}`,
       `위치 ${p.x.toFixed(2)} ${p.y.toFixed(2)} ${p.z.toFixed(2)}  yaw ${yawDeg.toFixed(0)}°  pitch ${((player.pitch * 180) / Math.PI).toFixed(0)}°  ${facing}`,
       `조준 ${tgt}`,
-      `바닥 ${player.onGround ? 'O' : 'X'}  물 ${player.inWater ? 'O' : 'X'}  웅크림 ${player.sneaking ? 'O' : 'X'}  달리기 ${player.sprinting ? 'O' : 'X'}  액체 대기 ${fluids.pendingCount}`,
+      `바닥 ${player.onGround ? 'O' : 'X'}  물 ${player.inWater ? 'O' : 'X'}  웅크림 ${player.sneaking ? 'O' : 'X'}  달리기 ${player.sprinting ? 'O' : 'X'}`,
       `빛 여기 하늘 ${light.skyAt(Math.floor(p.x), Math.floor(p.y + 1), Math.floor(p.z))} 블록 ${light.blockAt(Math.floor(p.x), Math.floor(p.y + 1), Math.floor(p.z))}  조명 처음 ${light.stats.initialMs.toFixed(0)}ms  최근 ${light.stats.lastFlushMs.toFixed(1)}ms/${light.stats.lastFlushCells}칸  지형 생성 ${village.ms.toFixed(0)}ms  청크 ${world.chunkCount}`,
       `${isTouch ? '터치' : 'PC'}  ${navigator.hardwareConcurrency ?? '?'}코어  ${window.innerWidth}×${window.innerHeight}@${(window.devicePixelRatio || 1).toFixed(1)}`,
-      `저장 ${save.available ? (save.lastError ? `오류: ${save.lastError}` : save.lastSavedAt ? `${Math.round((Date.now() - save.lastSavedAt) / 1000)}초 전` : '아직 없음') : '불가'}  대기 ${save.pendingCount}`,
+      `서버 ${net.connected ? `연결됨 왕복 ${net.rtt}ms` : '끊김'}  나 #${myIdx}  같이 ${remote.count}명  블록 대기 ${pending.size}  마을 ${welcome.village.code} 시드 ${welcome.village.seed}  받은 청크 ${welcome.chunks.length}`,
     ].join('\n');
   };
 
@@ -311,7 +394,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
 
   /** 한 프레임. render=false 면 화면은 안 그린다 (테스트·숨김 탭용) */
   const tick = (now: number, render: boolean) => {
-    // 시계가 뒤로 가면(테스트용 tick 과 rAF 가 섞일 때 등) 0 으로 — 음수 dt 는 물리·액체 누적을 되감는다
+    // 시계가 뒤로 가면(테스트용 tick 과 rAF 가 섞일 때 등) 0 으로 — 음수 dt 는 물리 누적을 되감는다
     const dt = Math.max(0, Math.min(0.1, (now - last) / 1000));
     last = Math.max(last, now);
 
@@ -328,14 +411,14 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     interaction.update(inp, dt);
     player.applyToCamera(camera, bobStrength);
 
-    // 액체는 20Hz 고정 틱. 너무 밀리면(탭 숨김 등) 버린다
-    fluidAcc += dt;
-    if (fluidAcc > FLUID_DT * 4) fluidAcc = FLUID_DT * 4;
-    while (fluidAcc >= FLUID_DT) {
-      chunks.markDirtyAll(fluids.tick());
-      fluidAcc -= FLUID_DT;
+    // 위치는 20Hz 로 서버에
+    moveAcc += dt * 1000;
+    if (started && moveAcc >= MOVE_SEND_MS) {
+      moveAcc = 0;
+      sendMove();
     }
-    save.markChunks(fluids.takeChanged());
+    remote.update(dt);
+
     // 이 프레임에 바뀐 블록들의 빛을 한 번에 다시 계산 → 빛이 바뀐 청크도 다시 메싱
     chunks.markDirtyAll(light.flush());
 
@@ -397,17 +480,22 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       quality,
       hand,
       highlight,
-      fluids,
       light,
-      save,
+      net,
+      remote,
+      pending,
+      welcome,
+      input,
+      kbm,
       /** rAF 없이 프레임을 돌린다 (숨겨진 탭에서의 자동 테스트용) */
       tick: (dtSec: number, render = false) => tick(last + dtSec * 1000, render),
     };
   }
 
   hud.showOverlay(
-    '드래곤 크래프트',
-    isTouch ? '왼쪽 아래 스틱: 움직이기  ·  드래그: 둘러보기\n짧게 탭: 놓기  ·  꾹: 부수기' : 'WASD 이동  ·  마우스 둘러보기\n좌클릭 꾹: 부수기  ·  우클릭: 놓기',
+    `${welcome.village.name}`,
+    (isTouch ? '왼쐽 아래 스틱: 움직이기  ·  드래그: 둘러보기\n짧게 탭: 놓기  ·  꾹: 부수기' : 'WASD 이동  ·  마우스 둘러보기\n좌클릭 꾹: 부수기  ·  우클릭: 놓기') +
+      `\n마을 코드 ${welcome.village.code}`,
     isTouch ? '탭해서 시작' : '클릭해서 시작',
   );
 
@@ -415,26 +503,26 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     start() {
       if (started) return;
       started = true;
-      if (loadResult.loaded) hud.toast(`저장된 세계를 불러왔어요 (청크 ${loadResult.chunks}개)`, 3500);
-      else if (loadResult.discardedOldWorld) hud.toast('세계가 새로 바뀌어서 예전 저장은 지웠어요. 새로 시작!', 5000);
-      else if (!save.available) hud.toast('이 브라우저에서는 만든 것이 저장되지 않아요.', 5000);
-      if (loadResult.unknownIds.length) hud.toast(`모르는 블록 ${loadResult.unknownIds.join(', ')} 은(는) 공기로 바꿨어요`, 6000);
+      const others = remote.count;
+      hud.toast(others > 0 ? `마을에 들어왔어요. 지금 ${others}명이 함께 있어요` : '마을에 들어왔어요. 친구에게 마을 코드를 알려 주세요', 4000);
       if (isTouch) {
         if (fullscreenAvailable) void enterFullscreen();
         else if (!standalone) hud.toast(IOS_HINT, 7000);
         if (window.innerHeight > window.innerWidth && (fullscreenAvailable || standalone)) hud.toast('폰을 가로로 돌리면 더 편해요', 3500);
       }
+      sendMove();
       resume();
     },
     dispose() {
       running = false;
-      void save.flush(true).finally(() => save.dispose());
+      net.close();
       input.dispose();
       chunks.dispose();
       pool.dispose();
       sky.dispose();
       highlight.dispose();
       hand.dispose();
+      remote.dispose();
       materials.dispose();
       atlas.texture.dispose();
       renderer.dispose();

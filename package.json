@@ -15,7 +15,9 @@
     "test:watch": "vitest",
     "typecheck": "pnpm -r --parallel typecheck",
     "lint": "eslint .",
-    "textures": "node tools/gen-textures.mjs"
+    "textures": "node tools/gen-textures.mjs",
+    "server": "pnpm --filter @dragon-village/server start",
+    "server:dev": "pnpm --filter @dragon-village/server dev"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

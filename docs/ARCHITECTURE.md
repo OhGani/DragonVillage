@@ -74,6 +74,8 @@ textures/           16×16 PNG (아들 편집 영역) → 빌드 시 DataArrayTe
 
 ## 서버
 
+**구현(2026-09-18, M2, 결정 #60)**: `packages/server/src` — `index.ts`(HTTP 정적 + `/ws` + `/health`, 20Hz 틱, 일 1회 백업, 종료 시 저장), `rooms.ts`(코드 → 룸, 기본 마을·새 마을), `village.ts`(룸: 지형 생성 + 저장 청크, 검증, 액체 시뮬, BlockBatch, 위치 브로드캐스트, flush), `session.ts`(연결 하나: hello → join/create → 룸), `storage.ts`(better-sqlite3), `static.ts`. 실행은 `tsx`(빌드 없음), 포트 5173 하나.
+
 - 단일 Node 프로세스, `ws`. 마을 = 룸. 원정 = 룸 안의 임시 서브 월드.
 - 블록 변경 흐름: 클라 요청 → 검증(거리, 보호 구역, 초당 상한, 도구 티어) → 적용 → 브로드캐스트 → 로그.
 - 정산·자원·도감·드래곤 획득·시간 차감은 서버만 계산.

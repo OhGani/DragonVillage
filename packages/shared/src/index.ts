@@ -8,3 +8,5 @@ export * from './math/prng';
 export * from './fluid/fluidSim';
 export * from './light/lightEngine';
 export * from './worldgen/village';
+export * from './protocol/bytes';
+export * from './protocol/messages';
