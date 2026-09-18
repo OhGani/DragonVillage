@@ -36,6 +36,12 @@ describe('parseRedstone', () => {
       expect(REDSTONE.require(id).release).toBe('v2');
     }
     expect(REDSTONE.byRelease('v1').length).toBe(0);
+    // 아들 9차 우선순위: 1순위 침입자 경보기 재료는 전부 v1.1
+    expect(REDSTONE.wishlist.map((w) => w.name)).toEqual(['침입자 경보기', '용암 함정', '아이템 분류기']);
+    for (const id of REDSTONE.wishlist[0].parts) expect(REDSTONE.require(id).release).toBe('v1.1');
+    expect(() =>
+      parseRedstone({ ...small, sonWishlist: { list: [{ rank: 1, name: 'x', parts: ['ghost'], version: 'v2' }] } }),
+    ).toThrow(/ghost/);
   });
 
   it('잘못된 값이면 한국어 DataError', () => {

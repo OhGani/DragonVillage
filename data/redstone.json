@@ -7,34 +7,242 @@
     "_note": "레드스톤 틱 = 0.1초(게임 틱 2개). 중계기 지연 1~4 틱"
   },
   "parts": [
-    { "id": "redstone_block", "name": "레드스톤 블록", "category": "power", "signal": 15, "does": "놓아두면 항상 주변에 최대 신호를 준다", "release": "v2" },
-    { "id": "redstone_torch", "name": "레드스톤 횃불", "category": "power", "signal": 15, "does": "항상 켜져 있다가, 붙어 있는 블록에 신호가 들어오면 꺼진다 (NOT 게이트)", "release": "v2" },
-
-    { "id": "redstone_wire", "name": "레드스톤 가루", "category": "wire", "does": "전선. 1칸마다 신호가 1씩 줄어 15칸까지 간다", "release": "v2", "_note": "재료 자체(레드스톤 광석 → 가루 4)는 v1 (recipes.json redstone_dust). 바닥에 놓아 전선으로 쓰는 것이 v2" },
-    { "id": "repeater", "name": "레드스톤 중계기", "category": "wire", "signal": 15, "does": "약해진 신호를 다시 15로. 지연 1~4틱. 옆에서 신호를 주면 잠긴다", "release": "v2" },
-    { "id": "comparator", "name": "레드스톤 비교기", "category": "wire", "does": "신호 세기를 비교하거나 뺀다. 상자·호퍼 안 아이템 양을 신호 세기로 바꾼다", "release": "v2" },
-    { "id": "observer", "name": "관측기", "category": "wire", "signal": 15, "does": "앞 블록이 바뀌면 뒤로 1틱짜리 짧은 신호를 낸다", "release": "v2" },
-
-    { "id": "lever", "name": "레버", "category": "input", "signal": 15, "does": "누르면 켜지고 다시 누르면 꺼진다. 신호를 유지할 때" },
-    { "id": "button", "name": "버튼", "category": "input", "signal": 15, "does": "누르면 잠깐(나무 1.5초, 돌 1초)만 신호를 내고 꺼진다", "variants": ["wood", "stone"] },
-    { "id": "pressure_plate", "name": "압력판", "category": "input", "signal": 15, "does": "플레이어·몹·아이템이 올라가면 신호. 나무는 아이템도, 돌은 플레이어·몹만", "variants": ["wood", "stone"] },
-    { "id": "weighted_pressure_plate", "name": "무게 압력판", "category": "input", "does": "올라간 것의 수에 따라 신호 세기가 달라진다 (금은 조금만 올라가도 세고, 철은 많이 올라가야)", "variants": ["gold", "iron"], "release": "v2" },
-    { "id": "daylight_sensor", "name": "햇빛 감지기", "category": "input", "does": "해 높이에 따라 신호 세기가 바뀐다. 뒤집으면 밤에 켜진다 (밤에 자동 가로등)", "_note": "원정지는 낮→밤이 흐르므로(ARCHITECTURE 지형) 원정에서 쓸모. 마을은 밤이 없으면 항상 낮" },
-    { "id": "tripwire_hook", "name": "철사 덫 갈고리", "category": "input", "signal": 15, "does": "실로 둘을 이으면 누가 실을 건널 때 신호", "release": "v2" },
-    { "id": "target", "name": "과녁", "category": "input", "does": "화살이 가운데에 가까이 맞을수록 센 신호", "release": "v2" },
-
-    { "id": "piston", "name": "피스톤", "category": "machine", "does": "신호를 받으면 앞으로 나가 블록을 12개까지 민다", "release": "v2" },
-    { "id": "sticky_piston", "name": "끈끈이 피스톤", "category": "machine", "does": "피스톤 + 슬라임 볼. 돌아올 때 앞 블록을 같이 당겨온다", "release": "v2" },
-    { "id": "dispenser", "name": "발사기", "category": "machine", "does": "안에 든 것을 쏘거나 쓴다 (화살은 발사, 물 양동이는 물을 놓음, 물약은 던짐)", "release": "v2" },
-    { "id": "dropper", "name": "공급기", "category": "machine", "does": "안에 든 것을 그냥 앞으로 떨어뜨리거나 앞 상자에 넣는다", "release": "v2" },
-    { "id": "hopper", "name": "호퍼", "category": "machine", "does": "위에 떨어진 아이템을 모아 아래·앞 상자로 옮기는 관. 신호를 받으면 멈춘다", "release": "v2" },
-    { "id": "powered_rail", "name": "전동 레일", "category": "machine", "does": "신호를 받으면 지나가는 수레를 빨라지게 밀어준다", "_note": "아들 3차 수레·철도(v1.1)와 함께" },
-    { "id": "detector_rail", "name": "탐지 레일", "category": "machine", "signal": 15, "does": "수레가 지나갈 때 신호를 낸다" },
-    { "id": "activator_rail", "name": "활성화 레일", "category": "machine", "does": "TNT 수레를 터뜨리고, 호퍼 수레를 켜고 끈다", "release": "v2" },
-    { "id": "redstone_lamp", "name": "레드스톤 조명", "category": "machine", "does": "신호를 받으면 불이 켜진다 (발광석 1 + 레드스톤 4)" },
-    { "id": "copper_bulb", "name": "구리 전구", "category": "machine", "does": "신호가 올 때마다 켜짐↔꺼짐이 바뀐다 (1.21). 오래되면 색이 변함", "release": "v2" },
-    { "id": "note_block", "name": "소리 블록", "category": "machine", "does": "신호를 받을 때마다 정해진 음높이로 소리. 아래 블록에 따라 악기가 다르다" },
-    { "id": "tnt", "name": "TNT", "category": "machine", "does": "신호를 받거나 불이 붙으면 4초 뒤 폭발", "_note": "폭발 드래곤 재료 (recipes.json tnt). 마을에서는 보호 구역이라 못 터짐 → 아들에게 질문" },
-    { "id": "iron_door", "name": "철문", "category": "machine", "does": "손으로는 안 열리고 레드스톤 신호로만 열린다. 나무 문·다락문·울타리 문도 신호로 열 수 있다" }
-  ]
+    {
+      "id": "redstone_block",
+      "name": "레드스톤 블록",
+      "category": "power",
+      "signal": 15,
+      "does": "놓아두면 항상 주변에 최대 신호를 준다",
+      "release": "v2"
+    },
+    {
+      "id": "redstone_torch",
+      "name": "레드스톤 횃불",
+      "category": "power",
+      "signal": 15,
+      "does": "항상 켜져 있다가, 붙어 있는 블록에 신호가 들어오면 꺼진다 (NOT 게이트)",
+      "release": "v2"
+    },
+    {
+      "id": "redstone_wire",
+      "name": "레드스톤 가루",
+      "category": "wire",
+      "does": "전선. 1칸마다 신호가 1씩 줄어 15칸까지 간다",
+      "release": "v2",
+      "_note": "재료 자체(레드스톤 광석 → 가루 4)는 v1 (recipes.json redstone_dust). 바닥에 놓아 전선으로 쓰는 것이 v2"
+    },
+    {
+      "id": "repeater",
+      "name": "레드스톤 중계기",
+      "category": "wire",
+      "signal": 15,
+      "does": "약해진 신호를 다시 15로. 지연 1~4틱. 옆에서 신호를 주면 잠긴다",
+      "release": "v2"
+    },
+    {
+      "id": "comparator",
+      "name": "레드스톤 비교기",
+      "category": "wire",
+      "does": "신호 세기를 비교하거나 뺀다. 상자·호퍼 안 아이템 양을 신호 세기로 바꾼다",
+      "release": "v2"
+    },
+    {
+      "id": "observer",
+      "name": "관측기",
+      "category": "wire",
+      "signal": 15,
+      "does": "앞 블록이 바뀌면 뒤로 1틱짜리 짧은 신호를 낸다",
+      "release": "v2"
+    },
+    {
+      "id": "lever",
+      "name": "레버",
+      "category": "input",
+      "signal": 15,
+      "does": "누르면 켜지고 다시 누르면 꺼진다. 신호를 유지할 때"
+    },
+    {
+      "id": "button",
+      "name": "버튼",
+      "category": "input",
+      "signal": 15,
+      "does": "누르면 잠깐(나무 1.5초, 돌 1초)만 신호를 내고 꺼진다",
+      "variants": [
+        "wood",
+        "stone"
+      ]
+    },
+    {
+      "id": "pressure_plate",
+      "name": "압력판",
+      "category": "input",
+      "signal": 15,
+      "does": "플레이어·몹·아이템이 올라가면 신호. 나무는 아이템도, 돌은 플레이어·몹만",
+      "variants": [
+        "wood",
+        "stone"
+      ]
+    },
+    {
+      "id": "weighted_pressure_plate",
+      "name": "무게 압력판",
+      "category": "input",
+      "does": "올라간 것의 수에 따라 신호 세기가 달라진다 (금은 조금만 올라가도 세고, 철은 많이 올라가야)",
+      "variants": [
+        "gold",
+        "iron"
+      ],
+      "release": "v2"
+    },
+    {
+      "id": "daylight_sensor",
+      "name": "햇빛 감지기",
+      "category": "input",
+      "does": "해 높이에 따라 신호 세기가 바뀐다. 뒤집으면 밤에 켜진다 (밤에 자동 가로등)",
+      "_note": "원정지는 낮→밤이 흐르므로(ARCHITECTURE 지형) 원정에서 쓸모. 마을은 밤이 없으면 항상 낮"
+    },
+    {
+      "id": "tripwire_hook",
+      "name": "철사 덫 갈고리",
+      "category": "input",
+      "signal": 15,
+      "does": "실로 둘을 이으면 누가 실을 건널 때 신호",
+      "_note": "아들 9차 1순위 \"침입자 경보기\" 재료라 v1.1 로 앞당김"
+    },
+    {
+      "id": "target",
+      "name": "과녁",
+      "category": "input",
+      "does": "화살이 가운데에 가까이 맞을수록 센 신호",
+      "release": "v2"
+    },
+    {
+      "id": "piston",
+      "name": "피스톤",
+      "category": "machine",
+      "does": "신호를 받으면 앞으로 나가 블록을 12개까지 민다",
+      "release": "v2"
+    },
+    {
+      "id": "sticky_piston",
+      "name": "끈끈이 피스톤",
+      "category": "machine",
+      "does": "피스톤 + 슬라임 볼. 돌아올 때 앞 블록을 같이 당겨온다",
+      "release": "v2"
+    },
+    {
+      "id": "dispenser",
+      "name": "발사기",
+      "category": "machine",
+      "does": "안에 든 것을 쏘거나 쓴다 (화살은 발사, 물 양동이는 물을 놓음, 물약은 던짐)",
+      "release": "v2"
+    },
+    {
+      "id": "dropper",
+      "name": "공급기",
+      "category": "machine",
+      "does": "안에 든 것을 그냥 앞으로 떨어뜨리거나 앞 상자에 넣는다",
+      "release": "v2"
+    },
+    {
+      "id": "hopper",
+      "name": "호퍼",
+      "category": "machine",
+      "does": "위에 떨어진 아이템을 모아 아래·앞 상자로 옮기는 관. 신호를 받으면 멈춘다",
+      "release": "v2"
+    },
+    {
+      "id": "powered_rail",
+      "name": "전동 레일",
+      "category": "machine",
+      "does": "신호를 받으면 지나가는 수레를 빨라지게 밀어준다",
+      "_note": "아들 3차 수레·철도(v1.1)와 함께"
+    },
+    {
+      "id": "detector_rail",
+      "name": "탐지 레일",
+      "category": "machine",
+      "signal": 15,
+      "does": "수레가 지나갈 때 신호를 낸다"
+    },
+    {
+      "id": "activator_rail",
+      "name": "활성화 레일",
+      "category": "machine",
+      "does": "TNT 수레를 터뜨리고, 호퍼 수레를 켜고 끈다",
+      "release": "v2"
+    },
+    {
+      "id": "redstone_lamp",
+      "name": "레드스톤 조명",
+      "category": "machine",
+      "does": "신호를 받으면 불이 켜진다 (발광석 1 + 레드스톤 4)"
+    },
+    {
+      "id": "copper_bulb",
+      "name": "구리 전구",
+      "category": "machine",
+      "does": "신호가 올 때마다 켜짐↔꺼짐이 바뀐다 (1.21). 오래되면 색이 변함",
+      "release": "v2"
+    },
+    {
+      "id": "note_block",
+      "name": "소리 블록",
+      "category": "machine",
+      "does": "신호를 받을 때마다 정해진 음높이로 소리. 아래 블록에 따라 악기가 다르다"
+    },
+    {
+      "id": "tnt",
+      "name": "TNT",
+      "category": "machine",
+      "does": "신호를 받거나 불이 붙으면 4초 뒤 폭발",
+      "_note": "폭발 드래곤 재료 (recipes.json tnt). 아들 9차: 마을에서는 몹이 공격할 때(방어전) TNT 를 쏘고 싶다 → 마을 안 TNT 는 몹만 다치고 블록은 안 부순다(보호 구역, 아빠 확인 필요). 결정 #64"
+    },
+    {
+      "id": "iron_door",
+      "name": "철문",
+      "category": "machine",
+      "does": "손으로는 안 열리고 레드스톤 신호로만 열린다. 나무 문·다락문·울타리 문도 신호로 열 수 있다"
+    }
+  ],
+  "sonWishlist": {
+    "_comment": "아들 9차(2026-09-19) — 레드스톤으로 제일 먼저 만들고 싶은 것, 순서대로. version = 재료가 다 들어오는 가장 이른 버전",
+    "list": [
+      {
+        "rank": 1,
+        "name": "침입자 경보기",
+        "parts": [
+          "tripwire_hook",
+          "pressure_plate",
+          "note_block",
+          "redstone_lamp"
+        ],
+        "version": "v1.1",
+        "_note": "실을 건너거나 압력판을 밟으면 소리 블록 + 조명. 회로 없이 신호 하나로 됨"
+      },
+      {
+        "rank": 2,
+        "name": "용암 함정",
+        "parts": [
+          "pressure_plate",
+          "iron_door",
+          "dispenser"
+        ],
+        "version": "v1.1 (다락문식) / v2 (발사기식)",
+        "_note": "압력판 → 철 다락문이 열려 용암 구덩이로(v1.1). 발사기가 용암 양동이를 쏘는 식은 v2"
+      },
+      {
+        "rank": 3,
+        "name": "아이템 분류기",
+        "parts": [
+          "hopper",
+          "comparator",
+          "repeater",
+          "redstone_torch"
+        ],
+        "version": "v2",
+        "_note": "호퍼 + 비교기 회로. 상자 시스템(M4)과 회로 시뮬(v2)이 둘 다 필요"
+      }
+    ]
+  }
 }

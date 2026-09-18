@@ -18,6 +18,9 @@ const RawBlock = z.object({
   tool: z.string().nullable().optional(),
   toolTier: z.number().int().min(0).max(4, '0~4 사이여야 해요').optional(),
   drops: z.string().nullable().optional(),
+  dropCount: z
+    .tuple([z.number().int().min(0, '0 이상이어야 해요'), z.number().int().min(0, '0 이상이어야 해요')])
+    .optional(),
   lightEmit: z.number().int().min(0, '0~15 사이여야 해요').max(15, '0~15 사이여야 해요').optional(),
   lightFilter: z.number().int().min(0, '0~15 사이여야 해요').max(15, '0~15 사이여야 해요').optional(),
   damage: z.number().min(0, '0 이상이어야 해요').optional(),
@@ -65,6 +68,7 @@ const FIELD_KO: Record<string, string> = {
   tool: 'tool(필요한 도구)',
   toolTier: 'toolTier(도구 등급)',
   drops: 'drops(떨어지는 아이템)',
+  dropCount: 'dropCount(떨어지는 개수 [최소, 최대])',
   lightEmit: 'lightEmit(빛 세기)',
   lightFilter: 'lightFilter(빛을 얼마나 막는지)',
   damage: 'damage(닿으면 받는 피해)',
@@ -102,6 +106,8 @@ export interface BlockDef {
   readonly toolTier: number;
   /** 부수면 나오는 아이템 id. null = 아무것도 안 나옴 */
   readonly drops: string | null;
+  /** 떨어지는 개수 [최소, 최대]. 기본 [1, 1]. 범위면 서버가 시드 PRNG 로 뽑는다 (발광석 2~4) */
+  readonly dropCount: readonly [number, number];
   readonly lightEmit: number;
   /**
    * 빛을 얼마나 막는지 0~15. 0 = 공기처럼 그대로 통과, 15 = 완전히 막음(불투명 블록).
@@ -278,6 +284,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       }
     }
 
+    if (b.dropCount && b.dropCount[0] > b.dropCount[1]) problems.push(`블록 '${b.id}'(${b.name}): dropCount 는 [최소, 최대] 순서예요`);
     if (b.fluid && solid) problems.push(`블록 '${b.id}'(${b.name}): 액체(fluid)는 solid 가 false 여야 해요`);
 
     return {
@@ -290,6 +297,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       tool: b.tool ?? null,
       toolTier: b.toolTier ?? 0,
       drops: b.drops === undefined ? b.id : b.drops,
+      dropCount: b.dropCount ?? [1, 1],
       lightEmit: b.lightEmit ?? 0,
       lightFilter: b.lightFilter ?? defaultLightFilter(isAir, solid, transparent, b.fluid ?? null),
       damage: b.damage ?? 0,

@@ -77,3 +77,21 @@ describe('실제 data/blocks.json', () => {
     expect(BLOCKS.require('stone').tool).toBe('pickaxe');
   });
 });
+
+describe('dropCount', () => {
+  it('기본 [1,1], 범위를 적으면 그대로, 순서가 틀리면 알려준다', () => {
+    const reg = parseBlocks({
+      blocks: [
+        { id: 'air', name: '공기', solid: false, transparent: true },
+        { id: 'glowstone', name: '발광석', texture: 'g', drops: 'glowstone_dust', dropCount: [2, 4] },
+        { id: 'stone', name: '돌', texture: 's' },
+      ],
+    });
+    expect(reg.require('glowstone').dropCount).toEqual([2, 4]);
+    expect(reg.require('stone').dropCount).toEqual([1, 1]);
+    expect(() =>
+      parseBlocks({ blocks: [{ id: 'air', name: '공기' }, { id: 'x', name: 'x', texture: 'x', dropCount: [4, 2] }] }),
+    ).toThrow(/최소, 최대/);
+    expect(BLOCKS.require('glowstone').dropCount).toEqual([2, 4]);
+  });
+});

@@ -197,7 +197,8 @@
       "hardness": 0.3,
       "tool": null,
       "drops": "glowstone_dust",
-      "_note": "아빠 9차: 캐면 발광석 가루가 떨어진다(마인크래프트는 2~4개, 여기선 개수 규칙이 생기면 정함). 가루는 물약 단계 올리기 재료(potions.json)",
+      "dropCount": [2, 4],
+      "_note": "아들 9차: 캐면 발광석 가루 2~4개(dropCount). 가루는 물약 단계 올리기 재료(potions.json). 개수 뽑기는 서버가 시드 PRNG 로",
       "lightEmit": 15,
       "texture": "glowstone"
     },

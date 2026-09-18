@@ -35,7 +35,29 @@ const RedstoneFile = z.object({
     _note: z.string().optional(),
   }),
   parts: z.array(RawPart).min(1, '부품이 하나도 없어요'),
+  sonWishlist: z
+    .object({
+      _comment: z.string().optional(),
+      list: z.array(
+        z.object({
+          rank: z.number().int().min(1),
+          name: z.string().min(1),
+          parts: z.array(z.string()).min(1, '부품을 하나는 적어 주세요'),
+          version: z.string().min(1),
+          _note: z.string().optional(),
+        }),
+      ),
+    })
+    .optional(),
 });
+
+/** 아들이 레드스톤으로 만들고 싶은 것 (우선순위 순, 아들 9차) */
+export interface RedstoneWish {
+  readonly rank: number;
+  readonly name: string;
+  readonly parts: readonly string[];
+  readonly version: string;
+}
 
 const FIELD_KO: Record<string, string> = {
   id: 'id(영문 이름)',
@@ -70,6 +92,7 @@ export class RedstoneRegistry {
   constructor(
     readonly parts: readonly RedstonePart[],
     readonly rules: RedstoneRules,
+    readonly wishlist: readonly RedstoneWish[] = [],
   ) {
     for (const p of parts) this.byId.set(p.id, p);
   }
@@ -132,7 +155,13 @@ export function parseRedstone(raw: unknown, fileName = 'data/redstone.json'): Re
       release: p.release ?? 'v1.1',
     };
   });
+  const wishlist: RedstoneWish[] = (result.data.sonWishlist?.list ?? []).map((w) => {
+    for (const id of w.parts) {
+      if (!seen.has(id)) problems.push(`만들고 싶은 것 '${w.name}': 부품 '${id}' 가 parts 에 없어요`);
+    }
+    return { rank: w.rank, name: w.name, parts: w.parts, version: w.version };
+  });
   if (problems.length) throw new DataError(fileName, problems);
   const { maxSignal, wireLossPerBlock, tickMs } = result.data.rules;
-  return new RedstoneRegistry(parts, { maxSignal, wireLossPerBlock, tickMs });
+  return new RedstoneRegistry(parts, { maxSignal, wireLossPerBlock, tickMs }, wishlist);
 }
