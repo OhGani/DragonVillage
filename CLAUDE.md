@@ -75,7 +75,7 @@ docs/
 ## 지금 상태 (2026-09-12)
 
 - 설계 v0.4 완료. **M0 코드 구현 완료(2026-09-12)**: pnpm workspaces, `shared`(청크·월드·물리·액체 시뮬·blocks.json 검증), `client`(greedy meshing 워커, Three.js 렌더, 터치·키보드·게임패드 조작, HUD), `server` 빈 껍데기. 테스트 50개·벤치 1개.
-- **배포·테스트 경로 (M2 부터)**: 게임은 IDC PC 의 서버 **http://115.68.221.179:5173** 에서 돈다(`packages/server`, 클라 빌드를 같이 서빙, 결정 #60). 클라를 고치면 `pnpm build`, 서버를 고치면 서버 재시작. `/health` 로 상태 확인. GitHub Pages(https://ohgani.github.io/DragonVillage/)는 CI 겸 서버 주소 안내 페이지. 개발용 Vite 는 5174(`pnpm dev`, `/ws` 프록시), 서버 개발은 `pnpm server:dev`.
+- **배포·테스트 경로 (M2 부터)**: 게임은 IDC PC 의 서버 **http://115.68.221.179:5173** 에서 돈다(`packages/server`, 클라 빌드를 같이 서빙, 결정 #60). 클라를 고치면 `pnpm build`, 서버를 고치면 서버 재시작(작업 스케줄러 `DragonCraftServer` 가 로그온 시 + 5분마다 `tools/win/start-server.ps1` 로 창 없이 띄운다 — 죽이면 5분 안에 다시 뜬다). `/health` 로 상태 확인. GitHub Pages(https://ohgani.github.io/DragonVillage/)는 CI 겸 서버 주소 안내 페이지. 개발용 Vite 는 5174(`pnpm dev`, `/ws` 프록시), 서버 개발은 `pnpm server:dev`.
 - **M2 구현 완료(2026-09-18)**: `shared/protocol`(바이너리 코덱·JSON 로비, 문자열 블록 id), `packages/server`(ws + better-sqlite3, 마을 룸·검증·액체 틱·저장·백업, 기본 마을 코드 482913), 클라 `net/`(NetClient·RemotePlayers)·`ui/lobby`. IndexedDB 저장과 클라 액체 시뮬은 삭제(서버가 진실). 테스트 114개.
 - **물약 양조 데이터 준비(2026-09-18, 8차)**: `data/potions.json`(물약 19종·보조 재료 5종·재료 출처, 마인크래프트 1.21 규칙) + `shared/rules/potions.ts`(검증 + `brew()` 양조 규칙, 테스트 13개). `recipes.json` 에 양조기·물약 재료 레시피, 단발 치유 레시피 삭제. 양조기 UI 는 M4, 체력 물약 효과는 M7. 결정 #61.
 - **9차(2026-09-19)**: 양조기 규칙 `potions.json stand`(연료 블레이즈 가루·병 3개), 발광석 캐면 가루(`blocks.json drops`), **`data/redstone.json`** 레드스톤 부품 25종(`shared/rules/redstone.ts`) — 켜고 끄기 v1.1, 회로 v2(결정 #62). 테스트 131개.
