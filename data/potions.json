@@ -12,6 +12,13 @@
     "dragon_breath": { "name": "드래곤의 숨결", "does": "lingering", "_note": "던지는 물약에 넣으면 바닥에 구름이 남는 잔류형. 엔더 드래곤 재료와 같은 아이템" },
     "fermented_spider_eye": { "name": "발효된 거미 눈", "does": "corrupt", "_note": "물약을 반대로 뒤집는다 (corruptsTo). 물병에 바로 넣으면 나약함" }
   },
+  "stand": {
+    "fuel": "blaze_powder",
+    "brewsPerFuel": 20,
+    "bottles": 3,
+    "brewSeconds": 20,
+    "_note": "아빠 9차: 양조기 = 블레이즈 막대기 1 + 조약돌 3 (recipes.json brewing_stand). 왼쪽 연료 칸에 블레이즈 가루(막대기 1 → 가루 2), 가루 1개로 20번. 아래 병 자리 3개에 물병을 놓고 위에 재료 하나 → 세 병이 함께 바뀐다. 한 번 20초"
+  },
   "potions": [
     {
       "id": "speed",

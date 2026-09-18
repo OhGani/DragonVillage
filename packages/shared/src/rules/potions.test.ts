@@ -48,6 +48,16 @@ describe('parsePotions', () => {
     expect(reg.v1().map((d) => d.id)).not.toContain('fire_resistance');
   });
 
+  it('양조기 규칙: JSON 에 없으면 마인크래프트 기본값, 있으면 그 값', () => {
+    expect(parsePotions(small).stand).toEqual({ fuel: 'blaze_powder', brewsPerFuel: 20, bottles: 3, brewSeconds: 20 });
+    const custom = parsePotions({ ...small, stand: { fuel: 'coal', brewsPerFuel: 5, bottles: 1, brewSeconds: 10 } });
+    expect(custom.stand.bottles).toBe(1);
+    expect(() => parsePotions({ ...small, stand: { fuel: 'redstone', brewsPerFuel: 5, bottles: 1, brewSeconds: 10 } })).toThrow(/연료/);
+    expect(() => parsePotions({ ...small, stand: { fuel: 'coal', brewsPerFuel: 5, bottles: 4, brewSeconds: 10 } })).toThrow(/최대 3개/);
+    expect(POTIONS.stand.fuel).toBe('blaze_powder');
+    expect(POTIONS.stand.bottles).toBe(3);
+  });
+
   it('실제 data/potions.json 이 통과하고 사슬이 물병까지 이어진다', () => {
     expect(POTIONS.count).toBeGreaterThanOrEqual(19);
     for (const d of POTIONS.defs) {

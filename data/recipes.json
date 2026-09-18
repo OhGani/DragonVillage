@@ -1,5 +1,5 @@
 {
-  "_comment": "제작 레시피. 드래곤 재료 중 '제작'으로 얻는 것들과 안장·도구. station = 어디서 만드나(inventory 가방 안 2×2 칸 / crafting_table 제작대 3×3 / forge 대장간 / brewing 양조기 / furnace 화로). 개수는 아빠 임시값, 아들이 바꿔도 됨. 아들 3차 디테일(2026-09-12)의 제작 사슬(종이→책→책장→인챈트 테이블)과 도구·장식 레시피 추가. 6차(2026-09-13): 가방 2×2 칸 레시피(판자·제작대·양털·염료·염색). release 없는 것은 v1. 8차(2026-09-18): 양조 물약은 data/potions.json 으로 옮겼다(양조 규칙이 따로 있어서). 여기에는 양조기와 물약 재료 만드는 법만 — water_bottle·brewing_stand·blaze_powder·fermented_spider_eye·glistering_melon·gold_nugget·magma_cream·glowstone_dust·turtle_shell(v1.1)·slime_block(v2).",
+  "_comment": "제작 레시피. 드래곤 재료 중 '제작'으로 얻는 것들과 안장·도구. station = 어디서 만드나(inventory 가방 안 2×2 칸 / crafting_table 제작대 3×3 / forge 대장간 / brewing 양조기 / furnace 화로). 개수는 아빠 임시값, 아들이 바꿔도 됨. 아들 3차 디테일(2026-09-12)의 제작 사슬(종이→책→책장→인챈트 테이블)과 도구·장식 레시피 추가. 6차(2026-09-13): 가방 2×2 칸 레시피(판자·제작대·양털·염료·염색). release 없는 것은 v1. 8차(2026-09-18): 양조 물약은 data/potions.json 으로 옮겼다(양조 규칙이 따로 있어서). 여기에는 양조기와 물약 재료 만드는 법만 — water_bottle·brewing_stand·blaze_powder·fermented_spider_eye·glistering_melon·gold_nugget·magma_cream·turtle_shell(v1.1)·slime_block(v2).",
   "recipes": [
     {
       "id": "saddle",
@@ -371,7 +371,8 @@
       },
       "out": {
         "oak_door": 3
-      }
+      },
+      "_note": "아빠 9차 확인: 판자 6개 → 문 3개 (마인크래프트와 같음)"
     },
     {
       "id": "oak_trapdoor",
@@ -904,7 +905,7 @@
       "out": {
         "brewing_stand": 1
       },
-      "_note": "블레이즈 막대기 1개를 조약돌 3개 위에. 물약은 여기서 만든다 (potions.json). 엔드 시티 입구에도 있음(아들 3차)"
+      "_note": "아빠 9차: 제작대 가운데 줄에 블레이즈 막대기 1, 그 아래 줄에 조약돌 3 (흑암·조잡한 심층암 같은 돌 계열도 됨). 연료는 블레이즈 가루, 병 자리 3개 — potions.json stand. 엔드 시티 입구에도 있음(아들 3차)"
     },
     {
       "id": "blaze_powder",
@@ -969,18 +970,6 @@
         "magma_cream": 1
       },
       "_note": "화염 저항의 물약 재료. 네더 마그마 큐브가 생기면 거기서도 나옴"
-    },
-    {
-      "id": "glowstone_dust",
-      "name": "발광석 가루",
-      "station": "world",
-      "in": {
-        "glowstone": 1
-      },
-      "out": {
-        "glowstone_dust": 2
-      },
-      "_note": "발광석 블록을 부수면 가루 2~4 (여기선 2). 물약 단계 올리기 재료"
     },
     {
       "id": "turtle_shell",

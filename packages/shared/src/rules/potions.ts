@@ -57,9 +57,31 @@ const PotionsFile = z.object({
     }),
   }),
   modifiers: z.object({ _comment: z.string().optional() }).catchall(RawModifier),
+  stand: z
+    .object({
+      fuel: Id,
+      brewsPerFuel: z.number().int().min(1, '1 이상이어야 해요'),
+      bottles: z.number().int().min(1, '1 이상이어야 해요').max(3, '양조기 병 자리는 최대 3개예요'),
+      brewSeconds: z.number().positive('0보다 커야 해요'),
+      _note: z.string().optional(),
+    })
+    .optional(),
   potions: z.array(RawPotion).min(1, '물약이 하나도 없어요'),
   ingredients: z.record(z.string(), z.unknown()).optional(),
 });
+
+/** 양조기 자체의 규칙 (연료·병 수·한 번 걸리는 시간). JSON 에 없으면 마인크래프트 기본값 */
+export interface BrewingStandRules {
+  /** 연료 아이템 (블레이즈 가루) */
+  readonly fuel: string;
+  /** 연료 1개로 몇 번 양조 */
+  readonly brewsPerFuel: number;
+  /** 한 번에 병 몇 개 (세 병이 같은 재료로 동시에) */
+  readonly bottles: number;
+  /** 한 번 양조에 걸리는 초 */
+  readonly brewSeconds: number;
+}
+export const DEFAULT_STAND: BrewingStandRules = { fuel: 'blaze_powder', brewsPerFuel: 20, bottles: 3, brewSeconds: 20 };
 
 const FIELD_KO: Record<string, string> = {
   id: 'id(영문 이름)',
@@ -119,6 +141,8 @@ export class PotionRegistry {
     /** 물병에 넣으면 어색한 물약이 되는 재료 (네더 사마귀) */
     readonly awkwardIngredient: string,
     private readonly baseNames: Readonly<Record<string, string>>,
+    /** 양조기 규칙 */
+    readonly stand: BrewingStandRules = DEFAULT_STAND,
   ) {
     for (const d of defs) {
       this.byId.set(d.id, d);
@@ -334,8 +358,18 @@ export function parsePotions(raw: unknown, fileName = 'data/potions.json'): Poti
 
   if (problems.length) throw new DataError(fileName, problems);
 
-  return new PotionRegistry(defs, modifiers, file.base.awkward.ingredient, {
-    [WATER_BOTTLE]: file.base.water_bottle.name,
-    [AWKWARD]: file.base.awkward.name,
-  });
+  const s = file.stand;
+  const stand: BrewingStandRules = s
+    ? { fuel: s.fuel, brewsPerFuel: s.brewsPerFuel, bottles: s.bottles, brewSeconds: s.brewSeconds }
+    : DEFAULT_STAND;
+  if (s && modifiers.has(s.fuel)) problems.push(`양조기 연료 '${s.fuel}' 는 보조 재료와 같은 아이템일 수 없어요`);
+  if (problems.length) throw new DataError(fileName, problems);
+
+  return new PotionRegistry(
+    defs,
+    modifiers,
+    file.base.awkward.ingredient,
+    { [WATER_BOTTLE]: file.base.water_bottle.name, [AWKWARD]: file.base.awkward.name },
+    stand,
+  );
 }
