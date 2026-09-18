@@ -44,7 +44,9 @@ WebSocket. 게임 메시지는 **바이너리**(첫 1바이트 = 타입, 이하 
 ```jsonc
 // C→S
 { "t": "hello", "token": "…", "clientVersion": "0.1.0" }
-{ "t": "guestJoin", "nick": "…", "color": 3, "villageCode": "482913" }
+{ "t": "guestJoin", "nick": "…", "color": 3, "villageCode": "482913" }          // M2 구현: join. 이름이 이미 있으면 error NICK_TAKEN
+{ "t": "setPin", "pin": "1234" }                                                // M5: 첫 입장 뒤 PIN 정하기 (#63)
+{ "t": "resume", "nick": "…", "pin": "1234" }                                   // M5: 다른 기기에서 이어하기 → 서버가 그 플레이어의 토큰을 내려 준다
 { "t": "childLogin", "familyCode": "…", "pin": "1234" }
 { "t": "parentLogin", "email": "…", "password": "…" }
 { "t": "createVillage", "name": "…", "seed": 12345 }

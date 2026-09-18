@@ -90,7 +90,7 @@ villages(code PK, name, seed, level, created_at)
 chunk_diffs(village, cx, cy, cz, blob, PK(village,cx,cy,cz))   -- 팔레트+RLE
 storage(village, item, count)
 codex(village, entry, found_at)
-players(token PK, village, nick, color, cosmetics, xp_total INTEGER DEFAULT 0, family_child NULL, family_parent NULL)  -- 레벨은 xp_total에서 파생
+players(token PK, village, nick UNIQUE, pin_hash, color, cosmetics, xp_total INTEGER DEFAULT 0, family_child NULL, family_parent NULL)  -- 레벨은 xp_total에서 파생. nick UNIQUE + pin_hash 는 M5 이어하기(#63)
 xp_orbs(id PK, world_kind, world_id, x, y, z, amount, expires_at)                              -- 죽음 드롭, 원정 종료 시 정리
 player_dragons(token, dragon_id, obtained_at)                  -- 드래곤은 개인 소유
 player_inventory(token, item, count)
@@ -112,7 +112,7 @@ block_log(ts, village, token, x, y, z, from_id, to_id)          -- 동기화 디
 
 ## 클라이언트 UI
 
-- 로비: 링크 → (게스트) 닉네임·색 → 마을 코드 / (가족) PIN 로그인 → 할 일 카드 → 마을.
+- 로비: 링크 → 닉네임·색 → 마을 코드 (첫 입장 뒤 PIN 정하기, 다른 기기에선 이름 + PIN 이어하기 — M5, #63) / (가족) 가족 코드 + PIN → 할 일 카드 → 마을.
 - HUD: 십자선, 슬롯 바, 원정 타이머(상단 중앙), 남은 게임 시간(아이만), 채팅 이모지 바, 부모 승인 카드(부모만).
 - 가방·도감·정산·건설 메뉴: 폰 세로/가로 모두. 큰 터치 타깃(≥44px).
 - 브라우저 함정: `touch-action: none`, `100dvh`, 전체화면 API, 가로 모드 안내, 더블탭 확대 방지.
