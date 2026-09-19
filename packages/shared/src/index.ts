@@ -1,6 +1,7 @@
 export * from './rules/blocks';
 export * from './rules/potions';
 export * from './rules/redstone';
+export * from './rules/expeditions';
 export * from './chunk/chunk';
 export * from './chunk/world';
 export * from './chunk/serialize';
@@ -10,5 +11,7 @@ export * from './math/prng';
 export * from './fluid/fluidSim';
 export * from './light/lightEngine';
 export * from './worldgen/village';
+export * from './worldgen/island';
+export * from './worldgen/fingerprint';
 export * from './protocol/bytes';
 export * from './protocol/messages';

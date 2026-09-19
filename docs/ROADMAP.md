@@ -139,15 +139,15 @@ M5는 게임 엔진과 거의 독립적인 API·DB 작업 → 순서 조정 가�
 
 M3 에서 하지 않는 것: 가방·인벤토리(M4 — 정산은 "모은 블록 수"로), 체력·몹·밤의 위험(M7 — 밤은 어두워지기만), 포탈 단계 해제(M6 — 초원 섬 하나만), 시간 규칙(M5).
 
-### 1. 원정지 데이터·규칙 (`shared/rules/expeditions.ts`)
-- [ ] `data/expeditions.json` zod 로더(한국어 에러): durationSec·nightStartsAt·treasures·materials·release, 파일 상단 returnGraceSec·failedReturnKeepRatio·minStartMarginMin. 낮·저녁·밤 단계 함수 `phaseAt(sec)` 와 스카이라이트 배율 `skyLightAt(sec)`(순수 함수, 클라 하늘·서버 위험도 공용)
-- [ ] 테스트: 실제 파일 통과, v1 6곳 id, 단계·배율 경계값
+### 1. 원정지 데이터·규칙 (`shared/rules/expeditions.ts`) — 완료 2026-09-19
+- [x] `data/expeditions.json` zod 로더(한국어 에러): durationSec·nightStartsAt·treasures·materials·release, 파일 상단 returnGraceSec·failedReturnKeepRatio·minStartMarginMin. 낮·저녁·밤 단계 함수 `phaseAt(sec)` 와 스카이라이트 배율 `skyLightAt(sec)`(순수 함수, 클라 하늘·서버 위험도 공용)
+- [x] 테스트: 실제 파일 통과, v1 6곳 id, 단계·배율 경계값 (저녁 = 밤 90초 전, 밤 배율 0.22)
 
-### 2. 초원 섬 생성기 (`shared/worldgen/island.ts`)
-- [ ] 256×256×128(16×16×8 청크). 원형 마스크 × 노이즈 높이맵, 바다(자연 물, 수면 고정)·모래 해변·잔디 언덕, 참나무 숲, 물가 사탕수수·호박·수박 밭 자리, 돌 속 석탄·철, 작은 언덕 굴
-- [ ] 보물 상자 3개: 돌 오두막(상자 블록) 시드 배치, 도착 포탈(흑요석 문틀) 섬 가운데 + 스폰
-- [ ] 지문 스냅샷 테스트 + 시드가 다르면 다른 섬 + 생성 시간(2코어 VM 목표 < 1.5s, 폰 < 3s)
-- [ ] 동물·몹은 M7. 사탕수수·선인장 같은 새 블록은 그림과 함께 `blocks.json` 에(이미 있는 것 우선)
+### 2. 초원 섬 생성기 (`shared/worldgen/island.ts`) — 완료 2026-09-19
+- [x] 256×256×128(16×16×8 청크). 원형 마스크 × 노이즈 높이맵, 바다(자연 물, 수면 고정)·모래 해변·잔디 언덕, 참나무 숲, 물가 사탕수수·호박·수박 밭 자리, 돌 속 석탄·철, 작은 언덕 굴
+- [x] 보물 상자 3개: 돌 오두막(상자 블록) 시드 배치, 도착 포탈(흑요석 문틀) 섬 가운데 + 스폰
+- [x] 지문 스냅샷 테스트 + 시드가 다르면 다른 섬 + 생성 시간 — **2코어 VM 290~360ms**(875 청크, 283만 블록). 폰 실측은 5절에서
+- [x] 동물·몹은 M7. 새 블록 없이 기존 blocks.json 으로(사탕수수·호박·수박·상자·발광석 이미 있음)
 
 ### 3. 서버 원정 룸 (`packages/server/src/expedition.ts`)
 - [ ] `ExpeditionRoom`: 마을 룸 안의 임시 서브 월드. 시작 요청(포탈 앞 누구나, M3) → 시드(crypto) → `generateIsland(seed)` → 참가자 이동(WorldEnter). 진행 중 합류 가능. 블록 변경 검증은 마을과 같되 보호 구역 없음, 저장 없음. 액체 틱 동일
