@@ -71,6 +71,16 @@ export interface LedgerRow {
   /** 부모 "오늘 게임 없음" (0/1) */
   noPlay: number;
 }
+/** 주간 정산 한 줄 (week_start = 이번 주 월요일, rate = 지난주 달성률) */
+export interface SettlementRow {
+  child: string;
+  weekStart: string;
+  rate: number;
+  bonusCap: number;
+  approved: number;
+  expected: number;
+  settledAt: number;
+}
 export interface AdjustmentRow {
   id: number;
   child: string;
@@ -125,6 +135,9 @@ CREATE TABLE IF NOT EXISTS todo_logs(
   todo_id INTEGER NOT NULL, date TEXT NOT NULL, status TEXT NOT NULL, checked_at INTEGER, decided_at INTEGER, PRIMARY KEY(todo_id, date));
 CREATE TABLE IF NOT EXISTS time_ledger(
   child TEXT NOT NULL, date TEXT NOT NULL, used_sec INTEGER NOT NULL DEFAULT 0, manual_adj INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(child, date));
+CREATE TABLE IF NOT EXISTS week_settlements(
+  child TEXT NOT NULL, week_start TEXT NOT NULL, rate REAL NOT NULL, bonus_cap INTEGER NOT NULL, approved INTEGER NOT NULL, expected INTEGER NOT NULL,
+  settled_at INTEGER NOT NULL, PRIMARY KEY(child, week_start));
 CREATE TABLE IF NOT EXISTS time_adjustments(
   id INTEGER PRIMARY KEY AUTOINCREMENT, child TEXT NOT NULL, date TEXT NOT NULL, delta_min INTEGER NOT NULL, reason TEXT NOT NULL, created_at INTEGER NOT NULL);
 `;
@@ -203,6 +216,10 @@ export class Storage {
       insertAdjustment: this.db.prepare('INSERT INTO time_adjustments(child, date, delta_min, reason, created_at) VALUES (?, ?, ?, ?, ?)'),
       listAdjustments: this.db.prepare('SELECT id, child, date, delta_min AS deltaMin, reason, created_at AS createdAt FROM time_adjustments WHERE child = ? AND date = ? ORDER BY id'),
       clearAccountPin: this.db.prepare('UPDATE accounts SET pin_hash = NULL WHERE nick_key = ?'),
+      getSettlement: this.db.prepare('SELECT child, week_start AS weekStart, rate, bonus_cap AS bonusCap, approved, expected, settled_at AS settledAt FROM week_settlements WHERE child = ? AND week_start = ?'),
+      insertSettlement: this.db.prepare('INSERT OR IGNORE INTO week_settlements(child, week_start, rate, bonus_cap, approved, expected, settled_at) VALUES (?, ?, ?, ?, ?, ?, ?)'),
+      listSettlements: this.db.prepare('SELECT child, week_start AS weekStart, rate, bonus_cap AS bonusCap, approved, expected, settled_at AS settledAt FROM week_settlements WHERE child = ? ORDER BY week_start DESC LIMIT ?'),
+      listAllChildren: this.db.prepare('SELECT nick_key AS nickKey, family, linked_at AS linkedAt FROM children ORDER BY linked_at'),
       addUsage: this.db.prepare('INSERT INTO time_ledger(child, date, used_sec, manual_adj) VALUES (?, ?, ?, 0) ON CONFLICT(child, date) DO UPDATE SET used_sec = used_sec + excluded.used_sec'),
       addManualAdj: this.db.prepare('INSERT INTO time_ledger(child, date, used_sec, manual_adj) VALUES (?, ?, 0, ?) ON CONFLICT(child, date) DO UPDATE SET manual_adj = manual_adj + excluded.manual_adj'),
       listLedger: this.db.prepare('SELECT child, date, used_sec AS usedSec, manual_adj AS manualAdj, no_play AS noPlay FROM time_ledger WHERE child = ? AND date >= ? ORDER BY date'),
@@ -402,6 +419,19 @@ export class Storage {
   }
   clearAccountPin(nickKey: string): void {
     this.stmts.clearAccountPin.run(nickKey);
+  }
+  getSettlement(child: string, weekStart: string): SettlementRow | undefined {
+    return this.stmts.getSettlement.get(child, weekStart) as SettlementRow | undefined;
+  }
+  /** 이미 있으면 그대로 둔다 (정산은 한 번만) */
+  insertSettlement(row: SettlementRow): void {
+    this.stmts.insertSettlement.run(row.child, row.weekStart, row.rate, row.bonusCap, row.approved, row.expected, row.settledAt);
+  }
+  listSettlements(child: string, limit = 8): SettlementRow[] {
+    return this.stmts.listSettlements.all(child, limit) as SettlementRow[];
+  }
+  listAllChildren(): ChildRow[] {
+    return this.stmts.listAllChildren.all() as ChildRow[];
   }
 
   private ensureColumn(table: string, column: string, ddl: string): void {

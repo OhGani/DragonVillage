@@ -71,9 +71,9 @@ describe('할 일·승인·시간 (M5-3)', () => {
     const s = setup();
     const p = s.family.signup('dad@example.com', 'secret1', 1000);
     if (!p.ok) throw new Error();
-    s.accounts.claim(A, '쁘뚜', 1000);
+    s.accounts.claim(A, '쁘뚜', SAT);
     s.accounts.setPin(A, '1111');
-    s.family.linkChild(p.parent.familyCode, '쁘뚜', '1111', 2000);
+    s.family.linkChild(p.parent.familyCode, '쁘뚜', '1111', SAT);
     return { ...s, fid: p.parent.familyId, code: p.parent.familyCode };
   }
 
@@ -182,9 +182,9 @@ describe('시간 조정·오늘 게임 없음·PIN 초기화·제한 판정 (M5-
     const family = new FamilyService(storage, accounts, undefined, { enforceTime: enforce });
     const p = family.signup('dad@example.com', 'secret1', 1000);
     if (!p.ok) throw new Error();
-    accounts.claim(A, '쁘뚜', 1000);
+    accounts.claim(A, '쁘뚜', SAT);
     accounts.setPin(A, '1111');
-    family.linkChild(p.parent.familyCode, '쁘뚜', '1111', 2000);
+    family.linkChild(p.parent.familyCode, '쁘뚜', '1111', SAT);
     return { storage, accounts, family, fid: p.parent.familyId };
   }
 
@@ -244,5 +244,46 @@ describe('시간 조정·오늘 게임 없음·PIN 초기화·제한 판정 (M5-
     expect(accounts.hasPin(A)).toBe(false);
     expect(accounts.claim(A, '쁘뚜', 3000)).toEqual({ ok: true, needPin: true });
     expect(accounts.resume('쁘뚜', '1111', 3000)).toEqual({ ok: false, reason: 'NO_PIN' });
+  });
+});
+
+describe('주간 정산 (M5-5)', () => {
+  const MON_0905 = Date.UTC(2026, 8, 14, 0, 5); // 2026-09-14 월 09:05 KST (지난주 9/7~9/13)
+  const NEXT_MON = Date.UTC(2026, 8, 21, 0, 5); // 2026-09-21 월 (지난주 9/14~9/20)
+  it('첫 주는 정산 없음(한도 5). 다음 주 월요일에 지난주 달성률로 한도가 정해지고, 한 번 정해지면 안 바뀐다', () => {
+    const { family, fid } = (() => {
+      const storage = new Storage(':memory:');
+      const accounts = new AccountService(storage);
+      const family = new FamilyService(storage, accounts);
+      const p = family.signup('dad@example.com', 'secret1', MON_0905);
+      if (!p.ok) throw new Error();
+      accounts.claim(A, '쁘뚜', MON_0905);
+      accounts.setPin(A, '1111');
+      family.linkChild(p.parent.familyCode, '쁘뚜', '1111', MON_0905);
+      return { family, fid: p.parent.familyId };
+    })();
+    // 9/14 주: 지난주(9/7~13)에 연결도 기록도 없음 → 첫 주
+    expect(family.settleAll(MON_0905)).toBe(0);
+    let card = family.todayCard('쁘뚜', MON_0905)!;
+    expect(card).toMatchObject({ bonusCap: 5, lastWeekRate: null, weekMessage: null });
+    // 이 주에 매일 할 일 하나: 7일 중 6일 승인 (86% → 4분 구간)
+    const teeth = family.addTodo(fid, '쁘뚜', '이 닦기', 'daily', false, MON_0905)!;
+    for (let i = 0; i < 6; i++) expect(family.checkTodo('쁘뚜', teeth.id, MON_0905 + i * 86_400_000).ok).toBe(true);
+    // 다음 주 월요일: 정산 1건, 한도 4, 문구
+    expect(family.settleAll(NEXT_MON)).toBe(1);
+    expect(family.settleAll(NEXT_MON)).toBe(0); // 두 번 안 만든다
+    card = family.todayCard('쁘뚜', NEXT_MON)!;
+    expect(card.bonusCap).toBe(4);
+    expect(card.lastWeekRate).toBeCloseTo(6 / 7);
+    expect(card.weekMessage).toBe('거의 다 했어. 이번 주 조금만 더.');
+    expect(family.settlements(fid, '쁘뚜')).toMatchObject([{ weekStart: '2026-09-21', bonusCap: 4, approved: 6, expected: 7 }]);
+    // 지난주 기록을 나중에 승인해도 이번 주 한도는 그대로 ("지난주가 이번 주를 정한다")
+    expect(family.decideTodo(fid, teeth.id, '2026-09-20', true, NEXT_MON)).toBe(true);
+    expect(family.todayCard('쁘뚜', NEXT_MON)!.bonusCap).toBe(4);
+    // 서버가 꺼져 있다가 수요일에 켜져도 이번 주 정산이 만들어진다 (그 다음 주 기준)
+    const WED_AFTER = Date.UTC(2026, 8, 30, 3, 0); // 9/30 수 (주 시작 9/28, 지난주 9/21~27: 할 일 7 예정 0 승인 → 0%)
+    expect(family.settleAll(WED_AFTER)).toBe(1);
+    expect(family.todayCard('쁘뚜', WED_AFTER)!).toMatchObject({ bonusCap: 0, weekMessage: '이번 주는 기본 시간만. 다음 주에 다시 열려.' });
+    expect(family.childrenStatus(fid, WED_AFTER)[0]!.settlements).toHaveLength(2);
   });
 });

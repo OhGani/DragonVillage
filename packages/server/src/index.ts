@@ -101,6 +101,18 @@ function backup(): void {
     .catch((e: unknown) => log(`백업 실패: ${(e as Error).message}`));
 }
 const backupTimer = setInterval(backup, 24 * 60 * 60 * 1000);
+
+// 주간 정산 (M5-5): 시작할 때 보정 + 5분마다 확인 (월요일 00:00 서울 시간에 새 주가 되면 그때 만들어진다)
+const settle = (): void => {
+  try {
+    const n = family.settleAll(Date.now());
+    if (n > 0) log(`주간 정산: 아이 ${n}명 이번 주 보너스 한도 정함`);
+  } catch (e) {
+    log(`주간 정산 실패: ${(e as Error).message}`);
+  }
+};
+settle();
+const settleTimer = setInterval(settle, 5 * 60 * 1000);
 setTimeout(backup, 60 * 1000);
 
 let shuttingDown = false;
@@ -110,6 +122,7 @@ function shutdown(sig: string): void {
   log(`${sig} → 저장하고 종료`);
   clearInterval(ticker);
   clearInterval(backupTimer);
+  clearInterval(settleTimer);
   rooms.flushAll(Date.now());
   for (const ws of wss.clients) ws.close(1001, 'SERVER_SHUTDOWN');
   http.close(() => {

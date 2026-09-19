@@ -461,6 +461,8 @@ export class Hud {
       this.todayList.appendChild(li);
     }
     const notes: string[] = [];
+    if (c.weekMessage) notes.push(c.weekMessage);
+    else notes.push('처음이니까 믿고 시작할게. 이번 주 할 일을 잘하면 다음 주 보너스가 정해져요.');
     if (c.noPlayToday) notes.push('오늘은 게임 없는 날이에요.');
     if (c.todos.some((t) => t.needsApproval)) notes.push('아빠·엄마가 확인해 주면 시간이 더 생겨요.');
     if (c.blocked) notes.push(c.nextOpen ? `지금은 게임 시간이 아니에요. ${c.nextOpen} 에 열려요.` : '지금은 게임 시간이 아니에요.');

@@ -5,8 +5,13 @@ import {
   buildTodayCard,
   computeBonusCap,
   computeTodayBonus,
+  addDays,
   canStartExpedition,
   expeditionNeedMin,
+  lastWeekWindow,
+  weekStartOf,
+  weekdayOf,
+  weeklyRate,
   isBlockedNow,
   minutesUntilBlocked,
   nextOpenHHMM,
@@ -166,5 +171,44 @@ describe('시간 제한 (M5-4)', () => {
     const noPlay = buildTodayCard({ ...inp, time: seoulTime(MON_1530), noPlayToday: true });
     expect(timeUpReason(noPlay)).toBe('noPlay');
     expect(timeUpMessage('idle', null)).toMatch(/가만히/);
+  });
+});
+
+describe('주간 정산 (M5-5)', () => {
+  it('주는 월요일에 시작, 지난주 월~일 창', () => {
+    expect(weekdayOf('2026-09-19')).toBe(6);
+    expect(addDays('2026-09-19', 2)).toBe('2026-09-21');
+    expect(addDays('2026-10-01', -1)).toBe('2026-09-30');
+    expect(weekStartOf('2026-09-19')).toBe('2026-09-14'); // 토 → 그 주 월
+    expect(weekStartOf('2026-09-20')).toBe('2026-09-14'); // 일 → 같은 주 월
+    expect(weekStartOf('2026-09-21')).toBe('2026-09-21'); // 월
+    const w = lastWeekWindow('2026-09-21');
+    expect(w.start).toBe('2026-09-14');
+    expect(w.end).toBe('2026-09-20');
+    expect(w.dates).toHaveLength(7);
+  });
+  it('달성률 = 승인 / 예정. 매일·요일·한 번(승인 전까지)을 날마다 세고, 할 일이 없으면 100%', () => {
+    const teeth: Todo = { id: 1, title: '이 닦기', repeat: 'daily', needsApproval: false, active: true };
+    const math: Todo = { id: 2, title: '수학', repeat: [1, 2, 3, 4, 5], needsApproval: true, active: true };
+    const room: Todo = { id: 3, title: '방 정리', repeat: 'once', needsApproval: true, active: true };
+    const dates = lastWeekWindow('2026-09-21').dates; // 9/14(월)~9/20(일)
+    expect(weeklyRate([], [], dates)).toEqual({ approved: 0, expected: 0, rate: 1 });
+    // 이 닦기 7 + 수학 5 + 방 정리(수요일 승인 → 월·화·수 3일 예정) = 15 예정
+    const logs = [
+      ...dates.map((d) => ({ todoId: 1, date: d, status: 'approved' as const })),
+      { todoId: 2, date: '2026-09-14', status: 'approved' as const },
+      { todoId: 2, date: '2026-09-15', status: 'rejected' as const },
+      { todoId: 2, date: '2026-09-16', status: 'approved' as const },
+      { todoId: 3, date: '2026-09-16', status: 'approved' as const },
+    ];
+    const r = weeklyRate([teeth, math, room], logs, dates);
+    expect(r.expected).toBe(15);
+    expect(r.approved).toBe(7 + 2 + 1);
+    expect(r.rate).toBeCloseTo(10 / 15);
+    expect(computeBonusCap(r.rate, FAMILY_RULES)).toBe(2); // 66% → 50% 구간
+    // 주 중간(목요일)에 만든 매일 할 일은 목·금·토·일 4일만 예정 → 4/4 = 100%
+    const late: Todo = { ...teeth, id: 9, createdDate: '2026-09-17' };
+    const r2 = weeklyRate([late], ['2026-09-17', '2026-09-18', '2026-09-19', '2026-09-20'].map((d) => ({ todoId: 9, date: d, status: 'approved' as const })), dates);
+    expect(r2).toEqual({ approved: 4, expected: 4, rate: 1 });
   });
 });

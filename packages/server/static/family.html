@@ -95,6 +95,7 @@
     <div class="row"><h2 class="name"></h2><span class="online muted"></span></div>
     <div class="time"><span class="remain"></span> <small class="detail"></small></div>
     <div class="muted todayLine"></div>
+    <div class="muted weekLine"></div>
     <ul class="adjustList"></ul>
     <div class="row wrap" style="margin-top:10px">
       <button class="noPlay plain small"></button>
@@ -196,6 +197,11 @@
     if (t.blocked) parts.push(t.nextOpen ? `지금은 차단 시간 (${t.nextOpen} 에 열림)` : '지금은 차단 시간');
     else if (t.minutesUntilBlocked < 1440) parts.push(`차단까지 ${t.minutesUntilBlocked}분`);
     $('.todayLine', el).textContent = parts.join(' · ');
+    const wl = $('.weekLine', el);
+    if (c.settlements && c.settlements.length) {
+      const s = c.settlements[0];
+      wl.textContent = `이번 주 보너스 한도 ${s.bonusCap}분 — 지난주 달성률 ${Math.round(s.rate * 100)}% (${s.approved}/${s.expected})` + (c.settlements[1] ? ` · 그 전 주 ${Math.round(c.settlements[1].rate * 100)}%` : '');
+    } else wl.textContent = `첫 주: 보너스 한도 ${t.bonusCap}분. 다음 월요일 0시에 지난주 달성률로 새 한도가 정해져요`;
     const al = $('.adjustList', el);
     al.innerHTML = '';
     for (const a of t.adjustments) {

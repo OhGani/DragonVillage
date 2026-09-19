@@ -121,6 +121,51 @@ export function nextOpenHHMM(rules: FamilyRules, t: SeoulTime): string | null {
   return null;
 }
 
+// ---------------------------------------------------------------- 주 (월요일 시작, 서울)
+
+/** 'YYYY-MM-DD' ± n일 */
+export function addDays(dateKey: string, n: number): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const t = new Date(Date.UTC(y!, m! - 1, d! + n));
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`;
+}
+/** 'YYYY-MM-DD' 의 요일 0=일 … 6=토 */
+export function weekdayOf(dateKey: string): number {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return new Date(Date.UTC(y!, m! - 1, d!)).getUTCDay();
+}
+/** 그 날이 속한 주의 월요일 */
+export function weekStartOf(dateKey: string): string {
+  const wd = weekdayOf(dateKey);
+  return addDays(dateKey, wd === 0 ? -6 : 1 - wd);
+}
+/** 지난주 월~일 (이번 주 월요일 기준) */
+export function lastWeekWindow(thisWeekStart: string): { start: string; end: string; dates: string[] } {
+  const start = addDays(thisWeekStart, -7);
+  const dates: string[] = [];
+  for (let i = 0; i < 7; i++) dates.push(addDays(start, i));
+  return { start, end: addDays(start, 6), dates };
+}
+
+/**
+ * 한 주 달성률: 승인된 할 일 수 / 예정된 할 일 수. 예정은 그날 카드에 떴을 것들(매일·요일·승인 전 '한 번').
+ * 할 일이 0개면 100%. 지워진 할 일은 기록도 같이 지워져 계산에 안 든다
+ */
+export function weeklyRate(todos: readonly Todo[], logs: readonly TodoLog[], dates: readonly string[]): { approved: number; expected: number; rate: number } {
+  let approved = 0,
+    expected = 0;
+  for (const date of dates) {
+    const wd = weekdayOf(date);
+    for (const t of todos) {
+      const doneBefore = t.repeat === 'once' && logs.some((l) => l.todoId === t.id && l.status === 'approved' && l.date < date);
+      if (!todoDueOn(t, wd, doneBefore, date)) continue;
+      expected++;
+      if (logs.some((l) => l.todoId === t.id && l.date === date && l.status === 'approved')) approved++;
+    }
+  }
+  return { approved, expected, rate: expected === 0 ? 1 : approved / expected };
+}
+
 // ---------------------------------------------------------------- 시간 계산
 
 export function baseMinutesFor(rules: FamilyRules, weekday: number): number {
@@ -160,6 +205,8 @@ export interface Todo {
   readonly repeat: TodoRepeat;
   readonly needsApproval: boolean;
   readonly active: boolean;
+  /** 만든 날 'YYYY-MM-DD'. 그 전 날짜엔 예정으로 세지 않는다 (주 중간에 시작한 아이가 첫 정산에서 0% 가 되지 않게) */
+  readonly createdDate?: string;
 }
 export interface TodoLog {
   readonly todoId: number;
@@ -190,9 +237,10 @@ export function repeatLabel(r: TodoRepeat): string {
   return [...r].sort().map((d) => names[d]).join('·');
 }
 
-/** 이 할 일이 그날 카드에 뜨는가. '한 번'짜리는 승인될 때까지 매일 뜬다 */
-export function todoDueOn(todo: Todo, weekday: number, doneBefore: boolean): boolean {
+/** 이 할 일이 그날 카드에 뜨는가. '한 번'짜리는 승인될 때까지 매일 뜬다. date 를 주면 만든 날 이전은 아니다 */
+export function todoDueOn(todo: Todo, weekday: number, doneBefore: boolean, date?: string): boolean {
   if (!todo.active) return false;
+  if (date && todo.createdDate && date < todo.createdDate) return false;
   if (todo.repeat === 'daily') return true;
   if (todo.repeat === 'once') return !doneBefore;
   return todo.repeat.includes(weekday);
@@ -231,6 +279,10 @@ export interface TodayCard {
   nextOpen: string | null;
   /** 오늘 부모 수동 조정 내역 (아이 화면에도 보인다) */
   adjustments: { min: number; reason: string }[];
+  /** 지난주 달성률 0~1. 첫 주(기록 없음)면 null */
+  lastWeekRate: number | null;
+  /** 이번 주 문구 ("지난주 대단했어…"). 첫 주면 null */
+  weekMessage: string | null;
   todos: TodayTodo[];
 }
 
@@ -259,7 +311,7 @@ export function buildTodayCard(inp: TodayInput): TodayCard {
   }
   const todos: TodayTodo[] = [];
   for (const t of inp.todos) {
-    if (!todoDueOn(t, time.weekday, doneBefore.has(t.id))) continue;
+    if (!todoDueOn(t, time.weekday, doneBefore.has(t.id), time.date)) continue;
     todos.push({ id: t.id, title: t.title, needsApproval: t.needsApproval, status: todayLogs.get(t.id)?.status ?? 'pending' });
   }
   const approved = todos.filter((t) => t.status === 'approved').length;
@@ -282,6 +334,8 @@ export function buildTodayCard(inp: TodayInput): TodayCard {
     minutesUntilBlocked: minutesUntilBlocked(rules, time),
     nextOpen: isBlockedNow(rules, time) ? nextOpenHHMM(rules, time) : null,
     adjustments: inp.adjustments ?? [],
+    lastWeekRate: inp.lastWeekRate,
+    weekMessage: bonusCapMessage(inp.lastWeekRate, rules),
     todos,
   };
 }

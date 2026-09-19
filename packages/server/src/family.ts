@@ -20,6 +20,10 @@ import {
   type TodoRepeat,
   buildTodayCard,
   canStartExpedition,
+  computeBonusCap,
+  lastWeekWindow,
+  weekStartOf,
+  weeklyRate,
   expeditionNeedMin,
   repeatFromString,
   repeatToString,
@@ -290,7 +294,7 @@ export class FamilyService {
   // ---------------------------------------------------------------- 할 일
 
   private toTodo(r: TodoRow): Todo {
-    return { id: r.id, title: r.title, repeat: repeatFromString(r.repeat), needsApproval: r.needsApproval === 1, active: r.active === 1 };
+    return { id: r.id, title: r.title, repeat: repeatFromString(r.repeat), needsApproval: r.needsApproval === 1, active: r.active === 1, createdDate: seoulTime(r.createdAt).date };
   }
 
   private toView(r: TodoRow): TodoView {
@@ -371,13 +375,58 @@ export class FamilyService {
       logs: this.storage.listLogsByChild(key, since),
       time,
       rules: this.rules,
-      lastWeekRate: null, // M5-5 주간 정산 전까지는 첫 주 한도
+      lastWeekRate: this.settlementFor(key, time.date)?.rate ?? null, // 이번 주 정산 (M5-5). 없으면 첫 주 한도
       usedSec: ledger?.usedSec ?? 0,
       manualAdj: ledger?.manualAdj ?? 0,
       enforced: this.enforceTime,
       noPlayToday: (ledger?.noPlay ?? 0) === 1,
       adjustments: this.storage.listAdjustments(key, time.date).map((a) => ({ min: a.deltaMin, reason: a.reason })),
     });
+  }
+
+  // ---------------------------------------------------------------- 주간 정산 (M5-5)
+
+  /**
+   * 이 아이의 이번 주 정산 줄. 없으면(첫 주 또는 아직 안 함) 지난주에 기록·할 일이 있었는지 보고 만든다.
+   * 정산은 (아이, 주) 당 한 번만 — 나중에 지난주 기록이 바뀌어도 안 바꾼다 ("지난주가 이번 주를 정한다")
+   */
+  settlementFor(key: string, dateKey: string): { rate: number; bonusCap: number; approved: number; expected: number; weekStart: string } | null {
+    const weekStart = weekStartOf(dateKey);
+    const row = this.storage.getSettlement(key, weekStart);
+    if (row) return row;
+    const win = lastWeekWindow(weekStart);
+    const todos = this.storage.listTodosByChild(key).map((r) => this.toTodo(r));
+    const logs = this.storage.listLogsByChild(key, win.start).filter((l) => l.date <= win.end);
+    const child = this.storage.getChild(key);
+    // 지난주에 연결도 안 됐고 기록도 없으면 첫 주 — 정산 없음(첫 주 한도)
+    const linkedBefore = child ? seoulTime(child.linkedAt).date <= win.end : false;
+    if (!linkedBefore && logs.length === 0) return null;
+    const r = weeklyRate(todos, logs, win.dates);
+    const settled = { child: key, weekStart, rate: r.rate, bonusCap: computeBonusCap(r.rate, this.rules), approved: r.approved, expected: r.expected, settledAt: Date.now() };
+    this.storage.insertSettlement(settled);
+    return settled;
+  }
+
+  /** 월요일 00:00(서울) 크론 + 서버 시작 보정: 모든 아이의 이번 주 정산을 만들어 둔다. 만든 아이 수 */
+  settleAll(now = Date.now()): number {
+    const date = seoulTime(now).date;
+    let n = 0;
+    for (const c of this.storage.listAllChildren()) {
+      const before = this.storage.getSettlement(c.nickKey, weekStartOf(date));
+      if (!before && this.settlementFor(c.nickKey, date)) {
+        n++;
+        this.pushCard(c.nickKey, now);
+      }
+    }
+    return n;
+  }
+
+  /** 부모 화면용: 최근 정산 줄들 */
+  settlements(familyId: number, childNick: string): { weekStart: string; rate: number; bonusCap: number; approved: number; expected: number }[] {
+    const key = nickKey(childNick);
+    const c = this.storage.getChild(key);
+    if (!c || c.family !== familyId) return [];
+    return this.storage.listSettlements(key).map((s) => ({ weekStart: s.weekStart, rate: s.rate, bonusCap: s.bonusCap, approved: s.approved, expected: s.expected }));
   }
 
   // ---------------------------------------------------------------- 시간 조정·제한 (M5-4)
@@ -510,13 +559,17 @@ export class FamilyService {
   }
 
   /** 부모 화면용: 아이별 오늘 카드 + 할 일 */
-  childrenStatus(familyId: number, now = Date.now()): { nick: string; linkedAt: number; online: boolean; today: TodayCard; todos: TodoView[] }[] {
+  childrenStatus(
+    familyId: number,
+    now = Date.now(),
+  ): { nick: string; linkedAt: number; online: boolean; today: TodayCard; todos: TodoView[]; settlements: { weekStart: string; rate: number; bonusCap: number; approved: number; expected: number }[] }[] {
     return this.storage.listChildren(familyId).map((c) => ({
       nick: this.storage.getAccountByNick(c.nickKey)?.nick ?? c.nickKey,
       linkedAt: c.linkedAt,
       online: this.listeners.has(c.nickKey),
       today: this.cardFor(c.nickKey, now),
       todos: this.storage.listTodosByChild(c.nickKey).map((r) => this.toView(r)),
+      settlements: this.storage.listSettlements(c.nickKey, 4).map((s) => ({ weekStart: s.weekStart, rate: s.rate, bonusCap: s.bonusCap, approved: s.approved, expected: s.expected })),
     }));
   }
 }
