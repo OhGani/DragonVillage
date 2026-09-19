@@ -126,6 +126,15 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(rejected(a).at(-1)).toMatchObject({ seq: 8, reason: REJECT.INVALID });
     room.onBlockChange(ia, { seq: 9, x: 66, y: GROUND_Y + 1, z: 64, id: 'water%8' }, 1000);
     expect(changed(a).at(-1)).toMatchObject({ id: 'water%8' });
+    // 얕은 웅덩이(고인 3/8)는 닦아낼 수 있고, 자연 흐름(water~3)은 못 건드린다
+    room.onBlockChange(ia, { seq: 10, x: 66, y: GROUND_Y + 1, z: 64, id: 'air' }, 1000);
+    expect(changed(a).at(-1)).toMatchObject({ id: 'air' });
+    room.world.setBlock(66, GROUND_Y + 1, 64, BLOCKS.fluidFinite(BLOCKS.numOf('water'), 3));
+    room.onBlockChange(ia, { seq: 11, x: 66, y: GROUND_Y + 1, z: 64, id: 'air' }, 1000);
+    expect(changed(a).at(-1)).toMatchObject({ id: 'air' });
+    room.world.setBlock(66, GROUND_Y + 1, 64, BLOCKS.fluidVariant(BLOCKS.numOf('water'), 3));
+    room.onBlockChange(ia, { seq: 12, x: 66, y: GROUND_Y + 1, z: 64, id: 'air' }, 1000);
+    expect(rejected(a).at(-1)).toMatchObject({ seq: 12, reason: REJECT.INVALID });
   });
 
   it('누가 서 있는 칸에는 못 놓는다(OCCUPIED), 이미 블록이 있는 칸도', () => {

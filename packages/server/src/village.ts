@@ -222,9 +222,9 @@ export class VillageRoom {
     if (!def) return REJECT.INVALID;
     const cur = this.registry.get(this.world.getBlock(x, y, z));
     if (def.num === AIR_ID) {
-      // 부수기: 원천 액체는 양동이처럼 떠낼 수 있고, hardness 없는 블록(기반암)은 못 부순다
+      // 부수기: 자연 원천과 고인 액체(얕은 웅덩이 포함)는 양동이처럼 떠낼 수 있고, 자연 흐름은 못 건드린다(원천을 없애면 마른다). hardness 없는 블록(기반암)은 못 부순다
       if (cur.num === AIR_ID) return REJECT.INVALID;
-      if (cur.fluid) return cur.fluidLevel === 0 ? null : REJECT.INVALID;
+      if (cur.fluid) return cur.fluidLevel === 0 || cur.fluidVolume > 0 ? null : REJECT.INVALID;
       if (cur.hardness === null) return REJECT.UNBREAKABLE;
       return null;
     }

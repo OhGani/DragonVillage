@@ -73,9 +73,9 @@ export class Interaction {
       }
       const def = this.registry.get(t.id);
       if (def.fluid) {
-        // 양동이처럼 원천만 바로 떠낸다 (흐르는 물은 원천이 사라지면 저절로 마른다)
+        // 양동이처럼 바로 떠낸다: 자연 원천(무한) 또는 고인 액체(얕은 웅덩이도 닦아낸다). 자연 흐름은 원천이 사라지면 저절로 마른다
         this.progress = 0;
-        if (this.cooldown <= 0 && def.fluidLevel === 0) {
+        if (this.cooldown <= 0 && (def.fluidLevel === 0 || def.fluidVolume > 0)) {
           const res = this.world.setBlock(t.x, t.y, t.z, AIR_ID);
           if (res.changed) {
             this.events.onBlocksChanged(res.dirty);
