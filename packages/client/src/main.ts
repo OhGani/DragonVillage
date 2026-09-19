@@ -47,7 +47,7 @@ async function boot(): Promise<void> {
       const { createGame } = await import('./game/Game');
       const game = await createGame(root!, { isTouch, net, welcome });
       lobby.close();
-      const startBtn = root!.querySelector<HTMLButtonElement>('.overlay-btn');
+      const startBtn = root!.querySelector<HTMLButtonElement>('.overlay .overlay-btn');
       startBtn?.addEventListener('click', () => game.start(), { once: true });
       return;
     } catch (err) {

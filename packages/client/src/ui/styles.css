@@ -442,7 +442,8 @@ body {
   white-space: pre-line;
   line-height: 1.5;
 }
-.overlay-btn {
+.overlay-btn,
+.big-btn {
   font-family: inherit;
   font-size: 20px;
   font-weight: 700;
@@ -457,12 +458,14 @@ body {
   cursor: pointer;
   touch-action: manipulation;
 }
-.overlay-btn:active {
+.overlay-btn:active,
+.big-btn:active {
   border-bottom-width: 3px;
   transform: translateY(2px);
 }
 
-.overlay-help {
+.overlay-help,
+.plain-btn {
   display: block;
   margin: 12px auto 0;
   padding: 8px 18px;
@@ -832,6 +835,6 @@ body {
   gap: 8px;
   align-items: center;
 }
-.result-buttons .overlay-help {
+.result-buttons .plain-btn {
   margin: 0;
 }

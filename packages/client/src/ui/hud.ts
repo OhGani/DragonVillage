@@ -92,7 +92,7 @@ export class Hud {
       <div class="action-card" hidden>
         <div class="action-title"></div>
         <div class="action-sub"></div>
-        <button class="overlay-btn action-btn"></button>
+        <button class="big-btn action-btn"></button>
       </div>
       <div class="result-panel" hidden>
         <div class="result-card">
@@ -100,8 +100,8 @@ export class Hud {
           <p class="result-sub"></p>
           <ul class="result-items"></ul>
           <div class="result-buttons">
-            <button class="overlay-btn result-again"></button>
-            <button class="overlay-help result-close">마을 구경하기</button>
+            <button class="big-btn result-again"></button>
+            <button class="plain-btn result-close">마을 구경하기</button>
           </div>
         </div>
       </div>
@@ -137,7 +137,7 @@ export class Hud {
     this.overlay = q('.overlay');
     this.overlayTitle = q('.overlay-title');
     this.overlaySub = q('.overlay-sub');
-    this.overlayBtn = q<HTMLButtonElement>('.overlay-btn');
+    this.overlayBtn = q<HTMLButtonElement>('.overlay .overlay-btn');
     this.fullscreenBtn = q<HTMLButtonElement>('.fullscreen');
     this.debugBtn = q<HTMLButtonElement>('.debug');
     // 주의: 상단 '?' 버튼도 class 에 help 가 있으므로 창은 help-panel 로 구분한다
@@ -158,7 +158,7 @@ export class Hud {
       if (e.target === this.helpEl) this.hideHelp(); // 카드 바깥(어두운 배경) 탭 = 닫기
     });
     q<HTMLButtonElement>('.sbtn.help').addEventListener('click', openHelp);
-    q<HTMLButtonElement>('.overlay-help').addEventListener('click', openHelp);
+    q<HTMLButtonElement>('.overlay .overlay-help').addEventListener('click', openHelp);
     q<HTMLButtonElement>('.help-close').addEventListener('click', closeHelp);
     q<HTMLButtonElement>('.help-ok').addEventListener('click', closeHelp);
     this.villageEl = q('.help-village');
