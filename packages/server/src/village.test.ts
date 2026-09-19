@@ -178,6 +178,44 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(BLOCKS.require('bookshelf').drops).toBe('bookshelf');
   });
 
+  it('문: 놓으면 두 칸, 탭하면 열리고 닫히고, 부수면 하나로 돌아온다 (#71)', () => {
+    const { room, a, ia } = setup();
+    room.giveItems(ia, 'oak_door', 1);
+    const p = room.players.get(ia)!;
+    const x = 66,
+      y = GROUND_Y + 1,
+      z = 64;
+    // 핫바의 문 자체를 놓으면 서버가 보던 방향(yaw 0 = 북) 변형으로 바꾼다
+    room.onBlockChange(ia, { seq: 1, x, y, z, id: 'oak_door' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(x, y, z)).id).toBe('oak_door@n');
+    expect(BLOCKS.get(room.world.getBlock(x, y + 1, z)).id).toBe('oak_door@n^');
+    expect(countOf(p.inv, 'oak_door')).toBe(0);
+    expect(changed(a).map((m) => m.id).sort()).toEqual(['oak_door@n', 'oak_door@n^']);
+    // 열기: 윗칸을 탭해도 둘 다 열린다. 가방 그대로
+    room.onBlockChange(ia, { seq: 2, x, y: y + 1, z, id: 'oak_door@n^>' }, 1200);
+    expect(BLOCKS.get(room.world.getBlock(x, y, z)).id).toBe('oak_door@n>');
+    expect(BLOCKS.get(room.world.getBlock(x, y + 1, z)).id).toBe('oak_door@n^>');
+    expect(BLOCKS.get(room.world.getBlock(x, y, z)).solid).toBe(false);
+    expect(countOf(p.inv, 'oak_door')).toBe(0);
+    // 닫기
+    room.onBlockChange(ia, { seq: 3, x, y, z, id: 'oak_door@n' }, 1400);
+    expect(BLOCKS.get(room.world.getBlock(x, y + 1, z)).id).toBe('oak_door@n^');
+    expect(rejected(a)).toEqual([]);
+    // 방향이 다른 변형으로 바꾸는 건 거절
+    room.onBlockChange(ia, { seq: 4, x, y, z, id: 'oak_door@e' }, 1600);
+    expect(rejected(a).at(-1)).toMatchObject({ seq: 4 });
+    // 부수기(윗칸) → 둘 다 사라지고 문 하나
+    room.onBlockChange(ia, { seq: 5, x, y: y + 1, z, id: 'air' }, 1800);
+    expect(room.world.getBlock(x, y, z)).toBe(0);
+    expect(room.world.getBlock(x, y + 1, z)).toBe(0);
+    expect(countOf(p.inv, 'oak_door')).toBe(1);
+    // 위가 막혀 있으면 못 놓는다
+    room.onBlockChange(ia, { seq: 6, x, y: y + 1, z, id: 'stone' }, 2000);
+    room.onBlockChange(ia, { seq: 7, x, y, z, id: 'oak_door@n' }, 2200);
+    expect(rejected(a).at(-1)).toEqual({ seq: 7, reason: REJECT.OCCUPIED });
+    expect(countOf(p.inv, 'oak_door')).toBe(1);
+  });
+
   it('초당 상한을 넘으면 RATE', () => {
     const { room, a, ia } = setup();
     for (let i = 0; i < RATE_PER_SEC + 2; i++) room.onBlockChange(ia, { seq: 100 + i, x: 62 + (i % 5), y: GROUND_Y + 2 + Math.floor(i / 5), z: 62, id: 'stone' }, 1000 + i * 10);

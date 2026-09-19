@@ -111,6 +111,7 @@ export function itemForPlacing(blockId: string, registry: BlockRegistry): string
   const d = registry.find(blockId);
   if (!d || d.num === 0) return null;
   if (d.fluid) return d.fluidVolume === FLUID_FULL ? (d.fluid === 'water' ? WATER_BUCKET : LAVA_BUCKET) : null;
+  if (d.door) return d.door.upper || d.door.open ? null : registry.get(d.door.base).id; // 문은 아래·닫힘 변형을 놓을 때 문 아이템 하나
   return d.internal ? null : d.id;
 }
 

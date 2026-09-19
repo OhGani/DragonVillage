@@ -216,11 +216,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   input.paused = true;
 
   // ---- 블록 변경: 먼저 화면에 그리고(낙관) 서버가 거절하면 되돌린다 ----
-  const pending = new Map<number, { x: number; y: number; z: number; prev: number }>();
+  const pending = new Map<number, { x: number; y: number; z: number; prev: number; id: number }>();
   let seq = 0;
   const sendBlock = (x: number, y: number, z: number, newNum: number, prev: number) => {
     seq = (seq + 1) & 0xffff;
-    pending.set(seq, { x, y, z, prev });
+    pending.set(seq, { x, y, z, prev, id: newNum });
     net.sendBlockChange({ seq, x, y, z, id: registry.get(newNum).id });
     if (pending.size > 200) pending.delete(pending.keys().next().value!); // 응답이 영영 안 오면 오래된 것부터 잊는다
   };
@@ -372,6 +372,18 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         if (res.changed) {
           ctx.chunks.markDirtyAll(res.dirty);
           ctx.light.markChanged(p.x, p.y, p.z);
+        }
+        // 문은 두 칸 (#71): 다른 반쪽도 되돌린다 — 놓기였으면 공기로, 열고 닫기·부수기였으면 원래 상태로
+        const dPrev = registry.get(p.prev).door;
+        const d = registry.get(p.id).door ?? dPrev;
+        if (d) {
+          const oy = d.upper ? p.y - 1 : p.y + 1;
+          const other = dPrev ? registry.doorVariant(dPrev.base, dPrev.facing, !dPrev.upper, dPrev.open) : AIR_ID;
+          const r2 = ctx.world.setBlock(p.x, oy, p.z, other);
+          if (r2.changed) {
+            ctx.chunks.markDirtyAll(r2.dirty);
+            ctx.light.markChanged(p.x, oy, p.z);
+          }
         }
       }
       hud.toast(REJECT_KO[m.reason] ?? '서버가 거절했어요', 2500);

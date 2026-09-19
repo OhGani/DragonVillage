@@ -133,8 +133,35 @@ export interface BlockDef {
   readonly fluidSource: number;
   /** 고인 액체의 양 1..8 (플레이어가 놓은 것, 보존됨). 0 = 자연 액체(무한 원천·흐름). 액체 아니면 0 */
   readonly fluidVolume: number;
-  /** 코드가 만든 내부 블록(흐르는·고인 액체 단계). 핫바·도감에 안 보임 */
+  /** 코드가 만든 내부 블록(흐르는·고인 액체 단계, 문 변형). 핫바·도감에 안 보임 */
   readonly internal: boolean;
+  /** 문 변형이면 어느 문의 어떤 상태인지. 문 아니면 null (JSON 의 문 자체도 null — 세계에는 변형만 놓인다) */
+  readonly door: DoorInfo | null;
+}
+
+/** 문 변형 정보 (결정 #71). facing 0 북(-z) 1 동(+x) 2 남(+z) 3 서(-x) = 놓은 사람이 보던 방향 */
+export interface DoorInfo {
+  readonly base: number;
+  readonly facing: number;
+  readonly upper: boolean;
+  readonly open: boolean;
+}
+export const DOOR_FACING = ['n', 'e', 's', 'w'] as const;
+/** facing → 보는 방향 [dx, dz] */
+export const DOOR_DIR: readonly (readonly [number, number])[] = [
+  [0, -1],
+  [1, 0],
+  [0, 1],
+  [-1, 0],
+];
+/** 수평 방향 벡터 → 문 facing (큰 축 기준) */
+export function facingOf(dx: number, dz: number): number {
+  if (Math.abs(dx) > Math.abs(dz)) return dx > 0 ? 1 : 3;
+  return dz > 0 ? 2 : 0;
+}
+/** 마인크래프트식 yaw(보는 방향 = (-sin yaw, -cos yaw)) → 문 facing */
+export function facingFromYaw(yaw: number): number {
+  return facingOf(-Math.sin(yaw), -Math.cos(yaw));
 }
 
 export class BlockRegistry {
@@ -143,10 +170,17 @@ export class BlockRegistry {
   private readonly fluidLevels = new Map<number, number[]>();
   /** 원천 번호 → [양] 고인 액체 블록 번호 */
   private readonly fluidVolumes = new Map<number, number[]>();
+  /** 문 번호 → [facing*4 + upper*2 + open] 변형 번호 */
+  private readonly doors = new Map<number, number[]>();
 
   constructor(readonly defs: readonly BlockDef[]) {
     for (const d of defs) {
       this.byId.set(d.id, d);
+      if (d.door) {
+        let arr = this.doors.get(d.door.base);
+        if (!arr) this.doors.set(d.door.base, (arr = []));
+        arr[d.door.facing * 4 + (d.door.upper ? 2 : 0) + (d.door.open ? 1 : 0)] = d.num;
+      }
       if (d.fluid) {
         if (d.fluidVolume > 0) {
           let arr = this.fluidVolumes.get(d.fluidSource);
@@ -178,6 +212,19 @@ export class BlockRegistry {
     const arr = this.fluidVolumes.get(source);
     if (!arr) throw new Error(`액체가 아닌 블록 번호: ${source}`);
     return arr[Math.min(FLUID_FULL, volume)] ?? source;
+  }
+
+  /** 문 변형: 문 번호(JSON 것) + 방향 + 위/아래 + 열림 → 블록 번호 */
+  doorVariant(base: number, facing: number, upper: boolean, open: boolean): number {
+    const arr = this.doors.get(base);
+    if (!arr) throw new Error(`문이 아닌 블록 번호: ${base}`);
+    return arr[((facing & 3) * 4) + (upper ? 2 : 0) + (open ? 1 : 0)]!;
+  }
+
+  /** 문(JSON 의 문 또는 그 변형)인가 */
+  isDoor(num: number): boolean {
+    const d = this.get(num);
+    return d.door !== null || (d.shape === 'door' && this.doors.has(num));
   }
 
   get count(): number {
@@ -327,6 +374,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       fluidSource: b.fluid ? num : -1,
       fluidVolume: 0,
       internal: false,
+      door: null,
     };
   });
 
@@ -364,6 +412,31 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
         internal: true,
       });
     }
+  }
+
+  // 문(shape 'door'): 아들 JSON 은 문 하나만 적고, 코드가 방향 4 × 위/아래 × 열림 = 16개 내부 변형을 만든다 (결정 #71).
+  // 세계에는 변형만 놓이고 JSON 의 문 자체는 아이템(핫바)으로만 쓰인다. 열린 문은 지나갈 수 있다(solid false)
+  for (const src of [...defs]) {
+    if (src.shape !== 'door' || !src.textures) continue;
+    const [top, , bottom] = src.textures;
+    for (let facing = 0; facing < 4; facing++)
+      for (const upper of [false, true])
+        for (const open of [false, true]) {
+          const tex = upper ? top : bottom;
+          defs.push({
+            ...src,
+            num: defs.length,
+            id: `${src.id}@${DOOR_FACING[facing]}${upper ? '^' : ''}${open ? '>' : ''}`,
+            solid: !open,
+            transparent: true,
+            drops: upper ? null : src.drops,
+            bonusDrops: null,
+            lightFilter: 0,
+            textures: [tex, tex, tex],
+            internal: true,
+            door: { base: src.num, facing, upper, open },
+          });
+        }
   }
 
   if (defs.length > 65535) problems.push(`블록이 너무 많아요 (최대 65535개)`);

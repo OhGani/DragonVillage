@@ -36,6 +36,7 @@ import {
   craft,
   dropOf,
   emptyInventory,
+  facingFromYaw,
   give,
   isPotionItem,
   itemForPlacing,
@@ -324,6 +325,13 @@ export class VillageRoom {
     const def = this.registry.find(req.id);
     if (!def) return REJECT.INVALID;
     const cur = this.registry.get(world.getBlock(x, y, z));
+    // 문 열고 닫기 (#71): 같은 문·같은 방향·같은 반쪽에서 열림만 뒤집는 요청. 가방과 무관, 아무나 가능
+    if (def.door && cur.door && def.door.base === cur.door.base && def.door.facing === cur.door.facing && def.door.upper === cur.door.upper && def.door.open !== cur.door.open) {
+      if (def.door.open) return null;
+      const ly = def.door.upper ? y - 1 : y; // 닫을 때는 문 두 칸에 누가 서 있으면 안 된다
+      for (const other of this.playersIn(p.world)) if (bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, ly, z) || bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, ly + 1, z)) return REJECT.OCCUPIED;
+      return null;
+    }
     if (def.num === AIR_ID) {
       // 부수기: 자연 원천과 고인 액체(얕은 웅덩이 포함)는 양동이처럼 떠낼 수 있고, 자연 흐름은 못 건드린다(원천을 없애면 마른다). hardness 없는 블록(기반암)은 못 부순다
       if (cur.num === AIR_ID) return REJECT.INVALID;
@@ -337,18 +345,29 @@ export class VillageRoom {
       return null;
     }
     // 놓기: 액체는 플레이어가 놓는 고인 액체 8/8 만(자연 원천·흐름은 못 놓는다), 그 외 내부 블록 불가, 자리는 공기·액체만, 누가 서 있으면 안 됨
-    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal) return REJECT.INVALID;
+    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door) return REJECT.INVALID;
+    if (def.door && (def.door.upper || def.door.open)) return REJECT.INVALID; // 문은 아래·닫힘 변형만 놓는다(윗칸은 서버가 채운다)
     // 가방에 그 아이템(액체면 찬 양동이)이 있어야 한다 (M4, #66)
     const item = itemForPlacing(def.id, this.registry);
     if (!item || countOf(p.inv, item) < 1) return REJECT.NO_ITEM;
     if (cur.num !== AIR_ID && !cur.fluid) return REJECT.OCCUPIED; // 횃불·꽃 같은 비고체 블록도 덮어쓰지 않는다(아이템이 사라지니까)
     if (def.solid) for (const other of this.playersIn(p.world)) if (bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, y, z)) return REJECT.OCCUPIED;
+    if (def.door) {
+      // 문은 두 칸: 윗칸도 공기여야 하고 누가 서 있으면 안 된다
+      if (!world.inBounds(x, y + 1, z) || world.getBlock(x, y + 1, z) !== AIR_ID) return REJECT.OCCUPIED;
+      for (const other of this.playersIn(p.world)) if (bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, y + 1, z)) return REJECT.OCCUPIED;
+    }
     return null;
   }
 
   onBlockChange(idx: number, req: BlockChangeReqMsg, now = Date.now()): void {
     const p = this.players.get(idx);
     if (!p) return;
+    // 핫바의 문 자체(JSON id)를 놓는 요청은 보던 방향의 아래·닫힘 변형으로 바꾼다
+    const rawDef = this.registry.find(req.id);
+    if (rawDef && rawDef.shape === 'door' && !rawDef.door && this.registry.isDoor(rawDef.num)) {
+      req = { ...req, id: this.registry.get(this.registry.doorVariant(rawDef.num, facingFromYaw(p.pos.yaw), false, false)).id };
+    }
     const reason = this.validate(p, req, now);
     if (reason !== null) {
       this.stats.rejected++;
@@ -366,18 +385,35 @@ export class VillageRoom {
       return;
     }
     this.stats.blockChanges++;
-    if (p.world === 'expedition' && this.expedition) {
-      this.expedition.markModified(req.x, req.y, req.z);
-      this.expedition.fluids.touch(req.x, req.y, req.z);
-    } else {
-      this.markDirtyBlock(req.x, req.y, req.z);
-      this.fluids.touch(req.x, req.y, req.z);
+    const touched = (x: number, y: number, z: number) => {
+      if (p.world === 'expedition' && this.expedition) {
+        this.expedition.markModified(x, y, z);
+        this.expedition.fluids.touch(x, y, z);
+      } else {
+        this.markDirtyBlock(x, y, z);
+        this.fluids.touch(x, y, z);
+      }
+    };
+    touched(req.x, req.y, req.z);
+    // 문은 두 칸이 함께 움직인다 (#71): 놓으면 윗칸도, 부수면 다른 반쪽도, 열고 닫으면 둘 다
+    const def = this.registry.get(num);
+    const doorHalf = def.door ?? prev.door;
+    if (doorHalf) {
+      const oy = doorHalf.upper ? req.y - 1 : req.y + 1;
+      const other = def.door ? this.registry.doorVariant(def.door.base, def.door.facing, !def.door.upper, def.door.open) : AIR_ID;
+      if (world.inBounds(req.x, oy, req.z) && world.setBlock(req.x, oy, req.z, other).changed) {
+        touched(req.x, oy, req.z);
+        this.broadcast(encodeBlockChanged({ x: req.x, y: oy, z: req.z, id: this.registry.get(other).id, by: idx }), -1, p.world);
+      }
     }
-    // 가방 (M4): 놓으면 나가고, 부수면 들어온다
+    const isToggle = def.door !== null && prev.door !== null;
+    // 가방 (M4): 놓으면 나가고, 부수면 들어온다. 문 열고 닫기는 가방과 무관
     const changed = new Set<number>();
-    if (num === AIR_ID) {
+    if (isToggle) {
+      // 아무것도 안 함
+    } else if (num === AIR_ID) {
       const seed = p.world === 'expedition' && this.expedition ? this.expedition.seed : this.info.seed;
-      const drop = dropOf(prev, req.x, req.y, req.z, seed);
+      const drop = dropOf(prev.door ? this.registry.get(prev.door.base) : prev, req.x, req.y, req.z, seed);
       if (drop) {
         if (drop.needsBucket) take(p.inv, BUCKET, 1, changed);
         this.giveTo(p, drop.item, drop.count, changed);

@@ -11,6 +11,7 @@ const registry = parseBlocks({
     { id: 'grass', name: '잔디', hardness: 1, textureTop: 'grass_top', textureSide: 'grass_side', textureBottom: 'dirt' },
     { id: 'glass', name: '유리', hardness: 1, transparent: true, texture: 'glass' },
     { id: 'water', name: '물', solid: false, transparent: true, fluid: 'water', texture: 'water' },
+    { id: 'oak_door', name: '문', hardness: 3, transparent: true, textureTop: 'door_top', textureSide: 'door_bottom', textureBottom: 'door_bottom', shape: 'door' },
   ],
 });
 const texIndex = new Map([
@@ -21,12 +22,16 @@ const texIndex = new Map([
   ['dirt', 4],
   ['glass', 5],
   ['water', 6],
+  ['door_top', 7],
+  ['door_bottom', 8],
 ]);
 const info = buildMeshBlockInfo(registry, texIndex);
 const STONE = registry.numOf('stone');
 const GRASS = registry.numOf('grass');
 const GLASS = registry.numOf('glass');
 const WATER = registry.numOf('water');
+const DOOR_N = registry.doorVariant(registry.numOf('oak_door'), 0, false, false);
+const DOOR_N_OPEN_UP = registry.doorVariant(registry.numOf('oak_door'), 0, true, true);
 
 function padded(fill: (x: number, y: number, z: number) => number): Uint16Array {
   const arr = new Uint16Array(PADDED_VOLUME);
@@ -278,5 +283,35 @@ describe('greedyMesh 정점 빛', () => {
     );
     const b = r.translucent!;
     for (let i = 0; i < b.vertexCount; i++) expect(b.meta[i * 4 + 3]).toBe((14 << 4) | 2);
+  });
+});
+
+describe('문 판 (#71)', () => {
+  it('문 반쪽은 3/16 두께 상자 6면, 이웃 블록의 면을 가리지 않는다', () => {
+    const r = greedyMesh(
+      padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? DOOR_N : 0)),
+      info,
+    );
+    expect(quadCount(r.opaque)).toBe(6);
+    // 북쪽(-z)을 보고 놓은 닫힌 문 → 놓은 사람 쪽(+z) 가장자리: z 는 5+13/16 ~ 6
+    const zs = new Set<number>();
+    for (let i = 0; i < r.opaque!.vertexCount; i++) zs.add(Math.round(r.opaque!.positions[i * 3 + 2] * 16));
+    expect([...zs].sort((a, b) => a - b)).toEqual([5 * 16 + 13, 6 * 16]);
+    expect(r.opaque!.meta[0]).toBe(8); // 아랫칸 그림
+    // 열린 윗칸: 왼쪽(-x) 경첩 → x 는 5 ~ 5+3/16, 그림은 door_top
+    const o = greedyMesh(
+      padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? DOOR_N_OPEN_UP : 0)),
+      info,
+    );
+    const xs = new Set<number>();
+    for (let i = 0; i < o.opaque!.vertexCount; i++) xs.add(Math.round(o.opaque!.positions[i * 3] * 16));
+    expect([...xs].sort((a, b) => a - b)).toEqual([5 * 16, 5 * 16 + 3]);
+    expect(o.opaque!.meta[0]).toBe(7);
+    // 문 옆 돌: 돌의 6면이 다 보인다 (문은 불투명이 아님) + 문 6면
+    const s = greedyMesh(
+      padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? DOOR_N : x === 4 && y === 5 && z === 5 ? STONE : 0)),
+      info,
+    );
+    expect(quadCount(s.opaque)).toBe(12);
   });
 });

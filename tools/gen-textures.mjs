@@ -192,6 +192,17 @@ const GRASS = [91, 153, 55];
 const BARK = [102, 81, 50];
 const WOOD = [162, 130, 78];
 
+const DOOR_EDGE = [72, 52, 28];
+/** 문 판자: 밝은 참나무 + 세로 결 */
+function doorPlank(c) {
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const n = (c.rnd() - 0.5) * 14;
+      const grain = x === 7 || x === 8 ? 0.9 : 1;
+      c.set(x, y, 190 * grain + n, 154 * grain + n, 92 * grain + n);
+    }
+}
+
 /** 상자 나무: 가로 판자 3장, 오렌지빛 참나무 */
 function chestWood(c, bright) {
   const base = [168, 116, 52];
@@ -451,13 +462,35 @@ const TEX = {
     for (let y = 0; y < S; y++) if (y % 4 === 1) for (let x = 1; x < S - 1; x++) c.set(x, y, 110, 80, 45);
     for (let y = 0; y < S; y++) for (const x of [3, 4, 11, 12]) c.set(x, y, 150 + (c.rnd() - 0.5) * 20, 150, 150);
   },
-  door: (c) => {
-    TEX.crafting_table_side(c);
-    for (let y = 2; y <= 6; y++) for (let x = 5; x <= 10; x++) c.set(x, y, 190, 225, 240);
-    for (let y = 2; y <= 6; y++) c.set(8, y, 90, 66, 40);
-    for (let x = 5; x <= 10; x++) c.set(x, 4, 90, 66, 40);
-    c.set(12, 9, 200, 190, 90);
-    c.set(12, 10, 200, 190, 90);
+  // 참나무 문 — 아빠가 보낸 그림(2026-09-19): 밝은 참나무, 어두운 테두리, 윗칸 창문 2×2, 아랫칸 판 2×2 + 손잡이
+  door_top: (c) => {
+    doorPlank(c);
+    for (let y = 0; y < S; y++) {
+      c.set(0, y, ...DOOR_EDGE);
+      c.set(15, y, ...DOOR_EDGE);
+    }
+    for (let x = 0; x < S; x++) c.set(x, 0, ...DOOR_EDGE);
+    // 창틀: x 2~13, y 1~11 안에 창 4개
+    for (let y = 1; y <= 11; y++) for (let x = 2; x <= 13; x++) c.set(x, y, ...DOOR_EDGE);
+    for (const [x0, y0] of [[3, 2], [9, 2], [3, 7], [9, 7]]) for (let y = y0; y < y0 + 4; y++) for (let x = x0; x < x0 + 4; x++) c.set(x, y, 226, 236, 242);
+    for (const [x0, y0] of [[3, 2], [9, 2], [3, 7], [9, 7]]) c.set(x0, y0, 245, 250, 252);
+    for (let x = 1; x < S - 1; x++) c.set(x, 15, 150, 118, 64); // 아랫칸과 이어지는 틈
+  },
+  door_bottom: (c) => {
+    doorPlank(c);
+    for (let y = 0; y < S; y++) {
+      c.set(0, y, ...DOOR_EDGE);
+      c.set(15, y, ...DOOR_EDGE);
+    }
+    for (let x = 0; x < S; x++) c.set(x, 15, ...DOOR_EDGE);
+    // 판 4개: 테두리 어둡고 안은 조금 어두운 판자
+    for (const [x0, y0] of [[2, 1], [9, 1], [2, 8], [9, 8]]) {
+      for (let y = y0; y < y0 + 6; y++) for (let x = x0; x < x0 + 5; x++) c.set(x, y, ...DOOR_EDGE);
+      for (let y = y0 + 1; y < y0 + 5; y++) for (let x = x0 + 1; x < x0 + 4; x++) c.set(x, y, 172 + (c.rnd() - 0.5) * 10, 138, 78);
+    }
+    // 손잡이 (오른쪽 위)
+    c.set(14, 2, 78, 78, 84);
+    c.set(14, 3, 60, 60, 66);
   },
   trapdoor: (c) => {
     TEX.planks(c);

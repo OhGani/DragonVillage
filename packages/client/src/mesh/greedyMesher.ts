@@ -13,6 +13,8 @@ import { CHUNK_SIZE, OUTSIDE_LIGHT, paddedIndex } from '@dragon-village/shared';
 import { LAYER_NONE, LAYER_TRANSLUCENT, type MeshBlockInfo, type MeshBuffers, type MeshResult } from './meshTypes';
 
 const N = CHUNK_SIZE;
+/** 문 판 두께 (마인크래프트 3/16) */
+export const PANEL_THICKNESS = 3 / 16;
 
 /** 면별 텍스처 u(오른쪽)·v(위) 방향. 밖에서 볼 때 그림이 똑바로 서도록 */
 const FACE_U: readonly (readonly [number, number, number])[] = [
@@ -217,59 +219,60 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
   };
 
   /**
-   * 액체 사각형 하나. face 의 평면에 h0..h1 높이(옆면) 또는 h1 높이(윗면)로 그린다.
-   * 꼭짓점 순서는 법선 방향으로 자동 정리.
+   * 상자(mn~mx)의 face 쪽 면 하나. 꼭짓점 순서는 법선 방향으로 자동 정리, 텍스처 좌표는 세계 좌표를 면에 투영.
+   * 액체(높이가 다른 상자)와 얇은 판(문)이 같이 쓴다.
    */
-  const fluidQuad = (builder: GeomBuilder, face: number, x: number, y: number, z: number, h0: number, h1: number, layer: number) => {
-    const lt = lightOfCell(x, y, z);
+  const boxFace = (builder: GeomBuilder, face: number, mn: readonly number[], mx: readonly number[], layer: number, lt: number) => {
+    const [x0, y0, z0] = mn as [number, number, number];
+    const [x1, y1, z1] = mx as [number, number, number];
     let c: number[][];
     switch (face) {
       case 0:
         c = [
-          [x + 1, y + h0, z],
-          [x + 1, y + h0, z + 1],
-          [x + 1, y + h1, z + 1],
-          [x + 1, y + h1, z],
+          [x1, y0, z0],
+          [x1, y0, z1],
+          [x1, y1, z1],
+          [x1, y1, z0],
         ];
         break;
       case 1:
         c = [
-          [x, y + h0, z],
-          [x, y + h0, z + 1],
-          [x, y + h1, z + 1],
-          [x, y + h1, z],
+          [x0, y0, z0],
+          [x0, y0, z1],
+          [x0, y1, z1],
+          [x0, y1, z0],
         ];
         break;
       case 2:
         c = [
-          [x, y + h1, z],
-          [x + 1, y + h1, z],
-          [x + 1, y + h1, z + 1],
-          [x, y + h1, z + 1],
+          [x0, y1, z0],
+          [x1, y1, z0],
+          [x1, y1, z1],
+          [x0, y1, z1],
         ];
         break;
       case 3:
         c = [
-          [x, y, z],
-          [x + 1, y, z],
-          [x + 1, y, z + 1],
-          [x, y, z + 1],
+          [x0, y0, z0],
+          [x1, y0, z0],
+          [x1, y0, z1],
+          [x0, y0, z1],
         ];
         break;
       case 4:
         c = [
-          [x, y + h0, z + 1],
-          [x + 1, y + h0, z + 1],
-          [x + 1, y + h1, z + 1],
-          [x, y + h1, z + 1],
+          [x0, y0, z1],
+          [x1, y0, z1],
+          [x1, y1, z1],
+          [x0, y1, z1],
         ];
         break;
       default:
         c = [
-          [x, y + h0, z],
-          [x + 1, y + h0, z],
-          [x + 1, y + h1, z],
-          [x, y + h1, z],
+          [x0, y0, z0],
+          [x1, y0, z0],
+          [x1, y1, z0],
+          [x0, y1, z0],
         ];
     }
     // 법선과 맞게 반시계 순서로
@@ -282,6 +285,26 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
       V = FACE_V[face];
     const corners = c.map((p) => [p[0], p[1], p[2], p[0] * U[0] + p[1] * U[1] + p[2] * U[2], p[0] * V[0] + p[1] * V[1] + p[2] * V[2], 3, lt]);
     builder.quad(corners, layer, face);
+  };
+  /** 액체 사각형 하나: face 의 평면에 h0..h1 높이(옆면) 또는 h1 높이(윗면) */
+  const fluidQuad = (builder: GeomBuilder, face: number, x: number, y: number, z: number, h0: number, h1: number, layer: number) =>
+    boxFace(builder, face, [x, y + h0, z], [x + 1, y + h1, z + 1], layer, lightOfCell(x, y, z));
+
+  /** 얇은 판(문) 전용 패스: 3/16 두께 상자 여섯 면을 낱개로. 가림 계산 없음(문 몇 개뿐) */
+  const emitPanels = () => {
+    for (let y = 0; y < N; y++)
+      for (let z = 0; z < N; z++)
+        for (let x = 0; x < N; x++) {
+          const bi = info[padded[paddedIndex(x, y, z)]];
+          if (bi === undefined || bi.panel === null) continue;
+          const [axis, side] = bi.panel;
+          const mn = [x, y, z],
+            mx = [x + 1, y + 1, z + 1];
+          if (side === 0) mx[axis] = mn[axis] + PANEL_THICKNESS;
+          else mn[axis] = mx[axis] - PANEL_THICKNESS;
+          const lt = lightOfCell(x, y, z);
+          for (let f = 0; f < 6; f++) boxFace(opaque, f, mn, mx, bi.tex[f], lt);
+        }
   };
 
   /** 액체 전용 패스: 블록마다 높이가 다르므로 greedy 없이 낱개로 */
@@ -385,7 +408,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
             kb = 0,
             kfl = 0,
             kbl = 0;
-          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0) {
+          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null) {
             p[d] = i + 1;
             const idF = padded[paddedIndex(p[0], p[1], p[2])];
             p[d] = i;
@@ -429,6 +452,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
     }
   }
   emitFluids();
+  emitPanels();
 
   return { opaque: opaque.build(), translucent: trans.build() };
 }

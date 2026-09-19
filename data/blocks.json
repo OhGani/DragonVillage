@@ -435,8 +435,12 @@
       "hardness": 3.0,
       "tool": null,
       "lightEmit": 0,
-      "texture": "door",
-      "shape": "door"
+      "transparent": true,
+      "textureTop": "door_top",
+      "textureSide": "door_bottom",
+      "textureBottom": "door_bottom",
+      "shape": "door",
+      "_note": "문은 두 칸(아래·위). textureTop = 윗칸 그림(창문), textureBottom = 아랫칸 그림(판·손잡이). 탭하면 열리고 닫힌다(결정 #71). 그림은 아빠가 보낸 참나무 문(2026-09-19)"
     },
     {
       "id": "oak_trapdoor",

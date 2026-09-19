@@ -19,6 +19,8 @@ export interface MeshBlockInfo {
   fluidKind: number;
   /** 액체 윗면 높이 0..1 (원천 8/9, 흐를수록 낮아짐). 액체 아니면 0 */
   fluidHeight: number;
+  /** 얇은 판(문): [얇은 축 0=x 2=z, 어느 쪽 가장자리 0=작은 쪽 1=큰 쪽]. greedy 대신 전용 패스로 3/16 두께 상자를 그린다. 아니면 null */
+  panel: readonly [number, number] | null;
 }
 
 export interface MeshBuffers {

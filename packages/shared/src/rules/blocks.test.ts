@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { AIR_ID, DataError, parseBlocks } from './blocks';
+import { AIR_ID, DataError, facingFromYaw, parseBlocks } from './blocks';
 import { BLOCKS } from './data';
+import { itemForPlacing } from './items';
 
 const ok = {
   blocks: [
@@ -103,5 +104,41 @@ describe('dropCount', () => {
     expect(BLOCKS.require('glowstone').drops).toBe('glowstone');
     expect(BLOCKS.require('glowstone').bonusDrops).toBe('glowstone_dust');
     expect(BLOCKS.require('glowstone').bonusCount).toEqual([0, 3]);
+  });
+});
+
+describe('문 변형 (#71)', () => {
+  it('문 하나에 16개 내부 변형, 열린 문은 지나갈 수 있고, 윗칸은 드롭 없음', () => {
+    const reg = parseBlocks({
+      blocks: [
+        { id: 'air', name: '공기', solid: false, transparent: true },
+        { id: 'oak_door', name: '문', hardness: 3, textureTop: 'door_top', textureSide: 'door_bottom', textureBottom: 'door_bottom', shape: 'door' },
+      ],
+    });
+    const base = reg.numOf('oak_door');
+    expect(reg.defs.filter((d) => d.door)).toHaveLength(16);
+    const lower = reg.get(reg.doorVariant(base, 0, false, false));
+    expect(lower.id).toBe('oak_door@n');
+    expect(lower.solid).toBe(true);
+    expect(lower.internal).toBe(true);
+    expect(lower.textures?.[1]).toBe('door_bottom');
+    expect(lower.drops).toBe('oak_door');
+    const upperOpen = reg.get(reg.doorVariant(base, 2, true, true));
+    expect(upperOpen.id).toBe('oak_door@s^>');
+    expect(upperOpen.solid).toBe(false);
+    expect(upperOpen.drops).toBeNull();
+    expect(upperOpen.textures?.[1]).toBe('door_top');
+    expect(upperOpen.door).toEqual({ base, facing: 2, upper: true, open: true });
+    expect(reg.isDoor(base)).toBe(true);
+    expect(reg.isDoor(AIR_ID)).toBe(false);
+    // 놓을 때는 아래·닫힘 변형만 문 아이템 하나를 쓴다
+    expect(itemForPlacing('oak_door@n', reg)).toBe('oak_door');
+    expect(itemForPlacing('oak_door@n^', reg)).toBeNull();
+    expect(itemForPlacing('oak_door@n>', reg)).toBeNull();
+    // yaw 0 = 북(-z), π/2 = 서(-x)
+    expect(facingFromYaw(0)).toBe(0);
+    expect(facingFromYaw(Math.PI / 2)).toBe(3);
+    expect(facingFromYaw(Math.PI)).toBe(2);
+    expect(BLOCKS.defs.filter((d) => d.door)).toHaveLength(16);
   });
 });

@@ -1,11 +1,13 @@
 import {
   AIR_ID,
   FLUID_FULL,
+  type BlockDef,
   type BlockRegistry,
   type ChunkCoord,
   type RayHit,
   type VoxelWorld,
   bodyOverlapsBlock,
+  facingOf,
   raycastVoxels,
 } from '@dragon-village/shared';
 import type { InputState } from '../input/InputState';
@@ -44,6 +46,40 @@ export class Interaction {
   ) {}
 
   private readonly getBlock = (x: number, y: number, z: number) => this.world.getBlock(x, y, z);
+  /** 문 놓기(#71): 아래 칸 + 윗칸을 내가 보는 방향으로. 윗칸이 비어 있어야 한다 */
+  private placeDoor(x: number, y: number, z: number, base: BlockDef, cur: number): void {
+    if (!this.world.inBounds(x, y + 1, z) || this.world.getBlock(x, y + 1, z) !== AIR_ID) return;
+    if (bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y, z) || bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y + 1, z)) return;
+    const look = this.player.lookDir;
+    const facing = facingOf(look.x, look.z);
+    const lower = this.registry.doorVariant(base.num, facing, false, false);
+    const upper = this.registry.doorVariant(base.num, facing, true, false);
+    const r1 = this.world.setBlock(x, y, z, lower);
+    const r2 = this.world.setBlock(x, y + 1, z, upper);
+    if (r1.changed || r2.changed) {
+      this.events.onBlocksChanged([...r1.dirty, ...r2.dirty]);
+      this.events.onPlaced?.(x, y, z, lower, cur);
+      this.events.onSwing();
+    }
+  }
+
+  /** 문 열고 닫기(#71): 두 반쪽을 같이 뒤집고, 조준한 칸만 서버에 알린다(서버가 다른 반쪽도 바꿔 준다) */
+  private toggleDoor(t: RayHit, def: BlockDef): void {
+    const d = def.door!;
+    const ly = d.upper ? t.y - 1 : t.y;
+    // 닫을 때 문 칸에 내가 서 있으면 안 된다
+    if (d.open && (bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, t.x, ly, t.z) || bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, t.x, ly + 1, t.z))) return;
+    const lower = this.registry.doorVariant(d.base, d.facing, false, !d.open);
+    const upper = this.registry.doorVariant(d.base, d.facing, true, !d.open);
+    const r1 = this.world.setBlock(t.x, ly, t.z, lower);
+    const r2 = this.world.setBlock(t.x, ly + 1, t.z, upper);
+    if (r1.changed || r2.changed) {
+      this.events.onBlocksChanged([...r1.dirty, ...r2.dirty]);
+      this.events.onPlaced?.(t.x, t.y, t.z, d.upper ? upper : lower, t.id);
+      this.events.onSwing();
+    }
+  }
+
   /** 공기가 아닌 블록은 전부 조준한다(횃불·꽃처럼 몸이 통과되는 것도 캘 수 있게). 액체는 물·용암을 들고 있을 때만(양동이처럼) */
   private readonly targetable = (id: number) => id !== AIR_ID && (this.bucketMode || !this.registry.isFluid(id));
 
@@ -93,6 +129,11 @@ export class Interaction {
           if (res.changed) {
             this.events.onBlocksChanged(res.dirty);
             this.events.onBroken?.(t.x, t.y, t.z, t.id);
+            if (def.door) {
+              // 문은 두 칸: 다른 반쪽도 같이 (서버도 같이 지운다, #71)
+              const r2 = this.world.setBlock(t.x, def.door.upper ? t.y - 1 : t.y + 1, t.z, AIR_ID);
+              if (r2.changed) this.events.onBlocksChanged(r2.dirty);
+            }
           }
           this.progress = 0;
           this.breakingKey = -1;
@@ -122,7 +163,14 @@ export class Interaction {
 
   private place(): void {
     const t = this.target;
-    if (!t || this.selectedBlock <= 0) return;
+    if (!t) return;
+    // 문을 탭하면 놓는 대신 열고 닫는다 (빈손도 됨, #71)
+    const tdef = this.registry.get(t.id);
+    if (tdef.door) {
+      this.toggleDoor(t, tdef);
+      return;
+    }
+    if (this.selectedBlock <= 0) return;
     const x = t.x + t.nx,
       y = t.y + t.ny,
       z = t.z + t.nz;
@@ -130,6 +178,10 @@ export class Interaction {
     const cur = this.world.getBlock(x, y, z);
     if (cur !== AIR_ID && !this.registry.isFluid(cur)) return; // 공기·액체 자리에만 놓는다 (횃불 위에 덮어쓰지 않게)
     const def = this.registry.get(this.selectedBlock);
+    if (def.shape === 'door' && this.registry.isDoor(def.num)) {
+      this.placeDoor(x, y, z, def, cur);
+      return;
+    }
     if (def.solid && bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y, z)) return; // 내 몸 안에는 못 놓는다
     // 물·용암은 양동이 하나만큼(8/8)의 고인 액체로 놓는다 — 사방으로 퍼지되 양만큼만 (결정 #65)
     const blockNum = def.fluid ? this.registry.fluidFinite(def.fluidSource, FLUID_FULL) : this.selectedBlock;
