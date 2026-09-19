@@ -16,10 +16,16 @@ import {
 import { randomBytes } from 'node:crypto';
 import type { WebSocket } from 'ws';
 import { PIN_RE, type AccountService } from './accounts';
+import type { FamilyService } from './family';
 import type { RoomManager } from './rooms';
 import type { VillageRoom } from './village';
 
 const TOKEN_RE = /^[a-f0-9]{32}$/;
+/** 가족 연결 거절 이유 */
+const LINK_ERROR_KO: Record<string, string> = {
+  NO_FAMILY: '그 가족 코드는 없어요. 부모 화면의 6자리를 다시 봐 주세요',
+  ALREADY_LINKED: '이미 다른 가족에 연결돼 있어요',
+};
 /** 이어하기 거절 이유 */
 const RESUME_ERROR_KO: Record<string, string> = {
   NO_SUCH_NICK: '그 이름은 없어요',
@@ -51,6 +57,7 @@ const MAX_BAD_CODES = 5;
 
 export class Session {
   token: string | null = null;
+  nick: string | null = null;
   room: VillageRoom | null = null;
   idx = -1;
   private badCodes = 0;
@@ -62,6 +69,7 @@ export class Session {
     private readonly log: (msg: string) => void,
     readonly remote: string,
     private readonly accounts: AccountService | null = null,
+    private readonly family: FamilyService | null = null,
   ) {
     ws.on('message', (data, isBinary) => this.onMessage(data as Buffer | Buffer[], isBinary));
     ws.on('close', () => this.onClose());
@@ -142,7 +150,19 @@ export class Session {
         if (!result) return this.error('VILLAGE_FULL', '마을이 꽉 찼어요 (6명까지)');
         this.room = room;
         this.idx = result.idx;
-        this.sendJson({ t: 'welcome', playerIdx: result.idx, village: room.info, spawn: result.spawn, players: result.players, chunkCount: room.modifiedCount, expedition: result.expedition, inventory: result.inventory, needPin });
+        this.nick = nick;
+        this.sendJson({
+          t: 'welcome',
+          playerIdx: result.idx,
+          village: room.info,
+          spawn: result.spawn,
+          players: result.players,
+          chunkCount: room.modifiedCount,
+          expedition: result.expedition,
+          inventory: result.inventory,
+          needPin,
+          family: this.family?.familyOfNick(nick) ?? null,
+        });
         room.sendModifiedChunks(this.send);
         this.sendJson({ t: 'ready' });
         return;
@@ -172,6 +192,16 @@ export class Session {
         this.token = r.token;
         this.log(`세션 ${this.remote}: '${nick}' 이어하기 성공`);
         this.sendJson({ t: 'resumed', token: r.token });
+        return;
+      }
+      case 'linkFamily': {
+        if (!this.room || !this.nick) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!this.family) return this.error('NO_FAMILY_SERVICE', '이 서버는 가족 연결을 지원하지 않아요');
+        if (typeof msg.code !== 'string' || typeof msg.pin !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const r = this.family.linkChild(msg.code, this.nick, msg.pin);
+        if (!r.ok) return this.error(r.reason, LINK_ERROR_KO[r.reason] ?? RESUME_ERROR_KO[r.reason] ?? '연결할 수 없어요');
+        this.log(`세션 ${this.remote}: '${this.nick}' 가족 ${r.familyCode} 연결`);
+        this.sendJson({ t: 'familyLinked', code: r.familyCode });
         return;
       }
       case 'craft': {

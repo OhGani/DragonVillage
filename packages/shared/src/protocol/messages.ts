@@ -350,7 +350,9 @@ export type ClientJson =
   /** PIN 정하기·바꾸기 (M5, #63). 마을에 들어간 뒤 */
   | { t: 'setPin'; pin: string }
   /** 다른 기기에서 이어하기: 이름 + PIN → 그 계정 토큰 (hello 뒤, join 전) */
-  | { t: 'resume'; nick: string; pin: string };
+  | { t: 'resume'; nick: string; pin: string }
+  /** 가족 연결 (M5-2): 부모 화면의 가족 코드 + 내 PIN. 마을에 들어간 뒤 */
+  | { t: 'linkFamily'; code: string; pin: string };
 
 export type ServerJson =
   | { t: 'hello'; token: string; protocol: number }
@@ -366,7 +368,10 @@ export type ServerJson =
       inventory?: ({ item: string; count: number } | null)[];
       /** 이 이름에 아직 PIN 이 없다 → 클라가 PIN 정하기 창을 띄운다 (M5) */
       needPin?: boolean;
+      /** 연결된 가족 코드 (아이). 없으면 null */
+      family?: string | null;
     }
+  | { t: 'familyLinked'; code: string }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }

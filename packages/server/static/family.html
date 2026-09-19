@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>드래곤 크래프트 — 가족</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: #142033; color: #f2f5fa; }
+  main { max-width: 480px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 22px; margin: 8px 0 16px; }
+  h2 { font-size: 17px; margin: 22px 0 8px; }
+  .card { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  label { display: block; font-size: 14px; margin: 10px 0 4px; opacity: 0.9; }
+  input { width: 100%; box-sizing: border-box; font-size: 17px; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.25); color: inherit; }
+  button { font: inherit; font-size: 17px; font-weight: 700; padding: 12px 18px; min-height: 48px; border-radius: 8px; border: 0; cursor: pointer; color: #fff; background: #3a9d3a; margin-top: 12px; }
+  button.plain { background: rgba(255,255,255,0.14); }
+  button.small { font-size: 14px; min-height: 40px; padding: 8px 12px; margin: 0; }
+  .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+  .code { font-size: 34px; letter-spacing: 6px; font-weight: 800; text-align: center; margin: 6px 0; }
+  .muted { opacity: 0.75; font-size: 14px; line-height: 1.5; }
+  .err { color: #ff8a8a; font-size: 14px; margin-top: 8px; min-height: 1.2em; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🐉 드래곤 크래프트 — 가족</h1>
+
+  <section id="auth" class="card" hidden>
+    <div class="muted">부모만 이메일로 가입해요. 아이는 게임 안에서 가족 코드 + 자기 PIN 으로 연결해요.</div>
+    <label>이메일</label>
+    <input id="email" type="email" autocomplete="email" placeholder="dad@example.com" />
+    <label>비밀번호 (6글자 이상)</label>
+    <input id="pw" type="password" autocomplete="current-password" />
+    <div class="row">
+      <button id="login">로그인</button>
+      <button id="signup" class="plain">처음이에요 (가입)</button>
+    </div>
+    <div id="authErr" class="err"></div>
+  </section>
+
+  <section id="home" hidden>
+    <div class="card">
+      <div class="muted">우리 가족 코드 — 아이가 게임에서 <b>게임 방법 → 가족 연결</b>에 넣어요</div>
+      <div id="code" class="code">------</div>
+      <div class="row"><span id="email2" class="muted"></span><button id="logout" class="plain small">로그아웃</button></div>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">연결된 아이</h2>
+      <ul id="children"></ul>
+      <div id="noChild" class="muted">아직 없어요. 아이 폰에서 게임에 들어가 게임 방법 창의 "가족 연결"을 누르고, 위 코드와 아이 PIN 을 넣으면 여기 나와요.</div>
+    </div>
+    <div class="card muted">할 일·시간 규칙·승인은 다음 단계(M5-3, M5-4)에서 여기에 생겨요.</div>
+  </section>
+</main>
+<script>
+  const $ = (s) => document.querySelector(s);
+  async function api(action, body) {
+    const res = await fetch('/api/family/' + action, {
+      method: body === undefined ? 'GET' : 'POST',
+      headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      credentials: 'same-origin',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || data.error || '오류');
+    return data;
+  }
+  function showHome(me) {
+    $('#auth').hidden = true;
+    $('#home').hidden = false;
+    $('#code').textContent = me.familyCode;
+    $('#email2').textContent = me.email;
+    const ul = $('#children');
+    ul.innerHTML = '';
+    for (const c of me.children) {
+      const li = document.createElement('li');
+      const name = document.createElement('span');
+      name.textContent = c.nick;
+      const btn = document.createElement('button');
+      btn.className = 'plain small';
+      btn.textContent = '연결 끊기';
+      btn.onclick = async () => { if (confirm(c.nick + ' 연결을 끊을까요?')) showHome(await api('unlink', { nick: c.nick })); };
+      li.append(name, btn);
+      ul.appendChild(li);
+    }
+    $('#noChild').hidden = me.children.length > 0;
+  }
+  function showAuth() { $('#auth').hidden = false; $('#home').hidden = true; }
+  async function submit(action) {
+    $('#authErr').textContent = '';
+    try { showHome(await api(action, { email: $('#email').value, password: $('#pw').value })); }
+    catch (e) { $('#authErr').textContent = e.message; }
+  }
+  $('#login').onclick = () => submit('login');
+  $('#signup').onclick = () => submit('signup');
+  $('#logout').onclick = async () => { await api('logout', {}); showAuth(); };
+  $('#pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit('login'); });
+  api('me').then(showHome).catch(showAuth);
+</script>
+</body>
+</html>

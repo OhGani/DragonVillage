@@ -26,6 +26,23 @@ export interface AccountRow {
   pinHash: string | null;
   createdAt: number;
 }
+export interface FamilyRow {
+  id: number;
+  code: string;
+  createdAt: number;
+}
+export interface ParentRow {
+  id: number;
+  family: number;
+  email: string;
+  pwHash: string;
+  createdAt: number;
+}
+export interface ChildRow {
+  nickKey: string;
+  family: number;
+  linkedAt: number;
+}
 export interface PlayerRow {
   token: string;
   village: string | null;
@@ -54,6 +71,14 @@ CREATE TABLE IF NOT EXISTS inventories(
   token TEXT PRIMARY KEY, village TEXT, json TEXT NOT NULL, updated_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS accounts(
   nick_key TEXT PRIMARY KEY, nick TEXT NOT NULL, token TEXT NOT NULL UNIQUE, pin_hash TEXT, created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS families(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS parents(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, family INTEGER NOT NULL, email TEXT NOT NULL UNIQUE, pw_hash TEXT NOT NULL, created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS parent_sessions(
+  sid TEXT PRIMARY KEY, parent_id INTEGER NOT NULL, expires_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS children(
+  nick_key TEXT PRIMARY KEY, family INTEGER NOT NULL, linked_at INTEGER NOT NULL);
 `;
 
 export class Storage {
@@ -90,6 +115,19 @@ export class Storage {
       ),
       deleteAccount: this.db.prepare('DELETE FROM accounts WHERE nick_key = ?'),
       setAccountPin: this.db.prepare('UPDATE accounts SET pin_hash = ? WHERE nick_key = ?'),
+      getFamilyByCode: this.db.prepare('SELECT id, code, created_at AS createdAt FROM families WHERE code = ?'),
+      getFamilyById: this.db.prepare('SELECT id, code, created_at AS createdAt FROM families WHERE id = ?'),
+      insertFamily: this.db.prepare('INSERT INTO families(code, created_at) VALUES (?, ?)'),
+      getParentByEmail: this.db.prepare('SELECT id, family, email, pw_hash AS pwHash, created_at AS createdAt FROM parents WHERE email = ?'),
+      getParentById: this.db.prepare('SELECT id, family, email, pw_hash AS pwHash, created_at AS createdAt FROM parents WHERE id = ?'),
+      insertParent: this.db.prepare('INSERT INTO parents(family, email, pw_hash, created_at) VALUES (?, ?, ?, ?)'),
+      insertSession: this.db.prepare('INSERT INTO parent_sessions(sid, parent_id, expires_at) VALUES (?, ?, ?)'),
+      getSession: this.db.prepare('SELECT sid, parent_id AS parentId, expires_at AS expiresAt FROM parent_sessions WHERE sid = ?'),
+      deleteSession: this.db.prepare('DELETE FROM parent_sessions WHERE sid = ?'),
+      getChild: this.db.prepare('SELECT nick_key AS nickKey, family, linked_at AS linkedAt FROM children WHERE nick_key = ?'),
+      upsertChild: this.db.prepare('INSERT INTO children(nick_key, family, linked_at) VALUES (?, ?, ?) ON CONFLICT(nick_key) DO UPDATE SET family = excluded.family, linked_at = excluded.linked_at'),
+      deleteChild: this.db.prepare('DELETE FROM children WHERE nick_key = ?'),
+      listChildren: this.db.prepare('SELECT nick_key AS nickKey, family, linked_at AS linkedAt FROM children WHERE family = ? ORDER BY linked_at'),
       upsertInventory: this.db.prepare(
         'INSERT INTO inventories(token, village, json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(token) DO UPDATE SET village = excluded.village, json = excluded.json, updated_at = excluded.updated_at',
       ),
@@ -180,6 +218,47 @@ export class Storage {
   }
   setAccountPin(nickKey: string, pinHash: string): void {
     this.stmts.setAccountPin.run(pinHash, nickKey);
+  }
+
+  /** 가족 (M5-2) */
+  getFamilyByCode(code: string): FamilyRow | undefined {
+    return this.stmts.getFamilyByCode.get(code) as FamilyRow | undefined;
+  }
+  getFamilyById(id: number): FamilyRow | undefined {
+    return this.stmts.getFamilyById.get(id) as FamilyRow | undefined;
+  }
+  createFamily(code: string, now: number): number {
+    return Number(this.stmts.insertFamily.run(code, now).lastInsertRowid);
+  }
+  getParentByEmail(email: string): ParentRow | undefined {
+    return this.stmts.getParentByEmail.get(email) as ParentRow | undefined;
+  }
+  getParentById(id: number): ParentRow | undefined {
+    return this.stmts.getParentById.get(id) as ParentRow | undefined;
+  }
+  createParent(family: number, email: string, pwHash: string, now: number): number {
+    return Number(this.stmts.insertParent.run(family, email, pwHash, now).lastInsertRowid);
+  }
+  createParentSession(sid: string, parentId: number, expiresAt: number): void {
+    this.stmts.insertSession.run(sid, parentId, expiresAt);
+  }
+  getParentSession(sid: string): { sid: string; parentId: number; expiresAt: number } | undefined {
+    return this.stmts.getSession.get(sid) as { sid: string; parentId: number; expiresAt: number } | undefined;
+  }
+  deleteParentSession(sid: string): void {
+    this.stmts.deleteSession.run(sid);
+  }
+  getChild(nickKey: string): ChildRow | undefined {
+    return this.stmts.getChild.get(nickKey) as ChildRow | undefined;
+  }
+  upsertChild(nickKey: string, family: number, now: number): void {
+    this.stmts.upsertChild.run(nickKey, family, now);
+  }
+  deleteChild(nickKey: string): void {
+    this.stmts.deleteChild.run(nickKey);
+  }
+  listChildren(family: number): ChildRow[] {
+    return this.stmts.listChildren.all(family) as ChildRow[];
   }
 
   /** 온라인 백업 (WAL 포함 일관된 사본) */

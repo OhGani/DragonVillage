@@ -30,6 +30,8 @@ export class Hud {
   readonly fullscreenBtn: HTMLButtonElement;
   readonly debugBtn: HTMLButtonElement;
   readonly bagBtn: HTMLButtonElement;
+  readonly familyBtn: HTMLButtonElement;
+  private readonly familyText: HTMLElement;
   readonly chatBtn: HTMLButtonElement;
   private readonly helpEl: HTMLElement;
   private readonly compassRose: HTMLElement;
@@ -130,6 +132,10 @@ export class Hud {
           <div class="help-body"></div>
           <button class="overlay-btn help-ok">알겠어요</button>
           <p class="help-village"></p>
+          <div class="help-family">
+            <span class="help-family-text"></span>
+            <button class="plain-btn help-family-btn">가족 연결</button>
+          </div>
         </div>
       </div>`;
     root.appendChild(el);
@@ -149,6 +155,8 @@ export class Hud {
     this.fullscreenBtn = q<HTMLButtonElement>('.fullscreen');
     this.debugBtn = q<HTMLButtonElement>('.debug');
     this.bagBtn = q<HTMLButtonElement>('.bag-btn');
+    this.familyBtn = q<HTMLButtonElement>('.help-family-btn');
+    this.familyText = q('.help-family-text');
     this.chatBtn = q<HTMLButtonElement>('.chat-btn');
     // 주의: 상단 '?' 버튼도 class 에 help 가 있으므로 창은 help-panel 로 구분한다
     this.helpEl = q('.help-panel');
@@ -304,6 +312,12 @@ export class Hud {
   }
 
   /** 게임 방법 창 맨 아래: 마을 이름·코드·인원 */
+  /** 가족 연결 상태 (게임 방법 창 아래). code 가 있으면 연결됨 */
+  setFamily(code: string | null): void {
+    this.familyText.textContent = code ? `가족 연결됨 (코드 ${code}) — 할 일·시간은 다음 단계에서` : '아빠·엄마 화면(/family)의 가족 코드로 내 계정을 연결해요';
+    this.familyBtn.textContent = code ? '다시 연결' : '가족 연결';
+  }
+
   setVillageInfo(text: string): void {
     this.villageEl.textContent = text;
   }

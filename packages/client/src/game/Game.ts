@@ -48,6 +48,7 @@ import { loadTextureAtlas } from '../render/textures';
 import { BagView, type Stations } from '../ui/bag';
 import { ChatView } from '../ui/chat';
 import { Hud, type HotbarSlot } from '../ui/hud';
+import { askInput, askPin } from '../ui/pinDialog';
 import { itemIcon } from '../ui/itemIcon';
 import { MesherPool } from '../workers/MesherPool';
 import { AutoQuality } from './AutoQuality';
@@ -550,6 +551,21 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     if (started && !hud.overlayVisible && !hud.resultVisible && !bag.visible) resume();
   };
   hud.bagBtn.addEventListener('click', () => (bag.visible ? closeBag() : openBag()));
+  // 가족 연결 (M5-2): 부모 화면의 가족 코드 + 내 PIN
+  hud.setFamily(welcome.family);
+  hud.familyBtn.addEventListener('click', async () => {
+    const code = await askInput(root, { title: '가족 연결', sub: '아빠·엄마 화면(/family)에 있는 가족 코드 6자리를 넣어요', pattern: /^\d{6}$/, invalid: '숫자 6자리예요', placeholder: '가족 코드 6자리', maxLength: 6, okLabel: '다음' });
+    if (!code) return;
+    const pin = await askPin(root, '내 PIN', '내 계정이 맞는지 PIN 4자리로 확인해요', '연결', '취소');
+    if (!pin) return;
+    try {
+      const linked = await net.linkFamily(code, pin);
+      hud.setFamily(linked);
+      hud.toast('가족에 연결됐어요! 아빠·엄마 화면에 내 이름이 보여요', 5000);
+    } catch (e) {
+      hud.toast((e as Error).message || '연결할 수 없어요', 5000);
+    }
+  });
   hud.chatBtn.addEventListener('click', () => (chat.visible ? closeChat() : openChat()));
   window.addEventListener('keydown', (e) => {
     if (!started || disconnected) return;

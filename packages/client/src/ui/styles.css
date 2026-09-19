@@ -1157,3 +1157,18 @@ body {
 .pin-error {
   margin: 0 0 10px;
 }
+
+/* ---------- 가족 연결 (M5-2) ---------- */
+.help-family {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 13px;
+  opacity: 0.9;
+}
+.help-family .plain-btn {
+  margin: 0;
+  white-space: nowrap;
+}

@@ -16,6 +16,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { AccountService } from './accounts';
+import { FamilyService } from './family';
+import { handleFamilyHttp } from './familyHttp';
 import { RoomManager } from './rooms';
 import { Session } from './session';
 import { serveStatic } from './static';
@@ -35,12 +37,21 @@ mkdirSync(DATA_DIR, { recursive: true });
 const storage = new Storage(DB_PATH);
 const rooms = new RoomManager(storage, BLOCKS, log);
 const accounts = new AccountService(storage);
+const family = new FamilyService(storage, accounts);
+const FAMILY_PAGE = join(here, '..', 'static', 'family.html');
 const home = rooms.ensureDefault(process.env.DV_DEFAULT_CODE);
 writeFileSync(join(DATA_DIR, 'default-village-code.txt'), `${home.info.code}\n`);
 log(`기본 마을 "${home.info.name}" 코드 ${home.info.code} (저장 청크 ${home.modifiedCount}개)`);
 if (!existsSync(join(CLIENT_DIST, 'index.html'))) log(`주의: 클라이언트 빌드가 없어요 (${CLIENT_DIST}). pnpm build 를 먼저 하세요`);
 
 const http = createServer((req, res) => {
+  if (req.url === '/family' || req.url?.startsWith('/family/') || req.url?.startsWith('/api/family/')) {
+    handleFamilyHttp(req, res, family, FAMILY_PAGE).catch((e: unknown) => {
+      log(`가족 API 오류: ${(e as Error).message}`);
+      if (!res.headersSent) res.writeHead(500).end();
+    });
+    return;
+  }
   if (req.url?.startsWith('/health')) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache' });
     res.end(
@@ -64,7 +75,7 @@ http.on('upgrade', (req, socket, head) => {
   }
   wss.handleUpgrade(req, socket, head, (ws) => {
     const remote = String(req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? '?');
-    new Session(ws, rooms, log, remote, accounts);
+    new Session(ws, rooms, log, remote, accounts, family);
   });
 });
 

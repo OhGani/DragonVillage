@@ -51,6 +51,8 @@ export interface Welcome {
   inventory: Inventory;
   /** 이 이름에 PIN 이 없다 → 정하기 창 (M5) */
   needPin: boolean;
+  /** 연결된 가족 코드 (아이). 없으면 null */
+  family: string | null;
 }
 
 /** 세계 전환 (worldEnter … ChunkData … ready 를 하나로 모은 것) */
@@ -121,6 +123,7 @@ export class NetClient {
   private joinReject: ((e: Error) => void) | null = null;
   private resumeResolve: ((token: string) => void) | null = null;
   private pinResolve: (() => void) | null = null;
+  private linkResolve: ((code: string) => void) | null = null;
   private helloResolve: (() => void) | null = null;
   private pingTimer: number | null = null;
   private pingSent = 0;
@@ -195,6 +198,14 @@ export class NetClient {
       this.resumeResolve = resolve;
       this.joinReject = reject;
       this.sendJson({ t: 'resume', nick, pin });
+    });
+  }
+  /** 가족 연결: 부모 화면의 가족 코드 + 내 PIN (마을에 들어간 뒤) */
+  linkFamily(code: string, pin: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      this.linkResolve = resolve;
+      this.joinReject = reject;
+      this.sendJson({ t: 'linkFamily', code, pin });
     });
   }
   /** PIN 정하기 (마을에 들어간 뒤) */
@@ -287,7 +298,13 @@ export class NetClient {
           expedition: msg.expedition ?? null,
           inventory: (msg.inventory ?? new Array(37).fill(null)) as Inventory,
           needPin: msg.needPin === true,
+          family: msg.family ?? null,
         };
+        return;
+      case 'familyLinked':
+        this.linkResolve?.(msg.code);
+        this.linkResolve = null;
+        this.joinReject = null;
         return;
       case 'resumed':
         this.token = msg.token;
