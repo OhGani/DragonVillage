@@ -17,11 +17,12 @@ import {
   decodeChunk,
   generateIsland,
   generateVillage,
+  itemName,
   phaseAt,
   portalContains,
   skyLightAt,
 } from '@dragon-village/shared';
-import { BLOCKS, EXPEDITIONS } from '@dragon-village/shared/data';
+import { BLOCKS, EXPEDITIONS, ITEM_NAMES } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { GamepadInput } from '../input/gamepad';
 import { InputManager } from '../input/InputManager';
@@ -268,7 +269,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   };
 
   const showResult = (r: ExpeditionResult) => {
-    const items = r.items.map((it) => ({ name: registry.find(it.id)?.name ?? it.id, count: it.count, icon: iconOf(it.id, 28) }));
+    const items = r.items.map((it) => ({ name: itemName(it.id, registry, ITEM_NAMES), count: it.count, icon: iconOf(it.id, 28) }));
     const total = r.items.reduce((s, it) => s + it.count, 0);
     const mm = Math.floor(r.elapsedSec / 60),
       ss = r.elapsedSec % 60;

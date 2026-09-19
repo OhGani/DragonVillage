@@ -2,6 +2,7 @@ export * from './rules/blocks';
 export * from './rules/potions';
 export * from './rules/redstone';
 export * from './rules/expeditions';
+export * from './rules/items';
 export * from './chunk/chunk';
 export * from './chunk/world';
 export * from './chunk/serialize';
