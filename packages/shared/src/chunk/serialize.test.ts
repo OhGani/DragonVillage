@@ -49,7 +49,7 @@ describe('encodeChunk / decodeChunk', () => {
   it('무작위(시드) 청크도 정확히 왕복한다', () => {
     const rnd = mulberry32(42);
     const c = new Chunk(1, 2, 3);
-    const ids = [0, STONE, DIRT, GRASS, registry.numOf('water'), registry.fluidVariant(registry.numOf('water'), 3, 1)];
+    const ids = [0, STONE, DIRT, GRASS, registry.numOf('water'), registry.fluidFinite(registry.numOf('water'), 3)];
     for (let i = 0; i < 2000; i++) {
       c.set(Math.floor(rnd() * 16), Math.floor(rnd() * 16), Math.floor(rnd() * 16), ids[Math.floor(rnd() * ids.length)]);
     }
@@ -60,7 +60,7 @@ describe('encodeChunk / decodeChunk', () => {
     // 팔레트에 쓰인 것만 들어간다 (문자열 id)
     const text = String.fromCharCode(...bytes.slice(0, 80));
     expect(text).toContain('stone');
-    expect(text).toContain('water>e~3');
+    expect(text).toContain('water%3');
   });
 
   it('blocks.json 순서가 바뀌어도(번호가 달라져도) 같은 블록으로 읽힌다', () => {

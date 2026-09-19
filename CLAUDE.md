@@ -86,7 +86,7 @@ docs/
 - 경험치 시스템 도입 확정(마인크래프트 방식, `docs/XP-SYSTEM.md`, `data/xp.json`).
 - 보스·마을 방어전 설계 반영(`docs/BOSSES.md`, `data/bosses.json`). v1은 거미 왕·우민 방어전·엔더 드래곤만. `release` 필드가 v1이 아닌 것은 만들지 않는다.
 - 아들 5차 답변(2026-09-13) 반영: 게임·마을 이름, 보스 드롭 전부(`bosses.json`), 네 왕은 한 번에·고대성 방 4개, 방어전 예고는 종·패배 시 철 골렘 잡혀감·주민 피해, 엔딩은 다른 차원 포탈, 드래곤 사망은 둥지 회복 확정, **시간 규칙 평일 20/주말 30**(원정 13분 충돌 해소, `family-rules.json`). 남은 질문은 `docs/QUESTIONS-FOR-SON.md` 맨 아래.
-- 아들 6차 디테일(2026-09-13) 반영: **놓은 방향으로만 흐르는 물·용암(구현, 결정 #52)**, 철 골렘 규칙·피글린/요새·해피 가스트·주민 거래·인벤토리 화면 스펙(`CONTENT.md` 6차, `mobs.json`·`village.json`·`recipes.json station: inventory`). 버전 배치 결정 #53.
+- 아들 6차 디테일(2026-09-13) 반영: **놓은 방향으로만 흐르는 물·용암(구현, 결정 #52 → 2026-09-19 #65 고인 액체로 대체: 플레이어가 놓은 액체는 양이 보존되며 사방으로 퍼져 낮아진다)**, 철 골렘 규칙·피글린/요새·해피 가스트·주민 거래·인벤토리 화면 스펙(`CONTENT.md` 6차, `mobs.json`·`village.json`·`recipes.json station: inventory`). 버전 배치 결정 #53.
 - 아들 7차 디테일(2026-09-13) 반영: **폰 스틱 왼쪽 아래 고정 + 좌우 회전 감도 ↑(구현, 결정 #54)**, 농사·동물·주민 규칙(`recipes.json` 설탕·황금 사과/당근, `mobs.json` breedWith/followsWhenHolding/horse, `village.json npcs.villager`, `blocks.json leaves.shearDrops`). `CONTENT.md` 7차, 결정 #55.
 - **M1-1 저장 완료(2026-09-13)**: `shared/chunk/serialize`(문자열 팔레트+RLE), `client/save`(IndexedDB `dragoncraft`, 바뀐 청크만·위치 저장, 탭 닫힘 시 즉시). 지형 버전 `TEST_WORLD_GEN_VERSION` 이 바뀌면 저장 폐기. '처음 세계로 되돌리기'는 게임 방법 창. 결정 #56.
 - **M1-2 조명 완료(2026-09-13)**: `shared/light/lightEngine`(스카이·블록 0~15 flood fill, 세계 전체 평면 배열, 증분 갱신 = 전체 재계산 테스트), 워커가 18³ 빛 조각에서 꼭짓점 빛을 뽑아 `meta.w` 로, 셰이더 밝기 곡선 + 따뜻한 블록라이트. `blocks.json` 에 `lightFilter` 추가(나뭇잎·얼음 1). 핫바 8번 발광석. 결정 #57.

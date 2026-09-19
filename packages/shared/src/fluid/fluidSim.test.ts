@@ -109,61 +109,139 @@ describe('FluidSim — 물', () => {
   });
 });
 
-describe('FluidSim — 플레이어가 놓은 방향 액체 (아들 6차)', () => {
-  const EAST = 1;
+describe('FluidSim — 플레이어가 놓은 고인 액체 (양 보존, 결정 #65)', () => {
+  /** 세계 전체 고인 액체 양 */
+  const volume = (w: VoxelWorld, kind: 'water' | 'lava' = 'water'): number => {
+    let n = 0;
+    for (let x = 0; x < 32; x++)
+      for (let y = 0; y < 16; y++)
+        for (let z = 0; z < 32; z++) {
+          const d = registry.get(w.getBlock(x, y, z));
+          if (d.fluid === kind) n += d.fluidVolume;
+        }
+    return n;
+  };
+  const vol = (w: VoxelWorld, x: number, y: number, z: number): number => registry.get(w.getBlock(x, y, z)).fluidVolume;
+  const FULL = registry.fluidFinite(WATER, 8);
 
-  it('동쪽으로 놓은 물은 동쪽으로만 7칸 흐른다', () => {
+  it('양동이 하나(8)는 평지에서 8칸의 얇은 웅덩이가 되어 멈추고, 양은 그대로 8', () => {
     const w = flatWorld();
     const sim = new FluidSim(w, registry);
-    w.setBlock(16, 1, 16, registry.fluidVariant(WATER, 0, EAST));
+    w.setBlock(16, 1, 16, FULL);
     sim.touch(16, 1, 16);
-    run(sim, 60);
-    expect(countKind(w, 'water')).toBe(8); // 원천 + 동쪽 7칸
-    for (let x = 17; x <= 23; x++) expect(registry.get(w.getBlock(x, 1, 16)).fluidLevel).toBe(x - 16);
-    expect(w.getBlock(15, 1, 16)).toBe(0); // 뒤
-    expect(w.getBlock(16, 1, 17)).toBe(0); // 옆
-    expect(w.getBlock(24, 1, 16)).toBe(0); // 8칸째
-    expect(registry.get(w.getBlock(20, 1, 16)).fluidDir).toBe(EAST);
+    run(sim, 200);
+    expect(volume(w)).toBe(8);
+    expect(countKind(w, 'water')).toBe(8); // 1/8 짜리 8칸
+    for (let x = 0; x < 32; x++) for (let z = 0; z < 32; z++) if (vol(w, x, 1, z)) expect(vol(w, x, 1, z)).toBe(1);
+    expect(sim.pendingCount).toBe(0); // 안정
+    expect(registry.get(w.getBlock(16, 1, 16)).fluidLevel).toBe(7); // 얕음 = 단계 7 (렌더 높이 1/9)
   });
 
-  it('원천을 없애면 방향 물도 말라붙는다', () => {
+  it('여러 양동이를 부어도 양은 보존되고 높이가 고르게 된다', () => {
     const w = flatWorld();
+    // 돌 벽 안(안쪽 3×3 = 9칸)에 물 4양동이(32) → 9칸에 32 = 평균 3.5 → 3 또는 4
+    for (let x = 14; x <= 18; x++)
+      for (let z = 14; z <= 18; z++) if (x === 14 || x === 18 || z === 14 || z === 18) w.setBlock(x, 1, z, STONE);
     const sim = new FluidSim(w, registry);
-    w.setBlock(16, 1, 16, registry.fluidVariant(WATER, 0, EAST));
-    sim.touch(16, 1, 16);
-    run(sim, 60);
-    w.setBlock(16, 1, 16, 0);
-    sim.touch(16, 1, 16);
-    run(sim, 120);
-    expect(countKind(w, 'water')).toBe(0);
+    for (const [x, z] of [[15, 15], [17, 17], [16, 16], [15, 17]]) {
+      w.setBlock(x, 1, z, FULL);
+      sim.touch(x, 1, z);
+    }
+    run(sim, 300);
+    expect(volume(w)).toBe(32);
+    for (let x = 15; x <= 17; x++) for (let z = 15; z <= 17; z++) expect([3, 4]).toContain(vol(w, x, 1, z));
+    expect(sim.pendingCount).toBe(0);
   });
 
-  it('구멍으로 떨어진 뒤에도 같은 방향으로 흐른다', () => {
+  it('구덩이에 부으면 아래로 먼저 내려가 바닥부터 차고, 위로는 안 찬다', () => {
     const w = new VoxelWorld({ sizeCX: 2, sizeCY: 1, sizeCZ: 2 });
     for (let x = 0; x < 32; x++) for (let z = 0; z < 32; z++) for (let y = 0; y <= 4; y++) w.setBlock(x, y, z, STONE);
-    for (let x = 17; x <= 19; x++) for (let y = 1; y <= 4; y++) w.setBlock(x, y, 16, 0); // 동쪽에 3칸 넓이 구멍
-    w.setBlock(16, 5, 16, registry.fluidVariant(WATER, 0, EAST));
+    // 1칸 넓이 4칸 깊이 구덩이 (y=1..4) 위에 물 2양동이
+    for (let y = 1; y <= 4; y++) w.setBlock(16, y, 16, 0);
+    w.setBlock(16, 5, 16, FULL);
+    w.setBlock(16, 6, 16, FULL);
     const sim = new FluidSim(w, registry);
     sim.touch(16, 5, 16);
-    run(sim, 120);
-    expect(registry.get(w.getBlock(17, 1, 16)).fluidLevel).toBe(1); // 떨어진 물
-    expect(registry.get(w.getBlock(19, 1, 16)).fluid).toBe('water'); // 바닥에서 동쪽으로 계속
-    expect(registry.get(w.getBlock(19, 1, 16)).fluidDir).toBe(EAST);
-    expect(w.getBlock(15, 5, 16)).toBe(0); // 서쪽(뒤)으로는 안 간다
-    expect(w.getBlock(16, 5, 17)).toBe(0); // 옆으로도 안 간다
+    sim.touch(16, 6, 16);
+    run(sim, 100);
+    expect(volume(w)).toBe(16);
+    expect(vol(w, 16, 1, 16)).toBe(8); // 바닥 가득
+    expect(vol(w, 16, 2, 16)).toBe(8);
+    expect(w.getBlock(16, 3, 16)).toBe(0); // 그 위는 비어 있다
+    expect(w.getBlock(16, 5, 16)).toBe(0);
+    expect(w.getBlock(17, 5, 16)).toBe(0); // 지면 위로 퍼지지 않았다
   });
 
-  it('놓은 방향 물이 연못(사방 물)을 만나면 연못이 더 세다', () => {
+  it('가득한 칸(8/8)만 양동이로 떠낼 수 있다 — 단계 0 이라 기존 검사가 그대로 맞는다', () => {
+    expect(registry.get(FULL).fluidLevel).toBe(0);
+    expect(registry.get(registry.fluidFinite(WATER, 7)).fluidLevel).toBe(1);
+    expect(registry.get(registry.fluidFinite(WATER, 1)).fluidLevel).toBe(7);
+    expect(registry.fluidFinite(WATER, 0)).toBe(0);
+    expect(registry.get(FULL).id).toBe('water%8');
+    expect(registry.get(registry.fluidFinite(WATER, 3)).name).toBe('물(고인 3/8)');
+    expect(registry.get(FULL).internal).toBe(true);
+    expect(registry.get(FULL).fluidVolume).toBe(8);
+    expect(registry.get(WATER).fluidVolume).toBe(0);
+  });
+
+  it('자연 연못(무한)은 고인 물을 삼키고, 고인 물은 자연 물 칸으로 못 들어간다', () => {
     const w = flatWorld();
     w.setBlock(20, 1, 16, WATER); // 연못 원천
-    w.setBlock(16, 1, 16, registry.fluidVariant(WATER, 0, EAST));
+    w.setBlock(16, 1, 16, FULL); // 그 옆에 부은 물
     const sim = new FluidSim(w, registry);
     sim.touch(16, 1, 16);
     sim.touch(20, 1, 16);
-    run(sim, 80);
-    expect(registry.get(w.getBlock(20, 1, 16)).fluidLevel).toBe(0); // 원천은 덮어쓰이지 않는다
-    expect(registry.get(w.getBlock(19, 1, 16)).fluidLevel).toBe(1); // 연못 물(사방, 1)이 방향 물(3)보다 세서 이긴다
-    expect(registry.get(w.getBlock(19, 1, 16)).fluidDir).toBe(0);
+    run(sim, 200);
+    expect(registry.get(w.getBlock(20, 1, 16)).fluidLevel).toBe(0); // 원천 그대로
+    expect(registry.get(w.getBlock(20, 1, 16)).fluidVolume).toBe(0);
+    // 연못은 여전히 7칸 마름모(113칸)를 다 채운다. 웅덩이(1/8)는 더 깊은 자연 흐름이 덮어쓰고,
+    // 마름모 가장자리(단계 7 = 같은 깊이)에 남은 웅덩이 칸만 그대로다
+    let inDiamond = 0,
+      natural = 0;
+    for (let x = 0; x < 32; x++)
+      for (let z = 0; z < 32; z++) {
+        const d = registry.get(w.getBlock(x, 1, z));
+        if (d.fluid !== 'water') continue;
+        if (Math.abs(x - 20) + Math.abs(z - 16) <= 7) inDiamond++;
+        if (d.fluidVolume === 0) natural++;
+      }
+    expect(inDiamond).toBe(113);
+    expect(natural).toBeGreaterThanOrEqual(110);
+    expect(volume(w)).toBeLessThan(8); // 웅덩이 일부는 연못에 삼켜졌다
+  });
+
+  it('고인 물이 용암 원천을 만나면 흑요석, 고인 용암도 양이 보존된다', () => {
+    const w = flatWorld();
+    w.setBlock(16, 1, 16, LAVA);
+    w.setBlock(17, 1, 16, FULL);
+    const sim = new FluidSim(w, registry);
+    sim.touch(17, 1, 16);
+    run(sim, 40);
+    expect(w.getBlock(16, 1, 16)).toBe(registry.numOf('obsidian'));
+
+    const w2 = flatWorld();
+    w2.setBlock(16, 1, 16, registry.fluidFinite(LAVA, 8));
+    const sim2 = new FluidSim(w2, registry);
+    sim2.touch(16, 1, 16);
+    run(sim2, FLUID_RULES.lava.interval * 40);
+    expect(volume(w2, 'lava')).toBe(8);
+    expect(countKind(w2, 'lava')).toBe(8);
+  });
+
+  it('두 번 돌려도 결과가 같다 (결정론)', () => {
+    const snap = (): string => {
+      const w = flatWorld();
+      const sim = new FluidSim(w, registry);
+      for (const [x, z] of [[16, 16], [16, 17], [10, 10]]) {
+        w.setBlock(x, 1, z, FULL);
+        sim.touch(x, 1, z);
+      }
+      run(sim, 150);
+      const out: number[] = [];
+      for (let x = 0; x < 32; x++) for (let z = 0; z < 32; z++) out.push(w.getBlock(x, 1, z));
+      return out.join(',');
+    };
+    expect(snap()).toBe(snap());
   });
 });
 
@@ -213,14 +291,11 @@ describe('레지스트리 액체 변형', () => {
     expect(d.solid).toBe(false);
     expect(registry.v1().some((x) => x.internal)).toBe(false);
     expect(registry.get(registry.fluidVariant(LAVA, 6)).name).toBe('용암(흐름 6)');
-    // 방향 변형: 원천(단계 0) 포함 4방향 × 8단계
-    const east = registry.fluidVariant(WATER, 0, 1);
-    expect(registry.get(east).fluidDir).toBe(1);
-    expect(registry.get(east).fluidLevel).toBe(0);
-    expect(registry.get(east).id).toBe('water>e');
-    expect(registry.get(registry.fluidVariant(WATER, 3, 4)).name).toBe('물(북쪽으로, 흐름 3)');
-    expect(registry.get(registry.fluidVariant(WATER, 3, 4)).id).toBe('water>n~3');
-    expect(registry.fluidVariant(WATER, 0, 0)).toBe(WATER);
+    // 고인 변형: 양 1..8, 단계 = 8 - 양
+    expect(registry.get(registry.fluidFinite(WATER, 5)).id).toBe('water%5');
+    expect(registry.get(registry.fluidFinite(WATER, 5)).fluidLevel).toBe(3);
+    expect(registry.get(registry.fluidFinite(LAVA, 8)).name).toBe('용암(고인 8/8)');
+    expect(registry.fluidVariant(WATER, 0)).toBe(WATER);
   });
 
   it('액체인데 solid 면 에러', () => {

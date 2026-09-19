@@ -1,5 +1,6 @@
 import {
   AIR_ID,
+  FLUID_FULL,
   type BlockRegistry,
   type ChunkCoord,
   type RayHit,
@@ -130,8 +131,8 @@ export class Interaction {
     if (this.registry.isSolid(cur)) return; // air·물만 덮어쓴다
     const def = this.registry.get(this.selectedBlock);
     if (def.solid && bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y, z)) return; // 내 몸 안에는 못 놓는다
-    // 물·용암은 내가 보는 방향으로만 흐르는 원천으로 놓는다 (아들 6차, 결정 #52)
-    const blockNum = def.fluid ? this.registry.fluidVariant(def.fluidSource, 0, this.facingDir()) : this.selectedBlock;
+    // 물·용암은 양동이 하나만큼(8/8)의 고인 액체로 놓는다 — 사방으로 퍼지되 양만큼만 (결정 #65)
+    const blockNum = def.fluid ? this.registry.fluidFinite(def.fluidSource, FLUID_FULL) : this.selectedBlock;
     const res = this.world.setBlock(x, y, z, blockNum);
     if (res.changed) {
       this.events.onBlocksChanged(res.dirty);
@@ -140,11 +141,4 @@ export class Interaction {
     }
   }
 
-  /** 플레이어가 보는 수평 방향 → 액체 방향 1 +X, 2 -X, 3 +Z, 4 -Z */
-  facingDir(): number {
-    const fx = -Math.sin(this.player.yaw),
-      fz = -Math.cos(this.player.yaw);
-    if (Math.abs(fx) > Math.abs(fz)) return fx > 0 ? 1 : 2;
-    return fz > 0 ? 3 : 4;
-  }
 }

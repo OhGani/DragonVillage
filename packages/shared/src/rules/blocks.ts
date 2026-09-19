@@ -39,18 +39,11 @@ export type FluidKind = 'water' | 'lava';
 /** 흐르는 액체 단계 수 (원천 0 + 1..7) */
 export const MAX_FLUID_LEVEL = 7;
 /**
- * 액체 방향. 0 = 사방(자연 연못), 1 +X 동, 2 -X 서, 3 +Z 남, 4 -Z 북.
- * 플레이어가 놓은 물·용암은 놓은 방향으로만 흐른다 (아들 6차, 결정 #52).
+ * 플레이어가 놓은 액체(고인 물·고인 용암)의 양 단위. 양동이 하나 = 8 (한 칸 가득).
+ * 고인 액체는 양이 보존된다 — 사방으로 퍼지되 퍼질수록 낮아지고, 양만큼만 퍼진다 (아빠 결정 #65).
+ * 자연 액체(강·연못, 양 0)는 마인크래프트 규칙(원천 무한 + 흐름 1..7, 결정 #47).
  */
-export const FLUID_DIR_VEC: readonly (readonly [number, number])[] = [
-  [0, 0],
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-];
-const FLUID_DIR_ID = ['', 'e', 'w', 's', 'n'];
-const FLUID_DIR_KO = ['', '동쪽으로', '서쪽으로', '남쪽으로', '북쪽으로'];
+export const FLUID_FULL = 8;
 
 const BlocksFile = z.object({
   _comment: z.string().optional(),
@@ -121,31 +114,39 @@ export interface BlockDef {
   readonly release: string;
   /** 액체 종류. null = 액체 아님 */
   readonly fluid: FluidKind | null;
-  /** 액체 단계. 0 = 원천, 1..7 = 흐르는 것(숫자가 크면 얕음). 액체 아니면 0 */
+  /**
+   * 액체 단계 = 얕은 정도. 0 = 한 칸 가득(원천 또는 고인 8/8), 1..7 = 얕아짐 (렌더 높이 = (8 - level)/9).
+   * 자연 액체는 원천에서 떨어진 거리, 고인 액체는 8 - 양. 액체 아니면 0
+   */
   readonly fluidLevel: number;
   /** 같은 액체 원천의 블록 번호. 액체 아니면 -1 */
   readonly fluidSource: number;
-  /** 흐르는 방향. 0 사방, 1 +X, 2 -X, 3 +Z, 4 -Z (FLUID_DIR_VEC). 액체 아니면 0 */
-  readonly fluidDir: number;
-  /** 코드가 만든 내부 블록(흐르는 액체 단계). 핫바·도감에 안 보임 */
+  /** 고인 액체의 양 1..8 (플레이어가 놓은 것, 보존됨). 0 = 자연 액체(무한 원천·흐름). 액체 아니면 0 */
+  readonly fluidVolume: number;
+  /** 코드가 만든 내부 블록(흐르는·고인 액체 단계). 핫바·도감에 안 보임 */
   readonly internal: boolean;
 }
 
 export class BlockRegistry {
   private readonly byId = new Map<string, BlockDef>();
-  /** 원천 번호 → [방향][단계] 블록 번호 */
-  private readonly fluidLevels = new Map<number, number[][]>();
+  /** 원천 번호 → [단계] 자연 흐름 블록 번호 */
+  private readonly fluidLevels = new Map<number, number[]>();
+  /** 원천 번호 → [양] 고인 액체 블록 번호 */
+  private readonly fluidVolumes = new Map<number, number[]>();
 
   constructor(readonly defs: readonly BlockDef[]) {
     for (const d of defs) {
       this.byId.set(d.id, d);
       if (d.fluid) {
-        let byDir = this.fluidLevels.get(d.fluidSource);
-        if (!byDir) {
-          byDir = [];
-          this.fluidLevels.set(d.fluidSource, byDir);
+        if (d.fluidVolume > 0) {
+          let arr = this.fluidVolumes.get(d.fluidSource);
+          if (!arr) this.fluidVolumes.set(d.fluidSource, (arr = []));
+          arr[d.fluidVolume] = d.num;
+        } else {
+          let arr = this.fluidLevels.get(d.fluidSource);
+          if (!arr) this.fluidLevels.set(d.fluidSource, (arr = []));
+          arr[d.fluidLevel] = d.num;
         }
-        (byDir[d.fluidDir] ??= [])[d.fluidLevel] = d.num;
       }
     }
   }
@@ -154,16 +155,19 @@ export class BlockRegistry {
     return this.get(num).fluid !== null;
   }
 
-  /**
-   * 액체 원천 번호 + 단계 + 방향 → 블록 번호.
-   * 단계 0·방향 0 은 원천 자신. 방향 1..4 는 플레이어가 놓은 액체(그 방향으로만 흐름).
-   */
-  fluidVariant(source: number, level: number, dir = 0): number {
-    const byDir = this.fluidLevels.get(source);
-    if (!byDir) throw new Error(`액체가 아닌 블록 번호: ${source}`);
-    const arr = byDir[dir] ?? byDir[0];
-    const n = arr?.[Math.max(0, Math.min(MAX_FLUID_LEVEL, level))];
-    return n ?? source;
+  /** 자연 액체: 원천 번호 + 단계 → 블록 번호. 단계 0 은 원천 자신 */
+  fluidVariant(source: number, level: number): number {
+    const arr = this.fluidLevels.get(source);
+    if (!arr) throw new Error(`액체가 아닌 블록 번호: ${source}`);
+    return arr[Math.max(0, Math.min(MAX_FLUID_LEVEL, level))] ?? source;
+  }
+
+  /** 고인 액체(플레이어가 놓은 것): 원천 번호 + 양 1..8 → 블록 번호. 양 0 이하는 air */
+  fluidFinite(source: number, volume: number): number {
+    if (volume <= 0) return AIR_ID;
+    const arr = this.fluidVolumes.get(source);
+    if (!arr) throw new Error(`액체가 아닌 블록 번호: ${source}`);
+    return arr[Math.min(FLUID_FULL, volume)] ?? source;
   }
 
   get count(): number {
@@ -307,34 +311,43 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       fluid: b.fluid ?? null,
       fluidLevel: 0,
       fluidSource: b.fluid ? num : -1,
-      fluidDir: 0,
+      fluidVolume: 0,
       internal: false,
     };
   });
 
   // 액체마다 내부 블록을 만든다 (아들 JSON 은 원천 하나만 적는다):
-  //  - 사방 흐름 1..7 (자연 연못이 퍼질 때)
-  //  - 방향 4가지 × (원천 0 + 흐름 1..7) (플레이어가 놓은 액체는 놓은 방향으로만 흐른다)
+  //  - 자연 흐름 1..7 `water~3` (강·연못 원천에서 퍼진 것, 마인크래프트 규칙)
+  //  - 고인 액체 양 1..8 `water%5` (플레이어가 놓은 것, 양이 보존되며 사방으로 퍼져 낮아진다)
   for (const src of [...defs]) {
     if (!src.fluid) continue;
-    for (let dir = 0; dir < FLUID_DIR_VEC.length; dir++) {
-      for (let level = dir === 0 ? 1 : 0; level <= MAX_FLUID_LEVEL; level++) {
-        const dirPart = dir ? `>${FLUID_DIR_ID[dir]}` : '';
-        const levelPart = level ? `~${level}` : '';
-        const nameParts = [dir ? FLUID_DIR_KO[dir] : '', level ? `흐름 ${level}` : ''].filter(Boolean);
-        defs.push({
-          ...src,
-          num: defs.length,
-          id: `${src.id}${dirPart}${levelPart}`,
-          name: `${src.name}(${nameParts.join(', ')})`,
-          hardness: null,
-          drops: null,
-          fluidLevel: level,
-          fluidSource: src.num,
-          fluidDir: dir,
-          internal: true,
-        });
-      }
+    for (let level = 1; level <= MAX_FLUID_LEVEL; level++) {
+      defs.push({
+        ...src,
+        num: defs.length,
+        id: `${src.id}~${level}`,
+        name: `${src.name}(흐름 ${level})`,
+        hardness: null,
+        drops: null,
+        fluidLevel: level,
+        fluidSource: src.num,
+        fluidVolume: 0,
+        internal: true,
+      });
+    }
+    for (let volume = 1; volume <= FLUID_FULL; volume++) {
+      defs.push({
+        ...src,
+        num: defs.length,
+        id: `${src.id}%${volume}`,
+        name: `${src.name}(고인 ${volume}/${FLUID_FULL})`,
+        hardness: null,
+        drops: null,
+        fluidLevel: FLUID_FULL - volume,
+        fluidSource: src.num,
+        fluidVolume: volume,
+        internal: true,
+      });
     }
   }
 

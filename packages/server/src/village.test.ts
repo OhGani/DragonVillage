@@ -121,9 +121,11 @@ describe('VillageRoom 블록 변경 검증', () => {
     room.onBlockChange(ia, { seq: 6, x: 66, y: GROUND_Y + 1, z: 64, id: 'no_such_block' }, 1000);
     room.onBlockChange(ia, { seq: 7, x: 66, y: GROUND_Y + 1, z: 64, id: 'water~3' }, 1000);
     expect(rejected(a).map((r) => r.reason)).toEqual([REJECT.INVALID, REJECT.INVALID, REJECT.INVALID]);
-    // 방향 있는 물 원천은 된다 (아들 6차)
-    room.onBlockChange(ia, { seq: 8, x: 66, y: GROUND_Y + 1, z: 64, id: 'water>e' }, 1000);
-    expect(changed(a).at(-1)).toMatchObject({ id: 'water>e' });
+    // 자연 원천(무한)도 못 놓는다 — 플레이어는 고인 액체 8/8 만 (결정 #65)
+    room.onBlockChange(ia, { seq: 8, x: 66, y: GROUND_Y + 1, z: 64, id: 'water' }, 1000);
+    expect(rejected(a).at(-1)).toMatchObject({ seq: 8, reason: REJECT.INVALID });
+    room.onBlockChange(ia, { seq: 9, x: 66, y: GROUND_Y + 1, z: 64, id: 'water%8' }, 1000);
+    expect(changed(a).at(-1)).toMatchObject({ id: 'water%8' });
   });
 
   it('누가 서 있는 칸에는 못 놓는다(OCCUPIED), 이미 블록이 있는 칸도', () => {
@@ -149,17 +151,17 @@ describe('VillageRoom 블록 변경 검증', () => {
 });
 
 describe('VillageRoom 액체 틱과 저장', () => {
-  it('물 원천을 놓고 틱을 돌리면 서버가 BlockBatch 로 흐름을 보낸다', () => {
+  it('물을 놓고 틱을 돌리면 서버가 BlockBatch 로 퍼짐을 보낸다', () => {
     const room = makeRoom();
     const a = inbox();
     const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
-    room.onBlockChange(ra.idx, { seq: 1, x: 66, y: GROUND_Y + 1, z: 64, id: 'water' }, 1000);
+    room.onBlockChange(ra.idx, { seq: 1, x: 66, y: GROUND_Y + 1, z: 64, id: 'water%8' }, 1000);
     let now = 1000;
     for (let i = 0; i < 12; i++) room.tick((now += TICK_MS));
     const batches = a.bin.filter((m) => m.type === MSG.BlockBatch).map((m) => m.msg as { blocks: { id: string }[] });
     expect(batches.length).toBeGreaterThan(0);
     const ids = batches.flatMap((b) => b.blocks.map((x) => x.id));
-    expect(ids.some((id) => id.startsWith('water~'))).toBe(true);
+    expect(ids.some((id) => id.startsWith('water%'))).toBe(true);
     // 위치 브로드캐스트도 매 틱
     expect(a.bin.filter((m) => m.type === MSG.PlayersState).length).toBeGreaterThanOrEqual(12);
     expect(BY_SERVER).toBe(255);

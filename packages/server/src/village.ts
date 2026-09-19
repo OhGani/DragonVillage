@@ -8,6 +8,7 @@
  */
 import {
   AIR_ID,
+  FLUID_FULL,
   BY_SERVER,
   type BlockChangeReqMsg,
   type BlockRegistry,
@@ -227,8 +228,8 @@ export class VillageRoom {
       if (cur.hardness === null) return REJECT.UNBREAKABLE;
       return null;
     }
-    // 놓기: 내부 블록은 액체 원천(단계 0)만, 자리는 공기·액체만, 누가 서 있으면 안 됨
-    if (def.internal && !(def.fluid && def.fluidLevel === 0)) return REJECT.INVALID;
+    // 놓기: 액체는 플레이어가 놓는 고인 액체 8/8 만(자연 원천·흐름은 못 놓는다), 그 외 내부 블록 불가, 자리는 공기·액체만, 누가 서 있으면 안 됨
+    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal) return REJECT.INVALID;
     if (cur.solid) return REJECT.OCCUPIED;
     if (def.solid) for (const other of this.players.values()) if (bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, y, z)) return REJECT.OCCUPIED;
     return null;
