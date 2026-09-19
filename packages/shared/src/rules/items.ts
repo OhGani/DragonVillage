@@ -15,6 +15,28 @@ export const ITEM_FALLBACK_KO: Readonly<Record<string, string>> = {
   quartz: '석영',
   apple: '사과',
   redstone: '레드스톤 가루',
+  // 레시피 재료 (recipes.json in)
+  leather: '가죽',
+  wheat: '밀',
+  milk_bucket: '우유 양동이',
+  egg: '달걀',
+  carrot: '당근',
+  snowball: '눈덩이',
+  feather: '깃털',
+  string: '실',
+  flint: '부싯돌',
+  pumpkin_seeds: '호박 씨',
+  name_tag_blank: '빈 이름표',
+  white_wool: '흰 양털',
+  ink_sac: '먹물',
+  brown_mushroom: '갈색 버섯',
+  melon_slice: '수박 조각',
+  slime_ball: '슬라임 볼',
+  scute: '인갑',
+  bucket: '양동이',
+  water_bucket: '물 양동이',
+  lava_source_block: '용암(원천)',
+  water_source_block: '물',
 };
 
 /** 이름을 가진 항목 목록에서 id → name 을 뽑는다 (모양이 다르면 건너뛴다) */

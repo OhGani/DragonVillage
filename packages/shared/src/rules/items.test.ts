@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BLOCKS, ITEM_NAMES } from './data';
+import { BLOCKS, ITEM_NAMES, RECIPES, STARTER_KIT } from './data';
 import { buildItemNames, itemName } from './items';
 
 describe('아이템 이름표', () => {
@@ -16,6 +16,9 @@ describe('아이템 이름표', () => {
       if (d.internal || !d.drops) continue;
       expect(itemName(d.drops, BLOCKS, ITEM_NAMES), d.drops).not.toBe(d.drops);
     }
+    // 레시피 재료·결과와 시작 키트도 전부 (만들기 탭에 영문 id 가 보이지 않게)
+    for (const r of RECIPES.defs) for (const id of [...Object.keys(r.in), ...Object.keys(r.out)]) expect(itemName(id, BLOCKS, ITEM_NAMES), id).not.toBe(id);
+    for (const id of Object.keys(STARTER_KIT)) expect(itemName(id, BLOCKS, ITEM_NAMES), id).not.toBe(id);
   });
 
   it('레시피는 결과물 하나짜리만 이름으로 쓰고, 먼저 나온 이름이 이긴다', () => {
