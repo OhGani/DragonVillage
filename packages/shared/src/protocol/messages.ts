@@ -405,6 +405,8 @@ export type ServerJson =
   | { t: 'approvalAsk'; id: number; date: string; child: string; title: string }
   /** 부모 플레이어에게: 승인 기다리는 목록이 바뀌었다 (체크·승인·거절·삭제) */
   | { t: 'pending'; items: ApprovalItem[] }
+  /** 아이에게: 오늘은 여기까지 (시간 다 씀·차단 시간대·오늘 게임 없음·5분 무입력). 이어서 연결이 닫힌다 (M5-4, 제한이 켜져 있을 때만) */
+  | { t: 'timeUp'; reason: 'noPlay' | 'blocked' | 'over' | 'idle'; message: string }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }

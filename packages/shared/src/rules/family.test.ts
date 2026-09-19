@@ -5,8 +5,13 @@ import {
   buildTodayCard,
   computeBonusCap,
   computeTodayBonus,
+  canStartExpedition,
+  expeditionNeedMin,
   isBlockedNow,
+  minutesUntilBlocked,
   nextOpenHHMM,
+  timeUpMessage,
+  timeUpReason,
   parseFamilyRules,
   repeatFromString,
   repeatLabel,
@@ -126,5 +131,40 @@ describe('할 일', () => {
     expect(card3.todos.map((t) => t.id)).toEqual([1]);
     expect(card3.remainingMin).toBe(0);
     expect(card3.manualAdj).toBe(-40);
+  });
+});
+
+describe('시간 제한 (M5-4)', () => {
+  it('차단까지 남은 분, 원정 출발 조건 = min(남은 시간, 차단까지) ≥ 길이 + 3', () => {
+    expect(minutesUntilBlocked(FAMILY_RULES, seoulTime(SAT_1020))).toBe(21 * 60 - (10 * 60 + 20)); // 토 21:00 까지
+    expect(minutesUntilBlocked(FAMILY_RULES, seoulTime(MON_1530))).toBe(0); // 막혀 있음
+    expect(minutesUntilBlocked(FAMILY_RULES, seoulTime(Date.UTC(2026, 8, 21, 11, 50)))).toBe(10); // 월 20:50
+    expect(expeditionNeedMin(10, FAMILY_RULES)).toBe(13);
+    const base = { remainingMin: 20, minutesUntilBlocked: 600, noPlayToday: false };
+    expect(canStartExpedition(base, 10, FAMILY_RULES)).toBe(true);
+    expect(canStartExpedition({ ...base, remainingMin: 12 }, 10, FAMILY_RULES)).toBe(false);
+    expect(canStartExpedition({ ...base, minutesUntilBlocked: 12 }, 10, FAMILY_RULES)).toBe(false);
+    expect(canStartExpedition({ ...base, noPlayToday: true }, 10, FAMILY_RULES)).toBe(false);
+  });
+  it('내보낼 이유와 말: 오늘 게임 없음 > 차단 > 시간 다 씀. 조정 내역이 카드에 실린다', () => {
+    const teeth = { id: 1, title: '이 닦기', repeat: 'daily' as const, needsApproval: false, active: true };
+    const inp = { todos: [teeth], logs: [], time: seoulTime(SAT_1020), rules: FAMILY_RULES, lastWeekRate: null, usedSec: 0, manualAdj: 0, enforced: true };
+    const ok = buildTodayCard(inp);
+    expect(timeUpReason(ok)).toBeNull();
+    expect(ok.minutesUntilBlocked).toBe(640);
+    expect(ok.nextOpen).toBeNull();
+    const adj = buildTodayCard({ ...inp, manualAdj: 10, adjustments: [{ min: 10, reason: '방 청소' }] });
+    expect(adj.remainingMin).toBe(40);
+    expect(adj.adjustments).toEqual([{ min: 10, reason: '방 청소' }]);
+    const over = buildTodayCard({ ...inp, usedSec: 30 * 60 });
+    expect(timeUpReason(over)).toBe('over');
+    expect(timeUpMessage('over', over)).toMatch(/다 썼어요/);
+    const blocked = buildTodayCard({ ...inp, time: seoulTime(MON_1530) });
+    expect(timeUpReason(blocked)).toBe('blocked');
+    expect(blocked.nextOpen).toBe('16:00');
+    expect(timeUpMessage('blocked', blocked)).toBe('지금은 게임 시간이 아니에요. 16:00 에 열려요');
+    const noPlay = buildTodayCard({ ...inp, time: seoulTime(MON_1530), noPlayToday: true });
+    expect(timeUpReason(noPlay)).toBe('noPlay');
+    expect(timeUpMessage('idle', null)).toMatch(/가만히/);
   });
 });

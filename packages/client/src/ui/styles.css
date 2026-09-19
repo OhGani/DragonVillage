@@ -1305,3 +1305,9 @@ body {
 .approval-btns .big-btn {
   flex: 1;
 }
+
+.today-list .today-adjust {
+  font-size: 14px;
+  opacity: 0.9;
+  color: #ffd257;
+}

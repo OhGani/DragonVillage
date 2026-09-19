@@ -95,6 +95,15 @@ export class AccountService {
     return { ok: true, token: acc.token };
   }
 
+  /** PIN 초기화 (부모 화면): 다음에 그 기기에서 들어오면 PIN 정하기 창이 다시 뜬다 */
+  resetPin(nick: string): boolean {
+    const acc = this.storage.getAccountByNick(nickKey(nick));
+    if (!acc) return false;
+    this.storage.clearAccountPin(acc.nickKey);
+    this.fails.delete(acc.nickKey);
+    return true;
+  }
+
   hasPin(token: string): boolean {
     return this.storage.getAccountByToken(token)?.pinHash != null;
   }

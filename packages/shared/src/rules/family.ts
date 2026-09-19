@@ -101,6 +101,14 @@ export function isBlockedNow(rules: FamilyRules, t: SeoulTime): boolean {
   return ranges.some(([a, b]) => t.minuteOfDay >= hhmmToMinutes(a) && t.minuteOfDay < hhmmToMinutes(b));
 }
 
+/** 다음 차단 시작까지 남은 분. 지금 막혀 있으면 0, 오늘 더 안 막히면 자정까지 */
+export function minutesUntilBlocked(rules: FamilyRules, t: SeoulTime): number {
+  if (isBlockedNow(rules, t)) return 0;
+  const starts = (rules.blockedRanges[String(t.weekday)] ?? []).map(([a]) => hhmmToMinutes(a)).filter((m) => m > t.minuteOfDay);
+  const next = starts.length ? Math.min(...starts) : 1440;
+  return next - t.minuteOfDay;
+}
+
 /** 다음에 열리는 시각 'HH:MM' (지금 막혀 있을 때). 오늘 안에 안 열리면 null */
 export function nextOpenHHMM(rules: FamilyRules, t: SeoulTime): string | null {
   const ranges = (rules.blockedRanges[String(t.weekday)] ?? []).map(([a, b]) => [hhmmToMinutes(a), hhmmToMinutes(b)] as const);
@@ -213,8 +221,16 @@ export interface TodayCard {
   remainingMin: number;
   /** 시간 제한을 실제로 거는가. false 면 표시만 (아빠 2026-09-19: 테스트 동안 제한 없음) */
   enforced: boolean;
-  /** 지금 접속 불가 시간대인가 (표시용) */
+  /** 지금 접속 불가 시간대인가 */
   blocked: boolean;
+  /** 부모가 "오늘 게임 없음"을 켰다 */
+  noPlayToday: boolean;
+  /** 다음 차단까지 남은 분 (막혀 있으면 0) */
+  minutesUntilBlocked: number;
+  /** 막혀 있을 때 다음에 열리는 시각 'HH:MM'. 아니면 null */
+  nextOpen: string | null;
+  /** 오늘 부모 수동 조정 내역 (아이 화면에도 보인다) */
+  adjustments: { min: number; reason: string }[];
   todos: TodayTodo[];
 }
 
@@ -229,6 +245,8 @@ export interface TodayInput {
   usedSec: number;
   manualAdj: number;
   enforced: boolean;
+  noPlayToday?: boolean;
+  adjustments?: { min: number; reason: string }[];
 }
 
 export function buildTodayCard(inp: TodayInput): TodayCard {
@@ -260,8 +278,34 @@ export function buildTodayCard(inp: TodayInput): TodayCard {
     remainingMin: Math.max(0, baseMin + bonusMin + inp.manualAdj - usedMin),
     enforced: inp.enforced,
     blocked: isBlockedNow(rules, time),
+    noPlayToday: inp.noPlayToday ?? false,
+    minutesUntilBlocked: minutesUntilBlocked(rules, time),
+    nextOpen: isBlockedNow(rules, time) ? nextOpenHHMM(rules, time) : null,
+    adjustments: inp.adjustments ?? [],
     todos,
   };
+}
+
+/** 지금 이 아이를 내보내야 하는 이유 (제한이 켜져 있을 때). 없으면 null */
+export type TimeUpReason = 'noPlay' | 'blocked' | 'over' | 'idle';
+export function timeUpReason(card: TodayCard): Exclude<TimeUpReason, 'idle'> | null {
+  if (card.noPlayToday) return 'noPlay';
+  if (card.blocked) return 'blocked';
+  if (card.remainingMin <= 0) return 'over';
+  return null;
+}
+/** 내보낼 때 아이가 읽는 말 */
+export function timeUpMessage(reason: TimeUpReason, card: TodayCard | null): string {
+  switch (reason) {
+    case 'noPlay':
+      return '오늘은 게임 없는 날이에요. 내일 다시 만나요!';
+    case 'blocked':
+      return card?.nextOpen ? `지금은 게임 시간이 아니에요. ${card.nextOpen} 에 열려요` : '지금은 게임 시간이 아니에요. 내일 다시 만나요!';
+    case 'over':
+      return '오늘 게임 시간을 다 썼어요. 내일 다시 만나요!';
+    default:
+      return '한참 가만히 있어서 마을에서 나왔어요. 다시 들어올 수 있어요';
+  }
 }
 
 /** 체크 → 다음 상태. 승인 필요 없으면 바로 approved */
@@ -269,7 +313,12 @@ export function statusAfterCheck(todo: Todo): TodoStatus {
   return todo.needsApproval ? 'checked' : 'approved';
 }
 
-/** 원정 출발 조건 (M5-4 에서 켠다): 남은 시간 ≥ 원정 길이 + 여유 */
-export function canStartExpedition(remainingMin: number, expeditionMin: number, rules: FamilyRules): boolean {
-  return remainingMin >= expeditionMin + rules.expeditionStartMarginMinutes;
+/** 원정 출발 조건 (M5-4): min(남은 시간, 차단까지 남은 분) ≥ 원정 길이 + 여유. 시간은 항상 마을에서 끝난다 */
+export function canStartExpedition(card: Pick<TodayCard, 'remainingMin' | 'minutesUntilBlocked' | 'noPlayToday'>, expeditionMin: number, rules: FamilyRules): boolean {
+  if (card.noPlayToday) return false;
+  return Math.min(card.remainingMin, card.minutesUntilBlocked) >= expeditionMin + rules.expeditionStartMarginMinutes;
+}
+/** 원정에 필요한 분 (길이 + 여유) */
+export function expeditionNeedMin(expeditionMin: number, rules: FamilyRules): number {
+  return expeditionMin + rules.expeditionStartMarginMinutes;
 }

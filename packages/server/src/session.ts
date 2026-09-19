@@ -13,6 +13,7 @@ import {
   encodePong,
   sanitizeNick,
 } from '@dragon-village/shared';
+import { EXPEDITIONS, FAMILY_RULES } from '@dragon-village/shared/data';
 import { randomBytes } from 'node:crypto';
 import type { WebSocket } from 'ws';
 import { PIN_RE, type AccountService } from './accounts';
@@ -73,6 +74,10 @@ export class Session {
   /** 아이: 접속 중 1분마다 쓴 시간 누적 (M5-3) */
   private usageTimer: NodeJS.Timeout | null = null;
   private familyListener: ((m: ServerJson) => void) | null = null;
+  /** 마지막으로 뭔가 한 시각 (움직임·블록·가방·채팅). 5분 무입력 자동 로그아웃용 (M5-4) */
+  private lastActive = Date.now();
+  private lastMove: { x: number; y: number; z: number; yaw: number } | null = null;
+  private ending = false;
 
   constructor(
     private readonly ws: WebSocket,
@@ -139,6 +144,9 @@ export class Session {
           if (!claim.ok) return this.error('NICK_TAKEN', '이 이름은 이미 있어요. 네 것이면 PIN 을 넣어 이어하고, 아니면 다른 이름을 써 주세요');
           needPin = claim.needPin;
         }
+        // 시간 제한 (M5-4, DV_ENFORCE_TIME=1 일 때만): 차단 시간대·오늘 게임 없음·시간 다 씀이면 들여보내지 않는다
+        const block = this.family?.timeBlock(nick) ?? null;
+        if (block) return this.error(block.reason === 'noPlay' ? 'NO_PLAY_TODAY' : block.reason === 'blocked' ? 'BLOCKED_HOURS' : 'TIME_UP', block.message, true);
         let room: VillageRoom | null;
         if (msg.t === 'join') {
           if (typeof msg.code !== 'string' || !VILLAGE_CODE_RE.test(msg.code)) return this.error('BAD_CODE', '마을 코드는 숫자 6자리예요');
@@ -184,12 +192,27 @@ export class Session {
         this.sendJson({ t: 'ready' });
         if (this.family) {
           // 승인·카드 갱신을 실시간으로 받는다. 아이면 1분마다 쓴 시간을 누적한다 (제한은 M5-4 에서, 지금은 표시만)
-          this.familyListener = (m) => this.sendJson(m);
+          this.familyListener = (m) => {
+            this.sendJson(m);
+            if (m.t === 'timeUp') this.endByTime();
+          };
           this.family.attach(nick, this.familyListener);
           if (this.family.todayCard(nick)) {
+            this.lastActive = Date.now();
             this.usageTimer = setInterval(() => {
-              const card = this.family?.addUsage(nick, 60);
+              if (!this.family || this.ending) return;
+              const now = Date.now();
+              const card = this.family.addUsage(nick, 60, now);
               if (card) this.sendJson({ t: 'today', card });
+              // 제한이 켜져 있으면: 시간 다 씀·차단 진입·오늘 게임 없음 → 내보낸다. 5분 무입력도
+              const block = this.family.timeBlock(nick, now);
+              if (block) {
+                this.sendJson({ t: 'timeUp', reason: block.reason, message: block.message });
+                this.endByTime();
+              } else if (this.family.enforceTime && now - this.lastActive >= FAMILY_RULES.idleLogoutMinutes * 60_000) {
+                this.sendJson({ t: 'timeUp', reason: 'idle', message: this.family.timeUpText('idle', nick, now) });
+                this.endByTime();
+              }
             }, 60_000);
           }
         }
@@ -198,6 +221,12 @@ export class Session {
       case 'startExpedition': {
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
         if (typeof msg.expedition !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        // 시간 제한 (M5-4): 아이는 남은 시간·차단까지 남은 분이 원정 길이 + 여유보다 커야 출발 — 시간은 항상 마을에서 끝난다
+        if (this.family && this.nick) {
+          const def = EXPEDITIONS.find(msg.expedition);
+          const check = this.family.expeditionCheck(this.nick, def?.durationSec ?? 600);
+          if (!check.ok) return this.error('NOT_ENOUGH_TIME', check.message);
+        }
         const err = this.room.startExpedition(this.idx, msg.expedition);
         if (err) return this.error(err, START_ERROR_KO[err] ?? '지금은 출발할 수 없어요');
         return;
@@ -282,11 +311,27 @@ export class Session {
       return;
     }
     if (!this.room) return;
+    // 활동 감지 (5분 무입력 자동 로그아웃): 자리만 지키는 PlayerMove 는 활동이 아니다
+    if (d.type === MSG.PlayerMove) {
+      const m = d.msg;
+      const lm = this.lastMove;
+      if (!lm || Math.abs(lm.x - m.x) > 0.01 || Math.abs(lm.y - m.y) > 0.01 || Math.abs(lm.z - m.z) > 0.01 || Math.abs(lm.yaw - m.yaw) > 0.01) this.lastActive = Date.now();
+      this.lastMove = { x: m.x, y: m.y, z: m.z, yaw: m.yaw };
+    } else this.lastActive = Date.now();
     if (d.type === MSG.PlayerMove) this.room.onMove(this.idx, d.msg);
     else if (d.type === MSG.BlockChangeReq) this.room.onBlockChange(this.idx, d.msg);
     else if (d.type === MSG.InvMove) this.room.onInvMove(this.idx, d.msg);
     else if (d.type === MSG.InvDrop) this.room.onInvDrop(this.idx, d.msg);
     else if (d.type === MSG.Emote) this.room.onEmote(this.idx, d.msg.kind, d.msg.id);
+  }
+
+  /** 오늘은 여기까지: timeUp 을 보낸 뒤 잠깐 있다가 연결을 닫는다 (클라가 화면을 바꿀 시간) */
+  private endByTime(): void {
+    if (this.ending) return;
+    this.ending = true;
+    if (this.usageTimer) clearInterval(this.usageTimer);
+    this.usageTimer = null;
+    setTimeout(() => this.ws.close(4002, 'TIME_UP'), 1500);
   }
 
   private onClose(): void {

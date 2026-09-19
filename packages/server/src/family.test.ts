@@ -173,3 +173,76 @@ describe('할 일·승인·시간 (M5-3)', () => {
     expect(family.parentFamilyOfNick('오가니')).toBeNull();
   });
 });
+
+describe('시간 조정·오늘 게임 없음·PIN 초기화·제한 판정 (M5-4)', () => {
+  const SAT = Date.UTC(2026, 8, 19, 1, 20); // 토 10:20 KST, 기본 30분
+  function withChildEnforced(enforce: boolean) {
+    const storage = new Storage(':memory:');
+    const accounts = new AccountService(storage);
+    const family = new FamilyService(storage, accounts, undefined, { enforceTime: enforce });
+    const p = family.signup('dad@example.com', 'secret1', 1000);
+    if (!p.ok) throw new Error();
+    accounts.claim(A, '쁘뚜', 1000);
+    accounts.setPin(A, '1111');
+    family.linkChild(p.parent.familyCode, '쁘뚜', '1111', 2000);
+    return { storage, accounts, family, fid: p.parent.familyId };
+  }
+
+  it('수동 조정 ±분 + 사유가 카드에 실리고, 이상한 값은 거절', () => {
+    const { family, fid } = withChildEnforced(false);
+    const card = family.adjustTime(fid, '쁘뚜', 10, '  방 청소 잘함 ', SAT)!;
+    expect(card.manualAdj).toBe(10);
+    expect(card.remainingMin).toBe(40);
+    expect(card.adjustments).toEqual([{ min: 10, reason: '방 청소 잘함' }]);
+    expect(family.adjustTime(fid, '쁘뚜', -5, '', SAT)!.remainingMin).toBe(35);
+    expect(family.adjustTime(fid, '쁘뚜', 0, 'x', SAT)).toBeNull();
+    expect(family.adjustTime(fid, '쁘뚜', 500, 'x', SAT)).toBeNull();
+    expect(family.adjustTime(fid, '쁘뚜', 2.5, 'x', SAT)).toBeNull();
+    expect(family.adjustTime(999, '쁘뚜', 5, 'x', SAT)).toBeNull();
+    expect(family.adjustTime(fid, '누구', 5, 'x', SAT)).toBeNull();
+    // 제한이 꺼져 있으면 아무 것도 막지 않는다
+    expect(family.timeBlock('쁘뚜', SAT)).toBeNull();
+    expect(family.setNoPlay(fid, '쁘뚜', true, SAT)!.noPlayToday).toBe(true);
+    expect(family.timeBlock('쁘뚜', SAT)).toBeNull();
+    expect(family.expeditionCheck('쁘뚜', 600, SAT)).toEqual({ ok: true });
+  });
+
+  it('제한이 켜져 있으면: 오늘 게임 없음·차단·시간 다 씀에 입장 거절, 원정은 시간이 충분할 때만, 접속 중이면 timeUp', () => {
+    const { family, fid } = withChildEnforced(true);
+    const got: ServerJson[] = [];
+    const l = (m: ServerJson) => got.push(m);
+    family.attach('쁘뚜', l);
+    expect(family.timeBlock('쁘뚜', SAT)).toBeNull();
+    expect(family.timeBlock('오가니', SAT)).toBeNull(); // 아이 아님
+    // 원정 10분 + 여유 3 = 13분 필요. 남은 30분 → ok. 조정 −20 → 10분 → 안 됨
+    expect(family.expeditionCheck('쁘뚜', 600, SAT)).toEqual({ ok: true });
+    family.adjustTime(fid, '쁘뚜', -20, '숙제 안 함', SAT);
+    const c = family.expeditionCheck('쁘뚜', 600, SAT);
+    expect(c.ok).toBe(false);
+    if (!c.ok) expect(c.message).toMatch(/남은 시간 10분/);
+    // 차단 시간대(월 15:30) → blocked
+    const MON = Date.UTC(2026, 8, 21, 6, 30);
+    expect(family.timeBlock('쁘뚜', MON)).toMatchObject({ reason: 'blocked', message: /16:00/ });
+    // 오늘 게임 없음 → noPlay, 접속 중인 아이에게 timeUp
+    got.length = 0;
+    family.setNoPlay(fid, '쁘뚜', true, SAT);
+    expect(family.timeBlock('쁘뚜', SAT)).toMatchObject({ reason: 'noPlay' });
+    expect(got.some((m) => m.t === 'timeUp' && m.reason === 'noPlay')).toBe(true);
+    family.setNoPlay(fid, '쁘뚜', false, SAT);
+    // 시간 다 씀 → over
+    family.addUsage('쁘뚜', 10 * 60, SAT);
+    expect(family.timeBlock('쁘뚜', SAT)).toMatchObject({ reason: 'over' });
+    expect(family.expeditionCheck('쁘뚜', 600, SAT).ok).toBe(false);
+    family.detach('쁘뚜', l);
+  });
+
+  it('PIN 초기화: 다음 입장 때 PIN 정하기가 다시 뜬다', () => {
+    const { family, accounts, fid } = withChildEnforced(false);
+    expect(family.resetChildPin(fid, '없는애')).toBe(false);
+    expect(family.resetChildPin(999, '쁘뚜')).toBe(false);
+    expect(family.resetChildPin(fid, '쁘뚜')).toBe(true);
+    expect(accounts.hasPin(A)).toBe(false);
+    expect(accounts.claim(A, '쁘뚜', 3000)).toEqual({ ok: true, needPin: true });
+    expect(accounts.resume('쁘뚜', '1111', 3000)).toEqual({ ok: false, reason: 'NO_PIN' });
+  });
+});

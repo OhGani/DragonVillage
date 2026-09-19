@@ -106,6 +106,8 @@ export interface NetEvents {
   onApprovalAsk(ask: ApprovalAsk): void;
   /** 승인 기다리는 목록이 바뀌었다 (부모 플레이어) */
   onPending(items: ApprovalItem[]): void;
+  /** 오늘은 여기까지 (M5-4, 제한이 켜져 있을 때). 곧 연결이 닫힌다 */
+  onTimeUp(reason: string, message: string): void;
 }
 
 export type ApprovalAsk = ApprovalItem;
@@ -393,6 +395,7 @@ export class NetClient {
     else if (msg.t === 'today') ev.onToday(msg.card);
     else if (msg.t === 'approvalAsk') ev.onApprovalAsk({ id: msg.id, date: msg.date, child: msg.child, title: msg.title });
     else if (msg.t === 'pending') ev.onPending(msg.items);
+    else if (msg.t === 'timeUp') ev.onTimeUp(msg.reason, msg.message);
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }
 

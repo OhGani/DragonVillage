@@ -1,5 +1,8 @@
 import {
   AIR_ID,
+  type TodayCard,
+  canStartExpedition,
+  expeditionNeedMin,
   type BlockChangedMsg,
   CHUNK_SIZE,
   type ChunkDataMsg,
@@ -28,7 +31,7 @@ import {
   portalContains,
   skyLightAt,
 } from '@dragon-village/shared';
-import { BLOCKS, EXPEDITIONS, ITEM_NAMES, PHRASES, POTIONS, RECIPES } from '@dragon-village/shared/data';
+import { BLOCKS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, PHRASES, POTIONS, RECIPES } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { GamepadInput } from '../input/gamepad';
 import { InputManager } from '../input/InputManager';
@@ -349,6 +352,19 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
 
   // ---- 서버에서 오는 것 ----
   let disconnected = false;
+  let endedByTime = false;
+  /** 아이의 오늘 카드 (M5-3/4). 아이가 아니면 null */
+  let todayCard = welcome.today;
+  /** 카드가 갱신될 때: 표시 + (제한이 켜져 있을 때) 5분·1분 경고, 차단 5분 전 경고 */
+  const onTodayCard = (card: TodayCard) => {
+    const prev = todayCard;
+    todayCard = card;
+    hud.setToday(card);
+    if (!card.enforced || !prev) return;
+    if (prev.remainingMin > 5 && card.remainingMin <= 5 && card.remainingMin > 1) hud.toast(`오늘 게임 시간이 ${card.remainingMin}분 남았어요`, 6000);
+    else if (prev.remainingMin > 1 && card.remainingMin === 1) hud.toast('1분 남았어요 — 곧 마을에서 나가요. 내일 다시!', 8000);
+    if (prev.minutesUntilBlocked > 5 && card.minutesUntilBlocked <= 5 && card.minutesUntilBlocked > 0) hud.toast(`${card.minutesUntilBlocked}분 뒤에 게임 시간이 끝나요`, 6000);
+  };
   net.attach({
     onChunk: (m) => {
       if (!ctx.world.chunkInBounds(m.cx, m.cy, m.cz)) return;
@@ -401,13 +417,23 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       updateVillageInfo();
     },
     onError: (_code, message) => hud.toast(message, 4000),
-    onToday: (card) => hud.setToday(card),
+    onToday: (card) => onTodayCard(card),
+    onTimeUp: (_reason, message) => {
+      // 오늘은 여기까지 (제한이 켜져 있을 때만 온다). 서버가 곧 연결을 닫으니 그 전에 화면을 바꾼다
+      endedByTime = true;
+      disconnected = true;
+      input.paused = true;
+      kbm.enabled = false;
+      hud.hideToday();
+      hud.showOverlay('오늘은 여기까지!', message, null);
+    },
     onApprovalAsk: (ask) => hud.showApproval(ask),
     onPending: (items) => hud.setPending(items),
     onClose: (reason) => {
       disconnected = true;
       input.paused = true;
       kbm.enabled = false;
+      if (endedByTime) return; // 시간 종료 화면을 그대로 둔다
       hud.showOverlay('서버와 연결이 끊어졐어요', reason + '\n다시 들어가려면 아래를 눌러요.', '다시 연결');
     },
     onWorldEnter: enterWorld,
@@ -675,6 +701,13 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
     if (ctx.kind === 'village') {
       const def = EXPEDITIONS.require(FIRST_EXPEDITION);
+      // 시간 제한 (M5-4): 남은 시간이 원정 길이 + 여유보다 적으면 오늘은 마을에서
+      if (todayCard?.enforced && !canStartExpedition(todayCard, Math.ceil(def.durationSec / 60), FAMILY_RULES)) {
+        const need = expeditionNeedMin(Math.ceil(def.durationSec / 60), FAMILY_RULES);
+        const why = todayCard.noPlayToday ? '오늘은 게임 없는 날이에요' : todayCard.minutesUntilBlocked < todayCard.remainingMin ? `게임 시간이 ${todayCard.minutesUntilBlocked}분 뒤에 끝나요` : `남은 시간 ${todayCard.remainingMin}분`;
+        hud.showAction('오늘은 마을에서 놀자', `${why} · 원정은 ${need}분 필요해요`, '알겠어요', () => hud.hideAction());
+        return;
+      }
       if (expeditionState) {
         const m = Math.floor(expeditionState.remainingSec / 60);
         hud.showAction(`${expeditionState.name} 원정 중`, `${expeditionState.players}명이 나가 있어요 · 약 ${m}분 남음`, '따라가기' + KEY_HINT, () => net.sendStartExpedition(expeditionState!.id));

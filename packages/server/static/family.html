@@ -95,6 +95,18 @@
     <div class="row"><h2 class="name"></h2><span class="online muted"></span></div>
     <div class="time"><span class="remain"></span> <small class="detail"></small></div>
     <div class="muted todayLine"></div>
+    <ul class="adjustList"></ul>
+    <div class="row wrap" style="margin-top:10px">
+      <button class="noPlay plain small"></button>
+      <button class="resetPin plain small">PIN 초기화</button>
+    </div>
+    <h3>시간 조정</h3>
+    <div class="row">
+      <input class="adjDelta" type="number" inputmode="numeric" placeholder="±분 (예: 10, -5)" min="-120" max="120" style="max-width: 150px" />
+      <input class="adjReason" placeholder="사유 (예: 방 청소 잘함)" maxlength="40" />
+    </div>
+    <button class="adjust small" style="margin-top:8px">조정</button>
+    <div class="err adjErr"></div>
     <h3>할 일</h3>
     <ul class="todos"></ul>
     <h3>할 일 추가</h3>
@@ -179,7 +191,22 @@
     $('.remain', el).textContent = `남은 ${t.remainingMin}분`;
     $('.detail', el).textContent = `기본 ${t.baseMin} + 보너스 ${t.bonusMin}/${t.bonusCap}${t.manualAdj ? (t.manualAdj > 0 ? ' +' : ' ') + t.manualAdj + ' 조정' : ''} − 쓴 ${t.usedMin}분`;
     const done = t.todos.filter((x) => x.status === 'approved').length;
-    $('.todayLine', el).textContent = t.todos.length ? `오늘 할 일 ${done}/${t.todos.length} 완료` : '오늘 할 일이 없어요';
+    const parts = [t.todos.length ? `오늘 할 일 ${done}/${t.todos.length} 완료` : '오늘 할 일이 없어요'];
+    if (t.noPlayToday) parts.push('오늘 게임 없음');
+    if (t.blocked) parts.push(t.nextOpen ? `지금은 차단 시간 (${t.nextOpen} 에 열림)` : '지금은 차단 시간');
+    else if (t.minutesUntilBlocked < 1440) parts.push(`차단까지 ${t.minutesUntilBlocked}분`);
+    $('.todayLine', el).textContent = parts.join(' · ');
+    const al = $('.adjustList', el);
+    al.innerHTML = '';
+    for (const a of t.adjustments) {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="grow">조정 <b>${a.min > 0 ? '+' : '−'}${Math.abs(a.min)}분</b>${a.reason ? ' — ' + esc(a.reason) : ''}</span>`;
+      al.appendChild(li);
+    }
+    const np = $('.noPlay', el);
+    np.textContent = t.noPlayToday ? '오늘 게임 없음 끄기' : '오늘 게임 없음';
+    np.className = t.noPlayToday ? 'noPlay warn small' : 'noPlay plain small';
+    np.onclick = () => act('noPlay', { nick: c.nick, on: !t.noPlayToday });
     const ul = $('.todos', el);
     ul.innerHTML = '';
     const todayStatus = new Map(t.todos.map((x) => [x.id, x.status]));
@@ -219,6 +246,18 @@
       };
       $('.newTitle', el).addEventListener('keydown', (e) => { if (e.key === 'Enter') $('.add', el).click(); });
       $('.unlink', el).onclick = () => { if (confirm(c.nick + ' 연결을 끊을까요? 할 일·기록은 남아요')) act('unlink', { nick: c.nick }); };
+      $('.resetPin', el).onclick = async () => {
+        if (!confirm(`${c.nick} 의 PIN 을 초기화할까요? 아이 폰에서 다음에 들어갈 때 새 PIN 을 정하게 돼요`)) return;
+        try { await act('resetPin', { nick: c.nick }); alert('초기화했어요. 아이가 원래 쓰던 폰으로 들어가면 PIN 정하기 창이 떠요'); } catch (e) { alert(e.message); }
+      };
+      $('.adjust', el).onclick = async () => {
+        $('.adjErr', el).textContent = '';
+        try {
+          await act('adjust', { nick: c.nick, delta: Number($('.adjDelta', el).value), reason: $('.adjReason', el).value });
+          $('.adjDelta', el).value = '';
+          $('.adjReason', el).value = '';
+        } catch (e) { $('.adjErr', el).textContent = e.message; }
+      };
     }
     return el;
   }
@@ -229,7 +268,9 @@
     $('#home').hidden = false;
     $('#code').textContent = me.familyCode;
     $('#email2').textContent = me.email;
-    $('#enforced').textContent = me.enforced ? '시간 제한: 켜져 있어요' : '시간 제한: 지금은 표시만 해요 (테스트 중). 아이 화면에 남은 시간이 보이지만 0 이 돼도 게임은 계속돼요.';
+    $('#enforced').textContent = me.enforced
+      ? '시간 제한: 켜져 있어요. 시간이 0 이 되거나 차단 시간이 되면 아이는 마을에서 나가요. 원정은 남은 시간이 원정 길이 + 3분보다 많을 때만.'
+      : '시간 제한: 지금은 표시만 해요 (테스트 중). 아이 화면에 남은 시간이 보이지만 0 이 돼도 게임은 계속돼요. 조정·오늘 게임 없음도 기록만 돼요.';
     renderPending();
     const box = $('#children');
     const seen = new Set();

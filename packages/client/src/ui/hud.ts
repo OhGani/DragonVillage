@@ -451,10 +451,21 @@ export class Hud {
       }
       this.todayList.appendChild(li);
     }
+    for (const a of c.adjustments) {
+      const li = document.createElement('li');
+      li.className = 'today-adjust';
+      const t = document.createElement('span');
+      t.className = 'todo-title';
+      t.textContent = `아빠·엄마 조정 ${a.min > 0 ? '+' : '−'}${Math.abs(a.min)}분${a.reason ? ` — ${a.reason}` : ''}`;
+      li.appendChild(t);
+      this.todayList.appendChild(li);
+    }
     const notes: string[] = [];
+    if (c.noPlayToday) notes.push('오늘은 게임 없는 날이에요.');
     if (c.todos.some((t) => t.needsApproval)) notes.push('아빠·엄마가 확인해 주면 시간이 더 생겨요.');
-    if (c.blocked) notes.push('지금은 게임 시간이 아니에요.');
-    notes.push(c.enforced ? '남은 시간이 0 이 되면 마을에서만 있다가 오늘은 끝나요.' : '지금은 시간을 재기만 해요. 0 이 돼도 게임은 계속돼요.');
+    if (c.blocked) notes.push(c.nextOpen ? `지금은 게임 시간이 아니에요. ${c.nextOpen} 에 열려요.` : '지금은 게임 시간이 아니에요.');
+    else if (c.minutesUntilBlocked < 1440) notes.push(`게임 시간은 ${c.minutesUntilBlocked}분 뒤에 끝나요.`);
+    notes.push(c.enforced ? '남은 시간이 0 이 되면 마을에서 나가요. 5분 동안 가만히 있어도 나가요.' : '지금은 시간을 재기만 해요. 0 이 돼도 게임은 계속돼요.');
     this.todayNote.textContent = notes.join(' ');
   }
 

@@ -10,7 +10,24 @@
  * - 규칙 4: 할 일 보상은 시간만. 규칙 5: 기본 시간은 서버가 절대 깎지 않는다.
  * - 부모 여러 명(엄마)은 v1.1: 같은 가족 코드로 가입하기.
  */
-import { type ApprovalItem, type FamilyRules, type ServerJson, type Todo, type TodayCard, type TodoRepeat, buildTodayCard, repeatFromString, repeatToString, seoulTime, statusAfterCheck } from '@dragon-village/shared';
+import {
+  type ApprovalItem,
+  type FamilyRules,
+  type ServerJson,
+  type TimeUpReason,
+  type Todo,
+  type TodayCard,
+  type TodoRepeat,
+  buildTodayCard,
+  canStartExpedition,
+  expeditionNeedMin,
+  repeatFromString,
+  repeatToString,
+  seoulTime,
+  statusAfterCheck,
+  timeUpMessage,
+  timeUpReason,
+} from '@dragon-village/shared';
 import { FAMILY_RULES } from '@dragon-village/shared/data';
 import { randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { AccountService } from './accounts';
@@ -22,6 +39,8 @@ const LOGIN_MAX_TRIES = 5;
 const LOGIN_LOCK_MS = 10 * 60_000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TITLE_MAX = 30;
+const ADJUST_MAX = 120;
+const REASON_MAX = 40;
 
 export interface Parent {
   id: number;
@@ -356,7 +375,89 @@ export class FamilyService {
       usedSec: ledger?.usedSec ?? 0,
       manualAdj: ledger?.manualAdj ?? 0,
       enforced: this.enforceTime,
+      noPlayToday: (ledger?.noPlay ?? 0) === 1,
+      adjustments: this.storage.listAdjustments(key, time.date).map((a) => ({ min: a.deltaMin, reason: a.reason })),
     });
+  }
+
+  // ---------------------------------------------------------------- 시간 조정·제한 (M5-4)
+
+  /** 부모 수동 조정 ±분 + 사유 (규칙 5: 기본 시간은 서버가 안 깎는다 — 부모만). 아이 화면에도 보인다 */
+  adjustTime(familyId: number, childNick: string, deltaMin: number, reasonRaw: string, now = Date.now()): TodayCard | null {
+    const key = nickKey(childNick);
+    const c = this.storage.getChild(key);
+    if (!c || c.family !== familyId) return null;
+    if (!Number.isInteger(deltaMin) || deltaMin === 0 || Math.abs(deltaMin) > ADJUST_MAX) return null;
+    const reason = String(reasonRaw ?? '')
+      .replace(/\p{Cc}/gu, '')
+      .trim()
+      .slice(0, REASON_MAX);
+    const date = seoulTime(now).date;
+    this.storage.addManualAdj(key, date, deltaMin);
+    this.storage.insertAdjustment(key, date, deltaMin, reason, now);
+    this.pushCard(key, now);
+    this.kickIfNeeded(key, now);
+    return this.cardFor(key, now);
+  }
+
+  /** "오늘 게임 없음" 켜고 끄기. 제한이 켜져 있으면 접속 중인 아이는 바로 나간다 */
+  setNoPlay(familyId: number, childNick: string, on: boolean, now = Date.now()): TodayCard | null {
+    const key = nickKey(childNick);
+    const c = this.storage.getChild(key);
+    if (!c || c.family !== familyId) return null;
+    this.storage.setNoPlay(key, seoulTime(now).date, on);
+    this.pushCard(key, now);
+    this.kickIfNeeded(key, now);
+    return this.cardFor(key, now);
+  }
+
+  /** 아이 PIN 초기화 (부모 화면). 다음에 아이 기기에서 들어오면 PIN 정하기 창 */
+  resetChildPin(familyId: number, childNick: string): boolean {
+    const key = nickKey(childNick);
+    const c = this.storage.getChild(key);
+    if (!c || c.family !== familyId) return false;
+    return this.accounts.resetPin(childNick);
+  }
+
+  /**
+   * 지금 이 아이를 들여보내면 안 되는(또는 내보내야 하는) 이유. 제한이 꺼져 있거나 아이가 아니면 null.
+   * 세션이 입장 때와 1분마다 부른다
+   */
+  timeBlock(nick: string, now = Date.now()): { reason: Exclude<TimeUpReason, 'idle'>; message: string } | null {
+    if (!this.enforceTime) return null;
+    const key = nickKey(nick);
+    if (!this.storage.getChild(key)) return null;
+    const card = this.cardFor(key, now);
+    const reason = timeUpReason(card);
+    return reason ? { reason, message: timeUpMessage(reason, card) } : null;
+  }
+
+  /** 내보내는 말 (5분 무입력 포함) */
+  timeUpText(reason: TimeUpReason, nick: string, now = Date.now()): string {
+    const key = nickKey(nick);
+    return timeUpMessage(reason, this.storage.getChild(key) ? this.cardFor(key, now) : null);
+  }
+
+  /** 원정 출발해도 되나. 제한이 꺼져 있거나 아이가 아니면 항상 ok */
+  expeditionCheck(nick: string, expeditionSec: number, now = Date.now()): { ok: true } | { ok: false; message: string } {
+    if (!this.enforceTime) return { ok: true };
+    const key = nickKey(nick);
+    if (!this.storage.getChild(key)) return { ok: true };
+    const card = this.cardFor(key, now);
+    const expMin = Math.ceil(expeditionSec / 60);
+    if (canStartExpedition(card, expMin, this.rules)) return { ok: true };
+    const need = expeditionNeedMin(expMin, this.rules);
+    if (card.noPlayToday) return { ok: false, message: '오늘은 게임 없는 날이에요' };
+    if (card.minutesUntilBlocked < need && card.minutesUntilBlocked <= card.remainingMin) return { ok: false, message: `오늘은 마을에서 놀자 — 게임 시간이 ${card.minutesUntilBlocked}분 뒤에 끝나요 (원정은 ${need}분 필요)` };
+    return { ok: false, message: `오늘은 마을에서 놀자 — 남은 시간 ${card.remainingMin}분 (원정은 ${need}분 필요)` };
+  }
+
+  /** 제한이 켜져 있고 지금 내보내야 하면, 접속 중인 아이에게 timeUp (세션이 연결을 닫는다) */
+  private kickIfNeeded(key: string, now: number): void {
+    if (!this.enforceTime || !this.listeners.has(key)) return;
+    const card = this.cardFor(key, now);
+    const reason = timeUpReason(card);
+    if (reason) this.notify(key, { t: 'timeUp', reason, message: timeUpMessage(reason, card) });
   }
 
   /** 카드가 바뀌었을 때 접속 중인 아이에게 밀어 준다 */

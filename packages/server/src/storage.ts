@@ -68,6 +68,16 @@ export interface LedgerRow {
   date: string;
   usedSec: number;
   manualAdj: number;
+  /** 부모 "오늘 게임 없음" (0/1) */
+  noPlay: number;
+}
+export interface AdjustmentRow {
+  id: number;
+  child: string;
+  date: string;
+  deltaMin: number;
+  reason: string;
+  createdAt: number;
 }
 export interface PlayerRow {
   token: string;
@@ -115,6 +125,8 @@ CREATE TABLE IF NOT EXISTS todo_logs(
   todo_id INTEGER NOT NULL, date TEXT NOT NULL, status TEXT NOT NULL, checked_at INTEGER, decided_at INTEGER, PRIMARY KEY(todo_id, date));
 CREATE TABLE IF NOT EXISTS time_ledger(
   child TEXT NOT NULL, date TEXT NOT NULL, used_sec INTEGER NOT NULL DEFAULT 0, manual_adj INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(child, date));
+CREATE TABLE IF NOT EXISTS time_adjustments(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, child TEXT NOT NULL, date TEXT NOT NULL, delta_min INTEGER NOT NULL, reason TEXT NOT NULL, created_at INTEGER NOT NULL);
 `;
 
 export class Storage {
@@ -126,6 +138,8 @@ export class Storage {
     this.db = new Database(path);
     if (path !== ':memory:') this.db.pragma('journal_mode = WAL');
     this.db.exec(SCHEMA);
+    // 있던 표에 열 추가 (CREATE TABLE IF NOT EXISTS 는 열을 못 더한다)
+    this.ensureColumn('time_ledger', 'no_play', 'INTEGER NOT NULL DEFAULT 0');
     this.stmts = {
       getVillage: this.db.prepare('SELECT code, name, seed, gen_version AS genVersion, created_at AS createdAt FROM villages WHERE code = ?'),
       listVillages: this.db.prepare('SELECT code, name, seed, gen_version AS genVersion, created_at AS createdAt FROM villages ORDER BY created_at'),
@@ -184,10 +198,14 @@ export class Storage {
       listCheckedLogs: this.db.prepare(
         "SELECT l.todo_id AS todoId, l.date, l.checked_at AS checkedAt, t.title, t.child FROM todo_logs l JOIN todos t ON t.id = l.todo_id WHERE t.family = ? AND l.status = 'checked' ORDER BY l.checked_at",
       ),
-      getLedger: this.db.prepare('SELECT child, date, used_sec AS usedSec, manual_adj AS manualAdj FROM time_ledger WHERE child = ? AND date = ?'),
+      getLedger: this.db.prepare('SELECT child, date, used_sec AS usedSec, manual_adj AS manualAdj, no_play AS noPlay FROM time_ledger WHERE child = ? AND date = ?'),
+      setNoPlay: this.db.prepare('INSERT INTO time_ledger(child, date, used_sec, manual_adj, no_play) VALUES (?, ?, 0, 0, ?) ON CONFLICT(child, date) DO UPDATE SET no_play = excluded.no_play'),
+      insertAdjustment: this.db.prepare('INSERT INTO time_adjustments(child, date, delta_min, reason, created_at) VALUES (?, ?, ?, ?, ?)'),
+      listAdjustments: this.db.prepare('SELECT id, child, date, delta_min AS deltaMin, reason, created_at AS createdAt FROM time_adjustments WHERE child = ? AND date = ? ORDER BY id'),
+      clearAccountPin: this.db.prepare('UPDATE accounts SET pin_hash = NULL WHERE nick_key = ?'),
       addUsage: this.db.prepare('INSERT INTO time_ledger(child, date, used_sec, manual_adj) VALUES (?, ?, ?, 0) ON CONFLICT(child, date) DO UPDATE SET used_sec = used_sec + excluded.used_sec'),
       addManualAdj: this.db.prepare('INSERT INTO time_ledger(child, date, used_sec, manual_adj) VALUES (?, ?, 0, ?) ON CONFLICT(child, date) DO UPDATE SET manual_adj = manual_adj + excluded.manual_adj'),
-      listLedger: this.db.prepare('SELECT child, date, used_sec AS usedSec, manual_adj AS manualAdj FROM time_ledger WHERE child = ? AND date >= ? ORDER BY date'),
+      listLedger: this.db.prepare('SELECT child, date, used_sec AS usedSec, manual_adj AS manualAdj, no_play AS noPlay FROM time_ledger WHERE child = ? AND date >= ? ORDER BY date'),
       upsertInventory: this.db.prepare(
         'INSERT INTO inventories(token, village, json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(token) DO UPDATE SET village = excluded.village, json = excluded.json, updated_at = excluded.updated_at',
       ),
@@ -372,6 +390,23 @@ export class Storage {
   }
   addManualAdj(child: string, date: string, delta: number): void {
     this.stmts.addManualAdj.run(child, date, delta);
+  }
+  setNoPlay(child: string, date: string, on: boolean): void {
+    this.stmts.setNoPlay.run(child, date, on ? 1 : 0);
+  }
+  insertAdjustment(child: string, date: string, deltaMin: number, reason: string, now: number): void {
+    this.stmts.insertAdjustment.run(child, date, deltaMin, reason, now);
+  }
+  listAdjustments(child: string, date: string): AdjustmentRow[] {
+    return this.stmts.listAdjustments.all(child, date) as AdjustmentRow[];
+  }
+  clearAccountPin(nickKey: string): void {
+    this.stmts.clearAccountPin.run(nickKey);
+  }
+
+  private ensureColumn(table: string, column: string, ddl: string): void {
+    const cols = this.db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (!cols.some((c) => c.name === column)) this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
   }
   listLedger(child: string, sinceDate: string): LedgerRow[] {
     return this.stmts.listLedger.all(child, sinceDate) as LedgerRow[];

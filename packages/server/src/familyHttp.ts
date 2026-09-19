@@ -173,6 +173,23 @@ export async function handleFamilyHttp(req: IncomingMessage, res: ServerResponse
       const ok = family.decideTodo(parent.familyId, Number(body.id), String(body.date ?? ''), body.ok === true);
       return json(res, ok ? 200 : 404, ok ? meJson(family, parent) : { error: 'NO_TODO', message: '그 할 일을 찾을 수 없어요' }), true;
     }
+    case 'adjust': {
+      if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
+      const card = family.adjustTime(parent.familyId, String(body.nick ?? ''), Number(body.delta), String(body.reason ?? ''));
+      if (!card) return json(res, 400, { error: 'BAD_ADJUST', message: '분은 0 이 아닌 ±120 사이 정수, 아이 이름을 확인해 주세요' }), true;
+      return json(res, 200, meJson(family, parent)), true;
+    }
+    case 'noPlay': {
+      if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
+      const card = family.setNoPlay(parent.familyId, String(body.nick ?? ''), body.on === true);
+      if (!card) return json(res, 404, { error: 'NO_CHILD', message: '그런 아이가 없어요' }), true;
+      return json(res, 200, meJson(family, parent)), true;
+    }
+    case 'resetPin': {
+      if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
+      const ok = family.resetChildPin(parent.familyId, String(body.nick ?? ''));
+      return json(res, ok ? 200 : 404, ok ? meJson(family, parent) : { error: 'NO_CHILD', message: '그런 아이가 없어요' }), true;
+    }
     case 'linkParent': {
       if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
       const r = family.linkParentPlayer(parent.familyId, String(body.nick ?? ''), String(body.pin ?? ''));
