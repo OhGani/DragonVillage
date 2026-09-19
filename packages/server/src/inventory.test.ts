@@ -1,5 +1,5 @@
 import { DEFAULT_VILLAGE_SEED, EMOTE_EMOJI, EMOTE_PHRASE, GROUND_Y, MSG, REJECT, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, type ServerBinary } from '@dragon-village/shared';
-import { BLOCKS } from '@dragon-village/shared/data';
+import { BLOCKS, STARTER_KIT } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
 import { Storage } from './storage';
 import { VillageRoom } from './village';
@@ -20,7 +20,7 @@ function inbox() {
 }
 
 function setup(storage: Storage | null = null) {
-  const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 777 });
+  const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 777, starterKit: null });
   const a = inbox();
   const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
   a.clear();
@@ -96,9 +96,31 @@ describe('가방과 블록 (M4, #66)', () => {
     expect(loaded[0]).toEqual({ item: 'planks', count: 6 });
     // 다시 들어오면 그 가방
     const b = inbox();
-    const room2 = new VillageRoom({ ...INFO }, BLOCKS, storage);
+    const room2 = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null });
     const rb = room2.join('a'.repeat(32), '아빠', 0, b.send)!;
     expect(rb.inventory[0]).toEqual({ item: 'planks', count: 6 });
+  });
+});
+
+describe('시작 키트 (#67)', () => {
+  it('처음 들어오면 starter-kit.json 을 받고, 다시 들어오면 안 받는다', () => {
+    const storage = new Storage(':memory:');
+    storage.createVillage({ ...INFO, createdAt: 1 });
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage);
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    expect(countOf(ra.inventory, 'planks')).toBe(STARTER_KIT.planks);
+    expect(countOf(ra.inventory, 'crafting_table')).toBe(1);
+    expect(countOf(ra.inventory, 'bucket')).toBe(1);
+    // 다 쓰고 나가도 다시 안 준다
+    ra.inventory.forEach((s, i) => s && room.onInvDrop(ra.idx, { slot: i, count: s.count }));
+    room.leave(ra.idx);
+    const b = inbox();
+    const rb = room.join('a'.repeat(32), '아빠', 0, b.send)!;
+    expect(rb.inventory.every((s) => s === null)).toBe(true);
+    // 다른 사람은 받는다
+    const rc = room.join('c'.repeat(32), '친구', 1, inbox().send)!;
+    expect(countOf(rc.inventory, 'planks')).toBe(STARTER_KIT.planks);
   });
 });
 

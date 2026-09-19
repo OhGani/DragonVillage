@@ -31,7 +31,7 @@ function inbox() {
 }
 
 function makeRoom(storage: Storage | null = null) {
-  return new VillageRoom({ ...INFO }, BLOCKS, storage);
+  return new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null });
 }
 /** M4: 블록이 유한하므로 시험 전에 손에 쥐어 준다 */
 function kit(room: VillageRoom, idx: number) {
@@ -186,7 +186,7 @@ describe('VillageRoom 액체 틱과 저장', () => {
   it('flush → 저장소에 바뀐 청크, 새 룸이 그것을 불러오고 입장자에게 ChunkData 로 보낸다', () => {
     const storage = new Storage(':memory:');
     storage.createVillage({ ...INFO, createdAt: 1 });
-    const room = new VillageRoom({ ...INFO }, BLOCKS, storage);
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null });
     const a = inbox();
     const ra = room.join('a'.repeat(32), '아빠', 2, a.send)!;
     kit(room, ra.idx);

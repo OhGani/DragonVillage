@@ -21,7 +21,7 @@ function inbox() {
 }
 
 function setup(storage: Storage | null = null) {
-  const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 777 });
+  const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 777, starterKit: null });
   const a = inbox(),
     b = inbox();
   const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
@@ -184,7 +184,7 @@ describe('귀환·정산·종료', () => {
 
   it('시간이 다 되면 안에 있는 사람은 절반만 들고 강제 귀환, 유예 뒤 원정 폐기 → 새 원정은 새 시드', () => {
     let seed = 100;
-    const room = new VillageRoom({ ...INFO }, BLOCKS, null, () => {}, { seedFn: () => seed++ });
+    const room = new VillageRoom({ ...INFO }, BLOCKS, null, () => {}, { seedFn: () => seed++, starterKit: null });
     const a = inbox();
     const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
     room.startExpedition(ia, 'grass_island', T0);

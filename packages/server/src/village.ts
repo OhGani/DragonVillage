@@ -30,6 +30,7 @@ import {
   type PhraseRegistry,
   type PotionRegistry,
   type RecipeRegistry,
+  type StarterKit,
   BUCKET,
   countOf,
   craft,
@@ -64,7 +65,7 @@ import {
   encodePlayersState,
   generateVillage,
 } from '@dragon-village/shared';
-import { EXPEDITIONS, PHRASES, POTIONS, RECIPES } from '@dragon-village/shared/data';
+import { EXPEDITIONS, PHRASES, POTIONS, RECIPES, STARTER_KIT } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import type { Storage } from './storage';
@@ -119,6 +120,8 @@ export interface RoomOptions {
   recipes?: RecipeRegistry;
   potions?: PotionRegistry;
   phrases?: PhraseRegistry;
+  /** 처음 들어오는 사람에게 주는 것 (null 이면 안 줌) */
+  starterKit?: StarterKit | null;
   /** 원정 시드 (테스트에서 고정) */
   seedFn?: () => number;
 }
@@ -147,6 +150,7 @@ export class VillageRoom {
   private readonly recipes: RecipeRegistry;
   private readonly potions: PotionRegistry;
   private readonly phrases: PhraseRegistry;
+  private readonly starterKit: StarterKit | null;
   private readonly seedFn: () => number;
   /** 통계 */
   stats = { blockChanges: 0, rejected: 0, flushes: 0, chunksSaved: 0, expeditions: 0 };
@@ -162,6 +166,7 @@ export class VillageRoom {
     this.recipes = opts.recipes ?? RECIPES;
     this.potions = opts.potions ?? POTIONS;
     this.phrases = opts.phrases ?? PHRASES;
+    this.starterKit = opts.starterKit === undefined ? STARTER_KIT : opts.starterKit;
     this.seedFn = opts.seedFn ?? (() => randomInt(1, 2 ** 31 - 1));
     const gen = generateVillage(registry, info.seed);
     this.world = gen.world;
@@ -232,14 +237,18 @@ export class VillageRoom {
     if (saved && saved.village === this.info.code && this.world.inBounds(Math.floor(saved.x), Math.floor(Math.max(0, Math.min(this.world.sizeY - 2, saved.y))), Math.floor(saved.z))) {
       pos = { x: saved.x, y: saved.y, z: saved.z, yaw: saved.yaw, pitch: saved.pitch, flags: 0 };
     }
-    const inv = this.storage?.getInventory(token) ?? emptyInventory();
+    const savedInv = this.storage?.getInventory(token) ?? null;
+    const inv = savedInv ?? emptyInventory();
+    // 처음 온 사람(가방 저장이 없음)에게 시작 키트 (#67). 저장소가 없는 시험 룸도 준다
+    if (savedInv === null && this.starterKit) for (const [item, n] of Object.entries(this.starterKit)) give(inv, item, n);
     const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0 };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     const me = this.toInfo(player);
     this.broadcastJson({ t: 'playerJoined', player: me }, idx, 'village');
     this.savePlayer(player);
-    this.log(`마을 ${this.info.code}: ${nick}(#${idx}) 입장, ${this.players.size}명`);
+    if (savedInv === null) this.storage?.saveInventory(token, this.info.code, inv); // 키트는 한 번만 — 바로 저장해 둔다
+    this.log(`마을 ${this.info.code}: ${nick}(#${idx}) 입장${savedInv === null ? ' (처음, 시작 키트)' : ''}, ${this.players.size}명`);
     return { idx, spawn: me, players: others, expedition: this.expeditionState(), inventory: inv };
   }
 
