@@ -1,5 +1,6 @@
 import './ui/styles.css';
 import { showLobby } from './ui/lobby';
+import { askPin } from './ui/pinDialog';
 
 const root = document.getElementById('app');
 if (!root) throw new Error('#app 이 없어요');
@@ -36,7 +37,30 @@ async function boot(): Promise<void> {
       lobby.setStatus('서버에 연결하는 중…');
       await net.connect();
       lobby.setStatus('마을에 들어가는 중…');
-      const welcome = choice.code ? await net.join(choice.nick, choice.color, choice.code) : await net.create(choice.nick, choice.color, `${choice.nick}의 마을`);
+      const enter = () => (choice.code ? net.join(choice.nick, choice.color, choice.code) : net.create(choice.nick, choice.color, `${choice.nick}의 마을`));
+      let welcome;
+      try {
+        welcome = await enter();
+      } catch (err) {
+        // 이 이름은 다른 기기의 것 → PIN 으로 이어하기 (#63)
+        const e = err as { name?: string; code?: string };
+        if (e?.name !== 'NetError' || e.code !== 'NICK_TAKEN') throw err;
+        lobby.setStatus('');
+        const pin = await askPin(root!, `"${choice.nick}" 은 이미 있는 이름이에요`, '네 이름이면 PIN 4자리를 넣어 이어해요.\n아니면 다른 이름으로 들어가요.', '이어하기');
+        if (!pin) {
+          lobby.setError('다른 이름을 적어 주세요');
+          net.close();
+          continue;
+        }
+        lobby.setStatus('이어하는 중…');
+        await net.resume(choice.nick, pin);
+        welcome = await enter();
+      }
+      if (welcome.needPin) {
+        // 처음 쓰는 이름: PIN 을 정해 두면 다른 폰에서도 이 계정으로 들어올 수 있다
+        const pin = await askPin(root!, 'PIN 정하기', `"${choice.nick}" 은 이제 네 이름이에요.\n다른 폰에서도 쓰려면 숫자 4자리 PIN 을 정해요. 잊지 마세요!`, '정하기', null);
+        if (pin) await net.setPin(pin);
+      }
       lobby.setStatus(`세계를 만드는 중… (마을 코드 ${welcome.village.code})`);
       try {
         localStorage.setItem('dv.code', welcome.village.code);

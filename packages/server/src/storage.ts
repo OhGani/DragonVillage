@@ -19,6 +19,13 @@ export interface ChunkRow {
   cz: number;
   blob: Uint8Array;
 }
+export interface AccountRow {
+  nickKey: string;
+  nick: string;
+  token: string;
+  pinHash: string | null;
+  createdAt: number;
+}
 export interface PlayerRow {
   token: string;
   village: string | null;
@@ -45,6 +52,8 @@ CREATE TABLE IF NOT EXISTS storage(
   village TEXT NOT NULL, item TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(village, item));
 CREATE TABLE IF NOT EXISTS inventories(
   token TEXT PRIMARY KEY, village TEXT, json TEXT NOT NULL, updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS accounts(
+  nick_key TEXT PRIMARY KEY, nick TEXT NOT NULL, token TEXT NOT NULL UNIQUE, pin_hash TEXT, created_at INTEGER NOT NULL);
 `;
 
 export class Storage {
@@ -74,6 +83,13 @@ export class Storage {
       ),
       getStorage: this.db.prepare('SELECT item, count FROM storage WHERE village = ? ORDER BY item'),
       getInventory: this.db.prepare('SELECT json FROM inventories WHERE token = ?'),
+      getAccountByNick: this.db.prepare('SELECT nick_key AS nickKey, nick, token, pin_hash AS pinHash, created_at AS createdAt FROM accounts WHERE nick_key = ?'),
+      getAccountByToken: this.db.prepare('SELECT nick_key AS nickKey, nick, token, pin_hash AS pinHash, created_at AS createdAt FROM accounts WHERE token = ?'),
+      upsertAccount: this.db.prepare(
+        'INSERT INTO accounts(nick_key, nick, token, pin_hash, created_at) VALUES (@nickKey, @nick, @token, @pinHash, @createdAt) ON CONFLICT(nick_key) DO UPDATE SET nick = excluded.nick, token = excluded.token, pin_hash = excluded.pin_hash',
+      ),
+      deleteAccount: this.db.prepare('DELETE FROM accounts WHERE nick_key = ?'),
+      setAccountPin: this.db.prepare('UPDATE accounts SET pin_hash = ? WHERE nick_key = ?'),
       upsertInventory: this.db.prepare(
         'INSERT INTO inventories(token, village, json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(token) DO UPDATE SET village = excluded.village, json = excluded.json, updated_at = excluded.updated_at',
       ),
@@ -147,6 +163,23 @@ export class Storage {
   }
   saveInventory(token: string, village: string, inv: Inventory, now = Date.now()): void {
     this.stmts.upsertInventory.run(token, village, JSON.stringify(inv), now);
+  }
+
+  /** 계정 (M5, #63) */
+  getAccountByNick(nickKey: string): AccountRow | undefined {
+    return this.stmts.getAccountByNick.get(nickKey) as AccountRow | undefined;
+  }
+  getAccountByToken(token: string): AccountRow | undefined {
+    return this.stmts.getAccountByToken.get(token) as AccountRow | undefined;
+  }
+  upsertAccount(row: AccountRow): void {
+    this.stmts.upsertAccount.run(row);
+  }
+  deleteAccount(nickKey: string): void {
+    this.stmts.deleteAccount.run(nickKey);
+  }
+  setAccountPin(nickKey: string, pinHash: string): void {
+    this.stmts.setAccountPin.run(pinHash, nickKey);
   }
 
   /** 온라인 백업 (WAL 포함 일관된 사본) */

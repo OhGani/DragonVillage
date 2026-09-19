@@ -15,10 +15,18 @@ import {
 } from '@dragon-village/shared';
 import { randomBytes } from 'node:crypto';
 import type { WebSocket } from 'ws';
+import { PIN_RE, type AccountService } from './accounts';
 import type { RoomManager } from './rooms';
 import type { VillageRoom } from './village';
 
 const TOKEN_RE = /^[a-f0-9]{32}$/;
+/** 이어하기 거절 이유 */
+const RESUME_ERROR_KO: Record<string, string> = {
+  NO_SUCH_NICK: '그 이름은 없어요',
+  NO_PIN: '그 이름은 아직 PIN 이 없어서 이어할 수 없어요. 처음 쓴 기기에서 PIN 을 정해 주세요',
+  BAD_PIN: 'PIN 이 틀렸어요',
+  PIN_LOCKED: '여러 번 틀려서 잠겼어요. 10분 뒤에 다시',
+};
 /** 제작·양조 거절 이유 */
 const CRAFT_ERROR_KO: Record<string, string> = {
   BAD_RECIPE: '그런 레시피는 없어요',
@@ -53,6 +61,7 @@ export class Session {
     private readonly rooms: RoomManager,
     private readonly log: (msg: string) => void,
     readonly remote: string,
+    private readonly accounts: AccountService | null = null,
   ) {
     ws.on('message', (data, isBinary) => this.onMessage(data as Buffer | Buffer[], isBinary));
     ws.on('close', () => this.onClose());
@@ -104,6 +113,13 @@ export class Session {
         const nick = sanitizeNick(msg.nick);
         if (!nick) return this.error('BAD_NICK', '이름을 1~8글자로 적어 주세요');
         const color = Number.isInteger(msg.color) && msg.color >= 0 && msg.color < PLAYER_COLOR_COUNT ? msg.color : 0;
+        // 이름은 서버 전체에서 하나 (#63): 다른 사람 것이면 PIN 으로 이어하거나 다른 이름을 써야 한다
+        let needPin = false;
+        if (this.accounts) {
+          const claim = this.accounts.claim(this.token, nick);
+          if (!claim.ok) return this.error('NICK_TAKEN', '이 이름은 이미 있어요. 네 것이면 PIN 을 넣어 이어하고, 아니면 다른 이름을 써 주세요');
+          needPin = claim.needPin;
+        }
         let room: VillageRoom | null;
         if (msg.t === 'join') {
           if (typeof msg.code !== 'string' || !VILLAGE_CODE_RE.test(msg.code)) return this.error('BAD_CODE', '마을 코드는 숫자 6자리예요');
@@ -126,7 +142,7 @@ export class Session {
         if (!result) return this.error('VILLAGE_FULL', '마을이 꽉 찼어요 (6명까지)');
         this.room = room;
         this.idx = result.idx;
-        this.sendJson({ t: 'welcome', playerIdx: result.idx, village: room.info, spawn: result.spawn, players: result.players, chunkCount: room.modifiedCount, expedition: result.expedition, inventory: result.inventory });
+        this.sendJson({ t: 'welcome', playerIdx: result.idx, village: room.info, spawn: result.spawn, players: result.players, chunkCount: room.modifiedCount, expedition: result.expedition, inventory: result.inventory, needPin });
         room.sendModifiedChunks(this.send);
         this.sendJson({ t: 'ready' });
         return;
@@ -136,6 +152,26 @@ export class Session {
         if (typeof msg.expedition !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
         const err = this.room.startExpedition(this.idx, msg.expedition);
         if (err) return this.error(err, START_ERROR_KO[err] ?? '지금은 출발할 수 없어요');
+        return;
+      }
+      case 'setPin': {
+        if (!this.token || !this.accounts) return this.error('NO_HELLO', '먼저 마을에 들어가야 해요');
+        if (typeof msg.pin !== 'string' || !PIN_RE.test(msg.pin)) return this.error('BAD_PIN', 'PIN 은 숫자 4자리예요');
+        if (!this.accounts.setPin(this.token, msg.pin)) return this.error('NO_ACCOUNT', '먼저 이름으로 마을에 들어가야 해요');
+        this.sendJson({ t: 'pinSet' });
+        return;
+      }
+      case 'resume': {
+        if (!this.token) return this.error('NO_HELLO', '먼저 인사(hello)를 해야 해요', true);
+        if (this.room) return this.error('ALREADY_IN', '이미 마을에 있어요');
+        if (!this.accounts) return this.error('NO_ACCOUNT', '이 서버는 이어하기를 지원하지 않아요');
+        const nick = sanitizeNick(msg.nick);
+        if (!nick || typeof msg.pin !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const r = this.accounts.resume(nick, msg.pin);
+        if (!r.ok) return this.error(r.reason, RESUME_ERROR_KO[r.reason]);
+        this.token = r.token;
+        this.log(`세션 ${this.remote}: '${nick}' 이어하기 성공`);
+        this.sendJson({ t: 'resumed', token: r.token });
         return;
       }
       case 'craft': {

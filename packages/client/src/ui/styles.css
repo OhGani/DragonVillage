@@ -1141,3 +1141,19 @@ body {
   padding: 2px 8px;
   border-radius: 4px;
 }
+
+/* ---------- PIN 창 (M5) ---------- */
+.pin-dialog {
+  z-index: 20;
+}
+.pin-input {
+  display: block;
+  width: 160px;
+  margin: 0 auto 10px;
+  text-align: center;
+  font-size: 26px;
+  letter-spacing: 10px;
+}
+.pin-error {
+  margin: 0 0 10px;
+}

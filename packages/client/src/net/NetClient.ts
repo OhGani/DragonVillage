@@ -49,6 +49,8 @@ export interface Welcome {
   expedition: ExpeditionStateInfo | null;
   /** 가방 37칸 (M4) */
   inventory: Inventory;
+  /** 이 이름에 PIN 이 없다 → 정하기 창 (M5) */
+  needPin: boolean;
 }
 
 /** 세계 전환 (worldEnter … ChunkData … ready 를 하나로 모은 것) */
@@ -117,6 +119,8 @@ export class NetClient {
   private pendingWorld: WorldEnter | null = null;
   private joinResolve: ((w: Welcome) => void) | null = null;
   private joinReject: ((e: Error) => void) | null = null;
+  private resumeResolve: ((token: string) => void) | null = null;
+  private pinResolve: (() => void) | null = null;
   private helloResolve: (() => void) | null = null;
   private pingTimer: number | null = null;
   private pingSent = 0;
@@ -183,6 +187,23 @@ export class NetClient {
   }
   create(nick: string, color: number, name: string): Promise<Welcome> {
     return this.enter({ t: 'create', nick, color, name });
+  }
+
+  /** 다른 기기에서 이어하기: 이름 + PIN → 그 계정 토큰을 받아 저장한다 (그 뒤 join 을 다시) */
+  resume(nick: string, pin: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      this.resumeResolve = resolve;
+      this.joinReject = reject;
+      this.sendJson({ t: 'resume', nick, pin });
+    });
+  }
+  /** PIN 정하기 (마을에 들어간 뒤) */
+  setPin(pin: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.pinResolve = resolve;
+      this.joinReject = reject;
+      this.sendJson({ t: 'setPin', pin });
+    });
   }
 
   private enter(msg: ClientJson): Promise<Welcome> {
@@ -265,7 +286,24 @@ export class NetClient {
           chunks: [],
           expedition: msg.expedition ?? null,
           inventory: (msg.inventory ?? new Array(37).fill(null)) as Inventory,
+          needPin: msg.needPin === true,
         };
+        return;
+      case 'resumed':
+        this.token = msg.token;
+        try {
+          (this.freshTab ? sessionStorage : localStorage).setItem(TOKEN_KEY, msg.token);
+        } catch {
+          /* 무시 */
+        }
+        this.resumeResolve?.(msg.token);
+        this.resumeResolve = null;
+        this.joinReject = null;
+        return;
+      case 'pinSet':
+        this.pinResolve?.();
+        this.pinResolve = null;
+        this.joinReject = null;
         return;
       case 'worldEnter':
         this.pendingWorld = { kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] };

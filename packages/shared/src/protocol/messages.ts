@@ -346,7 +346,11 @@ export type ClientJson =
   /** 제작 (M4): 가방·제작대·화로 레시피 id */
   | { t: 'craft'; recipe: string }
   /** 양조 (M4): 병 칸 번호들(1~3) + 재료 칸 */
-  | { t: 'brew'; bottles: number[]; ingredient: number };
+  | { t: 'brew'; bottles: number[]; ingredient: number }
+  /** PIN 정하기·바꾸기 (M5, #63). 마을에 들어간 뒤 */
+  | { t: 'setPin'; pin: string }
+  /** 다른 기기에서 이어하기: 이름 + PIN → 그 계정 토큰 (hello 뒤, join 전) */
+  | { t: 'resume'; nick: string; pin: string };
 
 export type ServerJson =
   | { t: 'hello'; token: string; protocol: number }
@@ -360,7 +364,12 @@ export type ServerJson =
       expedition?: ExpeditionStateInfo | null;
       /** 가방 37칸 (M4). null = 빈 칸 */
       inventory?: ({ item: string; count: number } | null)[];
+      /** 이 이름에 아직 PIN 이 없다 → 클라가 PIN 정하기 창을 띄운다 (M5) */
+      needPin?: boolean;
     }
+  /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
+  | { t: 'resumed'; token: string }
+  | { t: 'pinSet' }
   /** 저장된 청크를 다 보냈다 — 이제 놀 수 있다 (welcome·worldEnter 뒤 ChunkData 들 다음에) */
   | { t: 'ready' }
   /** 세계 전환: 마을 ↔ 원정. 이어서 그 세계의 바뀐 청크(ChunkData)와 ready 가 온다 */

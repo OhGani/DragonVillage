@@ -15,6 +15,7 @@ import { createServer } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
+import { AccountService } from './accounts';
 import { RoomManager } from './rooms';
 import { Session } from './session';
 import { serveStatic } from './static';
@@ -33,6 +34,7 @@ const log = (msg: string): void => console.log(`${new Date().toISOString().slice
 mkdirSync(DATA_DIR, { recursive: true });
 const storage = new Storage(DB_PATH);
 const rooms = new RoomManager(storage, BLOCKS, log);
+const accounts = new AccountService(storage);
 const home = rooms.ensureDefault(process.env.DV_DEFAULT_CODE);
 writeFileSync(join(DATA_DIR, 'default-village-code.txt'), `${home.info.code}\n`);
 log(`기본 마을 "${home.info.name}" 코드 ${home.info.code} (저장 청크 ${home.modifiedCount}개)`);
@@ -62,7 +64,7 @@ http.on('upgrade', (req, socket, head) => {
   }
   wss.handleUpgrade(req, socket, head, (ws) => {
     const remote = String(req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? '?');
-    new Session(ws, rooms, log, remote);
+    new Session(ws, rooms, log, remote, accounts);
   });
 });
 
