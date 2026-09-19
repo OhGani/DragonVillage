@@ -284,12 +284,11 @@ body {
   touch-action: manipulation;
 }
 
-/* ---------- 나침반 (위 가운데) ---------- */
+/* ---------- 나침반 (왼쪽 위 — 가운데는 원정 타이머 자리, 아빠 2026-09-19) ---------- */
 .compass {
   position: absolute;
   top: max(8px, env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
+  left: max(8px, env(safe-area-inset-left));
   display: flex;
   flex-direction: column;
   align-items: center;
