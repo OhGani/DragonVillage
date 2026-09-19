@@ -192,6 +192,20 @@ const GRASS = [91, 153, 55];
 const BARK = [102, 81, 50];
 const WOOD = [162, 130, 78];
 
+/** 상자 나무: 가로 판자 3장, 오렌지빛 참나무 */
+function chestWood(c, bright) {
+  const base = [168, 116, 52];
+  for (let y = 0; y < S; y++) {
+    const board = Math.floor(y / 5);
+    const k = bright * (1 + ((board * 7919) % 5 - 2) * 0.035);
+    for (let x = 0; x < S; x++) {
+      const n = (c.rnd() - 0.5) * 22;
+      const grain = c.rnd() < 0.12 ? 0.8 : 1;
+      c.set(x, y, base[0] * k * grain + n, base[1] * k * grain + n, base[2] * k * grain + n);
+    }
+  }
+}
+
 const TEX = {
   missing: (c) => {
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) ((x >> 3) + (y >> 3)) & 1 ? c.set(x, y, 0, 0, 0) : c.set(x, y, 248, 0, 248);
@@ -461,11 +475,21 @@ const TEX = {
     for (let y = 4; y <= 8; y++) for (let x = 4; x <= 11; x++) if (!((y === 4 || y === 8) && (x === 4 || x === 11))) c.set(x, y, 40, 200, 180);
     for (const [x, y] of [[5, 5], [9, 6], [7, 4], [10, 7]]) c.set(x, y, 240, 120, 60);
   },
-  chest: (c) => {
-    c.noise([150, 108, 58], 12);
-    c.frame([90, 62, 30]);
-    for (let x = 0; x < S; x++) c.set(x, 6, 90, 62, 30);
-    for (let y = 5; y <= 8; y++) for (const x of [7, 8]) c.set(x, y, 140, 140, 140);
+  // 상자 — 아빠가 보낸 마인크래프트 상자 그림(2026-09-19): 어두운 테두리, 가로 판자 무늬, 뚜껑 아래 검은 띠, 회색 걸쇠
+  chest_top: (c) => {
+    chestWood(c, 1.08);
+    c.frame([34, 26, 18]);
+  },
+  chest_side: (c) => {
+    chestWood(c, 1);
+    c.frame([34, 26, 18]);
+    for (let x = 0; x < S; x++) c.set(x, 6, 34, 26, 18); // 뚜껑 아래 띠
+    for (let x = 0; x < S; x++) c.mul(x, 5, 0.8);
+    for (let y = 4; y <= 8; y++) {
+      c.set(7, y, 170, 170, 172);
+      c.set(8, y, 128, 128, 130);
+    }
+    c.set(7, 4, 200, 200, 202);
   },
   bed: (c) => {
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) (y < 10 ? c.set(x, y, 180 + (c.rnd() - 0.5) * 14, 40, 40) : c.set(x, y, WOOD[0], WOOD[1], WOOD[2]));

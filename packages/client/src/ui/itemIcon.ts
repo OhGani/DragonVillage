@@ -78,24 +78,39 @@ function drawItem(ctx: CanvasRenderingContext2D, id: string, name: string, s: nu
     return;
   }
   if (isBucket) {
-    const liquid = id === 'water_bucket' ? '#3d7be6' : id === 'lava_bucket' ? '#ff7a1a' : id === 'milk_bucket' ? '#f4f4f4' : null;
-    ctx.fillStyle = '#9a9a9a';
-    ctx.beginPath();
-    ctx.moveTo(3 * u, 5 * u);
-    ctx.lineTo(13 * u, 5 * u);
-    ctx.lineTo(11.5 * u, 14.5 * u);
-    ctx.lineTo(4.5 * u, 14.5 * u);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    // 마인크래프트 양동이 픽셀 그림(아빠가 보낸 그림, 2026-09-19): 어두운 테두리, 위 손잡이, 왼쪽 밝은 면, 안에 액체
+    const liquid = id === 'water_bucket' ? ['#2f5fd6', '#4d86ff'] : id === 'lava_bucket' ? ['#e0561a', '#ffa030'] : id === 'milk_bucket' ? ['#e8e8e8', '#ffffff'] : null;
+    const px = (x: number, y: number, w: number, h: number, color: string) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(x * u, y * u, w * u, h * u);
+    };
+    const EDGE = '#2a2a2a';
+    const DARK = '#5c5c5c';
+    const MID = '#9a9a9a';
+    const LIGHT = '#d9d9d9';
     // 손잡이
-    ctx.beginPath();
-    ctx.arc(8 * u, 5 * u, 4.2 * u, Math.PI, 0);
-    ctx.stroke();
-    if (liquid) {
-      ctx.fillStyle = liquid;
-      ctx.fillRect(4 * u, 5.6 * u, 8 * u, 2.2 * u);
-    }
+    px(6, 1, 4, 1, EDGE);
+    px(5, 2, 1, 1, EDGE);
+    px(10, 2, 1, 1, EDGE);
+    px(4, 3, 1, 1, EDGE);
+    px(11, 3, 1, 1, EDGE);
+    // 테 (윗면 타원)
+    px(3, 4, 10, 1, EDGE);
+    px(2, 5, 12, 1, EDGE);
+    px(3, 5, 10, 1, liquid ? liquid[0] : DARK);
+    px(4, 5, 4, 1, liquid ? liquid[1] : MID);
+    // 몸통: 위가 넓고 아래로 좁아진다
+    px(2, 6, 12, 4, EDGE);
+    px(3, 6, 10, 4, MID);
+    px(3, 6, 2, 4, LIGHT);
+    px(11, 6, 1, 4, DARK);
+    px(3, 10, 10, 3, EDGE);
+    px(4, 10, 8, 3, MID);
+    px(4, 10, 2, 3, LIGHT);
+    px(10, 10, 1, 3, DARK);
+    px(4, 13, 8, 1, EDGE);
+    px(5, 13, 6, 1, DARK);
+    px(5, 14, 6, 1, EDGE);
     return;
   }
   if (isTool) {

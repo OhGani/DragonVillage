@@ -483,7 +483,9 @@
       "hardness": 2.5,
       "tool": null,
       "lightEmit": 0,
-      "texture": "chest",
+      "textureTop": "chest_top",
+      "textureSide": "chest_side",
+      "textureBottom": "chest_top",
       "shape": "chest"
     },
     {
