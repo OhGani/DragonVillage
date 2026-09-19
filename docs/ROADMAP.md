@@ -210,10 +210,10 @@ M4 에서 하지 않는 것: 아이템 엔티티(바닥에 떨어지는 것 — 
 
 목표: **아들이 할 일 체크 → 아빠가 폰(또는 게임 내 HUD)에서 승인 → 한 판 더 열린다. 월요일 정산 확인.** 규칙 4(할 일 보상은 시간만)·5(기본 시간은 서버가 안 깎음)·6(닉네임 + PIN, 이메일은 부모만). 설계 정본 `docs/FAMILY-SYSTEM.md`, 값은 `data/family-rules.json`(아들 값: 평일 20/주말 30, 보너스 한도 5).
 
-### 1. 닉네임 + PIN 이어하기 (`server/accounts.ts`, 결정 #63)
-- [ ] `accounts(nick_key, nick, token, pin_hash)`: 이름은 서버 전체 하나(공백·대소문자 무시). 첫 입장 때 내 토큰 것이 되고 welcome `needPin` → 로비가 PIN 정하기 창. PIN 은 scrypt 해시
-- [ ] 다른 기기에서 같은 이름 → `NICK_TAKEN` → PIN 창 → `resume{nick,pin}` → `resumed{token}` → 토큰 바꿔 저장하고 다시 join. 틀리면 이름당 10분에 5번
-- [ ] 테스트: 첫 입장·재입장·다른 토큰 거절·PIN 정하기·이어하기·잠금·이름 바꾸기·저장
+### 1. 닉네임 + PIN 이어하기 (`server/accounts.ts`, 결정 #63) — 완료·라이브 배포 2026-09-19 (패널 검증: 새 이름 → PIN 정하기 → 다른 토큰으로 같은 이름 → "이미 있는 이름" → 틀린 PIN 거절 → 맞는 PIN → 같은 토큰·같은 가방)
+- [x] `accounts(nick_key, nick, token, pin_hash)`: 이름은 서버 전체 하나(공백·대소문자 무시). 첫 입장 때 내 토큰 것이 되고 welcome `needPin` → 로비가 PIN 정하기 창. PIN 은 scrypt 해시
+- [x] 다른 기기에서 같은 이름 → `NICK_TAKEN` → PIN 창 → `resume{nick,pin}` → `resumed{token}` → 토큰 바꿔 저장하고 다시 join. 틀리면 이름당 10분에 5번
+- [x] 테스트 5개: 첫 입장·재입장·다른 토큰 거절·PIN 정하기·이어하기·잠금·이름 바꾸기·저장. 전체 184개
 
 ### 2. 부모 계정·가족 (`server/family.ts`, HTTP `/family`)
 - [ ] `parents(email, pw_hash)`, `families(code)`, `children(nick_key → family)`. 부모 가입·로그인(세션 쿠키), 가족 코드 6자리
