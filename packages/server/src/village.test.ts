@@ -33,6 +33,10 @@ function inbox() {
 function makeRoom(storage: Storage | null = null) {
   return new VillageRoom({ ...INFO }, BLOCKS, storage);
 }
+/** M4: 블록이 유한하므로 시험 전에 손에 쥐어 준다 */
+function kit(room: VillageRoom, idx: number) {
+  for (const item of ['stone', 'glowstone', 'planks', 'water_bucket', 'bucket']) room.giveItems(idx, item, 64);
+}
 
 describe('VillageRoom 입장·퇴장', () => {
   it('스폰은 광장, 둘째 사람에게 첫째가 보이고 첫째는 playerJoined 를 받는다', () => {
@@ -80,6 +84,7 @@ describe('VillageRoom 블록 변경 검증', () => {
       b = inbox();
     const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
     const rb = room.join('b'.repeat(32), '아들', 1, b.send)!;
+    kit(room, ra.idx);
     // 아들은 멀리(동쪽 밭 근처)
     room.onMove(rb.idx, { x: 100.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: FLAG_GROUND });
     a.clear();
@@ -164,6 +169,8 @@ describe('VillageRoom 액체 틱과 저장', () => {
     const room = makeRoom();
     const a = inbox();
     const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    kit(room, ra.idx);
+    a.clear();
     room.onBlockChange(ra.idx, { seq: 1, x: 66, y: GROUND_Y + 1, z: 64, id: 'water%8' }, 1000);
     let now = 1000;
     for (let i = 0; i < 12; i++) room.tick((now += TICK_MS));
@@ -182,6 +189,7 @@ describe('VillageRoom 액체 틱과 저장', () => {
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage);
     const a = inbox();
     const ra = room.join('a'.repeat(32), '아빠', 2, a.send)!;
+    kit(room, ra.idx);
     room.onMove(ra.idx, { x: 70.5, y: GROUND_Y + 1, z: 70.5, yaw: 1, pitch: 0.2, flags: 0 });
     room.onBlockChange(ra.idx, { seq: 1, x: 72, y: GROUND_Y + 1, z: 70, id: 'planks' }, 1000);
     room.flush(2000);

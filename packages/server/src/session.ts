@@ -19,6 +19,17 @@ import type { RoomManager } from './rooms';
 import type { VillageRoom } from './village';
 
 const TOKEN_RE = /^[a-f0-9]{32}$/;
+/** 제작·양조 거절 이유 */
+const CRAFT_ERROR_KO: Record<string, string> = {
+  BAD_RECIPE: '그런 레시피는 없어요',
+  NOT_YET: '대장간은 아직 준비 중이에요',
+  NO_STATION: '제작대(화로·양조기) 가까이에서 만들 수 있어요',
+  MISSING: '재료가 모자라요',
+  BAD_BOTTLES: '병 칸에는 물병이나 물약을 한 개씩 놓아요',
+  NO_INGREDIENT: '재료 칸이 비었어요',
+  NO_EFFECT: '그 재료로는 아무것도 안 돼요',
+  NO_FUEL: '블레이즈 가루가 있어야 양조기가 돌아가요',
+};
 /** 원정 시작 거절 이유 (초5가 읽을 말) */
 const START_ERROR_KO: Record<string, string> = {
   ALREADY_OUT: '이미 원정 중이에요',
@@ -115,7 +126,7 @@ export class Session {
         if (!result) return this.error('VILLAGE_FULL', '마을이 꽉 찼어요 (6명까지)');
         this.room = room;
         this.idx = result.idx;
-        this.sendJson({ t: 'welcome', playerIdx: result.idx, village: room.info, spawn: result.spawn, players: result.players, chunkCount: room.modifiedCount, expedition: result.expedition });
+        this.sendJson({ t: 'welcome', playerIdx: result.idx, village: room.info, spawn: result.spawn, players: result.players, chunkCount: room.modifiedCount, expedition: result.expedition, inventory: result.inventory });
         room.sendModifiedChunks(this.send);
         this.sendJson({ t: 'ready' });
         return;
@@ -125,6 +136,20 @@ export class Session {
         if (typeof msg.expedition !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
         const err = this.room.startExpedition(this.idx, msg.expedition);
         if (err) return this.error(err, START_ERROR_KO[err] ?? '지금은 출발할 수 없어요');
+        return;
+      }
+      case 'craft': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (typeof msg.recipe !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.craft(this.idx, msg.recipe);
+        if (err) return this.error(err, CRAFT_ERROR_KO[err] ?? '지금은 만들 수 없어요');
+        return;
+      }
+      case 'brew': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Array.isArray(msg.bottles) || !msg.bottles.every((b) => Number.isInteger(b)) || !Number.isInteger(msg.ingredient)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.brew(this.idx, msg.bottles, msg.ingredient);
+        if (err) return this.error(err, CRAFT_ERROR_KO[err] ?? '지금은 양조할 수 없어요');
         return;
       }
       case 'returnHome': {
@@ -148,6 +173,9 @@ export class Session {
     if (!this.room) return;
     if (d.type === MSG.PlayerMove) this.room.onMove(this.idx, d.msg);
     else if (d.type === MSG.BlockChangeReq) this.room.onBlockChange(this.idx, d.msg);
+    else if (d.type === MSG.InvMove) this.room.onInvMove(this.idx, d.msg);
+    else if (d.type === MSG.InvDrop) this.room.onInvDrop(this.idx, d.msg);
+    else if (d.type === MSG.Emote) this.room.onEmote(this.idx, d.msg.kind, d.msg.id);
   }
 
   private onClose(): void {

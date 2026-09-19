@@ -96,14 +96,16 @@ describe('원정 중 블록·위치·타이머', () => {
     expect(b.bin.find((m) => m.type === MSG.BlockChanged)).toBeUndefined();
     expect(e.world.getBlock(x, y, z)).toBe(0);
     expect(room.modifiedCount).toBe(0); // 마을 세계는 그대로
-    expect(e.tallyOf(ia)).toEqual([{ id: 'cobblestone', count: 1 }]);
+    expect(room.gainedOf(ia)).toEqual([{ id: 'cobblestone', count: 1 }]);
+    expect(room.players.get(ia)!.inv[0]).toEqual({ item: 'cobblestone', count: 1 });
+    expect(a.bin.find((m) => m.type === MSG.InvSlots)).toMatchObject({ msg: { slots: [{ slot: 0, item: 'cobblestone', count: 1 }] } });
     expect(e.modifiedCount).toBe(1);
     // 발광석은 2~4개
     const g = { x: 124, y, z: 125 }; // 단 모서리 발광석
     expect(BLOCKS.get(e.world.getBlock(g.x, g.y, g.z)).id).toBe('glowstone');
     room.onMove(ia, { x: g.x + 0.5, y: sp.y, z: g.z + 1.5, yaw: 0, pitch: 0, flags: 0 });
     room.onBlockChange(ia, { seq: 2, ...g, id: 'air' }, T0 + 200);
-    const dust = e.tallyOf(ia).find((t) => t.id === 'glowstone_dust')!;
+    const dust = room.gainedOf(ia).find((t) => t.id === 'glowstone_dust')!;
     expect(dust.count).toBeGreaterThanOrEqual(2);
     expect(dust.count).toBeLessThanOrEqual(4);
   });
@@ -173,7 +175,8 @@ describe('귀환·정산·종료', () => {
     expect(b.json.find((m) => m.t === 'playerJoined')).toMatchObject({ player: { idx: ia } });
     expect(b.json.find((m) => m.t === 'expeditionState')).toMatchObject({ expedition: null }); // 모두 돌아오면 원정 종료 → 다음 출발은 새 섬
     expect(room.expedition!.ended).toBe(true);
-    expect(storage.getStorage(INFO.code)).toEqual([{ item: 'cobblestone', count: 2 }]);
+    expect(room.players.get(ia)!.inv[0]).toEqual({ item: 'cobblestone', count: 2 }); // 가방에 (창고가 아니라, #66)
+    expect(storage.getInventory('a'.repeat(32))![0]).toEqual({ item: 'cobblestone', count: 2 });
     expect(room.players.get(ia)!.world).toBe('village');
     expect(room.expedition!.members.size).toBe(0);
     expect(room.returnHome(ia, T0 + 61_000)).toBe('NOT_OUT');
@@ -196,6 +199,7 @@ describe('귀환·정산·종료', () => {
     room.tick(end + 10);
     const result = a.json.find((m) => m.t === 'expeditionResult')!;
     expect(result).toMatchObject({ late: true, keepRatio: 0.5, items: [{ id: 'cobblestone', count: 2 }] }); // 3 × 0.5 올림 = 2
+    expect(room.players.get(ia)!.inv[0]).toEqual({ item: 'cobblestone', count: 2 }); // 1개는 잃었다
     expect(room.players.get(ia)!.world).toBe('village');
     expect(e.ended).toBe(true);
     // 유예 동안 원정 세계는 남아 있다가(늦은 정산 전송용) 비면 폐기된다
@@ -208,7 +212,7 @@ describe('귀환·정산·종료', () => {
     expect(room.expedition!.ended).toBe(false);
   });
 
-  it('원정 중에 연결이 끊기면 모은 것은 버려지고 마을 스폰 위치로 저장된다', () => {
+  it('원정 중에 연결이 끊기면 모은 것의 절반만 남고 마을 스폰 위치로 저장된다', () => {
     const storage = new Storage(':memory:');
     storage.createVillage({ ...INFO, createdAt: 1 });
     const { room, ia, b } = setup(storage);
@@ -218,6 +222,5 @@ describe('귀환·정산·종료', () => {
     expect(room.expedition!.members.size).toBe(0);
     expect(b.json.find((m) => m.t === 'expeditionState')).toMatchObject({ expedition: null });
     expect(storage.getPlayer('a'.repeat(32))).toMatchObject({ x: 64.5, y: GROUND_Y + 1 });
-    expect(storage.getStorage(INFO.code)).toEqual([]);
   });
 });

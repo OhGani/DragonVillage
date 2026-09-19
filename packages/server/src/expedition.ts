@@ -2,24 +2,20 @@
  * 원정 세계 하나 (M3). 마을 룸 안의 임시 서브 월드 — 시드로 생성, 저장하지 않고, 끝나면 버린다 (DESIGN 3절).
  *
  * - 타이머: 시작 시각 + durationSec. 낮·저녁·밤은 shared/rules/expeditions 의 순수 함수.
- * - 정산(M3, 가방은 M4): 플레이어가 부순 블록의 드롭을 여기서 센다. 귀환하면 그 목록이 정산이고 마을 창고에 더해진다.
- *   늦게(강제) 돌아오면 keepRatio 만큼만.
+ * - 전리품(M4): 원정 중 가방에 들어온 것은 룸이 플레이어별로 센다(RoomPlayer.gained). 늦게 돌아오면 그중 절반을 잃는다.
  * - 액체 시뮬은 마을과 같은 코드(FluidSim). 바뀐 청크는 늦게 합류한 사람에게 ChunkData 로.
  */
 import {
-  type BlockDef,
   type BlockRegistry,
   type ChunkCoord,
   type ExpeditionDef,
-  type ExpeditionResultItem,
   FluidSim,
   ISLAND_GEN_VERSION,
   type VoxelWorld,
   chunkKey,
   generateIsland,
-  hash3,
-  portalContains,
   phaseAt,
+  portalContains,
   remainingSec,
 } from '@dragon-village/shared';
 
@@ -42,8 +38,6 @@ export class Expedition {
   readonly members = new Set<number>();
   /** 생성 지형과 달라진 청크 (합류자에게 보낼 것) */
   private readonly modified = new Map<number, ChunkCoord>();
-  /** 플레이어별 모은 것 */
-  private readonly tally = new Map<number, Map<string, number>>();
   batch: { x: number; y: number; z: number; id: string }[] = [];
   /** 시간이 다 됐다 (강제 귀환 시작) */
   ended = false;
@@ -94,36 +88,5 @@ export class Expedition {
   /** 포탈 문틀 안(4×5 흑요석 틀의 가운데 2×3 공기)에 서 있나 — 귀환 판정 */
   inPortal(x: number, y: number, z: number): boolean {
     return portalContains(this.portal, x, y, z);
-  }
-
-  /** 부순 블록의 드롭을 센다. dropCount 범위는 자리·시드로 결정론적으로 뽑는다 */
-  onBroken(idx: number, def: BlockDef, x: number, y: number, z: number): void {
-    if (!def.drops || def.fluid) return;
-    const [lo, hi] = def.dropCount;
-    const n = hi > lo ? lo + Math.floor(hash3(x, y, z, this.seed) * (hi - lo + 1)) : lo;
-    if (n <= 0) return;
-    let bag = this.tally.get(idx);
-    if (!bag) this.tally.set(idx, (bag = new Map()));
-    bag.set(def.drops, (bag.get(def.drops) ?? 0) + n);
-  }
-
-  /** 모은 것 (정산). late 면 keepRatio 만큼(올림 — 1개는 1개) */
-  settle(idx: number, late: boolean, keepRatio: number): ExpeditionResultItem[] {
-    const bag = this.tally.get(idx);
-    this.tally.delete(idx);
-    if (!bag) return [];
-    const ratio = late ? keepRatio : 1;
-    const out: ExpeditionResultItem[] = [];
-    for (const [id, count] of [...bag.entries()].sort((a, b) => b[1] - a[1])) {
-      const kept = Math.ceil(count * ratio);
-      if (kept > 0) out.push({ id, count: kept });
-    }
-    return out;
-  }
-
-  /** 시험·디버그: 지금까지 센 것 */
-  tallyOf(idx: number): ExpeditionResultItem[] {
-    const bag = this.tally.get(idx);
-    return bag ? [...bag.entries()].map(([id, count]) => ({ id, count })) : [];
   }
 }

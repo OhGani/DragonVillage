@@ -2,6 +2,7 @@
  * SQLite 저장 (better-sqlite3). 마을·바뀐 청크·플레이어. ARCHITECTURE.md '저장' 절의 M2 부분.
  * 청크 blob 은 shared/chunk/serialize 의 형식(문자열 팔레트 + RLE) 그대로.
  */
+import { type Inventory, isValidInventory } from '@dragon-village/shared';
 import Database from 'better-sqlite3';
 import { copyFileSync } from 'node:fs';
 
@@ -42,6 +43,8 @@ CREATE TABLE IF NOT EXISTS players(
   x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL, yaw REAL NOT NULL, pitch REAL NOT NULL, last_seen INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS storage(
   village TEXT NOT NULL, item TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(village, item));
+CREATE TABLE IF NOT EXISTS inventories(
+  token TEXT PRIMARY KEY, village TEXT, json TEXT NOT NULL, updated_at INTEGER NOT NULL);
 `;
 
 export class Storage {
@@ -70,6 +73,10 @@ export class Storage {
         'INSERT INTO storage(village, item, count) VALUES (?, ?, ?) ON CONFLICT(village, item) DO UPDATE SET count = count + excluded.count',
       ),
       getStorage: this.db.prepare('SELECT item, count FROM storage WHERE village = ? ORDER BY item'),
+      getInventory: this.db.prepare('SELECT json FROM inventories WHERE token = ?'),
+      upsertInventory: this.db.prepare(
+        'INSERT INTO inventories(token, village, json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(token) DO UPDATE SET village = excluded.village, json = excluded.json, updated_at = excluded.updated_at',
+      ),
       upsertPlayer: this.db.prepare(
         `INSERT INTO players(token, village, nick, color, x, y, z, yaw, pitch, last_seen)
          VALUES (@token, @village, @nick, @color, @x, @y, @z, @yaw, @pitch, @lastSeen)
@@ -125,6 +132,21 @@ export class Storage {
   }
   getStorage(code: string): { item: string; count: number }[] {
     return this.stmts.getStorage.all(code) as { item: string; count: number }[];
+  }
+
+  /** 가방 (M4). 없으면 null. 모양이 이상하면(옛 저장) null */
+  getInventory(token: string): Inventory | null {
+    const row = this.stmts.getInventory.get(token) as { json: string } | undefined;
+    if (!row) return null;
+    try {
+      const v: unknown = JSON.parse(row.json);
+      return isValidInventory(v) ? v : null;
+    } catch {
+      return null;
+    }
+  }
+  saveInventory(token: string, village: string, inv: Inventory, now = Date.now()): void {
+    this.stmts.upsertInventory.run(token, village, JSON.stringify(inv), now);
   }
 
   /** 온라인 백업 (WAL 포함 일관된 사본) */

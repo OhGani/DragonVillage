@@ -25,10 +25,18 @@ export const MSG = {
   BlockChangeRejected: 0x12,
   /** S→C 서버가 바꾼 블록 묶음 (액체 흐름 등) */
   BlockBatch: 0x13,
+  /** S→C 가방 칸 바뀜 (M4) */
+  InvSlots: 0x14,
+  /** C→S 가방 칸 옮기기 */
+  InvMove: 0x15,
+  /** C→S 버리기 (사라짐) */
+  InvDrop: 0x16,
   /** S→C 입장 시 저장된 청크 (blob) */
   ChunkData: 0x20,
   /** S→C 원정 중 1Hz: 경과·전체 초, 낮/저녁/밤 */
   ExpeditionTimer: 0x30,
+  /** 양방향 채팅: 이모지·문구 번호만 (규칙 3). C→S 는 idx 무시 */
+  Emote: 0x40,
   Ping: 0x7f,
   Pong: 0x7e,
 } as const;
@@ -53,6 +61,8 @@ export const REJECT = {
   INVALID: 6,
   OCCUPIED: 7,
   UNBREAKABLE: 8,
+  /** 가방에 그 아이템(또는 양동이)이 없다 (M4) */
+  NO_ITEM: 9,
 } as const;
 /** 초5가 읽을 거절 이유 */
 export const REJECT_KO: readonly string[] = [
@@ -65,6 +75,7 @@ export const REJECT_KO: readonly string[] = [
   '놓을 수 없는 블록이에요',
   '누가 서 있어요',
   '부술 수 없는 블록이에요',
+  '가방에 그게 없어요',
 ];
 
 export interface PlayerMoveMsg {
@@ -118,6 +129,30 @@ export interface ExpeditionTimerMsg {
   phase: number;
 }
 export const PHASE_NUM = { day: 0, evening: 1, night: 2 } as const;
+/** 가방 칸 하나 (M4). count 0 = 빈 칸 */
+export interface InvSlotEntry {
+  slot: number;
+  item: string;
+  count: number;
+}
+export interface InvSlotsMsg {
+  slots: InvSlotEntry[];
+}
+export interface InvMoveMsg {
+  from: number;
+  to: number;
+  count: number;
+}
+export interface InvDropMsg {
+  slot: number;
+  count: number;
+}
+/** 채팅. kind 0 이모지(번호 = 파일 순서) / 1 문구(id). idx 는 서버가 채운다 */
+export interface EmoteMsg {
+  idx: number;
+  kind: number;
+  id: number;
+}
 
 // ---------------------------------------------------------------- 인코딩
 
@@ -147,6 +182,20 @@ export function encodeBlockChangeRejected(m: BlockChangeRejectedMsg): Uint8Array
 export function encodeChunkData(m: ChunkDataMsg): Uint8Array {
   return new ByteWriter(17 + m.bytes.length).u8(MSG.ChunkData).i32(m.cx).i32(m.cy).i32(m.cz).bytes(m.bytes).finish();
 }
+export function encodeInvSlots(m: InvSlotsMsg): Uint8Array {
+  const w = new ByteWriter(2 + m.slots.length * 20).u8(MSG.InvSlots).u8(m.slots.length);
+  for (const e of m.slots) w.u8(e.slot).str(e.count > 0 ? e.item : '').u8(e.count);
+  return w.finish();
+}
+export function encodeInvMove(m: InvMoveMsg): Uint8Array {
+  return new ByteWriter(4).u8(MSG.InvMove).u8(m.from).u8(m.to).u8(m.count).finish();
+}
+export function encodeInvDrop(m: InvDropMsg): Uint8Array {
+  return new ByteWriter(3).u8(MSG.InvDrop).u8(m.slot).u8(m.count).finish();
+}
+export function encodeEmote(m: EmoteMsg): Uint8Array {
+  return new ByteWriter(4).u8(MSG.Emote).u8(m.idx).u8(m.kind).u8(m.id).finish();
+}
 export function encodeExpeditionTimer(m: ExpeditionTimerMsg): Uint8Array {
   return new ByteWriter(6).u8(MSG.ExpeditionTimer).u16(m.elapsedSec).u16(m.durationSec).u8(m.phase).finish();
 }
@@ -162,6 +211,9 @@ export function encodePong(m: PingMsg): Uint8Array {
 export type ClientBinary =
   | { type: typeof MSG.PlayerMove; msg: PlayerMoveMsg }
   | { type: typeof MSG.BlockChangeReq; msg: BlockChangeReqMsg }
+  | { type: typeof MSG.InvMove; msg: InvMoveMsg }
+  | { type: typeof MSG.InvDrop; msg: InvDropMsg }
+  | { type: typeof MSG.Emote; msg: EmoteMsg }
   | { type: typeof MSG.Ping; msg: PingMsg };
 
 export type ServerBinary =
@@ -171,6 +223,8 @@ export type ServerBinary =
   | { type: typeof MSG.BlockBatch; msg: BlockBatchMsg }
   | { type: typeof MSG.ChunkData; msg: ChunkDataMsg }
   | { type: typeof MSG.ExpeditionTimer; msg: ExpeditionTimerMsg }
+  | { type: typeof MSG.InvSlots; msg: InvSlotsMsg }
+  | { type: typeof MSG.Emote; msg: EmoteMsg }
   | { type: typeof MSG.Pong; msg: PingMsg };
 
 /** 서버가 받은 바이너리. 모르는 종류면 null */
@@ -183,6 +237,12 @@ export function decodeClientBinary(bytes: Uint8Array): ClientBinary | null {
       return { type, msg: { x: r.f32(), y: r.f32(), z: r.f32(), yaw: r.f32(), pitch: r.f32(), flags: r.u8() } };
     case MSG.BlockChangeReq:
       return { type, msg: { seq: r.u16(), x: r.i32(), y: r.i32(), z: r.i32(), id: r.str() } };
+    case MSG.InvMove:
+      return { type, msg: { from: r.u8(), to: r.u8(), count: r.u8() } };
+    case MSG.InvDrop:
+      return { type, msg: { slot: r.u8(), count: r.u8() } };
+    case MSG.Emote:
+      return { type, msg: { idx: r.u8(), kind: r.u8(), id: r.u8() } };
     case MSG.Ping:
       return { type, msg: { clientMs: r.u32() } };
     default:
@@ -216,6 +276,14 @@ export function decodeServerBinary(bytes: Uint8Array): ServerBinary | null {
       return { type, msg: { cx: r.i32(), cy: r.i32(), cz: r.i32(), bytes: r.bytes() } };
     case MSG.ExpeditionTimer:
       return { type, msg: { elapsedSec: r.u16(), durationSec: r.u16(), phase: r.u8() } };
+    case MSG.InvSlots: {
+      const n = r.u8();
+      const slots: InvSlotEntry[] = [];
+      for (let i = 0; i < n; i++) slots.push({ slot: r.u8(), item: r.str(), count: r.u8() });
+      return { type, msg: { slots } };
+    }
+    case MSG.Emote:
+      return { type, msg: { idx: r.u8(), kind: r.u8(), id: r.u8() } };
     case MSG.Pong:
       return { type, msg: { clientMs: r.u32() } };
     default:
@@ -274,11 +342,25 @@ export type ClientJson =
   /** 마을 포탈에서: 원정 시작(또는 진행 중인 원정에 합류) */
   | { t: 'startExpedition'; expedition: string }
   /** 원정 포탈 안에서: 마을로 돌아가기 (정산) */
-  | { t: 'returnHome' };
+  | { t: 'returnHome' }
+  /** 제작 (M4): 가방·제작대·화로 레시피 id */
+  | { t: 'craft'; recipe: string }
+  /** 양조 (M4): 병 칸 번호들(1~3) + 재료 칸 */
+  | { t: 'brew'; bottles: number[]; ingredient: number };
 
 export type ServerJson =
   | { t: 'hello'; token: string; protocol: number }
-  | { t: 'welcome'; playerIdx: number; village: VillageInfo; spawn: PlayerInfo; players: PlayerInfo[]; chunkCount: number; expedition?: ExpeditionStateInfo | null }
+  | {
+      t: 'welcome';
+      playerIdx: number;
+      village: VillageInfo;
+      spawn: PlayerInfo;
+      players: PlayerInfo[];
+      chunkCount: number;
+      expedition?: ExpeditionStateInfo | null;
+      /** 가방 37칸 (M4). null = 빈 칸 */
+      inventory?: ({ item: string; count: number } | null)[];
+    }
   /** 저장된 청크를 다 보냈다 — 이제 놀 수 있다 (welcome·worldEnter 뒤 ChunkData 들 다음에) */
   | { t: 'ready' }
   /** 세계 전환: 마을 ↔ 원정. 이어서 그 세계의 바뀐 청크(ChunkData)와 ready 가 온다 */

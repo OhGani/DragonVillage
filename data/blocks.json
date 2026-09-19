@@ -495,6 +495,14 @@
       "texture": "furnace"
     },
     {
+      "id": "crafting_table",
+      "name": "제작대",
+      "hardness": 2.5,
+      "tool": "axe",
+      "texture": "planks",
+      "_note": "M4: 판자 4개로 만들어 놓는다. 5칸 안에 있으면 3×3 레시피를 만들 수 있다. 그림은 아직 판자(아들이 crafting_table.png 를 그리면 texture 를 바꾼다)"
+    },
+    {
       "id": "brewing_stand",
       "name": "양조기",
       "hardness": 0.5,

@@ -18,10 +18,31 @@ import {
   type ExpeditionEnterInfo,
   type ExpeditionRegistry,
   type ExpeditionStateInfo,
+  type ExpeditionResultItem,
+  EMOTE_PER_SEC,
   FLAG_GROUND,
   FluidSim,
+  type InvDropMsg,
+  type InvMoveMsg,
+  type Inventory,
   MAX_PLAYERS,
   PHASE_NUM,
+  type PhraseRegistry,
+  type PotionRegistry,
+  type RecipeRegistry,
+  BUCKET,
+  countOf,
+  craft,
+  dropOf,
+  emptyInventory,
+  give,
+  isPotionItem,
+  itemForPlacing,
+  move,
+  potionFromItemId,
+  potionItemId,
+  take,
+  takeFromSlot,
   type PlayerInfo,
   type PlayerMoveMsg,
   type PlayerStateEntry,
@@ -37,11 +58,13 @@ import {
   encodeBlockChangeRejected,
   encodeBlockChanged,
   encodeChunkData,
+  encodeEmote,
   encodeExpeditionTimer,
+  encodeInvSlots,
   encodePlayersState,
   generateVillage,
 } from '@dragon-village/shared';
-import { EXPEDITIONS } from '@dragon-village/shared/data';
+import { EXPEDITIONS, PHRASES, POTIONS, RECIPES } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import type { Storage } from './storage';
@@ -74,6 +97,13 @@ export interface RoomPlayer {
   recent: number[];
   /** 지금 어느 세계에 있나 */
   world: WorldKind;
+  /** 가방 (M4, 서버가 진실) */
+  inv: Inventory;
+  /** 원정 중 가방에 들어온 것 (정산·늦은 귀환 절반) */
+  gained: Map<string, number>;
+  /** 양조기 연료 남은 횟수 */
+  brewFuel: number;
+  lastEmote: number;
 }
 
 export interface JoinResult {
@@ -81,13 +111,20 @@ export interface JoinResult {
   spawn: PlayerInfo;
   players: PlayerInfo[];
   expedition: ExpeditionStateInfo | null;
+  inventory: Inventory;
 }
 
 export interface RoomOptions {
   expeditions?: ExpeditionRegistry;
+  recipes?: RecipeRegistry;
+  potions?: PotionRegistry;
+  phrases?: PhraseRegistry;
   /** 원정 시드 (테스트에서 고정) */
   seedFn?: () => number;
 }
+
+/** 제작대·화로·양조기를 이 거리(칸) 안에서 찾는다 */
+export const STATION_REACH = 5;
 
 export class VillageRoom {
   readonly world: VoxelWorld;
@@ -107,6 +144,9 @@ export class VillageRoom {
   private expeditionDisposeAt = 0;
   private lastTimerAt = 0;
   private readonly expeditions: ExpeditionRegistry;
+  private readonly recipes: RecipeRegistry;
+  private readonly potions: PotionRegistry;
+  private readonly phrases: PhraseRegistry;
   private readonly seedFn: () => number;
   /** 통계 */
   stats = { blockChanges: 0, rejected: 0, flushes: 0, chunksSaved: 0, expeditions: 0 };
@@ -119,6 +159,9 @@ export class VillageRoom {
     opts: RoomOptions = {},
   ) {
     this.expeditions = opts.expeditions ?? EXPEDITIONS;
+    this.recipes = opts.recipes ?? RECIPES;
+    this.potions = opts.potions ?? POTIONS;
+    this.phrases = opts.phrases ?? PHRASES;
     this.seedFn = opts.seedFn ?? (() => randomInt(1, 2 ** 31 - 1));
     const gen = generateVillage(registry, info.seed);
     this.world = gen.world;
@@ -189,14 +232,15 @@ export class VillageRoom {
     if (saved && saved.village === this.info.code && this.world.inBounds(Math.floor(saved.x), Math.floor(Math.max(0, Math.min(this.world.sizeY - 2, saved.y))), Math.floor(saved.z))) {
       pos = { x: saved.x, y: saved.y, z: saved.z, yaw: saved.yaw, pitch: saved.pitch, flags: 0 };
     }
-    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village' };
+    const inv = this.storage?.getInventory(token) ?? emptyInventory();
+    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0 };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     const me = this.toInfo(player);
     this.broadcastJson({ t: 'playerJoined', player: me }, idx, 'village');
     this.savePlayer(player);
     this.log(`마을 ${this.info.code}: ${nick}(#${idx}) 입장, ${this.players.size}명`);
-    return { idx, spawn: me, players: others, expedition: this.expeditionState() };
+    return { idx, spawn: me, players: others, expedition: this.expeditionState(), inventory: inv };
   }
 
   /** 입장 직후: 생성 지형과 다른 청크를 전부 보낸다 */
@@ -217,13 +261,15 @@ export class VillageRoom {
     this.players.delete(idx);
     if (p.world === 'expedition' && this.expedition) {
       this.expedition.members.delete(idx);
-      this.expedition.settle(idx, true, 0); // 나가면 모은 것은 버려진다 (M3)
+      // 원정 중에 끊기면 모은 것의 절반만 (늦은 귀환과 같은 규칙)
+      this.loseGained(p, this.expeditions.rules.failedReturnKeepRatio);
       this.endIfEmpty(Date.now());
       this.broadcastJson({ t: 'expeditionState', expedition: this.expeditionState() }, -1, 'village');
     }
     // 마을 저장 위치는 항상 마을 좌표 (원정 중에 나갔으면 광장)
     if (p.world === 'expedition') p.pos = { x: this.spawn.x, y: this.spawn.y, z: this.spawn.z, yaw: this.spawn.yaw, pitch: 0, flags: FLAG_GROUND };
     this.savePlayer(p);
+    this.storage?.saveInventory(p.token, this.info.code, p.inv);
     this.broadcastJson({ t: 'playerLeft', idx }, -1, p.world);
     this.log(`마을 ${this.info.code}: ${p.nick}(#${idx}) 퇴장${why ? ` (${why})` : ''}, ${this.players.size}명`);
     // 서버가 내보낸 경우: 그 연결은 더 이상 이 룸의 누구도 아니다 → 세션에 알리고 끊는다
@@ -272,12 +318,20 @@ export class VillageRoom {
     if (def.num === AIR_ID) {
       // 부수기: 자연 원천과 고인 액체(얕은 웅덩이 포함)는 양동이처럼 떠낼 수 있고, 자연 흐름은 못 건드린다(원천을 없애면 마른다). hardness 없는 블록(기반암)은 못 부순다
       if (cur.num === AIR_ID) return REJECT.INVALID;
-      if (cur.fluid) return cur.fluidLevel === 0 || cur.fluidVolume > 0 ? null : REJECT.INVALID;
+      if (cur.fluid) {
+        if (cur.fluidLevel !== 0 && cur.fluidVolume === 0) return REJECT.INVALID;
+        // 가득한 칸을 떠내려면 빈 양동이 (얕은 웅덩이 닦기는 그냥)
+        if (cur.fluidLevel === 0 && countOf(p.inv, BUCKET) < 1) return REJECT.NO_ITEM;
+        return null;
+      }
       if (cur.hardness === null) return REJECT.UNBREAKABLE;
       return null;
     }
     // 놓기: 액체는 플레이어가 놓는 고인 액체 8/8 만(자연 원천·흐름은 못 놓는다), 그 외 내부 블록 불가, 자리는 공기·액체만, 누가 서 있으면 안 됨
     if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal) return REJECT.INVALID;
+    // 가방에 그 아이템(액체면 찬 양동이)이 있어야 한다 (M4, #66)
+    const item = itemForPlacing(def.id, this.registry);
+    if (!item || countOf(p.inv, item) < 1) return REJECT.NO_ITEM;
     if (cur.solid) return REJECT.OCCUPIED;
     if (def.solid) for (const other of this.playersIn(p.world)) if (bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, y, z)) return REJECT.OCCUPIED;
     return null;
@@ -306,12 +360,178 @@ export class VillageRoom {
     if (p.world === 'expedition' && this.expedition) {
       this.expedition.markModified(req.x, req.y, req.z);
       this.expedition.fluids.touch(req.x, req.y, req.z);
-      if (num === AIR_ID) this.expedition.onBroken(idx, prev, req.x, req.y, req.z);
     } else {
       this.markDirtyBlock(req.x, req.y, req.z);
       this.fluids.touch(req.x, req.y, req.z);
     }
+    // 가방 (M4): 놓으면 나가고, 부수면 들어온다
+    const changed = new Set<number>();
+    if (num === AIR_ID) {
+      const seed = p.world === 'expedition' && this.expedition ? this.expedition.seed : this.info.seed;
+      const drop = dropOf(prev, req.x, req.y, req.z, seed);
+      if (drop) {
+        if (drop.needsBucket) take(p.inv, BUCKET, 1, changed);
+        this.giveTo(p, drop.item, drop.count, changed);
+      }
+    } else {
+      const item = itemForPlacing(req.id, this.registry);
+      if (item) {
+        take(p.inv, item, 1, changed);
+        if (item !== req.id) give(p.inv, BUCKET, 1, changed); // 양동이를 부으면 빈 양동이가 남는다
+      }
+    }
+    this.sendInv(p, changed);
     this.broadcast(encodeBlockChanged({ x: req.x, y: req.y, z: req.z, id: req.id, by: idx }), -1, p.world);
+  }
+
+  // ---------------------------------------------------------------- 가방·제작·양조·채팅 (M4)
+
+  /** 바뀐 칸을 그 사람에게 보낸다 */
+  private sendInv(p: RoomPlayer, changed: Set<number>): void {
+    if (changed.size === 0) return;
+    const slots = [...changed]
+      .sort((a, b) => a - b)
+      .map((slot) => {
+        const s = p.inv[slot];
+        return { slot, item: s ? s.item : '', count: s ? s.count : 0 };
+      });
+    for (let i = 0; i < slots.length; i += 200) p.send(encodeInvSlots({ slots: slots.slice(i, i + 200) }));
+  }
+
+  /** 가방에 넣는다. 원정 중이면 모은 것으로 센다. 가득 차면 안내 */
+  private giveTo(p: RoomPlayer, item: string, count: number, changed: Set<number>): number {
+    const left = give(p.inv, item, count, changed);
+    const got = count - left;
+    if (got > 0 && p.world === 'expedition') p.gained.set(item, (p.gained.get(item) ?? 0) + got);
+    if (left > 0) this.sendJson(p, { t: 'error', code: 'BAG_FULL', message: '가방이 가득 찼어요' });
+    return left;
+  }
+
+  /** 시험·시작 키트: 서버가 직접 준다 */
+  giveItems(idx: number, item: string, count: number): boolean {
+    const p = this.players.get(idx);
+    if (!p) return false;
+    const changed = new Set<number>();
+    const left = give(p.inv, item, count, changed);
+    this.sendInv(p, changed);
+    return left === 0;
+  }
+
+  /** 원정에서 모은 것 (테스트·정산) */
+  gainedOf(idx: number): ExpeditionResultItem[] {
+    const p = this.players.get(idx);
+    if (!p) return [];
+    return [...p.gained.entries()].sort((a, b) => b[1] - a[1]).map(([id, count]) => ({ id, count }));
+  }
+
+  /** 늦게 돌아오면 모은 것 중 keepRatio 만큼만 남긴다(올림). 남긴 목록을 돌려준다 */
+  private loseGained(p: RoomPlayer, keepRatio: number): ExpeditionResultItem[] {
+    const changed = new Set<number>();
+    const kept: ExpeditionResultItem[] = [];
+    for (const [id, count] of [...p.gained.entries()].sort((a, b) => b[1] - a[1])) {
+      const keep = Math.ceil(count * keepRatio);
+      const lose = Math.min(count - keep, countOf(p.inv, id));
+      if (lose > 0) take(p.inv, id, lose, changed);
+      if (keep > 0) kept.push({ id, count: keep });
+    }
+    p.gained.clear();
+    this.sendInv(p, changed);
+    return kept;
+  }
+
+  /** 플레이어 5칸 안에 그 블록이 있나 (제작대·화로·양조기) */
+  private nearBlock(p: RoomPlayer, blockId: string): boolean {
+    const def = this.registry.find(blockId);
+    if (!def) return false;
+    const w = this.worldOf(p);
+    const cx = Math.floor(p.pos.x),
+      cy = Math.floor(p.pos.y + 1),
+      cz = Math.floor(p.pos.z);
+    for (let y = cy - STATION_REACH; y <= cy + STATION_REACH; y++)
+      for (let z = cz - STATION_REACH; z <= cz + STATION_REACH; z++)
+        for (let x = cx - STATION_REACH; x <= cx + STATION_REACH; x++) if (w.inBounds(x, y, z) && w.getBlock(x, y, z) === def.num) return true;
+    return false;
+  }
+
+  /** 제작. 성공 null, 아니면 에러 코드 */
+  craft(idx: number, recipeId: string): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NO_PLAYER';
+    const r = this.recipes.find(recipeId);
+    if (!r || r.release !== 'v1') return 'BAD_RECIPE';
+    if (r.station === 'world' || r.station === 'brewing') return 'BAD_RECIPE';
+    if (r.station === 'forge' || r.station === 'anvil') return 'NOT_YET';
+    if (r.station !== 'inventory' && !this.nearBlock(p, r.station)) return 'NO_STATION';
+    const changed = new Set<number>();
+    const res = craft(p.inv, r, changed);
+    if (!res.ok) return 'MISSING';
+    this.sendInv(p, changed);
+    if (res.lost) this.sendJson(p, { t: 'error', code: 'BAG_FULL', message: '가방이 가득 차서 일부가 사라졌어요' });
+    if (p.world === 'expedition') for (const [item, n] of Object.entries(r.out)) p.gained.set(item, (p.gained.get(item) ?? 0) + n);
+    return null;
+  }
+
+  /** 양조. bottles = 병이 든 칸 번호들(1~3), ingredient = 재료 칸. 성공 null, 아니면 에러 코드 */
+  brew(idx: number, bottles: number[], ingredientSlot: number): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NO_PLAYER';
+    if (!this.nearBlock(p, 'brewing_stand')) return 'NO_STATION';
+    const rules = this.potions.stand;
+    if (!Array.isArray(bottles) || bottles.length < 1 || bottles.length > rules.bottles) return 'BAD_BOTTLES';
+    if (new Set(bottles).size !== bottles.length || bottles.includes(ingredientSlot)) return 'BAD_BOTTLES';
+    const ing = p.inv[ingredientSlot];
+    if (!ing) return 'NO_INGREDIENT';
+    const results: { slot: number; item: string }[] = [];
+    for (const slot of bottles) {
+      const s = p.inv[slot];
+      if (!s || s.count !== 1 || !isPotionItem(s.item)) return 'BAD_BOTTLES';
+      const next = this.potions.brew(potionFromItemId(s.item)!, ing.item);
+      if (next) results.push({ slot, item: potionItemId(next) });
+    }
+    if (results.length === 0) return 'NO_EFFECT';
+    if (p.brewFuel <= 0) {
+      if (countOf(p.inv, rules.fuel) < 1) return 'NO_FUEL';
+      const ch = new Set<number>();
+      take(p.inv, rules.fuel, 1, ch);
+      p.brewFuel = rules.brewsPerFuel;
+      this.sendInv(p, ch);
+    }
+    p.brewFuel--;
+    const changed = new Set<number>();
+    takeFromSlot(p.inv, ingredientSlot, 1, changed);
+    for (const r of results) {
+      p.inv[r.slot] = { item: r.item, count: 1 };
+      changed.add(r.slot);
+    }
+    this.sendInv(p, changed);
+    return null;
+  }
+
+  onInvMove(idx: number, m: InvMoveMsg): void {
+    const p = this.players.get(idx);
+    if (!p) return;
+    const changed = new Set<number>();
+    if (move(p.inv, m.from, m.to, m.count, changed)) this.sendInv(p, changed);
+    else this.sendInv(p, new Set([m.from, m.to].filter((i) => i >= 0 && i < p.inv.length))); // 클라가 어긋났으면 바로잡는다
+  }
+
+  /** 버리기 = 사라짐 (아이템 엔티티 없음, #66) */
+  onInvDrop(idx: number, m: InvDropMsg): void {
+    const p = this.players.get(idx);
+    if (!p) return;
+    const changed = new Set<number>();
+    if (takeFromSlot(p.inv, m.slot, m.count, changed)) this.sendInv(p, changed);
+  }
+
+  /** 채팅: 정해진 이모지·문구만, 초당 1개, 같은 세계 사람 전부(나 포함) */
+  onEmote(idx: number, kind: number, id: number, now = Date.now()): boolean {
+    const p = this.players.get(idx);
+    if (!p) return false;
+    if (!this.phrases.valid(kind, id)) return false;
+    if (now - p.lastEmote < 1000 / EMOTE_PER_SEC) return false;
+    p.lastEmote = now;
+    this.broadcast(encodeEmote({ idx, kind, id }), -1, p.world);
+    return true;
   }
 
   private markDirtyBlock(x: number, y: number, z: number): void {
@@ -400,8 +620,8 @@ export class VillageRoom {
     if (!p || !e || p.world !== 'expedition') return 'NOT_OUT';
     if (!late && !e.inPortal(p.pos.x, p.pos.y, p.pos.z)) return 'NOT_IN_PORTAL';
     const keepRatio = this.expeditions.rules.failedReturnKeepRatio;
-    const items = e.settle(idx, late, keepRatio);
-    this.storage?.addItems(this.info.code, items);
+    const items = late ? this.loseGained(p, keepRatio) : this.gainedOf(idx);
+    p.gained.clear();
     e.members.delete(idx);
     this.broadcastJson({ t: 'playerLeft', idx }, idx, 'expedition');
     if (!late) this.endIfEmpty(now);
@@ -426,6 +646,7 @@ export class VillageRoom {
     this.sendJson(p, { t: 'ready' });
     this.sendJson(p, { t: 'expeditionState', expedition: this.expeditionState(now) });
     this.savePlayer(p, now);
+    this.storage?.saveInventory(p.token, this.info.code, p.inv, now);
     this.log(`마을 ${this.info.code}: ${p.nick} 귀환${late ? '(늦음)' : ''} — ${items.map((i) => `${i.id}×${i.count}`).join(', ') || '빈손'}`);
     return null;
   }
@@ -534,7 +755,10 @@ export class VillageRoom {
       this.stats.chunksSaved += rows.length;
       this.dirty.clear();
     }
-    for (const p of this.players.values()) if (p.world === 'village') this.savePlayer(p, now);
+    for (const p of this.players.values()) {
+      if (p.world === 'village') this.savePlayer(p, now);
+      this.storage.saveInventory(p.token, this.info.code, p.inv, now);
+    }
   }
 
   private encode(chunk: NonNullable<ReturnType<VoxelWorld['getChunk']>>): Uint8Array {
