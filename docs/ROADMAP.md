@@ -174,12 +174,12 @@ M3 에서 하지 않는 것: 가방·인벤토리(M4 — 정산은 "모은 블�
 
 M4 에서 하지 않는 것: 아이템 엔티티(바닥에 떨어지는 것 — 버리기는 "사라짐"), 갑옷·왼손 칸(그림만, M7), 화로 연료(M4 는 연료 없이), 대장간(M6 건물), 도감·경험치(M6), 인챈트(v1.1).
 
-### 1. 공용 규칙 (`shared/rules`)
-- [ ] `inventory.ts`: 가방 = 핫바 10 + 가방 27 = 37칸, 한 칸 64개. 순수 함수 `give/take/move/countOf` (서버·클라 미리보기 공용), 결정론(빈 칸부터 채우고 같은 아이템 먼저 합침)
-- [ ] `recipes.ts`: `recipes.json` zod 로더(한국어 에러), station 별 목록, `canCraft(bag, recipe)`/`craft`. 모양 없는 레시피(재료 개수만 — 아들 JSON 그대로)
-- [ ] `potions.ts` 아이템 id: `potion.speed`, `potion.speed.long`, `potion.speed.strong`, `splash_potion.…`, `lingering_potion.…` ↔ PotionState 변환
-- [ ] `phrases.ts`: `phrases.json` 로더(이모지·문구 id)
-- [ ] 테스트: 가방 합치기·넘침, 레시피 파일 통과·만들기·부족, 물약 id 라운드트립
+### 1. 공용 규칙 (`shared/rules`) — 완료 2026-09-19
+- [x] `inventory.ts`: 가방 = 핫바 10 + 가방 27 = 37칸, 한 칸 64개. 순수 함수 `give/take/move/countOf` (서버·클라 미리보기 공용), 결정론(빈 칸부터 채우고 같은 아이템 먼저 합침)
+- [x] `recipes.ts`: `recipes.json` zod 로더(한국어 에러), station 별 목록, `canCraft(bag, recipe)`/`craft`. 모양 없는 레시피(재료 개수만 — 아들 JSON 그대로)
+- [x] `potions.ts` 아이템 id: `potion.speed`, `potion.speed.long`, `potion.speed.strong`, `splash_potion.…`, `lingering_potion.…` ↔ PotionState 변환
+- [x] `phrases.ts`: `phrases.json` 로더(이모지·문구 id)
+- [x] 테스트 13개: 가방 합치기·넘침·옮기기, 레시피 파일 통과·만들기·부족·가득 참, 물약 id 라운드트립, 문구
 
 ### 2. 서버
 - [ ] `inventories(token, slot, item, count)` 저장. 입장 시 가방 전송, 바뀐 칸만 `InvSlot`(바이너리) 전송, flush 때 저장

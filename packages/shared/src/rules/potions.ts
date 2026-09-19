@@ -125,6 +125,36 @@ export interface PotionState {
 
 export const FORM_KO: Record<PotionForm, string> = { drink: '', splash: '투척용', lingering: '잔류형' };
 
+/**
+ * 가방 아이템 id ↔ 병 상태 (M4). 예: water_bottle, potion.awkward, potion.speed, potion.speed.long,
+ * potion.speed.strong, splash_potion.speed.long, lingering_potion.healing
+ */
+export function potionItemId(state: PotionState): string {
+  if (state.id === WATER_BOTTLE && state.form === 'drink') return WATER_BOTTLE;
+  const prefix = state.form === 'splash' ? 'splash_potion' : state.form === 'lingering' ? 'lingering_potion' : 'potion';
+  const base = state.id === WATER_BOTTLE ? 'water' : state.id;
+  const mod = state.extended ? '.long' : state.amplified ? '.strong' : '';
+  return `${prefix}.${base}${mod}`;
+}
+
+/** 아이템 id → 병 상태. 물약이 아니면 null */
+export function potionFromItemId(item: string): PotionState | null {
+  if (item === WATER_BOTTLE) return waterBottle();
+  const parts = item.split('.');
+  if (parts.length < 2 || parts.length > 3) return null;
+  const form: PotionForm | null = parts[0] === 'potion' ? 'drink' : parts[0] === 'splash_potion' ? 'splash' : parts[0] === 'lingering_potion' ? 'lingering' : null;
+  if (!form) return null;
+  const id = parts[1] === 'water' ? WATER_BOTTLE : parts[1];
+  const mod = parts[2];
+  if (mod !== undefined && mod !== 'long' && mod !== 'strong') return null;
+  return { id, extended: mod === 'long', amplified: mod === 'strong', form };
+}
+
+/** 물약 아이템인가 (가방에서 양조기 병 칸에 넣을 수 있는 것) */
+export function isPotionItem(item: string): boolean {
+  return potionFromItemId(item) !== null;
+}
+
 export function waterBottle(): PotionState {
   return { id: WATER_BOTTLE, extended: false, amplified: false, form: 'drink' };
 }

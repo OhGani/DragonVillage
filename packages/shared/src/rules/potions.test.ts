@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DataError } from './blocks';
 import { POTIONS } from './data';
-import { AWKWARD, WATER_BOTTLE, parsePotions, waterBottle, type PotionState } from './potions';
+import { AWKWARD, WATER_BOTTLE, isPotionItem, parsePotions, potionFromItemId, potionItemId, waterBottle, type PotionState } from './potions';
 
 const small = {
   base: {
@@ -210,5 +210,26 @@ describe('brew (마인크래프트 규칙)', () => {
     expect(chain(r, 'nether_wart', 'stone')?.id).toBe('infested');
     expect(chain(r, 'nether_wart', 'glistering_melon', 'gunpowder', 'dragon_breath')?.form).toBe('lingering');
     expect(r.displayName(chain(r, 'nether_wart', 'ghast_tear', 'glowstone_dust')!)).toBe('재생의 물약 II');
+  });
+});
+
+describe('물약 아이템 id (M4 가방)', () => {
+  it('상태 ↔ id 라운드트립', () => {
+    const cases: [PotionState, string][] = [
+      [waterBottle(), 'water_bottle'],
+      [{ id: WATER_BOTTLE, extended: false, amplified: false, form: 'splash' }, 'splash_potion.water'],
+      [{ id: AWKWARD, extended: false, amplified: false, form: 'drink' }, 'potion.awkward'],
+      [{ id: 'speed', extended: false, amplified: false, form: 'drink' }, 'potion.speed'],
+      [{ id: 'speed', extended: true, amplified: false, form: 'drink' }, 'potion.speed.long'],
+      [{ id: 'speed', extended: false, amplified: true, form: 'splash' }, 'splash_potion.speed.strong'],
+      [{ id: 'healing', extended: false, amplified: false, form: 'lingering' }, 'lingering_potion.healing'],
+    ];
+    for (const [state, id] of cases) {
+      expect(potionItemId(state)).toBe(id);
+      expect(potionFromItemId(id)).toEqual(state);
+    }
+    expect(isPotionItem('dirt')).toBe(false);
+    expect(potionFromItemId('potion.speed.huge')).toBeNull();
+    expect(potionFromItemId('juice.speed')).toBeNull();
   });
 });
