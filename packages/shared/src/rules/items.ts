@@ -116,15 +116,33 @@ export function itemForPlacing(blockId: string, registry: BlockRegistry): string
 
 /**
  * 블록을 부수면(또는 액체를 떠내면) 무엇이 나오나. 액체 가득한 칸은 양동이가 있어야 하고(needsBucket) 양동이가 찬 것으로 바뀐다.
- * dropCount 범위는 자리·시드로 결정론적으로 뽑는다. 아무것도 안 나오면 null
+ * dropCount 범위는 자리·시드로 결정론적으로 뽑는다. 아무것도 안 나오면 null.
+ * bonusDrops 가 있으면 덤(bonus)도 같이 — 발광석은 블록 1개 + 가루 0~3개 (아빠 2026-09-19)
  */
-export function dropOf(def: BlockDef, x: number, y: number, z: number, seed: number): { item: string; count: number; needsBucket: boolean } | null {
+export interface Drop {
+  item: string;
+  count: number;
+  needsBucket: boolean;
+  /** 덤으로 같이 나오는 것. 개수 0 이 뽑히면 없음(undefined) */
+  bonus?: { item: string; count: number };
+}
+
+export function dropOf(def: BlockDef, x: number, y: number, z: number, seed: number): Drop | null {
   if (def.fluid) {
     if (def.fluidLevel !== 0) return null; // 얕은 웅덩이·흐름은 닦아낼 뿐
     return { item: def.fluid === 'water' ? WATER_BUCKET : LAVA_BUCKET, count: 1, needsBucket: true };
   }
   if (!def.drops) return null;
-  const [lo, hi] = def.dropCount;
-  const n = hi > lo ? lo + Math.floor(hash3(x, y, z, seed) * (hi - lo + 1)) : lo;
-  return n > 0 ? { item: def.drops, count: n, needsBucket: false } : null;
+  const n = pick(def.dropCount, x, y, z, seed);
+  if (n <= 0) return null;
+  const drop: Drop = { item: def.drops, count: n, needsBucket: false };
+  if (def.bonusDrops) {
+    const b = pick(def.bonusCount, x, y, z, seed ^ 0x5bd1e995); // 본 드롭과 다른 수
+    if (b > 0) drop.bonus = { item: def.bonusDrops, count: b };
+  }
+  return drop;
+}
+
+function pick([lo, hi]: readonly [number, number], x: number, y: number, z: number, seed: number): number {
+  return hi > lo ? lo + Math.floor(hash3(x, y, z, seed) * (hi - lo + 1)) : lo;
 }

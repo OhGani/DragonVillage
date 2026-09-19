@@ -381,6 +381,7 @@ export class VillageRoom {
       if (drop) {
         if (drop.needsBucket) take(p.inv, BUCKET, 1, changed);
         this.giveTo(p, drop.item, drop.count, changed);
+        if (drop.bonus) this.giveTo(p, drop.bonus.item, drop.bonus.count, changed);
       }
     } else {
       const item = itemForPlacing(req.id, this.registry);

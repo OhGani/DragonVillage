@@ -100,14 +100,14 @@ describe('원정 중 블록·위치·타이머', () => {
     expect(room.players.get(ia)!.inv[0]).toEqual({ item: 'cobblestone', count: 1 });
     expect(a.bin.find((m) => m.type === MSG.InvSlots)).toMatchObject({ msg: { slots: [{ slot: 0, item: 'cobblestone', count: 1 }] } });
     expect(e.modifiedCount).toBe(1);
-    // 발광석은 2~4개
+    // 발광석은 블록 1개 + 가루 0~3개 덤
     const g = { x: 124, y, z: 125 }; // 단 모서리 발광석
     expect(BLOCKS.get(e.world.getBlock(g.x, g.y, g.z)).id).toBe('glowstone');
     room.onMove(ia, { x: g.x + 0.5, y: sp.y, z: g.z + 1.5, yaw: 0, pitch: 0, flags: 0 });
     room.onBlockChange(ia, { seq: 2, ...g, id: 'air' }, T0 + 200);
-    const dust = room.gainedOf(ia).find((t) => t.id === 'glowstone_dust')!;
-    expect(dust.count).toBeGreaterThanOrEqual(2);
-    expect(dust.count).toBeLessThanOrEqual(4);
+    expect(room.gainedOf(ia).find((t) => t.id === 'glowstone')).toEqual({ id: 'glowstone', count: 1 });
+    const dust = room.gainedOf(ia).find((t) => t.id === 'glowstone_dust');
+    expect(dust?.count ?? 0).toBeLessThanOrEqual(3);
   });
 
   it('위치는 각 세계끼리만 브로드캐스트, 1초마다 ExpeditionTimer, 낮→저녁→밤', () => {

@@ -83,15 +83,25 @@ describe('dropCount', () => {
     const reg = parseBlocks({
       blocks: [
         { id: 'air', name: '공기', solid: false, transparent: true },
-        { id: 'glowstone', name: '발광석', texture: 'g', drops: 'glowstone_dust', dropCount: [2, 4] },
+        { id: 'glowstone', name: '발광석', texture: 'g', bonusDrops: 'glowstone_dust', bonusCount: [0, 3] },
+        { id: 'gravel', name: '자갈', texture: 'g', drops: 'flint', dropCount: [2, 4] },
         { id: 'stone', name: '돌', texture: 's' },
       ],
     });
-    expect(reg.require('glowstone').dropCount).toEqual([2, 4]);
+    expect(reg.require('gravel').dropCount).toEqual([2, 4]);
     expect(reg.require('stone').dropCount).toEqual([1, 1]);
+    expect(reg.require('glowstone').drops).toBe('glowstone');
+    expect(reg.require('glowstone').bonusDrops).toBe('glowstone_dust');
+    expect(reg.require('glowstone').bonusCount).toEqual([0, 3]);
+    expect(reg.require('stone').bonusDrops).toBeNull();
+    expect(() =>
+      parseBlocks({ blocks: [{ id: 'air', name: '공기' }, { id: 'x', name: 'x', texture: 'x', bonusCount: [0, 2] }] }),
+    ).toThrow(/bonusDrops/);
     expect(() =>
       parseBlocks({ blocks: [{ id: 'air', name: '공기' }, { id: 'x', name: 'x', texture: 'x', dropCount: [4, 2] }] }),
     ).toThrow(/최소, 최대/);
-    expect(BLOCKS.require('glowstone').dropCount).toEqual([2, 4]);
+    expect(BLOCKS.require('glowstone').drops).toBe('glowstone');
+    expect(BLOCKS.require('glowstone').bonusDrops).toBe('glowstone_dust');
+    expect(BLOCKS.require('glowstone').bonusCount).toEqual([0, 3]);
   });
 });

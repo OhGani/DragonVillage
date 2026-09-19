@@ -21,6 +21,10 @@ const RawBlock = z.object({
   dropCount: z
     .tuple([z.number().int().min(0, '0 이상이어야 해요'), z.number().int().min(0, '0 이상이어야 해요')])
     .optional(),
+  bonusDrops: z.string().nullable().optional(),
+  bonusCount: z
+    .tuple([z.number().int().min(0, '0 이상이어야 해요'), z.number().int().min(0, '0 이상이어야 해요')])
+    .optional(),
   lightEmit: z.number().int().min(0, '0~15 사이여야 해요').max(15, '0~15 사이여야 해요').optional(),
   lightFilter: z.number().int().min(0, '0~15 사이여야 해요').max(15, '0~15 사이여야 해요').optional(),
   damage: z.number().min(0, '0 이상이어야 해요').optional(),
@@ -62,6 +66,8 @@ const FIELD_KO: Record<string, string> = {
   toolTier: 'toolTier(도구 등급)',
   drops: 'drops(떨어지는 아이템)',
   dropCount: 'dropCount(떨어지는 개수 [최소, 최대])',
+  bonusDrops: 'bonusDrops(덤으로 떨어지는 아이템)',
+  bonusCount: 'bonusCount(덤 개수 [최소, 최대])',
   lightEmit: 'lightEmit(빛 세기)',
   lightFilter: 'lightFilter(빛을 얼마나 막는지)',
   damage: 'damage(닿으면 받는 피해)',
@@ -99,8 +105,12 @@ export interface BlockDef {
   readonly toolTier: number;
   /** 부수면 나오는 아이템 id. null = 아무것도 안 나옴 */
   readonly drops: string | null;
-  /** 떨어지는 개수 [최소, 최대]. 기본 [1, 1]. 범위면 서버가 시드 PRNG 로 뽑는다 (발광석 2~4) */
+  /** 떨어지는 개수 [최소, 최대]. 기본 [1, 1]. 범위면 서버가 시드 PRNG 로 뽑는다 */
   readonly dropCount: readonly [number, number];
+  /** 덤으로 같이 떨어지는 아이템 (발광석 → 가루). null = 없음 */
+  readonly bonusDrops: string | null;
+  /** 덤 개수 [최소, 최대]. 0 이 뽑히면 덤 없음 (발광석 가루 0~3) */
+  readonly bonusCount: readonly [number, number];
   readonly lightEmit: number;
   /**
    * 빛을 얼마나 막는지 0~15. 0 = 공기처럼 그대로 통과, 15 = 완전히 막음(불투명 블록).
@@ -289,6 +299,8 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
     }
 
     if (b.dropCount && b.dropCount[0] > b.dropCount[1]) problems.push(`블록 '${b.id}'(${b.name}): dropCount 는 [최소, 최대] 순서예요`);
+    if (b.bonusCount && b.bonusCount[0] > b.bonusCount[1]) problems.push(`블록 '${b.id}'(${b.name}): bonusCount 는 [최소, 최대] 순서예요`);
+    if (b.bonusCount && !b.bonusDrops) problems.push(`블록 '${b.id}'(${b.name}): bonusCount 를 적으면 bonusDrops(덤 아이템)도 적어야 해요`);
     if (b.fluid && solid) problems.push(`블록 '${b.id}'(${b.name}): 액체(fluid)는 solid 가 false 여야 해요`);
 
     return {
@@ -302,6 +314,8 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       toolTier: b.toolTier ?? 0,
       drops: b.drops === undefined ? b.id : b.drops,
       dropCount: b.dropCount ?? [1, 1],
+      bonusDrops: b.bonusDrops ?? null,
+      bonusCount: b.bonusCount ?? [1, 1],
       lightEmit: b.lightEmit ?? 0,
       lightFilter: b.lightFilter ?? defaultLightFilter(isAir, solid, transparent, b.fluid ?? null),
       damage: b.damage ?? 0,
@@ -329,6 +343,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
         name: `${src.name}(흐름 ${level})`,
         hardness: null,
         drops: null,
+        bonusDrops: null,
         fluidLevel: level,
         fluidSource: src.num,
         fluidVolume: 0,

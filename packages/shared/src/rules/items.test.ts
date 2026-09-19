@@ -1,6 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { BLOCKS, ITEM_NAMES, RECIPES, STARTER_KIT } from './data';
-import { buildItemNames, itemName } from './items';
+import { buildItemNames, dropOf, itemName } from './items';
+
+describe('dropOf', () => {
+  it('발광석은 블록 1개 + 가루 0~3개 덤, 자리·시드로 결정론', () => {
+    const g = BLOCKS.require('glowstone');
+    const counts = new Set<number>();
+    for (let i = 0; i < 200; i++) {
+      const d = dropOf(g, i, 40, i * 7, 12345)!;
+      expect(d.item).toBe('glowstone');
+      expect(d.count).toBe(1);
+      const b = d.bonus?.count ?? 0;
+      expect(b).toBeGreaterThanOrEqual(0);
+      expect(b).toBeLessThanOrEqual(3);
+      if (d.bonus) expect(d.bonus.item).toBe('glowstone_dust');
+      counts.add(b);
+    }
+    expect(counts.size).toBe(4); // 0·1·2·3 이 다 나온다
+    expect(dropOf(g, 3, 4, 5, 99)).toEqual(dropOf(g, 3, 4, 5, 99));
+    expect(dropOf(BLOCKS.require('stone'), 1, 2, 3, 1)).toEqual({ item: 'cobblestone', count: 1, needsBucket: false });
+  });
+});
 
 describe('아이템 이름표', () => {
   it('블록·레시피·드래곤 재료·물약 재료·나머지 드롭 전부 한국어 이름이 있다', () => {

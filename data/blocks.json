@@ -196,9 +196,9 @@
       "name": "발광석",
       "hardness": 0.3,
       "tool": null,
-      "drops": "glowstone_dust",
-      "dropCount": [2, 4],
-      "_note": "아들 9차: 캐면 발광석 가루 2~4개(dropCount). 가루는 물약 단계 올리기 재료(potions.json). 개수 뽑기는 서버가 시드 PRNG 로",
+      "bonusDrops": "glowstone_dust",
+      "bonusCount": [0, 3],
+      "_note": "캐면 발광석 블록 1개가 들어오고, 덤으로 발광석 가루 0~3개(bonusCount, 아빠 2026-09-19 — 아들 9차 '가루 2~4개'를 블록 + 덤으로 바꿈). 가루는 물약 단계 올리기 재료(potions.json). 개수 뽑기는 서버가 시드 PRNG 로",
       "lightEmit": 15,
       "texture": "glowstone"
     },
@@ -499,8 +499,10 @@
       "name": "제작대",
       "hardness": 2.5,
       "tool": "axe",
-      "texture": "planks",
-      "_note": "M4: 판자 4개로 만들어 놓는다. 5칸 안에 있으면 3×3 레시피를 만들 수 있다. 그림은 아직 판자(아들이 crafting_table.png 를 그리면 texture 를 바꾼다)"
+      "textureTop": "crafting_table_top",
+      "textureSide": "crafting_table_side",
+      "textureBottom": "planks",
+      "_note": "M4: 판자 4개로 만들어 놓는다. 5칸 안에 있으면 레시피를 만들 수 있다. 그림은 아들 스케치(2026-09-19, 위 3×3 격자·옆 세로 판자 + 도구)를 코드로 옮긴 것 — 아들이 직접 그린 PNG 로 덮어써도 된다"
     },
     {
       "id": "brewing_stand",

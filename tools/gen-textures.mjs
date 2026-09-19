@@ -94,6 +94,11 @@ class Canvas {
     const i = (y * S + x) * 4;
     return [this.px[i], this.px[i + 1], this.px[i + 2], this.px[i + 3]];
   }
+  /** 전부 투명(알파 0) */
+  clear() {
+    this.px.fill(0);
+    return this;
+  }
   /** 기본색 + 픽셀 노이즈 */
   noise([r, g, b], amp, a = 255) {
     for (let y = 0; y < S; y++)
@@ -351,6 +356,162 @@ const TEX = {
     for (let y = 10; y < 13; y++) for (let x = 5; x < 11; x++) if (c.rnd() < 0.6) c.set(x, y, 240, 140 + c.rnd() * 60, 30);
   },
   lava: (c) => c.noise([214, 90, 20], 22).blotch(0.12).ore([255, 210, 60], 5),
+  // 제작대 — 아들 그림(2026-09-19): 윗면은 판자 위에 어두운 3×3 격자, 옆면은 세로 판자에 밝은 도구가 걸려 있다
+  crafting_table_top: (c) => {
+    TEX.planks(c);
+    const GRID = [58, 38, 22];
+    for (const p of [3, 7, 11]) {
+      for (let i = 3; i <= 12; i++) {
+        c.set(p, i, ...GRID);
+        c.set(i, p, ...GRID);
+      }
+    }
+    for (let i = 3; i <= 12; i++) {
+      c.set(12, i, ...GRID);
+      c.set(i, 12, ...GRID);
+    }
+  },
+  crafting_table_side: (c) => {
+    // 세로 판자 4장
+    for (let board = 0; board < 4; board++) {
+      const k = 1 + (c.rnd() - 0.5) * 0.14;
+      for (let x = board * 4; x < board * 4 + 4; x++)
+        for (let y = 0; y < S; y++) {
+          const n = (c.rnd() - 0.5) * 12;
+          let m = k;
+          if (x === board * 4 + 3) m *= 0.68; // 판자 사이 틈
+          if (y < 2) m *= 0.8; // 윗판 그늘
+          c.set(x, y, WOOD[0] * m + n, WOOD[1] * m + n, WOOD[2] * m + n);
+        }
+    }
+    // 왼쪽에 걸린 톱(밝은 회색 날 + 손잡이), 오른쪽에 망치
+    const BLADE = [222, 226, 220];
+    for (let y = 5; y <= 11; y++) c.set(3, y, ...BLADE);
+    for (let y = 5; y <= 9; y++) c.set(4, y, ...BLADE);
+    c.set(4, 11, ...BLADE);
+    c.set(3, 4, 90, 66, 40);
+    c.set(3, 3, 90, 66, 40);
+    for (let x = 10; x <= 13; x++) c.set(x, 4, 150, 150, 150);
+    for (let x = 10; x <= 13; x++) c.set(x, 5, 130, 130, 130);
+    for (let y = 6; y <= 12; y++) c.set(11, y, 110, 82, 50);
+  },
+  // ---- 빠져 있던 그림 16장 (2026-09-19): 시작 키트 횃불이 자홍색 체크로 나와서. 전부 임시 — 아들이 덮어쓸 것
+  torch: (c) => {
+    c.clear();
+    for (let y = 7; y < S; y++) for (const x of [7, 8]) c.set(x, y, 122 + (c.rnd() - 0.5) * 16, 90, 48);
+    for (const x of [7, 8]) c.set(x, 6, 60, 50, 40);
+    for (const x of [7, 8]) c.set(x, 5, 255, 220, 80);
+    for (const x of [6, 7, 8, 9]) c.set(x, 4, 255, 200, 60);
+    for (const x of [7, 8]) c.set(x, 3, 255, 160, 40);
+    c.set(7, 2, 255, 120, 30);
+  },
+  flower: (c) => {
+    c.clear();
+    for (let y = 8; y < S; y++) c.set(7, y, 60, 140, 50);
+    c.set(6, 11, 60, 140, 50);
+    c.set(5, 12, 60, 140, 50);
+    c.set(8, 13, 60, 140, 50);
+    for (const [x, y] of [[6, 3], [7, 3], [8, 3], [5, 4], [9, 4], [5, 5], [9, 5], [5, 6], [9, 6], [6, 7], [7, 7], [8, 7]]) c.set(x, y, 220, 50, 60);
+    for (let y = 4; y <= 6; y++) for (let x = 6; x <= 8; x++) c.set(x, y, 250, 220, 70);
+  },
+  sugar_cane: (c) => {
+    c.clear();
+    for (const x0 of [3, 10]) {
+      for (let y = 0; y < S; y++)
+        for (const x of [x0, x0 + 1]) {
+          const node = y % 5 === 4 ? 0.7 : 1;
+          const n = (c.rnd() - 0.5) * 14;
+          c.set(x, y, 150 * node + n, 200 * node + n, 90 * node + n);
+        }
+    }
+    for (const [x, y] of [[5, 2], [6, 1], [9, 6], [8, 5], [2, 8], [12, 10]]) c.set(x, y, 120, 180, 70);
+  },
+  rail: (c) => {
+    c.clear();
+    for (let y = 0; y < S; y++) if (y % 4 === 1) for (let x = 1; x < S - 1; x++) c.set(x, y, 110, 80, 45);
+    for (let y = 0; y < S; y++) for (const x of [3, 4, 11, 12]) c.set(x, y, 150 + (c.rnd() - 0.5) * 20, 150, 150);
+  },
+  door: (c) => {
+    TEX.crafting_table_side(c);
+    for (let y = 2; y <= 6; y++) for (let x = 5; x <= 10; x++) c.set(x, y, 190, 225, 240);
+    for (let y = 2; y <= 6; y++) c.set(8, y, 90, 66, 40);
+    for (let x = 5; x <= 10; x++) c.set(x, 4, 90, 66, 40);
+    c.set(12, 9, 200, 190, 90);
+    c.set(12, 10, 200, 190, 90);
+  },
+  trapdoor: (c) => {
+    TEX.planks(c);
+    c.frame([90, 66, 40]);
+    for (let x = 1; x < S - 1; x++) c.set(x, 7, 90, 66, 40);
+    c.set(7, 4, 150, 150, 150);
+    c.set(8, 4, 150, 150, 150);
+  },
+  sign: (c) => {
+    c.clear();
+    for (let y = 3; y <= 9; y++) for (let x = 2; x <= 13; x++) c.set(x, y, WOOD[0] + (c.rnd() - 0.5) * 12, WOOD[1], WOOD[2]);
+    for (let x = 2; x <= 13; x++) c.set(x, 3, 120, 96, 58);
+    for (let x = 2; x <= 13; x++) c.set(x, 9, 120, 96, 58);
+    for (let x = 4; x <= 11; x += 2) c.set(x, 5, 70, 50, 30);
+    for (let x = 4; x <= 9; x += 2) c.set(x, 7, 70, 50, 30);
+    for (let y = 10; y < S; y++) for (const x of [7, 8]) c.set(x, y, 110, 80, 45);
+  },
+  warped_fungus: (c) => {
+    c.clear();
+    for (let y = 8; y < S; y++) for (const x of [7, 8]) c.set(x, y, 70, 150, 140);
+    for (let y = 4; y <= 8; y++) for (let x = 4; x <= 11; x++) if (!((y === 4 || y === 8) && (x === 4 || x === 11))) c.set(x, y, 40, 200, 180);
+    for (const [x, y] of [[5, 5], [9, 6], [7, 4], [10, 7]]) c.set(x, y, 240, 120, 60);
+  },
+  chest: (c) => {
+    c.noise([150, 108, 58], 12);
+    c.frame([90, 62, 30]);
+    for (let x = 0; x < S; x++) c.set(x, 6, 90, 62, 30);
+    for (let y = 5; y <= 8; y++) for (const x of [7, 8]) c.set(x, y, 140, 140, 140);
+  },
+  bed: (c) => {
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) (y < 10 ? c.set(x, y, 180 + (c.rnd() - 0.5) * 14, 40, 40) : c.set(x, y, WOOD[0], WOOD[1], WOOD[2]));
+    for (let y = 1; y <= 3; y++) for (let x = 1; x < S - 1; x++) c.set(x, y, 240, 240, 236);
+    for (let x = 0; x < S; x++) c.set(x, 10, 90, 62, 30);
+  },
+  brewing_stand: (c) => {
+    c.cells(9, [118, 118, 118], 0.12, 0.62);
+    for (let y = 0; y < 12; y++) for (let x = 0; x < S; x++) c.set(x, y, 0, 0, 0, 0);
+    for (let y = 2; y < 12; y++) for (const x of [7, 8]) c.set(x, y, 70, 70, 76);
+    c.set(7, 1, 250, 220, 90);
+    c.set(8, 1, 250, 220, 90);
+    for (const [x0, col] of [[2, [230, 80, 80]], [11, [90, 140, 240]]]) {
+      for (let y = 6; y <= 11; y++) for (let x = x0; x <= x0 + 2; x++) c.set(x, y, ...col);
+      c.set(x0 + 1, 5, 200, 220, 230);
+    }
+  },
+  enchanting_table: (c) => {
+    c.noise([22, 18, 34], 10).blotch(0.2);
+    for (let y = 0; y <= 3; y++) for (let x = 0; x < S; x++) c.set(x, y, 150 + (c.rnd() - 0.5) * 16, 30, 55);
+    for (const [x, y] of [[1, 1], [14, 1], [1, 2], [14, 2]]) c.set(x, y, 96, 232, 226);
+  },
+  carved_pumpkin: (c) => {
+    TEX.pumpkin(c);
+    for (const [x, y] of [[3, 5], [4, 5], [5, 5], [4, 4], [10, 5], [11, 5], [12, 5], [11, 4]]) c.set(x, y, 30, 22, 14);
+    for (const [x, y] of [[3, 10], [4, 11], [5, 11], [6, 11], [7, 10], [8, 10], [9, 11], [10, 11], [11, 11], [12, 10], [6, 12], [10, 12]]) c.set(x, y, 30, 22, 14);
+  },
+  jack_o_lantern: (c) => {
+    TEX.pumpkin(c);
+    for (const [x, y] of [[3, 5], [4, 5], [5, 5], [4, 4], [10, 5], [11, 5], [12, 5], [11, 4]]) c.set(x, y, 255, 230, 120);
+    for (const [x, y] of [[3, 10], [4, 11], [5, 11], [6, 11], [7, 10], [8, 10], [9, 11], [10, 11], [11, 11], [12, 10], [6, 12], [10, 12]]) c.set(x, y, 255, 230, 120);
+  },
+  ancient_debris: (c) => {
+    c.noise([96, 66, 56], 12).blotch(0.15);
+    for (let i = 0; i < 6; i++) {
+      const x = Math.floor(c.rnd() * S),
+        y = Math.floor(c.rnd() * S);
+      c.set(x, y, 60, 40, 34);
+      c.set((x + 1) % S, y, 60, 40, 34);
+    }
+  },
+  spawner: (c) => {
+    c.noise([46, 46, 56], 8);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (x % 3 === 1 || y % 3 === 1) c.mul(x, y, 0.55);
+    for (const [x, y] of [[6, 7], [9, 7], [7, 9], [8, 9]]) c.set(x, y, 200, 120, 60);
+  },
   dried_ghast: (c) => {
     c.noise([206, 202, 196], 8).blotch(0.06);
     // 감은 눈 두 개와 입
