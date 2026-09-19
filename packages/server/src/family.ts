@@ -10,7 +10,7 @@
  * - 규칙 4: 할 일 보상은 시간만. 규칙 5: 기본 시간은 서버가 절대 깎지 않는다.
  * - 부모 여러 명(엄마)은 v1.1: 같은 가족 코드로 가입하기.
  */
-import { type FamilyRules, type ServerJson, type Todo, type TodayCard, type TodoRepeat, buildTodayCard, repeatFromString, repeatToString, seoulTime, statusAfterCheck } from '@dragon-village/shared';
+import { type ApprovalItem, type FamilyRules, type ServerJson, type Todo, type TodayCard, type TodoRepeat, buildTodayCard, repeatFromString, repeatToString, seoulTime, statusAfterCheck } from '@dragon-village/shared';
 import { FAMILY_RULES } from '@dragon-village/shared/data';
 import { randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { AccountService } from './accounts';
@@ -248,6 +248,26 @@ export class FamilyService {
     for (const p of this.storage.listParentPlayers(familyId)) this.notify(p.nickKey, msg);
   }
 
+  /** 부모 플레이어의 게임 화면용: 승인 기다리는 목록 */
+  pendingItems(familyId: number): ApprovalItem[] {
+    return this.pendingApprovals(familyId).map((p) => ({ id: p.todoId, date: p.date, child: p.child, title: p.title }));
+  }
+
+  /** 승인 대기 목록이 바뀌면 접속 중인 부모 플레이어에게 */
+  private pushPending(familyId: number): void {
+    this.notifyParents(familyId, { t: 'pending', items: this.pendingItems(familyId) });
+  }
+
+  /** 부모 플레이어의 게임 화면용: 승인 기다리는 목록 */
+  pendingItems(familyId: number): ApprovalItem[] {
+    return this.pendingApprovals(familyId).map((p) => ({ id: p.todoId, date: p.date, child: p.child, title: p.title }));
+  }
+
+  /** 승인 대기 목록이 바뀌면 접속 중인 부모 플레이어에게 */
+  private pushPending(familyId: number): void {
+    this.notifyParents(familyId, { t: 'pending', items: this.pendingItems(familyId) });
+  }
+
   // ---------------------------------------------------------------- 할 일
 
   private toTodo(r: TodoRow): Todo {
@@ -295,6 +315,7 @@ export class FamilyService {
       active: patch.active === undefined ? r.active : patch.active ? 1 : 0,
     });
     this.pushCard(r.child, now);
+    this.pushPending(r.family);
     return true;
   }
 
@@ -303,6 +324,7 @@ export class FamilyService {
     if (!r || r.family !== familyId) return false;
     this.storage.deleteTodo(id);
     this.pushCard(r.child, now);
+    this.pushPending(r.family);
     return true;
   }
 
@@ -357,7 +379,10 @@ export class FamilyService {
     const todo = this.toTodo(r);
     const status = statusAfterCheck(todo);
     this.storage.upsertLog(todoId, card.date, status, now, status === 'approved' ? now : null);
-    if (status === 'checked') this.notifyParents(c.family, { t: 'approvalAsk', id: todoId, date: card.date, child: this.storage.getAccountByNick(key)?.nick ?? key, title: r.title });
+    if (status === 'checked') {
+      this.notifyParents(c.family, { t: 'approvalAsk', id: todoId, date: card.date, child: this.storage.getAccountByNick(key)?.nick ?? key, title: r.title });
+      this.pushPending(c.family);
+    }
     return { ok: true, card: this.cardFor(key, now), needsApproval: status === 'checked' };
   }
 
@@ -371,6 +396,7 @@ export class FamilyService {
     if (!approve && log?.status !== 'checked') return false;
     this.storage.upsertLog(todoId, date, approve ? 'approved' : 'rejected', log?.checkedAt ?? now, now);
     this.pushCard(r.child, now);
+    this.pushPending(familyId);
     return true;
   }
 

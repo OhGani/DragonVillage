@@ -158,9 +158,12 @@ describe('할 일·승인·시간 (M5-3)', () => {
     expect(gotChild.at(-1)).toMatchObject({ t: 'today', card: { todos: [{ id: t.id, status: 'pending' }] } });
     expect(family.childrenStatus(fid, SAT)[0]!.online).toBe(true);
     family.checkTodo('쁘뚜', t.id, SAT);
-    expect(gotParent).toMatchObject([{ t: 'approvalAsk', id: t.id, date: '2026-09-19', child: '쁘뚜', title: '수학' }]);
+    expect(gotParent[0]).toMatchObject({ t: 'approvalAsk', id: t.id, date: '2026-09-19', child: '쁘뚜', title: '수학' });
+    expect(gotParent[1]).toMatchObject({ t: 'pending', items: [{ id: t.id, date: '2026-09-19', child: '쁘뚜', title: '수학' }] });
+    expect(family.pendingItems(fid)).toHaveLength(1);
     family.decideTodo(fid, t.id, '2026-09-19', true, SAT);
     expect(gotChild.at(-1)).toMatchObject({ t: 'today', card: { bonusMin: 5, todos: [{ status: 'approved' }] } });
+    expect(gotParent.at(-1)).toEqual({ t: 'pending', items: [] });
     family.detach('오가니', lp);
     family.detach('쁘뚜', lc);
     const n = gotChild.length;

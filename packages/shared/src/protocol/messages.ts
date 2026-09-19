@@ -336,6 +336,22 @@ export interface ExpeditionResultItem {
   count: number;
 }
 
+/** 승인 기다리는 할 일 하나 (부모 플레이어 화면) */
+export interface ApprovalItem {
+  id: number;
+  date: string;
+  child: string;
+  title: string;
+}
+
+/** 승인 기다리는 할 일 하나 (부모 플레이어 화면) */
+export interface ApprovalItem {
+  id: number;
+  date: string;
+  child: string;
+  title: string;
+}
+
 export type ClientJson =
   | { t: 'hello'; token: string | null; protocol: number }
   | { t: 'join'; nick: string; color: number; code: string }
@@ -379,12 +395,16 @@ export type ServerJson =
       today?: TodayCard | null;
       /** 이 플레이어가 부모로 연결된 가족 코드 (게임 안 승인 카드를 받는다). 아니면 null */
       parentOf?: string | null;
+      /** 부모 플레이어: 지금 승인 기다리는 것들 (M5-3) */
+      pending?: ApprovalItem[];
     }
   | { t: 'familyLinked'; code: string }
   /** 오늘 카드가 바뀌었다 (체크·승인·1분 경과·할 일 편집) */
   | { t: 'today'; card: TodayCard }
-  /** 부모 플레이어에게: 아이가 승인 필요한 할 일을 체크했다 */
+  /** 부모 플레이어에게: 아이가 승인 필요한 할 일을 체크했다 (바로 카드로) */
   | { t: 'approvalAsk'; id: number; date: string; child: string; title: string }
+  /** 부모 플레이어에게: 승인 기다리는 목록이 바뀌었다 (체크·승인·거절·삭제) */
+  | { t: 'pending'; items: ApprovalItem[] }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }

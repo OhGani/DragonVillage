@@ -5,6 +5,7 @@
  * 그 뒤 attach(events) 로 게임이 메시지를 받는다. attach 전에 온 게임 메시지는 잠시 모아 두고 넘겨준다.
  */
 import {
+  type ApprovalItem,
   type TodayCard,
   type BlockBatchMsg,
   type BlockChangeReqMsg,
@@ -54,6 +55,12 @@ export interface Welcome {
   needPin: boolean;
   /** 연결된 가족 코드 (아이). 없으면 null */
   family: string | null;
+  /** 아이의 오늘 카드 (M5-3). 아이가 아니면 null */
+  today: TodayCard | null;
+  /** 부모로 연결된 가족 코드 (게임 안 승인 카드). 아니면 null */
+  parentOf: string | null;
+  /** 부모 플레이어: 지금 승인 기다리는 것들 */
+  pending: ApprovalItem[];
 }
 
 /** 세계 전환 (worldEnter … ChunkData … ready 를 하나로 모은 것) */
@@ -97,14 +104,11 @@ export interface NetEvents {
   onToday(card: TodayCard): void;
   /** 아이가 승인 필요한 할 일을 체크했다 (M5-3, 부모 플레이어) */
   onApprovalAsk(ask: ApprovalAsk): void;
+  /** 승인 기다리는 목록이 바뀌었다 (부모 플레이어) */
+  onPending(items: ApprovalItem[]): void;
 }
 
-export interface ApprovalAsk {
-  id: number;
-  date: string;
-  child: string;
-  title: string;
-}
+export type ApprovalAsk = ApprovalItem;
 
 export class NetError extends Error {
   constructor(
@@ -321,6 +325,7 @@ export class NetClient {
           family: msg.family ?? null,
           today: msg.today ?? null,
           parentOf: msg.parentOf ?? null,
+          pending: msg.pending ?? [],
         };
         return;
       case 'familyLinked':
@@ -387,6 +392,7 @@ export class NetClient {
     else if (msg.t === 'expeditionState') ev.onExpeditionState(msg.expedition);
     else if (msg.t === 'today') ev.onToday(msg.card);
     else if (msg.t === 'approvalAsk') ev.onApprovalAsk({ id: msg.id, date: msg.date, child: msg.child, title: msg.title });
+    else if (msg.t === 'pending') ev.onPending(msg.items);
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }
 

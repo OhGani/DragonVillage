@@ -403,6 +403,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     onError: (_code, message) => hud.toast(message, 4000),
     onToday: (card) => hud.setToday(card),
     onApprovalAsk: (ask) => hud.showApproval(ask),
+    onPending: (items) => hud.setPending(items),
     onClose: (reason) => {
       disconnected = true;
       input.paused = true;
@@ -569,6 +570,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   hud.setToday(welcome.today);
   hud.onCheckTodo = (id) => net.sendCheckTodo(id);
   hud.onApprove = (ask, ok) => net.sendApproveTodo(ask.id, ask.date, ok);
+  hud.setPending(welcome.pending);
+  if (welcome.pending.length) hud.toast(`승인 기다리는 할 일이 ${welcome.pending.length}개 있어요 — 위의 ✅ 를 눌러 보세요`, 6000);
   if (welcome.today) hud.toast(`오늘 남은 시간 ${welcome.today.remainingMin}분 · 할 일 ${welcome.today.todos.length}개 — 위의 ⏱ 를 누르면 보여요`, 6000);
   // 가족 연결 (M5-2): 부모 화면의 가족 코드 + 내 PIN
   hud.setFamily(welcome.family, welcome.parentOf);

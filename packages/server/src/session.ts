@@ -175,6 +175,10 @@ export class Session {
           family: this.family?.familyOfNick(nick) ?? null,
           today: this.family?.todayCard(nick) ?? null,
           parentOf: this.family?.parentFamilyOfNick(nick) ?? null,
+          pending: (() => {
+            const fid = this.family?.parentFamilyIdOfNick(nick) ?? null;
+            return fid === null ? [] : this.family!.pendingItems(fid);
+          })(),
         });
         room.sendModifiedChunks(this.send);
         this.sendJson({ t: 'ready' });

@@ -45,7 +45,12 @@ export class Hud {
   private readonly approvalEl: HTMLElement;
   private readonly approvalText: HTMLElement;
   private today: TodayCard | null = null;
-  private readonly approvals: ApprovalAsk[] = [];
+  private readonly approveChip: HTMLButtonElement;
+  private readonly approveChipText: HTMLElement;
+  /** 서버가 알려 준 승인 대기 목록 (부모 플레이어) */
+  private pending: ApprovalAsk[] = [];
+  /** 지금 카드로 떠 있는 것 */
+  private currentAsk: ApprovalAsk | null = null;
   /** 아이가 할 일을 체크했다 */
   onCheckTodo: ((id: number) => void) | null = null;
   /** 부모가 게임 안에서 승인(true)·거절(false)했다 */
@@ -116,6 +121,7 @@ export class Hud {
       </div>
       <div class="exp-timer" hidden><span class="exp-phase"></span><span class="exp-time"></span></div>
       <button class="time-chip" hidden aria-label="오늘 남은 시간과 할 일"><span class="time-chip-min"></span><span class="time-chip-sub"></span></button>
+      <button class="time-chip approve-chip" hidden aria-label="승인 기다리는 할 일"><span class="approve-chip-text"></span></button>
       <div class="approval-card" hidden>
         <div class="approval-text"></div>
         <div class="approval-btns"><button class="big-btn approval-ok">승인</button><button class="plain-btn approval-no">아직</button><button class="plain-btn approval-later">나중에</button></div>
@@ -200,6 +206,13 @@ export class Hud {
     this.todayNote = q('.today-note');
     this.approvalEl = q('.approval-card');
     this.approvalText = q('.approval-text');
+    this.approveChip = q<HTMLButtonElement>('.approve-chip');
+    this.approveChipText = q('.approve-chip-text');
+    this.approveChip.addEventListener('click', (e) => {
+      e.preventDefault();
+      const first = this.pending[0];
+      if (first) this.showApproval(first);
+    });
     this.timeChip.addEventListener('click', (e) => {
       e.preventDefault();
       if (this.todayEl.hidden) this.showToday();
@@ -455,26 +468,33 @@ export class Hud {
     this.todayEl.hidden = true;
   }
 
-  /** 부모 플레이어에게 승인 카드 (여러 개면 차례로) */
-  showApproval(ask: ApprovalAsk): void {
-    this.approvals.push(ask);
-    if (this.approvalEl.hidden) this.nextApproval();
+  /** 부모 플레이어: 승인 기다리는 목록 → 위 가운데 "✅ 승인 n" 칩. 0 이면 숨김. 카드로 떠 있던 것이 목록에서 사라지면 카드도 내린다 */
+  setPending(items: ApprovalAsk[]): void {
+    this.pending = items;
+    this.approveChip.hidden = items.length === 0;
+    this.approveChipText.textContent = `✅ 승인 ${items.length}`;
+    if (this.currentAsk && !items.some((i) => i.id === this.currentAsk!.id && i.date === this.currentAsk!.date)) {
+      this.currentAsk = null;
+      this.approvalEl.hidden = true;
+    }
   }
 
-  private nextApproval(): void {
-    const ask = this.approvals[0];
-    if (!ask) {
-      this.approvalEl.hidden = true;
-      return;
-    }
-    this.approvalText.textContent = `${ask.child}: "${ask.title}" 했대요. 확인해 주세요`;
+  /** 부모 플레이어에게 승인 카드 하나 (아이가 체크한 순간, 또는 칩을 눌렀을 때) */
+  showApproval(ask: ApprovalAsk): void {
+    this.currentAsk = ask;
+    const rest = this.pending.filter((i) => !(i.id === ask.id && i.date === ask.date)).length;
+    this.approvalText.textContent = `${ask.child}: "${ask.title}" 했대요. 확인해 주세요${rest > 0 ? ` (${rest}개 더 기다려요)` : ''}`;
     this.approvalEl.hidden = false;
   }
 
   private decideApproval(ok: boolean | null): void {
-    const ask = this.approvals.shift();
-    if (ask && ok !== null) this.onApprove?.(ask, ok);
-    this.nextApproval();
+    const ask = this.currentAsk;
+    this.currentAsk = null;
+    this.approvalEl.hidden = true;
+    if (!ask || ok === null) return; // "나중에": 칩에 남아 있다
+    this.onApprove?.(ask, ok);
+    // 서버가 곧 새 목록을 보내지만, 먼저 칩 숫자를 내려 둔다
+    this.setPending(this.pending.filter((i) => !(i.id === ask.id && i.date === ask.date)));
   }
 
   /** 가족 연결 상태 (게임 방법 창 아래). code 가 있으면 연결됨 */
