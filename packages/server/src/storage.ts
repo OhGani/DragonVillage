@@ -43,6 +43,32 @@ export interface ChildRow {
   family: number;
   linkedAt: number;
 }
+/** 할 일 (M5-3). needsApproval·active 는 0/1 */
+export interface TodoRow {
+  id: number;
+  family: number;
+  /** 아이 닉 키 */
+  child: string;
+  title: string;
+  /** 'daily' | 'once' | '1,2,3' */
+  repeat: string;
+  needsApproval: number;
+  active: number;
+  createdAt: number;
+}
+export interface TodoLogRow {
+  todoId: number;
+  date: string;
+  status: string;
+  checkedAt: number | null;
+  decidedAt: number | null;
+}
+export interface LedgerRow {
+  child: string;
+  date: string;
+  usedSec: number;
+  manualAdj: number;
+}
 export interface PlayerRow {
   token: string;
   village: string | null;
@@ -79,6 +105,16 @@ CREATE TABLE IF NOT EXISTS parent_sessions(
   sid TEXT PRIMARY KEY, parent_id INTEGER NOT NULL, expires_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS children(
   nick_key TEXT PRIMARY KEY, family INTEGER NOT NULL, linked_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS parent_players(
+  nick_key TEXT PRIMARY KEY, family INTEGER NOT NULL, linked_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS todos(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, family INTEGER NOT NULL, child TEXT NOT NULL, title TEXT NOT NULL, repeat TEXT NOT NULL,
+  needs_approval INTEGER NOT NULL, active INTEGER NOT NULL, created_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS todos_child ON todos(child);
+CREATE TABLE IF NOT EXISTS todo_logs(
+  todo_id INTEGER NOT NULL, date TEXT NOT NULL, status TEXT NOT NULL, checked_at INTEGER, decided_at INTEGER, PRIMARY KEY(todo_id, date));
+CREATE TABLE IF NOT EXISTS time_ledger(
+  child TEXT NOT NULL, date TEXT NOT NULL, used_sec INTEGER NOT NULL DEFAULT 0, manual_adj INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(child, date));
 `;
 
 export class Storage {
@@ -128,6 +164,30 @@ export class Storage {
       upsertChild: this.db.prepare('INSERT INTO children(nick_key, family, linked_at) VALUES (?, ?, ?) ON CONFLICT(nick_key) DO UPDATE SET family = excluded.family, linked_at = excluded.linked_at'),
       deleteChild: this.db.prepare('DELETE FROM children WHERE nick_key = ?'),
       listChildren: this.db.prepare('SELECT nick_key AS nickKey, family, linked_at AS linkedAt FROM children WHERE family = ? ORDER BY linked_at'),
+      getParentPlayer: this.db.prepare('SELECT nick_key AS nickKey, family, linked_at AS linkedAt FROM parent_players WHERE nick_key = ?'),
+      upsertParentPlayer: this.db.prepare('INSERT INTO parent_players(nick_key, family, linked_at) VALUES (?, ?, ?) ON CONFLICT(nick_key) DO UPDATE SET family = excluded.family, linked_at = excluded.linked_at'),
+      deleteParentPlayer: this.db.prepare('DELETE FROM parent_players WHERE nick_key = ?'),
+      listParentPlayers: this.db.prepare('SELECT nick_key AS nickKey, family, linked_at AS linkedAt FROM parent_players WHERE family = ? ORDER BY linked_at'),
+      insertTodo: this.db.prepare('INSERT INTO todos(family, child, title, repeat, needs_approval, active, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)'),
+      getTodo: this.db.prepare('SELECT id, family, child, title, repeat, needs_approval AS needsApproval, active, created_at AS createdAt FROM todos WHERE id = ?'),
+      listTodosByChild: this.db.prepare('SELECT id, family, child, title, repeat, needs_approval AS needsApproval, active, created_at AS createdAt FROM todos WHERE child = ? ORDER BY created_at, id'),
+      updateTodo: this.db.prepare('UPDATE todos SET title = @title, repeat = @repeat, needs_approval = @needsApproval, active = @active WHERE id = @id'),
+      deleteTodo: this.db.prepare('DELETE FROM todos WHERE id = ?'),
+      deleteTodoLogs: this.db.prepare('DELETE FROM todo_logs WHERE todo_id = ?'),
+      getLog: this.db.prepare('SELECT todo_id AS todoId, date, status, checked_at AS checkedAt, decided_at AS decidedAt FROM todo_logs WHERE todo_id = ? AND date = ?'),
+      upsertLog: this.db.prepare(
+        'INSERT INTO todo_logs(todo_id, date, status, checked_at, decided_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(todo_id, date) DO UPDATE SET status = excluded.status, checked_at = excluded.checked_at, decided_at = excluded.decided_at',
+      ),
+      listLogsByChild: this.db.prepare(
+        'SELECT l.todo_id AS todoId, l.date, l.status, l.checked_at AS checkedAt, l.decided_at AS decidedAt FROM todo_logs l JOIN todos t ON t.id = l.todo_id WHERE t.child = ? AND l.date >= ? ORDER BY l.date',
+      ),
+      listCheckedLogs: this.db.prepare(
+        "SELECT l.todo_id AS todoId, l.date, l.checked_at AS checkedAt, t.title, t.child FROM todo_logs l JOIN todos t ON t.id = l.todo_id WHERE t.family = ? AND l.status = 'checked' ORDER BY l.checked_at",
+      ),
+      getLedger: this.db.prepare('SELECT child, date, used_sec AS usedSec, manual_adj AS manualAdj FROM time_ledger WHERE child = ? AND date = ?'),
+      addUsage: this.db.prepare('INSERT INTO time_ledger(child, date, used_sec, manual_adj) VALUES (?, ?, ?, 0) ON CONFLICT(child, date) DO UPDATE SET used_sec = used_sec + excluded.used_sec'),
+      addManualAdj: this.db.prepare('INSERT INTO time_ledger(child, date, used_sec, manual_adj) VALUES (?, ?, 0, ?) ON CONFLICT(child, date) DO UPDATE SET manual_adj = manual_adj + excluded.manual_adj'),
+      listLedger: this.db.prepare('SELECT child, date, used_sec AS usedSec, manual_adj AS manualAdj FROM time_ledger WHERE child = ? AND date >= ? ORDER BY date'),
       upsertInventory: this.db.prepare(
         'INSERT INTO inventories(token, village, json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(token) DO UPDATE SET village = excluded.village, json = excluded.json, updated_at = excluded.updated_at',
       ),
@@ -259,6 +319,62 @@ export class Storage {
   }
   listChildren(family: number): ChildRow[] {
     return this.stmts.listChildren.all(family) as ChildRow[];
+  }
+
+  // ---- 부모 플레이어·할 일·기록·시간 (M5-3)
+  getParentPlayer(nickKey: string): ChildRow | undefined {
+    return this.stmts.getParentPlayer.get(nickKey) as ChildRow | undefined;
+  }
+  upsertParentPlayer(nickKey: string, family: number, now: number): void {
+    this.stmts.upsertParentPlayer.run(nickKey, family, now);
+  }
+  deleteParentPlayer(nickKey: string): void {
+    this.stmts.deleteParentPlayer.run(nickKey);
+  }
+  listParentPlayers(family: number): ChildRow[] {
+    return this.stmts.listParentPlayers.all(family) as ChildRow[];
+  }
+  insertTodo(family: number, child: string, title: string, repeat: string, needsApproval: boolean, now: number): number {
+    return Number(this.stmts.insertTodo.run(family, child, title, repeat, needsApproval ? 1 : 0, now).lastInsertRowid);
+  }
+  getTodo(id: number): TodoRow | undefined {
+    return this.stmts.getTodo.get(id) as TodoRow | undefined;
+  }
+  listTodosByChild(child: string): TodoRow[] {
+    return this.stmts.listTodosByChild.all(child) as TodoRow[];
+  }
+  updateTodo(row: TodoRow): void {
+    this.stmts.updateTodo.run({ id: row.id, title: row.title, repeat: row.repeat, needsApproval: row.needsApproval, active: row.active });
+  }
+  deleteTodo(id: number): void {
+    this.stmts.deleteTodoLogs.run(id);
+    this.stmts.deleteTodo.run(id);
+  }
+  getLog(todoId: number, date: string): TodoLogRow | undefined {
+    return this.stmts.getLog.get(todoId, date) as TodoLogRow | undefined;
+  }
+  upsertLog(todoId: number, date: string, status: string, checkedAt: number | null, decidedAt: number | null): void {
+    this.stmts.upsertLog.run(todoId, date, status, checkedAt, decidedAt);
+  }
+  /** 아이의 기록 (sinceDate 이후) */
+  listLogsByChild(child: string, sinceDate: string): TodoLogRow[] {
+    return this.stmts.listLogsByChild.all(child, sinceDate) as TodoLogRow[];
+  }
+  /** 가족의 승인 대기(checked) 기록 + 할 일 제목·아이 */
+  listCheckedLogs(family: number): { todoId: number; date: string; checkedAt: number | null; title: string; child: string }[] {
+    return this.stmts.listCheckedLogs.all(family) as { todoId: number; date: string; checkedAt: number | null; title: string; child: string }[];
+  }
+  getLedger(child: string, date: string): LedgerRow | undefined {
+    return this.stmts.getLedger.get(child, date) as LedgerRow | undefined;
+  }
+  addUsage(child: string, date: string, sec: number): void {
+    this.stmts.addUsage.run(child, date, sec);
+  }
+  addManualAdj(child: string, date: string, delta: number): void {
+    this.stmts.addManualAdj.run(child, date, delta);
+  }
+  listLedger(child: string, sinceDate: string): LedgerRow[] {
+    return this.stmts.listLedger.all(child, sinceDate) as LedgerRow[];
   }
 
   /** 온라인 백업 (WAL 포함 일관된 사본) */

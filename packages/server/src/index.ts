@@ -9,7 +9,7 @@
  * HTTP 로 클라이언트를 내주고, 같은 포트의 /ws 로 WebSocket. /health 는 상태 JSON.
  * 실행: pnpm --filter @dragon-village/server start  (tsx 가 TS 를 바로 돈다)
  */
-import { BLOCKS } from '@dragon-village/shared/data';
+import { BLOCKS, FAMILY_RULES } from '@dragon-village/shared/data';
 import { existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
@@ -37,11 +37,13 @@ mkdirSync(DATA_DIR, { recursive: true });
 const storage = new Storage(DB_PATH);
 const rooms = new RoomManager(storage, BLOCKS, log);
 const accounts = new AccountService(storage);
-const family = new FamilyService(storage, accounts);
+// 시간 제한(M5-4)은 DV_ENFORCE_TIME=1 일 때만 건다. 기본은 표시만 (아빠 2026-09-19: 테스트 동안 제한 없음)
+const family = new FamilyService(storage, accounts, FAMILY_RULES, { enforceTime: process.env.DV_ENFORCE_TIME === '1' });
 const FAMILY_PAGE = join(here, '..', 'static', 'family.html');
 const home = rooms.ensureDefault(process.env.DV_DEFAULT_CODE);
 writeFileSync(join(DATA_DIR, 'default-village-code.txt'), `${home.info.code}\n`);
 log(`기본 마을 "${home.info.name}" 코드 ${home.info.code} (저장 청크 ${home.modifiedCount}개)`);
+log(`가족 시간 제한: ${family.enforceTime ? '켬' : '끔 (남은 시간 표시만)'}`);
 if (!existsSync(join(CLIENT_DIST, 'index.html'))) log(`주의: 클라이언트 빌드가 없어요 (${CLIENT_DIST}). pnpm build 를 먼저 하세요`);
 
 const http = createServer((req, res) => {

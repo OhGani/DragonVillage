@@ -7,6 +7,7 @@
  * - 청크는 diff 목록 대신 `serialize.ts` 의 청크 blob 통째로 (저장 형식과 같다, 결정 #60).
  * - M3 원정: 세계 전환·정산은 드물어서 JSON(worldEnter·expeditionResult·expeditionState), 1Hz 타이머만 바이너리(ExpeditionTimer).
  */
+import type { TodayCard } from '../rules/family';
 import { ByteReader, ByteWriter } from './bytes';
 
 export const PROTOCOL_VERSION = 1;
@@ -352,7 +353,11 @@ export type ClientJson =
   /** 다른 기기에서 이어하기: 이름 + PIN → 그 계정 토큰 (hello 뒤, join 전) */
   | { t: 'resume'; nick: string; pin: string }
   /** 가족 연결 (M5-2): 부모 화면의 가족 코드 + 내 PIN. 마을에 들어간 뒤 */
-  | { t: 'linkFamily'; code: string; pin: string };
+  | { t: 'linkFamily'; code: string; pin: string }
+  /** 오늘 카드의 할 일 체크 (M5-3, 아이) */
+  | { t: 'checkTodo'; id: number }
+  /** 게임 안 승인·거절 (M5-3, 부모 플레이어) */
+  | { t: 'approveTodo'; id: number; date: string; ok: boolean };
 
 export type ServerJson =
   | { t: 'hello'; token: string; protocol: number }
@@ -370,8 +375,16 @@ export type ServerJson =
       needPin?: boolean;
       /** 연결된 가족 코드 (아이). 없으면 null */
       family?: string | null;
+      /** 아이의 오늘 카드 (M5-3). 아이가 아니면 null */
+      today?: TodayCard | null;
+      /** 이 플레이어가 부모로 연결된 가족 코드 (게임 안 승인 카드를 받는다). 아니면 null */
+      parentOf?: string | null;
     }
   | { t: 'familyLinked'; code: string }
+  /** 오늘 카드가 바뀌었다 (체크·승인·1분 경과·할 일 편집) */
+  | { t: 'today'; card: TodayCard }
+  /** 부모 플레이어에게: 아이가 승인 필요한 할 일을 체크했다 */
+  | { t: 'approvalAsk'; id: number; date: string; child: string; title: string }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }

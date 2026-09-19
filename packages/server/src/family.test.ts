@@ -1,3 +1,4 @@
+import type { ServerJson } from '@dragon-village/shared';
 import { describe, expect, it } from 'vitest';
 import { AccountService } from './accounts';
 import { FamilyService, SESSION_DAYS } from './family';
@@ -60,5 +61,109 @@ describe('부모 계정·가족 코드 (M5-2)', () => {
     expect(family.unlinkChild(p.parent.familyId, '쁘뚜')).toBe(true);
     expect(family.familyOfNick('쁘뚜')).toBeNull();
     expect(family.unlinkChild(p.parent.familyId, '쁘뚜')).toBe(false);
+  });
+});
+
+describe('할 일·승인·시간 (M5-3)', () => {
+  const SAT = Date.UTC(2026, 8, 19, 1, 20); // 2026-09-19 토 10:20 KST
+  const B = 'b'.repeat(32);
+  function withChild() {
+    const s = setup();
+    const p = s.family.signup('dad@example.com', 'secret1', 1000);
+    if (!p.ok) throw new Error();
+    s.accounts.claim(A, '쁘뚜', 1000);
+    s.accounts.setPin(A, '1111');
+    s.family.linkChild(p.parent.familyCode, '쁘뚜', '1111', 2000);
+    return { ...s, fid: p.parent.familyId, code: p.parent.familyCode };
+  }
+
+  it('할 일 추가 → 카드에 뜨고, 체크 → 자동 승인 또는 부모 승인 → 보너스, 시간 누적, 끄기·삭제', () => {
+    const { family, fid } = withChild();
+    expect(family.todayCard('없는애', SAT)).toBeNull();
+    const teeth = family.addTodo(fid, '쁘뚜', ' 이 닦기 ', 'daily', false, SAT)!;
+    const math = family.addTodo(fid, '쁘뚜', '수학 숙제', [0, 6], true, SAT)!;
+    expect(teeth.title).toBe('이 닦기');
+    expect(family.addTodo(fid, '누구', 'x', 'daily', false, SAT)).toBeNull();
+    expect(family.addTodo(fid, '쁘뚜', '   ', 'daily', false, SAT)).toBeNull();
+    expect(family.addTodo(999, '쁘뚜', 'x', 'daily', false, SAT)).toBeNull();
+    let card = family.todayCard('쁘뚜', SAT)!;
+    expect(card.todos.map((t) => t.title)).toEqual(['이 닦기', '수학 숙제']);
+    expect(card).toMatchObject({ date: '2026-09-19', baseMin: 30, bonusCap: 5, bonusMin: 0, remainingMin: 30, enforced: false });
+
+    const r1 = family.checkTodo('쁘뚜', teeth.id, SAT + 1000);
+    expect(r1.ok && !r1.needsApproval).toBe(true);
+    if (r1.ok) expect(r1.card.bonusMin).toBe(3); // 1/2 × 5 = 2.5 → 3
+    const r2 = family.checkTodo('쁘뚜', math.id, SAT + 2000);
+    expect(r2.ok && r2.needsApproval).toBe(true);
+    expect(family.checkTodo('쁘뚜', math.id, SAT + 3000)).toEqual({ ok: false, reason: 'ALREADY' });
+    expect(family.checkTodo('쁘뚜', 12345, SAT)).toEqual({ ok: false, reason: 'NO_TODO' });
+    expect(family.checkTodo('없는애', teeth.id, SAT)).toEqual({ ok: false, reason: 'NOT_CHILD' });
+    expect(family.pendingApprovals(fid)).toMatchObject([{ todoId: math.id, child: '쁘뚜', title: '수학 숙제', date: '2026-09-19' }]);
+
+    // 거절 → 다시 체크할 수 있다. 승인 → 보너스 5
+    expect(family.decideTodo(fid, math.id, '2026-09-19', false, SAT + 4000)).toBe(true);
+    expect(family.todayCard('쁘뚜', SAT)!.todos[1]!.status).toBe('rejected');
+    expect(family.checkTodo('쁘뚜', math.id, SAT + 5000).ok).toBe(true);
+    expect(family.decideTodo(fid, math.id, '2026-09-19', true, SAT + 6000)).toBe(true);
+    card = family.todayCard('쁘뚜', SAT + 6000)!;
+    expect(card.bonusMin).toBe(5);
+    expect(card.remainingMin).toBe(35);
+    expect(family.pendingApprovals(fid)).toEqual([]);
+    expect(family.decideTodo(999, math.id, '2026-09-19', true)).toBe(false); // 다른 가족
+    expect(family.decideTodo(fid, math.id, 'nope', true)).toBe(false);
+
+    // 시간 누적: 90초 → 쓴 1분, +30초 → 2분
+    expect(family.addUsage('쁘뚜', 90, SAT + 7000)!.usedMin).toBe(1);
+    expect(family.addUsage('쁘뚜', 30, SAT + 8000)!.remainingMin).toBe(33);
+    expect(family.addUsage('없는애', 60, SAT)).toBeNull();
+
+    // 끄기 → 카드에서 사라짐. 삭제
+    expect(family.updateTodo(fid, teeth.id, { active: false }, SAT)).toBe(true);
+    expect(family.todayCard('쁘뚜', SAT)!.todos.map((t) => t.id)).toEqual([math.id]);
+    expect(family.updateTodo(fid, teeth.id, { title: '  ' }, SAT)).toBe(false);
+    expect(family.updateTodo(999, teeth.id, { active: true }, SAT)).toBe(false);
+    expect(family.deleteTodo(fid, math.id, SAT)).toBe(true);
+    expect(family.todosOf(fid, '쁘뚜')).toHaveLength(1);
+    expect(family.childrenStatus(fid, SAT)[0]).toMatchObject({ nick: '쁘뚜', online: false, today: { remainingMin: 28 } });
+  });
+
+  it('한 번짜리 할 일은 승인되면 다음 날 카드에 없다', () => {
+    const { family, fid } = withChild();
+    const room = family.addTodo(fid, '쁘뚜', '방 정리', 'once', false, SAT)!;
+    expect(family.checkTodo('쁘뚜', room.id, SAT).ok).toBe(true);
+    expect(family.todayCard('쁘뚜', SAT + 86_400_000)!.todos).toEqual([]);
+  });
+
+  it('부모 플레이어 연결과 실시간 알림: 아이가 체크하면 부모에게 approvalAsk, 승인하면 아이에게 today', () => {
+    const { family, accounts, fid, code } = withChild();
+    accounts.claim(B, '오가니', 1000);
+    accounts.setPin(B, '2222');
+    expect(family.linkParentPlayer(fid, '쁘뚜', '1111')).toEqual({ ok: false, reason: 'ALREADY_LINKED' });
+    expect(family.linkParentPlayer(fid, '오가니', '9999')).toEqual({ ok: false, reason: 'BAD_PIN' });
+    expect(family.linkParentPlayer(fid, '오가니', '2222')).toEqual({ ok: true, familyCode: code });
+    expect(family.parentFamilyOfNick('오가니')).toBe(code);
+    expect(family.parentFamilyOfNick('쁘뚜')).toBeNull();
+    expect(family.parentPlayers(fid)).toEqual(['오가니']);
+
+    const gotParent: ServerJson[] = [];
+    const gotChild: ServerJson[] = [];
+    const lp = (m: ServerJson) => gotParent.push(m);
+    const lc = (m: ServerJson) => gotChild.push(m);
+    family.attach('오가니', lp);
+    family.attach('쁘뚜', lc);
+    const t = family.addTodo(fid, '쁘뚜', '수학', 'daily', true, SAT)!;
+    expect(gotChild.at(-1)).toMatchObject({ t: 'today', card: { todos: [{ id: t.id, status: 'pending' }] } });
+    expect(family.childrenStatus(fid, SAT)[0]!.online).toBe(true);
+    family.checkTodo('쁘뚜', t.id, SAT);
+    expect(gotParent).toMatchObject([{ t: 'approvalAsk', id: t.id, date: '2026-09-19', child: '쁘뚜', title: '수학' }]);
+    family.decideTodo(fid, t.id, '2026-09-19', true, SAT);
+    expect(gotChild.at(-1)).toMatchObject({ t: 'today', card: { bonusMin: 5, todos: [{ status: 'approved' }] } });
+    family.detach('오가니', lp);
+    family.detach('쁘뚜', lc);
+    const n = gotChild.length;
+    family.addTodo(fid, '쁘뚜', '하나 더', 'daily', false, SAT);
+    expect(gotChild.length).toBe(n); // 떼면 안 온다
+    expect(family.unlinkParentPlayer(fid, '오가니')).toBe(true);
+    expect(family.parentFamilyOfNick('오가니')).toBeNull();
   });
 });

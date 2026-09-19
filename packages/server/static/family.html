@@ -9,19 +9,34 @@
   body { margin: 0; font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: #142033; color: #f2f5fa; }
   main { max-width: 480px; margin: 0 auto; padding: 20px 16px 40px; }
   h1 { font-size: 22px; margin: 8px 0 16px; }
-  h2 { font-size: 17px; margin: 22px 0 8px; }
+  h2 { font-size: 17px; margin: 0 0 8px; }
+  h3 { font-size: 15px; margin: 14px 0 6px; opacity: 0.9; }
   .card { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .card.hot { border-color: #ffd257; }
   label { display: block; font-size: 14px; margin: 10px 0 4px; opacity: 0.9; }
-  input { width: 100%; box-sizing: border-box; font-size: 17px; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.25); color: inherit; }
+  input, select { width: 100%; box-sizing: border-box; font-size: 17px; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.25); color: inherit; }
+  input[type=checkbox] { width: auto; margin-right: 6px; }
   button { font: inherit; font-size: 17px; font-weight: 700; padding: 12px 18px; min-height: 48px; border-radius: 8px; border: 0; cursor: pointer; color: #fff; background: #3a9d3a; margin-top: 12px; }
   button.plain { background: rgba(255,255,255,0.14); }
+  button.warn { background: #b34a4a; }
   button.small { font-size: 14px; min-height: 40px; padding: 8px 12px; margin: 0; }
   .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+  .row.wrap { flex-wrap: wrap; justify-content: flex-start; }
   .code { font-size: 34px; letter-spacing: 6px; font-weight: 800; text-align: center; margin: 6px 0; }
   .muted { opacity: 0.75; font-size: 14px; line-height: 1.5; }
   .err { color: #ff8a8a; font-size: 14px; margin-top: 8px; min-height: 1.2em; }
   ul { list-style: none; padding: 0; margin: 0; }
-  li { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  li .grow { flex: 1; min-width: 0; }
+  li .sub { display: block; font-size: 13px; opacity: 0.7; }
+  li.off .grow { opacity: 0.5; text-decoration: line-through; }
+  .time { font-size: 28px; font-weight: 800; margin: 4px 0; }
+  .time small { font-size: 14px; font-weight: 400; opacity: 0.8; }
+  .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.15); margin-left: 6px; vertical-align: middle; }
+  .badge.on { background: #3a9d3a; }
+  .days { display: flex; gap: 4px; margin-top: 6px; }
+  .days label { display: flex; flex-direction: column; align-items: center; flex: 1; margin: 0; font-size: 13px; padding: 6px 0; border-radius: 8px; background: rgba(0,0,0,0.2); cursor: pointer; }
+  .days input { margin: 0 0 2px; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -43,21 +58,69 @@
   </section>
 
   <section id="home" hidden>
+    <div id="pendingCard" class="card hot" hidden>
+      <h2>승인 기다리는 중</h2>
+      <ul id="pending"></ul>
+    </div>
+
+    <div id="children"></div>
+
     <div class="card">
       <div class="muted">우리 가족 코드 — 아이가 게임에서 <b>게임 방법 → 가족 연결</b>에 넣어요</div>
       <div id="code" class="code">------</div>
-      <div class="row"><span id="email2" class="muted"></span><button id="logout" class="plain small">로그아웃</button></div>
+      <div id="noChild" class="muted">아직 연결된 아이가 없어요. 아이 폰에서 게임에 들어가 게임 방법 창의 "가족 연결"을 누르고, 위 코드와 아이 PIN 을 넣으면 여기 나와요.</div>
     </div>
+
     <div class="card">
-      <h2 style="margin-top:0">연결된 아이</h2>
-      <ul id="children"></ul>
-      <div id="noChild" class="muted">아직 없어요. 아이 폰에서 게임에 들어가 게임 방법 창의 "가족 연결"을 누르고, 위 코드와 아이 PIN 을 넣으면 여기 나와요.</div>
+      <h2>게임 안에서 승인하기</h2>
+      <div class="muted">아빠·엄마의 게임 이름을 여기에 연결하면, 게임 중일 때 아이가 체크한 할 일이 화면에 카드로 떠서 바로 승인할 수 있어요.</div>
+      <ul id="parentPlayers"></ul>
+      <div class="row">
+        <input id="ppNick" placeholder="내 게임 이름" maxlength="8" />
+        <input id="ppPin" type="password" inputmode="numeric" placeholder="내 PIN" maxlength="4" style="max-width: 110px" />
+      </div>
+      <button id="ppLink" class="plain small" style="margin-top:8px">연결</button>
+      <div id="ppErr" class="err"></div>
     </div>
-    <div class="card muted">할 일·시간 규칙·승인은 다음 단계(M5-3, M5-4)에서 여기에 생겨요.</div>
+
+    <div class="card">
+      <div class="row"><span id="email2" class="muted"></span><button id="logout" class="plain small">로그아웃</button></div>
+      <div id="enforced" class="muted" style="margin-top:8px"></div>
+    </div>
   </section>
 </main>
+
+<template id="childTpl">
+  <div class="card child">
+    <div class="row"><h2 class="name"></h2><span class="online muted"></span></div>
+    <div class="time"><span class="remain"></span> <small class="detail"></small></div>
+    <div class="muted todayLine"></div>
+    <h3>할 일</h3>
+    <ul class="todos"></ul>
+    <h3>할 일 추가</h3>
+    <input class="newTitle" placeholder="예: 수학 숙제" maxlength="30" />
+    <label>반복</label>
+    <select class="newRepeat">
+      <option value="daily">매일</option>
+      <option value="weekdays">평일</option>
+      <option value="weekend">주말</option>
+      <option value="days">요일 고르기</option>
+      <option value="once">한 번</option>
+    </select>
+    <div class="days" hidden></div>
+    <label style="display:flex;align-items:center;margin-top:10px"><input class="newApproval" type="checkbox" /> 아빠·엄마 확인이 필요해요</label>
+    <button class="add small" style="margin-top:8px">추가</button>
+    <div class="err addErr"></div>
+    <div class="row" style="margin-top:12px"><span></span><button class="unlink plain small">연결 끊기</button></div>
+  </div>
+</template>
+
 <script>
-  const $ = (s) => document.querySelector(s);
+  const $ = (s, root = document) => root.querySelector(s);
+  const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+  let me = null;
+  let refreshTimer = null;
+
   async function api(action, body) {
     const res = await fetch('/api/family/' + action, {
       method: body === undefined ? 'GET' : 'POST',
@@ -69,27 +132,144 @@
     if (!res.ok) throw new Error(data.message || data.error || '오류');
     return data;
   }
-  function showHome(me) {
+
+  function repeatLabel(r) {
+    if (r === 'daily') return '매일';
+    if (r === 'once') return '한 번';
+    const days = r.split(',').map(Number).sort();
+    const s = days.join('');
+    if (s === '12345') return '평일';
+    if (s === '06') return '주말';
+    return days.map((d) => DAY_NAMES[d]).join('·');
+  }
+  const STATUS_KO = { pending: '아직', checked: '⏳ 확인 기다림', approved: '✅ 했어요', rejected: '다시' };
+
+  function renderPending() {
+    const ul = $('#pending');
+    ul.innerHTML = '';
+    for (const p of me.pending) {
+      const li = document.createElement('li');
+      const text = document.createElement('span');
+      text.className = 'grow';
+      text.innerHTML = `<b>${esc(p.child)}</b>: ${esc(p.title)}<span class="sub">${p.date}</span>`;
+      const ok = document.createElement('button');
+      ok.className = 'small';
+      ok.textContent = '승인';
+      ok.onclick = () => act('decide', { id: p.todoId, date: p.date, ok: true });
+      const no = document.createElement('button');
+      no.className = 'plain small';
+      no.textContent = '아직';
+      no.onclick = () => act('decide', { id: p.todoId, date: p.date, ok: false });
+      li.append(text, ok, no);
+      ul.appendChild(li);
+    }
+    $('#pendingCard').hidden = me.pending.length === 0;
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  }
+
+  function renderChild(c, existing) {
+    const el = existing ?? $('#childTpl').content.firstElementChild.cloneNode(true);
+    el.dataset.nick = c.nick;
+    $('.name', el).textContent = c.nick;
+    $('.online', el).textContent = c.online ? '● 게임 중' : '';
+    const t = c.today;
+    $('.remain', el).textContent = `남은 ${t.remainingMin}분`;
+    $('.detail', el).textContent = `기본 ${t.baseMin} + 보너스 ${t.bonusMin}/${t.bonusCap}${t.manualAdj ? (t.manualAdj > 0 ? ' +' : ' ') + t.manualAdj + ' 조정' : ''} − 쓴 ${t.usedMin}분`;
+    const done = t.todos.filter((x) => x.status === 'approved').length;
+    $('.todayLine', el).textContent = t.todos.length ? `오늘 할 일 ${done}/${t.todos.length} 완료` : '오늘 할 일이 없어요';
+    const ul = $('.todos', el);
+    ul.innerHTML = '';
+    const todayStatus = new Map(t.todos.map((x) => [x.id, x.status]));
+    for (const todo of c.todos) {
+      const li = document.createElement('li');
+      if (!todo.active) li.className = 'off';
+      const text = document.createElement('span');
+      text.className = 'grow';
+      const st = todayStatus.get(todo.id);
+      text.innerHTML = `${esc(todo.title)}${todo.needsApproval ? '<span class="badge">확인 필요</span>' : ''}<span class="sub">${repeatLabel(todo.repeat)}${st ? ' · 오늘: ' + STATUS_KO[st] : ''}</span>`;
+      const toggle = document.createElement('button');
+      toggle.className = 'plain small';
+      toggle.textContent = todo.active ? '끄기' : '켜기';
+      toggle.onclick = () => act('todoUpdate', { id: todo.id, active: !todo.active });
+      const del = document.createElement('button');
+      del.className = 'warn small';
+      del.textContent = '삭제';
+      del.onclick = () => { if (confirm(`"${todo.title}" 을(를) 지울까요? 기록도 같이 지워져요`)) act('todoDelete', { id: todo.id }); };
+      li.append(text, toggle, del);
+      ul.appendChild(li);
+    }
+    if (!existing) {
+      const sel = $('.newRepeat', el);
+      const days = $('.days', el);
+      days.innerHTML = DAY_NAMES.map((n, i) => `<label><input type="checkbox" value="${i}" ${i >= 1 && i <= 5 ? 'checked' : ''} />${n}</label>`).join('');
+      sel.onchange = () => { days.hidden = sel.value !== 'days'; };
+      $('.add', el).onclick = async () => {
+        $('.addErr', el).textContent = '';
+        let repeat = sel.value;
+        if (repeat === 'weekdays') repeat = [1, 2, 3, 4, 5];
+        else if (repeat === 'weekend') repeat = [0, 6];
+        else if (repeat === 'days') repeat = [...days.querySelectorAll('input:checked')].map((i) => Number(i.value));
+        try {
+          await act('todoAdd', { nick: c.nick, title: $('.newTitle', el).value, repeat, needsApproval: $('.newApproval', el).checked });
+          $('.newTitle', el).value = '';
+        } catch (e) { $('.addErr', el).textContent = e.message; }
+      };
+      $('.newTitle', el).addEventListener('keydown', (e) => { if (e.key === 'Enter') $('.add', el).click(); });
+      $('.unlink', el).onclick = () => { if (confirm(c.nick + ' 연결을 끊을까요? 할 일·기록은 남아요')) act('unlink', { nick: c.nick }); };
+    }
+    return el;
+  }
+
+  function showHome(data) {
+    me = data;
     $('#auth').hidden = true;
     $('#home').hidden = false;
     $('#code').textContent = me.familyCode;
     $('#email2').textContent = me.email;
-    const ul = $('#children');
-    ul.innerHTML = '';
+    $('#enforced').textContent = me.enforced ? '시간 제한: 켜져 있어요' : '시간 제한: 지금은 표시만 해요 (테스트 중). 아이 화면에 남은 시간이 보이지만 0 이 돼도 게임은 계속돼요.';
+    renderPending();
+    const box = $('#children');
+    const seen = new Set();
     for (const c of me.children) {
-      const li = document.createElement('li');
-      const name = document.createElement('span');
-      name.textContent = c.nick;
-      const btn = document.createElement('button');
-      btn.className = 'plain small';
-      btn.textContent = '연결 끊기';
-      btn.onclick = async () => { if (confirm(c.nick + ' 연결을 끊을까요?')) showHome(await api('unlink', { nick: c.nick })); };
-      li.append(name, btn);
-      ul.appendChild(li);
+      seen.add(c.nick);
+      const existing = box.querySelector(`.child[data-nick="${CSS.escape(c.nick)}"]`);
+      const el = renderChild(c, existing);
+      if (!existing) box.appendChild(el);
     }
+    for (const el of [...box.children]) if (!seen.has(el.dataset.nick)) el.remove();
     $('#noChild').hidden = me.children.length > 0;
+    const pp = $('#parentPlayers');
+    pp.innerHTML = '';
+    for (const nick of me.parentPlayers) {
+      const li = document.createElement('li');
+      const s = document.createElement('span');
+      s.className = 'grow';
+      s.textContent = nick;
+      const b = document.createElement('button');
+      b.className = 'plain small';
+      b.textContent = '끊기';
+      b.onclick = () => act('unlinkParent', { nick });
+      li.append(s, b);
+      pp.appendChild(li);
+    }
+    if (!refreshTimer) refreshTimer = setInterval(refresh, 10000);
   }
-  function showAuth() { $('#auth').hidden = false; $('#home').hidden = true; }
+  async function refresh() {
+    if (document.hidden || !me) return;
+    try { showHome(await api('me')); } catch { /* 잠깐 끊김은 무시 */ }
+  }
+  async function act(action, body) {
+    showHome(await api(action, body));
+  }
+  function showAuth() {
+    me = null;
+    if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+    $('#auth').hidden = false;
+    $('#home').hidden = true;
+  }
   async function submit(action) {
     $('#authErr').textContent = '';
     try { showHome(await api(action, { email: $('#email').value, password: $('#pw').value })); }
@@ -99,6 +279,12 @@
   $('#signup').onclick = () => submit('signup');
   $('#logout').onclick = async () => { await api('logout', {}); showAuth(); };
   $('#pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit('login'); });
+  $('#ppLink').onclick = async () => {
+    $('#ppErr').textContent = '';
+    try { await act('linkParent', { nick: $('#ppNick').value, pin: $('#ppPin').value }); $('#ppNick').value = ''; $('#ppPin').value = ''; }
+    catch (e) { $('#ppErr').textContent = e.message; }
+  };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
   api('me').then(showHome).catch(showAuth);
 </script>
 </body>

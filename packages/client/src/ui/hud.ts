@@ -1,3 +1,5 @@
+import type { TodayCard } from '@dragon-village/shared';
+import type { ApprovalAsk } from '../net/NetClient';
 import type { TouchUI } from '../input/touch';
 
 export interface HotbarSlot {
@@ -32,6 +34,22 @@ export class Hud {
   readonly bagBtn: HTMLButtonElement;
   readonly familyBtn: HTMLButtonElement;
   private readonly familyText: HTMLElement;
+  // 오늘 카드·승인 (M5-3)
+  private readonly timeChip: HTMLButtonElement;
+  private readonly timeChipMin: HTMLElement;
+  private readonly timeChipSub: HTMLElement;
+  private readonly todayEl: HTMLElement;
+  private readonly todayTime: HTMLElement;
+  private readonly todayList: HTMLElement;
+  private readonly todayNote: HTMLElement;
+  private readonly approvalEl: HTMLElement;
+  private readonly approvalText: HTMLElement;
+  private today: TodayCard | null = null;
+  private readonly approvals: ApprovalAsk[] = [];
+  /** 아이가 할 일을 체크했다 */
+  onCheckTodo: ((id: number) => void) | null = null;
+  /** 부모가 게임 안에서 승인(true)·거절(false)했다 */
+  onApprove: ((ask: ApprovalAsk, ok: boolean) => void) | null = null;
   readonly chatBtn: HTMLButtonElement;
   private readonly helpEl: HTMLElement;
   private readonly compassRose: HTMLElement;
@@ -97,6 +115,22 @@ export class Hud {
         <button class="sbtn debug" aria-label="정보">i</button>
       </div>
       <div class="exp-timer" hidden><span class="exp-phase"></span><span class="exp-time"></span></div>
+      <button class="time-chip" hidden aria-label="오늘 남은 시간과 할 일"><span class="time-chip-min"></span><span class="time-chip-sub"></span></button>
+      <div class="approval-card" hidden>
+        <div class="approval-text"></div>
+        <div class="approval-btns"><button class="big-btn approval-ok">승인</button><button class="plain-btn approval-no">아직</button><button class="plain-btn approval-later">나중에</button></div>
+      </div>
+      <div class="today-panel" hidden>
+        <div class="help-card today-card">
+          <div class="help-head">
+            <h2>오늘</h2>
+            <button class="help-close today-close" aria-label="닫기">✕</button>
+          </div>
+          <div class="today-time"></div>
+          <ul class="today-list"></ul>
+          <p class="today-note"></p>
+        </div>
+      </div>
       <pre class="debug-text" hidden></pre>
       <div class="toast" hidden></div>
       <div class="action-card" hidden>
@@ -157,6 +191,27 @@ export class Hud {
     this.bagBtn = q<HTMLButtonElement>('.bag-btn');
     this.familyBtn = q<HTMLButtonElement>('.help-family-btn');
     this.familyText = q('.help-family-text');
+    this.timeChip = q<HTMLButtonElement>('.time-chip');
+    this.timeChipMin = q('.time-chip-min');
+    this.timeChipSub = q('.time-chip-sub');
+    this.todayEl = q('.today-panel');
+    this.todayTime = q('.today-time');
+    this.todayList = q('.today-list');
+    this.todayNote = q('.today-note');
+    this.approvalEl = q('.approval-card');
+    this.approvalText = q('.approval-text');
+    this.timeChip.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (this.todayEl.hidden) this.showToday();
+      else this.hideToday();
+    });
+    q<HTMLButtonElement>('.today-close').addEventListener('click', () => this.hideToday());
+    this.todayEl.addEventListener('click', (e) => {
+      if (e.target === this.todayEl) this.hideToday();
+    });
+    q<HTMLButtonElement>('.approval-ok').addEventListener('click', () => this.decideApproval(true));
+    q<HTMLButtonElement>('.approval-no').addEventListener('click', () => this.decideApproval(false));
+    q<HTMLButtonElement>('.approval-later').addEventListener('click', () => this.decideApproval(null));
     this.chatBtn = q<HTMLButtonElement>('.chat-btn');
     // 주의: 상단 '?' 버튼도 class 에 help 가 있으므로 창은 help-panel 로 구분한다
     this.helpEl = q('.help-panel');
@@ -312,6 +367,116 @@ export class Hud {
   }
 
   /** 게임 방법 창 맨 아래: 마을 이름·코드·인원 */
+  // ---------------------------------------------------------------- 오늘 카드 (M5-3)
+
+  get todayVisible(): boolean {
+    return !this.todayEl.hidden;
+  }
+
+  /** 아이의 오늘 카드. null 이면(아이 아님) 칩·창을 숨긴다 */
+  setToday(card: TodayCard | null): void {
+    this.today = card;
+    if (!card) {
+      this.timeChip.hidden = true;
+      this.todayEl.hidden = true;
+      return;
+    }
+    this.timeChip.hidden = false;
+    const done = card.todos.filter((t) => t.status === 'approved').length;
+    this.timeChipMin.textContent = `⏱ ${card.remainingMin}분`;
+    this.timeChipSub.textContent = card.todos.length ? `할 일 ${done}/${card.todos.length}` : '';
+    this.timeChip.classList.toggle('warn', card.remainingMin > 0 && card.remainingMin <= 5);
+    this.timeChip.classList.toggle('danger', card.remainingMin <= 0);
+    this.renderToday();
+  }
+
+  private renderToday(): void {
+    const c = this.today;
+    if (!c) return;
+    const adj = c.manualAdj ? ` ${c.manualAdj > 0 ? '+' : '−'}${Math.abs(c.manualAdj)}분 조정` : '';
+    this.todayTime.innerHTML = '';
+    const big = document.createElement('div');
+    big.className = 'today-remaining';
+    big.textContent = `남은 시간 ${c.remainingMin}분`;
+    const detail = document.createElement('div');
+    detail.className = 'today-detail';
+    detail.textContent = `기본 ${c.baseMin}분 + 보너스 ${c.bonusMin}/${c.bonusCap}분${adj} − 쓴 ${c.usedMin}분`;
+    this.todayTime.append(big, detail);
+    this.todayList.innerHTML = '';
+    if (c.todos.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'today-empty';
+      li.textContent = '오늘 할 일이 없어요. 아빠·엄마가 /family 에서 만들어요';
+      this.todayList.appendChild(li);
+    }
+    for (const t of c.todos) {
+      const li = document.createElement('li');
+      const title = document.createElement('span');
+      title.className = 'todo-title';
+      title.textContent = t.title;
+      li.appendChild(title);
+      if (t.status === 'pending' || t.status === 'rejected') {
+        if (t.status === 'rejected') {
+          const s = document.createElement('span');
+          s.className = 'todo-state';
+          s.textContent = '다시 해 봐요';
+          li.appendChild(s);
+        }
+        const btn = document.createElement('button');
+        btn.className = 'todo-btn';
+        btn.textContent = '했어요';
+        btn.addEventListener('click', () => {
+          btn.disabled = true;
+          this.onCheckTodo?.(t.id);
+        });
+        li.appendChild(btn);
+      } else {
+        const s = document.createElement('span');
+        s.className = 'todo-state';
+        s.textContent = t.status === 'approved' ? '✅ 했어요' : '⏳ 확인 기다리는 중';
+        li.appendChild(s);
+      }
+      this.todayList.appendChild(li);
+    }
+    const notes: string[] = [];
+    if (c.todos.some((t) => t.needsApproval)) notes.push('아빠·엄마가 확인해 주면 시간이 더 생겨요.');
+    if (c.blocked) notes.push('지금은 게임 시간이 아니에요.');
+    notes.push(c.enforced ? '남은 시간이 0 이 되면 마을에서만 있다가 오늘은 끝나요.' : '지금은 시간을 재기만 해요. 0 이 돼도 게임은 계속돼요.');
+    this.todayNote.textContent = notes.join(' ');
+  }
+
+  showToday(): void {
+    if (!this.today) return;
+    this.renderToday();
+    this.todayEl.hidden = false;
+  }
+
+  hideToday(): void {
+    this.todayEl.hidden = true;
+  }
+
+  /** 부모 플레이어에게 승인 카드 (여러 개면 차례로) */
+  showApproval(ask: ApprovalAsk): void {
+    this.approvals.push(ask);
+    if (this.approvalEl.hidden) this.nextApproval();
+  }
+
+  private nextApproval(): void {
+    const ask = this.approvals[0];
+    if (!ask) {
+      this.approvalEl.hidden = true;
+      return;
+    }
+    this.approvalText.textContent = `${ask.child}: "${ask.title}" 했대요. 확인해 주세요`;
+    this.approvalEl.hidden = false;
+  }
+
+  private decideApproval(ok: boolean | null): void {
+    const ask = this.approvals.shift();
+    if (ask && ok !== null) this.onApprove?.(ask, ok);
+    this.nextApproval();
+  }
+
   /** 가족 연결 상태 (게임 방법 창 아래). code 가 있으면 연결됨 */
   setFamily(code: string | null): void {
     this.familyText.textContent = code ? `가족 연결됨 (코드 ${code}) — 할 일·시간은 다음 단계에서` : '아빠·엄마 화면(/family)의 가족 코드로 내 계정을 연결해요';

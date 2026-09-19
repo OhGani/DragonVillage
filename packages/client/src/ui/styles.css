@@ -1172,3 +1172,136 @@ body {
   margin: 0;
   white-space: nowrap;
 }
+
+/* ---- 오늘 카드·승인 (M5-3) ---- */
+.time-chip {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  font-size: 16px;
+  pointer-events: auto;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  z-index: 3;
+}
+.time-chip .time-chip-sub {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.85;
+}
+.time-chip.warn {
+  border-color: #ffd257;
+}
+.time-chip.danger {
+  border-color: #ff5e5e;
+}
+.exp-timer:not([hidden]) ~ .time-chip {
+  top: 62px;
+}
+.today-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 20, 40, 0.7);
+  pointer-events: auto;
+  z-index: 5;
+}
+.today-panel[hidden] {
+  display: none;
+}
+.today-remaining {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 6px 0 2px;
+}
+.today-detail {
+  font-size: 14px;
+  opacity: 0.85;
+  margin-bottom: 12px;
+}
+.today-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.today-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 16px;
+}
+.today-list .todo-title {
+  flex: 1;
+}
+.today-list .todo-state {
+  font-size: 14px;
+  opacity: 0.9;
+}
+.today-list .today-empty {
+  opacity: 0.8;
+  font-size: 14px;
+}
+.today-list .todo-btn {
+  font: inherit;
+  font-weight: 700;
+  padding: 8px 14px;
+  min-height: 40px;
+  border-radius: 8px;
+  border: 0;
+  background: #3a9d3a;
+  color: #fff;
+  cursor: pointer;
+}
+.today-list .todo-btn:disabled {
+  opacity: 0.5;
+}
+.today-note {
+  font-size: 13px;
+  opacity: 0.8;
+  margin: 12px 0 0;
+  line-height: 1.5;
+}
+.approval-card {
+  position: absolute;
+  left: 50%;
+  top: 60px;
+  transform: translateX(-50%);
+  width: min(440px, 92vw);
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.78);
+  border: 2px solid #ffd257;
+  border-radius: 12px;
+  color: #fff;
+  pointer-events: auto;
+  z-index: 4;
+}
+.approval-card[hidden] {
+  display: none;
+}
+.approval-text {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.approval-btns {
+  display: flex;
+  gap: 8px;
+}
+.approval-btns .big-btn {
+  flex: 1;
+}

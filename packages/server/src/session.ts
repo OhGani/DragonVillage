@@ -26,6 +26,13 @@ const LINK_ERROR_KO: Record<string, string> = {
   NO_FAMILY: '그 가족 코드는 없어요. 부모 화면의 6자리를 다시 봐 주세요',
   ALREADY_LINKED: '이미 다른 가족에 연결돼 있어요',
 };
+/** 할 일 체크 거절 이유 (M5-3) */
+const TODO_ERROR_KO: Record<string, string> = {
+  NOT_CHILD: '가족에 연결된 아이만 할 일을 체크해요',
+  NO_TODO: '그 할 일이 없어요',
+  NOT_TODAY: '오늘 할 일이 아니에요',
+  ALREADY: '이미 체크했어요',
+};
 /** 이어하기 거절 이유 */
 const RESUME_ERROR_KO: Record<string, string> = {
   NO_SUCH_NICK: '그 이름은 없어요',
@@ -62,6 +69,9 @@ export class Session {
   idx = -1;
   private badCodes = 0;
   private closed = false;
+  /** 아이: 접속 중 1분마다 쓴 시간 누적 (M5-3) */
+  private usageTimer: NodeJS.Timeout | null = null;
+  private familyListener: ((m: ServerJson) => void) | null = null;
 
   constructor(
     private readonly ws: WebSocket,
@@ -162,9 +172,22 @@ export class Session {
           inventory: result.inventory,
           needPin,
           family: this.family?.familyOfNick(nick) ?? null,
+          today: this.family?.todayCard(nick) ?? null,
+          parentOf: this.family?.parentFamilyOfNick(nick) ?? null,
         });
         room.sendModifiedChunks(this.send);
         this.sendJson({ t: 'ready' });
+        if (this.family) {
+          // 승인·카드 갱신을 실시간으로 받는다. 아이면 1분마다 쓴 시간을 누적한다 (제한은 M5-4 에서, 지금은 표시만)
+          this.familyListener = (m) => this.sendJson(m);
+          this.family.attach(nick, this.familyListener);
+          if (this.family.todayCard(nick)) {
+            this.usageTimer = setInterval(() => {
+              const card = this.family?.addUsage(nick, 60);
+              if (card) this.sendJson({ t: 'today', card });
+            }, 60_000);
+          }
+        }
         return;
       }
       case 'startExpedition': {
@@ -202,6 +225,23 @@ export class Session {
         if (!r.ok) return this.error(r.reason, LINK_ERROR_KO[r.reason] ?? RESUME_ERROR_KO[r.reason] ?? '연결할 수 없어요');
         this.log(`세션 ${this.remote}: '${this.nick}' 가족 ${r.familyCode} 연결`);
         this.sendJson({ t: 'familyLinked', code: r.familyCode });
+        return;
+      }
+      case 'checkTodo': {
+        if (!this.room || !this.nick) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!this.family || !Number.isInteger(msg.id)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const r = this.family.checkTodo(this.nick, msg.id);
+        if (!r.ok) return this.error(r.reason, TODO_ERROR_KO[r.reason] ?? '지금은 체크할 수 없어요');
+        this.sendJson({ t: 'today', card: r.card });
+        return;
+      }
+      case 'approveTodo': {
+        if (!this.room || !this.nick) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!this.family || !Number.isInteger(msg.id) || typeof msg.date !== 'string' || typeof msg.ok !== 'boolean') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const fam = this.family.parentFamilyIdOfNick(this.nick);
+        if (fam === null) return this.error('NOT_PARENT', '부모로 연결된 플레이어만 승인할 수 있어요');
+        if (!this.family.decideTodo(fam, msg.id, msg.date, msg.ok)) return this.error('NO_TODO', '그 할 일을 찾을 수 없어요');
+        this.log(`세션 ${this.remote}: '${this.nick}' 할 일 ${msg.id} ${msg.ok ? '승인' : '거절'}`);
         return;
       }
       case 'craft': {
@@ -247,6 +287,10 @@ export class Session {
   private onClose(): void {
     if (this.closed) return;
     this.closed = true;
+    if (this.usageTimer) clearInterval(this.usageTimer);
+    this.usageTimer = null;
+    if (this.family && this.nick && this.familyListener) this.family.detach(this.nick, this.familyListener);
+    this.familyListener = null;
     if (this.room) {
       const room = this.room;
       const idx = this.idx;

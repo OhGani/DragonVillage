@@ -7,6 +7,7 @@ export * from './rules/inventory';
 export * from './rules/recipes';
 export * from './rules/phrases';
 export * from './rules/starterKit';
+export * from './rules/family';
 export * from './chunk/chunk';
 export * from './chunk/world';
 export * from './chunk/serialize';

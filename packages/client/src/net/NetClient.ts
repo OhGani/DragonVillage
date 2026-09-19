@@ -5,6 +5,7 @@
  * 그 뒤 attach(events) 로 게임이 메시지를 받는다. attach 전에 온 게임 메시지는 잠시 모아 두고 넘겨준다.
  */
 import {
+  type TodayCard,
   type BlockBatchMsg,
   type BlockChangeReqMsg,
   type BlockChangeRejectedMsg,
@@ -92,6 +93,17 @@ export interface NetEvents {
   /** 가방 칸 바뀜 (M4) */
   onInvSlots(m: InvSlotsMsg): void;
   onEmote(m: EmoteMsg): void;
+  /** 오늘 카드 갱신 (M5-3, 아이) */
+  onToday(card: TodayCard): void;
+  /** 아이가 승인 필요한 할 일을 체크했다 (M5-3, 부모 플레이어) */
+  onApprovalAsk(ask: ApprovalAsk): void;
+}
+
+export interface ApprovalAsk {
+  id: number;
+  date: string;
+  child: string;
+  title: string;
 }
 
 export class NetError extends Error {
@@ -259,6 +271,14 @@ export class NetClient {
   sendInvDrop(slot: number, count: number): void {
     this.send(encodeInvDrop({ slot, count }));
   }
+  /** 오늘 카드의 할 일 체크 (M5-3) */
+  sendCheckTodo(id: number): void {
+    this.sendJson({ t: 'checkTodo', id });
+  }
+  /** 게임 안 승인·거절 (M5-3, 부모 플레이어) */
+  sendApproveTodo(id: number, date: string, ok: boolean): void {
+    this.sendJson({ t: 'approveTodo', id, date, ok });
+  }
   sendCraft(recipe: string): void {
     this.sendJson({ t: 'craft', recipe });
   }
@@ -299,6 +319,8 @@ export class NetClient {
           inventory: (msg.inventory ?? new Array(37).fill(null)) as Inventory,
           needPin: msg.needPin === true,
           family: msg.family ?? null,
+          today: msg.today ?? null,
+          parentOf: msg.parentOf ?? null,
         };
         return;
       case 'familyLinked':
@@ -363,6 +385,8 @@ export class NetClient {
     else if (msg.t === 'error') ev.onError(msg.code, msg.message);
     else if (msg.t === 'expeditionResult') ev.onExpeditionResult({ expedition: msg.expedition, name: msg.name, items: msg.items, late: msg.late, keepRatio: msg.keepRatio, elapsedSec: msg.elapsedSec });
     else if (msg.t === 'expeditionState') ev.onExpeditionState(msg.expedition);
+    else if (msg.t === 'today') ev.onToday(msg.card);
+    else if (msg.t === 'approvalAsk') ev.onApprovalAsk({ id: msg.id, date: msg.date, child: msg.child, title: msg.title });
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }
 

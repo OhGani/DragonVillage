@@ -4,6 +4,7 @@
  */
 import { createReadStream, existsSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { TodoRepeat } from '@dragon-village/shared';
 import type { FamilyService, Parent } from './family';
 
 const COOKIE = 'dv_parent';
@@ -16,6 +17,25 @@ const SIGNUP_KO: Record<string, string> = {
   BAD_LOGIN: '이메일 또는 비밀번호가 달라요',
   LOCKED: '여러 번 틀려서 잠겼어요. 10분 뒤에 다시',
 };
+
+const LINK_KO: Record<string, string> = {
+  NO_FAMILY: '가족을 찾을 수 없어요',
+  NO_SUCH_NICK: '그 이름의 플레이어가 없어요',
+  NO_PIN: '그 이름은 아직 PIN 이 없어요. 게임에서 먼저 PIN 을 정해요',
+  BAD_PIN: 'PIN 이 틀렸어요',
+  PIN_LOCKED: '여러 번 틀려서 잠겼어요. 10분 뒤에 다시',
+  ALREADY_LINKED: '그 이름은 아이로 연결돼 있어요',
+};
+
+/** 요청의 repeat → 값. 'daily' | 'once' | [요일…]. 이상하면 null */
+function parseRepeat(v: unknown): TodoRepeat | null {
+  if (v === 'daily' || v === 'once') return v;
+  if (Array.isArray(v)) {
+    const days = [...new Set(v.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort();
+    return days.length ? days : null;
+  }
+  return null;
+}
 
 function readCookie(req: IncomingMessage, name: string): string | null {
   const raw = req.headers.cookie;
@@ -63,7 +83,14 @@ function sessionCookie(sid: string | null): string {
 }
 
 function meJson(family: FamilyService, parent: Parent) {
-  return { email: parent.email, familyCode: parent.familyCode, children: family.children(parent.familyId) };
+  return {
+    email: parent.email,
+    familyCode: parent.familyCode,
+    enforced: family.enforceTime,
+    children: family.childrenStatus(parent.familyId),
+    pending: family.pendingApprovals(parent.familyId),
+    parentPlayers: family.parentPlayers(parent.familyId),
+  };
 }
 
 /**
@@ -112,6 +139,50 @@ export async function handleFamilyHttp(req: IncomingMessage, res: ServerResponse
       if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
       const ok = family.unlinkChild(parent.familyId, String(body.nick ?? ''));
       return json(res, ok ? 200 : 404, ok ? meJson(family, parent) : { error: 'NO_CHILD', message: '그런 아이가 없어요' }), true;
+    }
+    // ---- 할 일·승인·부모 플레이어 (M5-3)
+    case 'todoAdd': {
+      if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
+      const repeat = parseRepeat(body.repeat);
+      if (!repeat) return json(res, 400, { error: 'BAD_REPEAT', message: '반복(매일·요일·한 번)을 골라 주세요' }), true;
+      const t = family.addTodo(parent.familyId, String(body.nick ?? ''), String(body.title ?? ''), repeat, body.needsApproval === true);
+      if (!t) return json(res, 400, { error: 'BAD_TODO', message: '제목(1~30글자)과 아이를 확인해 주세요' }), true;
+      return json(res, 200, meJson(family, parent)), true;
+    }
+    case 'todoUpdate': {
+      if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
+      const patch: { title?: string; repeat?: TodoRepeat; needsApproval?: boolean; active?: boolean } = {};
+      if (typeof body.title === 'string') patch.title = body.title;
+      if (body.repeat !== undefined) {
+        const r = parseRepeat(body.repeat);
+        if (!r) return json(res, 400, { error: 'BAD_REPEAT', message: '반복(매일·요일·한 번)을 골라 주세요' }), true;
+        patch.repeat = r;
+      }
+      if (typeof body.needsApproval === 'boolean') patch.needsApproval = body.needsApproval;
+      if (typeof body.active === 'boolean') patch.active = body.active;
+      const ok = family.updateTodo(parent.familyId, Number(body.id), patch);
+      return json(res, ok ? 200 : 404, ok ? meJson(family, parent) : { error: 'NO_TODO', message: '그 할 일을 찾을 수 없어요' }), true;
+    }
+    case 'todoDelete': {
+      if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
+      const ok = family.deleteTodo(parent.familyId, Number(body.id));
+      return json(res, ok ? 200 : 404, ok ? meJson(family, parent) : { error: 'NO_TODO', message: '그 할 일을 찾을 수 없어요' }), true;
+    }
+    case 'decide': {
+      if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
+      const ok = family.decideTodo(parent.familyId, Number(body.id), String(body.date ?? ''), body.ok === true);
+      return json(res, ok ? 200 : 404, ok ? meJson(family, parent) : { error: 'NO_TODO', message: '그 할 일을 찾을 수 없어요' }), true;
+    }
+    case 'linkParent': {
+      if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
+      const r = family.linkParentPlayer(parent.familyId, String(body.nick ?? ''), String(body.pin ?? ''));
+      if (!r.ok) return json(res, 400, { error: r.reason, message: LINK_KO[r.reason] ?? '연결할 수 없어요' }), true;
+      return json(res, 200, meJson(family, parent)), true;
+    }
+    case 'unlinkParent': {
+      if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
+      const ok = family.unlinkParentPlayer(parent.familyId, String(body.nick ?? ''));
+      return json(res, ok ? 200 : 404, ok ? meJson(family, parent) : { error: 'NO_PLAYER', message: '그 플레이어가 없어요' }), true;
     }
     default:
       return json(res, 404, { error: 'NO_ACTION' }), true;
