@@ -498,6 +498,16 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   /** 원정 경과 초 (서버 시각 보정) */
   const elapsedSec = () => (ctx.expedition ? (performance.now() - ctx.localStart) / 1000 : 0);
 
+  /** PC 는 마우스가 잠겨 있어 버튼을 못 누른다 → Enter 또는 E 키 */
+  const KEY_HINT = isTouch ? '' : '  (Enter)';
+  const onActionKey = (e: KeyboardEvent) => {
+    if (e.code !== 'Enter' && e.code !== 'NumpadEnter' && e.code !== 'KeyE') return;
+    if (!started || !hud.actionVisible || hud.resultVisible || hud.overlayVisible || hud.helpVisible) return;
+    e.preventDefault();
+    hud.triggerAction();
+  };
+  window.addEventListener('keydown', onActionKey);
+
   /** 포탈 안에 서 있으면 카드 */
   const updatePortalCard = () => {
     const p = ctx.player.pos;
@@ -510,12 +520,12 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       const def = EXPEDITIONS.require(FIRST_EXPEDITION);
       if (expeditionState) {
         const m = Math.floor(expeditionState.remainingSec / 60);
-        hud.showAction(`${expeditionState.name} 원정 중`, `${expeditionState.players}명이 나가 있어요 · 약 ${m}분 남음`, '따라가기', () => net.sendStartExpedition(expeditionState!.id));
+        hud.showAction(`${expeditionState.name} 원정 중`, `${expeditionState.players}명이 나가 있어요 · 약 ${m}분 남음`, '따라가기' + KEY_HINT, () => net.sendStartExpedition(expeditionState!.id));
       } else {
-        hud.showAction(`${def.name}으로 원정`, `${Math.round(def.durationSec / 60)}분 · ${Math.round(def.nightStartsAt / 60)}분 뒤 밤 · 보물 상자 ${def.treasures}개\n포탈로 돌아오면 모은 것을 가져와요`, '원정 출발', () => net.sendStartExpedition(FIRST_EXPEDITION));
+        hud.showAction(`${def.name}으로 원정`, `${Math.round(def.durationSec / 60)}분 · ${Math.round(def.nightStartsAt / 60)}분 뒤 밤 · 보물 상자 ${def.treasures}개\n포탈로 돌아오면 모은 것을 가져와요`, '원정 출발' + KEY_HINT, () => net.sendStartExpedition(FIRST_EXPEDITION));
       }
     } else {
-      hud.showAction('마을로 돌아가기', '지금까지 모은 것을 마을 창고에 넣어요', '돌아가기', () => net.sendReturnHome());
+      hud.showAction('마을로 돌아가기', '지금까지 모은 것을 마을 창고에 넣어요', '돌아가기' + KEY_HINT, () => net.sendReturnHome());
     }
   };
 
@@ -718,6 +728,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       atlas.texture.dispose();
       renderer.dispose();
       window.removeEventListener('resize', resize);
+      window.removeEventListener('keydown', onActionKey);
       sizeObserver?.disconnect();
       root.innerHTML = '';
     },

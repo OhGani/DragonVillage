@@ -325,6 +325,10 @@ export class Hud {
     this.actionEl.hidden = true;
     this.onAction = null;
   }
+  /** 카드 버튼을 누른 것과 같다 (PC 에서 마우스가 잠겨 있을 때 Enter 키) */
+  triggerAction(): void {
+    if (!this.actionEl.hidden) this.onAction?.();
+  }
   get actionVisible(): boolean {
     return !this.actionEl.hidden;
   }
