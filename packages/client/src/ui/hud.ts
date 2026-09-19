@@ -1,7 +1,9 @@
 import type { TouchUI } from '../input/touch';
 
 export interface HotbarSlot {
-  blockNum: number;
+  /** 아이템 id. null = 빈 칸 */
+  item: string | null;
+  count: number;
   name: string;
   icon: HTMLCanvasElement | null;
 }
@@ -27,6 +29,8 @@ export class Hud {
   private readonly overlayBtn: HTMLButtonElement;
   readonly fullscreenBtn: HTMLButtonElement;
   readonly debugBtn: HTMLButtonElement;
+  readonly bagBtn: HTMLButtonElement;
+  readonly chatBtn: HTMLButtonElement;
   private readonly helpEl: HTMLElement;
   private readonly compassRose: HTMLElement;
   private readonly compassLabels: HTMLElement[];
@@ -64,6 +68,10 @@ export class Hud {
       </svg>
       <div class="slot-name"></div>
       <div class="hotbar"></div>
+      <div class="side-btns">
+        <button class="sbtn bag-btn" aria-label="가방">🎒</button>
+        <button class="sbtn chat-btn" aria-label="채팅">💬</button>
+      </div>
       <div class="touch-controls">
         <div class="stick-base" hidden><div class="stick-knob"></div></div>
         <button class="tbtn jump" aria-label="점프">▲</button>
@@ -140,6 +148,8 @@ export class Hud {
     this.overlayBtn = q<HTMLButtonElement>('.overlay .overlay-btn');
     this.fullscreenBtn = q<HTMLButtonElement>('.fullscreen');
     this.debugBtn = q<HTMLButtonElement>('.debug');
+    this.bagBtn = q<HTMLButtonElement>('.bag-btn');
+    this.chatBtn = q<HTMLButtonElement>('.chat-btn');
     // 주의: 상단 '?' 버튼도 class 에 help 가 있으므로 창은 help-panel 로 구분한다
     this.helpEl = q('.help-panel');
     this.compassRose = q('.compass-rose');
@@ -208,28 +218,47 @@ export class Hud {
   }
 
   setSlots(slots: HotbarSlot[]): void {
+    const rebuild = this.slotEls.length !== slots.length;
     this.slots = slots;
-    this.hotbar.innerHTML = '';
-    this.slotEls.length = 0;
-    slots.forEach((s, i) => {
-      const d = document.createElement('div');
-      d.className = 'slot';
-      d.dataset.index = String(i);
-      if (s.icon) d.appendChild(s.icon);
-      const key = document.createElement('span');
-      key.className = 'slot-key';
-      key.textContent = String((i + 1) % 10); // 10번째 칸은 0
-      d.appendChild(key);
-      d.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.select(i);
-        this.onSelect?.(i);
+    if (rebuild) {
+      this.hotbar.innerHTML = '';
+      this.slotEls.length = 0;
+      slots.forEach((_, i) => {
+        const d = document.createElement('div');
+        d.className = 'slot';
+        d.dataset.index = String(i);
+        const key = document.createElement('span');
+        key.className = 'slot-key';
+        key.textContent = String((i + 1) % 10); // 10번째 칸은 0
+        d.appendChild(key);
+        d.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.select(i);
+          this.onSelect?.(i);
+        });
+        this.hotbar.appendChild(d);
+        this.slotEls.push(d);
       });
-      this.hotbar.appendChild(d);
-      this.slotEls.push(d);
-    });
-    this.select(0, false);
+    }
+    slots.forEach((s, i) => this.paintSlot(i, s));
+    if (rebuild) this.select(0, false);
+    else this.select(this.selected, false);
+  }
+
+  /** 칸 하나 다시 그리기 (가방이 바뀌었을 때) */
+  private paintSlot(i: number, s: HotbarSlot): void {
+    const d = this.slotEls[i];
+    if (!d) return;
+    d.querySelectorAll('canvas, .slot-count').forEach((n) => n.remove());
+    d.classList.toggle('empty', s.item === null);
+    if (s.icon) d.appendChild(s.icon);
+    if (s.count > 1) {
+      const n = document.createElement('span');
+      n.className = 'slot-count';
+      n.textContent = String(s.count);
+      d.appendChild(n);
+    }
   }
 
   select(i: number, announce = true): void {
@@ -237,7 +266,7 @@ export class Hud {
     i = ((i % this.slots.length) + this.slots.length) % this.slots.length;
     this.selected = i;
     this.slotEls.forEach((el, j) => el.classList.toggle('selected', j === i));
-    if (announce) this.showSlotName(this.slots[i].name);
+    if (announce) this.showSlotName(this.slots[i].item ? this.slots[i].name : '빈 칸');
   }
 
   selectDelta(d: number): void {
@@ -248,8 +277,9 @@ export class Hud {
     return this.selected;
   }
 
-  get selectedBlock(): number {
-    return this.slots[this.selected]?.blockNum ?? 0;
+  /** 손에 든 아이템 id (빈 칸이면 null) */
+  get selectedItem(): string | null {
+    return this.slots[this.selected]?.item ?? null;
   }
 
   private showSlotName(name: string): void {
@@ -422,7 +452,9 @@ function helpHtml(isTouch: boolean): string {
         ['점프', '오른쪽 아래 <b>▲</b>'],
         ['웅크리기', '<b>▼</b> (한 번 누르면 켜짐, 다시 누르면 꺼짐). 웅크리면 모서리에서 안 떨어져요'],
         ['블록 고르기', '아래 칸(핫바)을 탭'],
-        ['FPS 보기', '오른쪽 위 <b>i</b>'],
+        ['가방 · 만들기', '핫바 옆 <b>🎒</b>. 칸을 탭해 고르고 다른 칸을 탭하면 옮겨요'],
+        ['채팅', '<b>💬</b> → 이모지나 문구를 골라요'],
+        ['FPS 보기', '오른콽 위 <b>i</b>'],
       ]
     : [
         ['걷기 / 달리기', '<b>W A S D</b> / Ctrl 누른 채 W'],
@@ -431,6 +463,8 @@ function helpHtml(isTouch: boolean): string {
         ['블록 부수기', '<b>왼쪽 클릭 꾹</b>. 금이 가면 부서져요'],
         ['점프 / 웅크리기', '<b>Space</b> / <b>Shift</b>'],
         ['블록 고르기', '<b>1~9, 0</b> 또는 마우스 휠'],
+        ['가방 · 만들기', '<b>E</b> (또는 핫바 옆 🎒)'],
+        ['채팅', '<b>T</b> (또는 💬) → 이모지·문구 고르기'],
         ['정보', '<b>F3</b>'],
       ];
   const other = isTouch
@@ -438,6 +472,8 @@ function helpHtml(isTouch: boolean): string {
     : '폰에서는: 왼쪽 아래 스틱 · 드래그로 둘러보기 · 짧게 탭 놓기 · 꾹 눌러 부수기 · ▲ 점프';
   const tips = [
     '왼쪽 위 <b>나침반</b>: 맨 위 글자가 지금 내가 보는 방향이에요(북은 빨강). 광장에서 북쪽에 포탈 자리와 강, 서쪽·동쪽에 큰 밭, 남쪽에 집 뼈대, 둘레는 참나무 숲과 언덕.',
+    '<b>블록은 유한</b>해요. 부수면 가방에 들어오고, 놓으면 가방에서 나가요. 처음엔 시작 키트(판자·흙·조약돌·횃불·유리·제작대·양동이)를 받아요. 물은 빈 양동이로 떠서 옮겨요.',
+    '<b>만들기</b>: 가방 화면의 🔨 탭. 판자·제작대 같은 건 어디서나, 문·계단 같은 건 <b>제작대</b>를 놓고 그 옆(5칸)에서. 양조기 옆에서는 ⚗️ 탭이 생겨요. 레시피는 아빠·아들이 recipes.json 에 적어요.',
     '한 칸 높은 턱은 그냥 걸어가면 올라가요. 두 칸부터는 점프.',
     '손에 든 블록이 오른쪽 아래에 보이고, 조준한 블록엔 검은 테두리가 생겨요. 닿는 거리는 5블록.',
     '블록마다 부수는 시간이 달라요. 흙·모래 0.5초, 돌 1.5초, 원목·판자 2초. 맨 아래 기반암과 물은 못 부숴요.',

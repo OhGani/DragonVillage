@@ -6,7 +6,13 @@ import {
   type ExpeditionEnterInfo,
   type ExpeditionPhase,
   type ExpeditionStateInfo,
+  EMOTE_EMOJI,
   FLAG_GROUND,
+  HOTBAR_SLOTS,
+  type Inventory,
+  STATION_KO,
+  cloneInventory,
+  itemToBlock,
   FLAG_SNEAK,
   FLAG_SPRINT,
   FLAG_WATER,
@@ -22,7 +28,7 @@ import {
   portalContains,
   skyLightAt,
 } from '@dragon-village/shared';
-import { BLOCKS, EXPEDITIONS, ITEM_NAMES } from '@dragon-village/shared/data';
+import { BLOCKS, EXPEDITIONS, ITEM_NAMES, PHRASES, POTIONS, RECIPES } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { GamepadInput } from '../input/gamepad';
 import { InputManager } from '../input/InputManager';
@@ -39,14 +45,16 @@ import { BlockHighlight } from '../render/Highlight';
 import { PortalView } from '../render/Portal';
 import { Sky } from '../render/Sky';
 import { loadTextureAtlas } from '../render/textures';
+import { BagView, type Stations } from '../ui/bag';
+import { ChatView } from '../ui/chat';
 import { Hud, type HotbarSlot } from '../ui/hud';
-import { renderBlockIcon } from '../ui/icons';
+import { itemIcon } from '../ui/itemIcon';
 import { MesherPool } from '../workers/MesherPool';
 import { AutoQuality } from './AutoQuality';
 import { Interaction } from './Interaction';
 
-/** 핫바(10칸, 키 1~9·0) — 아들이 blocks.json 에 있는 id 로 바꿔도 된다. 8번 발광석은 조명 확인용 */
-const HOTBAR_IDS = ['grass', 'dirt', 'stone', 'planks', 'log', 'leaves', 'glass', 'glowstone', 'water', 'lava'];
+/** 근처 작업대 확인 간격 */
+const STATION_CHECK_MS = 500;
 /** 위치 전송 간격 (20Hz) */
 const MOVE_SEND_MS = 50;
 /** M3 는 첫 원정지 하나 (포탈 단계 해제는 M6) */
@@ -123,24 +131,78 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
 
   // ---- HUD ----
   const hud = new Hud(root, isTouch);
-  const iconOf = (id: string, size: number): HTMLCanvasElement | null => {
-    const def = registry.find(id);
-    if (!def || !def.textures) return null;
-    const missing = atlas.images.get('missing')!;
-    const top = atlas.images.get(def.textures[0]) ?? missing;
-    const side = atlas.images.get(def.textures[1]) ?? missing;
-    return renderBlockIcon(top, side, size);
+  const nameOf = (id: string) => (id in STATION_KO ? STATION_KO[id as keyof typeof STATION_KO] : itemName(id, registry, ITEM_NAMES));
+  const iconOf = (id: string, size: number): HTMLCanvasElement | null => itemIcon(id, size, registry, atlas, nameOf(id));
+
+  // ---- 가방 (M4): 서버가 진실. welcome 으로 받고 InvSlots 로 고친다 ----
+  const inv: Inventory = cloneInventory(welcome.inventory);
+  const refreshHotbar = () => {
+    const slots: HotbarSlot[] = [];
+    for (let i = 0; i < HOTBAR_SLOTS; i++) {
+      const s = inv[i];
+      slots.push(s ? { item: s.item, count: s.count, name: nameOf(s.item), icon: iconOf(s.item, 40) } : { item: null, count: 0, name: '빈 칸', icon: null });
+    }
+    hud.setSlots(slots);
   };
-  const slots: HotbarSlot[] = HOTBAR_IDS.map((id) => {
-    const def = registry.find(id);
-    if (!def || !def.textures) return { blockNum: 0, name: id, icon: null };
-    return { blockNum: def.num, name: def.name, icon: iconOf(id, 40) };
-  });
-  hud.setSlots(slots);
+  refreshHotbar();
+  /** 손에 든 아이템으로 놓을 블록 번호 (없거나 못 놓으면 0) */
+  const heldBlock = (): number => {
+    const item = hud.selectedItem;
+    return item ? (itemToBlock(item, registry) ?? 0) : 0;
+  };
   let expeditionState: ExpeditionStateInfo | null = welcome.expedition;
   const updateVillageInfo = () => {
     const exp = expeditionState ? ` · 원정 중: ${expeditionState.name} ${expeditionState.players}명` : '';
     hud.setVillageInfo(`마을 "${welcome.village.name}" · 코드 ${welcome.village.code} · 지금 ${remote.count + 1}명${exp} (친구에게 코드를 알려 주면 같은 마을에 들어와요)`);
+  };
+
+  // ---- 가방 화면·채팅 (M4) ----
+  const bag = new BagView(root, {
+    recipes: RECIPES,
+    potions: POTIONS,
+    icon: iconOf,
+    nameOf,
+    onMove: (from, to, count) => net.sendInvMove(from, to, count),
+    onDrop: (slot, count) => net.sendInvDrop(slot, count),
+    onCraft: (recipe) => net.sendCraft(recipe),
+    onBrew: (bottles, ingredient) => {
+      net.sendBrew(bottles, ingredient);
+      bag.clearBrewSelection();
+    },
+    onClose: () => closeBag(),
+  });
+  bag.setInventory(inv);
+  const chat = new ChatView(
+    root,
+    PHRASES,
+    (kind, id) => net.sendEmote(kind, id),
+    () => closeChat(),
+  );
+  let stationTimer = 0;
+  /** 5칸 안에 제작대·화로·양조기가 있나 (서버와 같은 규칙) */
+  const scanStations = (): Stations => {
+    const out: Stations = {};
+    const w = ctx.world;
+    const p = ctx.player.pos;
+    const cx = Math.floor(p.x),
+      cy = Math.floor(p.y + 1),
+      cz = Math.floor(p.z);
+    const want = new Map<number, keyof Stations>();
+    for (const id of ['crafting_table', 'furnace', 'brewing_stand'] as const) {
+      const d = registry.find(id);
+      if (d) want.set(d.num, id);
+    }
+    for (let y = cy - 5; y <= cy + 5 && want.size; y++)
+      for (let z = cz - 5; z <= cz + 5 && want.size; z++)
+        for (let x = cx - 5; x <= cx + 5 && want.size; x++) {
+          if (!w.inBounds(x, y, z)) continue;
+          const k = want.get(w.getBlock(x, y, z));
+          if (k) {
+            out[k] = true;
+            want.delete(w.getBlock(x, y, z));
+          }
+        }
+    return out;
   };
 
   // ---- 입력 ----
@@ -344,6 +406,19 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       // 서버 시각으로 내 시계를 맞춘다
       if (ctx.expedition) ctx.localStart = performance.now() - m.elapsedSec * 1000;
     },
+    onInvSlots: (m) => {
+      for (const e of m.slots) if (e.slot >= 0 && e.slot < inv.length) inv[e.slot] = e.count > 0 ? { item: e.item, count: e.count } : null;
+      refreshHotbar();
+      bag.setInventory(inv);
+    },
+    onEmote: (m) => {
+      const text = PHRASES.text(m.kind, m.id);
+      if (!text) return;
+      const nick = m.idx === myIdx ? '나' : (remote.nickOf(m.idx) ?? '누군가');
+      chat.add(nick, text);
+      if (m.idx !== myIdx) remote.say(m.idx, text, m.kind === EMOTE_EMOJI ? 2.5 : 3.5);
+      else hud.toast(text, 2500);
+    },
   });
 
   // ---- 화면 크기 → 캔버스 버퍼 + 카메라 비율. 한 함수에서만 맞춘다 (어긋나면 화면이 눌려 보인다) ----
@@ -448,6 +523,50 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       });
     }
   };
+  const openBag = () => {
+    if (!started || disconnected || hud.resultVisible) return;
+    input.paused = true;
+    kbm.enabled = false;
+    if (kbm.locked) document.exitPointerLock();
+    bag.setStations(scanStations());
+    bag.setInventory(inv);
+    bag.show();
+  };
+  const closeBag = () => {
+    if (!bag.visible) return;
+    bag.hide();
+    if (started && !hud.overlayVisible && !hud.resultVisible && !chat.visible) resume();
+  };
+  const openChat = () => {
+    if (!started || disconnected || hud.resultVisible) return;
+    input.paused = true;
+    kbm.enabled = false;
+    if (kbm.locked) document.exitPointerLock();
+    chat.show();
+  };
+  const closeChat = () => {
+    if (!chat.visible) return;
+    chat.hide();
+    if (started && !hud.overlayVisible && !hud.resultVisible && !bag.visible) resume();
+  };
+  hud.bagBtn.addEventListener('click', () => (bag.visible ? closeBag() : openBag()));
+  hud.chatBtn.addEventListener('click', () => (chat.visible ? closeChat() : openChat()));
+  window.addEventListener('keydown', (e) => {
+    if (!started || disconnected) return;
+    if (e.code === 'KeyE') {
+      if (bag.visible) closeBag();
+      else if (!chat.visible && !hud.overlayVisible && !hud.helpVisible && !hud.resultVisible) openBag();
+      e.preventDefault();
+    } else if (e.code === 'KeyT') {
+      if (chat.visible) closeChat();
+      else if (!bag.visible && !hud.overlayVisible && !hud.helpVisible && !hud.resultVisible) openChat();
+      e.preventDefault();
+    } else if (e.code === 'Escape' && (bag.visible || chat.visible)) {
+      closeBag();
+      closeChat();
+    }
+  });
+
   hud.onOverlayClick = () => {
     if (disconnected) {
       window.location.reload();
@@ -467,12 +586,12 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   };
   document.addEventListener('pointerlockchange', () => {
     if (isTouch || !started || kbm.lockFailed || disconnected) return;
-    if (!kbm.locked && !hud.overlayVisible && !hud.helpVisible && !hud.resultVisible && !hud.actionVisible) pause();
+    if (!kbm.locked && !hud.overlayVisible && !hud.helpVisible && !hud.resultVisible && !hud.actionVisible && !bag.visible && !chat.visible) pause();
   });
   // HUD 가 캔버스를 덮고 있으므로 root 에서 듣는다 (오버레이 없이 잠금이 풀린 경우 대비)
   root.addEventListener('click', (e) => {
-    if ((e.target as HTMLElement | null)?.closest('.action-card, .result-panel')) return;
-    if (started && !isTouch && !kbm.locked && !hud.overlayVisible && !hud.resultVisible) resume();
+    if ((e.target as HTMLElement | null)?.closest('.action-card, .result-panel, .bag-panel, .chat-panel, .side-btns')) return;
+    if (started && !isTouch && !kbm.locked && !hud.overlayVisible && !hud.resultVisible && !bag.visible && !chat.visible) resume();
   });
 
   // ---- 루프 ----
@@ -498,10 +617,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   /** 원정 경과 초 (서버 시각 보정) */
   const elapsedSec = () => (ctx.expedition ? (performance.now() - ctx.localStart) / 1000 : 0);
 
-  /** PC 는 마우스가 잠겨 있어 버튼을 못 누른다 → Enter 또는 E 키 */
+  /** PC 는 마우스가 잠겨 있어 버튼을 못 누른다 → Enter 키 (E 는 가방) */
   const KEY_HINT = isTouch ? '' : '  (Enter)';
   const onActionKey = (e: KeyboardEvent) => {
-    if (e.code !== 'Enter' && e.code !== 'NumpadEnter' && e.code !== 'KeyE') return;
+    if (e.code !== 'Enter' && e.code !== 'NumpadEnter') return;
     if (!started || !hud.actionVisible || hud.resultVisible || hud.overlayVisible || hud.helpVisible) return;
     e.preventDefault();
     hud.triggerAction();
@@ -548,6 +667,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       `빛 여기 하늘 ${ctx.light.skyAt(Math.floor(p.x), Math.floor(p.y + 1), Math.floor(p.z))} 블록 ${ctx.light.blockAt(Math.floor(p.x), Math.floor(p.y + 1), Math.floor(p.z))}  조명 처음 ${ctx.light.stats.initialMs.toFixed(0)}ms  최근 ${ctx.light.stats.lastFlushMs.toFixed(1)}ms/${ctx.light.stats.lastFlushCells}칸  지형 생성 ${ctx.genMs.toFixed(0)}ms  청크 ${ctx.world.chunkCount}`,
       `${isTouch ? '터치' : 'PC'}  ${navigator.hardwareConcurrency ?? '?'}코어  ${window.innerWidth}×${window.innerHeight}@${(window.devicePixelRatio || 1).toFixed(1)}`,
       `서버 ${net.connected ? `연결됨 왕복 ${net.rtt}ms` : '끊김'}  나 #${myIdx}  같이 ${remote.count}명  블록 대기 ${pending.size}  ${exp}`,
+      `가방 ${inv.filter(Boolean).length}/${inv.length}칸  손 ${hud.selectedItem ?? '빈 손'}`,
     ].join('\n');
   };
 
@@ -571,7 +691,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     if (inp.toggleDebug) debugVisible = !debugVisible;
     if (inp.slotDelta !== 0) hud.selectDelta(inp.slotDelta);
     if (inp.slotSelect >= 0) hud.select(inp.slotSelect);
-    interaction.selectedBlock = hud.selectedBlock;
+    interaction.selectedBlock = heldBlock();
 
     player.update(inp, dt);
     interaction.update(inp, dt);
@@ -595,6 +715,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     hud.setProgress(interaction.progress);
     hud.setHeading(player.yaw);
     if (started) updatePortalCard();
+    if (bag.visible && (stationTimer += dt * 1000) >= STATION_CHECK_MS) {
+      stationTimer = 0;
+      bag.setStations(scanStations());
+    }
 
     // 원정: 타이머·낮밤
     if (ctx.expedition) {
@@ -618,7 +742,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     materials.setTime(now / 1000);
     sky.update(camera.position);
     ctx.portal.update(now / 1000);
-    hand.setBlock(hud.selectedBlock);
+    hand.setBlock(heldBlock());
     const walking = player.onGround && player.horizontalSpeed > 0.4 ? Math.min(1, player.horizontalSpeed / 4.3) : 0;
     hand.update(dt, camera, player.walkCycle, walking);
 
@@ -687,6 +811,13 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       input,
       kbm,
       startExpedition: (id = FIRST_EXPEDITION) => net.sendStartExpedition(id),
+      get inv() {
+        return inv;
+      },
+      bag,
+      chat,
+      openBag,
+      openChat,
       returnHome: () => net.sendReturnHome(),
       /** rAF 없이 프레임을 돌린다 (숨겨진 탭에서의 자동 테스트용) */
       tick: (dtSec: number, render = false) => tick(last + dtSec * 1000, render),
@@ -729,6 +860,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       renderer.dispose();
       window.removeEventListener('resize', resize);
       window.removeEventListener('keydown', onActionKey);
+      bag.el.remove();
+      chat.sheet.remove();
+      chat.log.remove();
       sizeObserver?.disconnect();
       root.innerHTML = '';
     },

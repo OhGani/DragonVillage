@@ -837,3 +837,307 @@ body {
 .result-buttons .plain-btn {
   margin: 0;
 }
+
+/* ---------- M4: 핫바 개수·가방/채팅 버튼 ---------- */
+.slot-count {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+}
+.slot.empty {
+  opacity: 0.55;
+}
+.side-btns {
+  position: absolute;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 60px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+}
+.side-btns .sbtn {
+  width: 46px;
+  height: 46px;
+  font-size: 22px;
+}
+.hud.touch .side-btns {
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 150px);
+}
+
+/* ---------- 가방 화면 ---------- */
+.bag-panel,
+.chat-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 20, 40, 0.6);
+  pointer-events: auto;
+}
+.bag-panel[hidden],
+.chat-panel[hidden] {
+  display: none;
+}
+.bag-card {
+  width: min(96vw, 760px);
+  max-height: 92vh;
+  overflow: auto;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.78);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.bag-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.bag-tabs {
+  display: flex;
+  gap: 6px;
+}
+.bag-tab {
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  padding: 8px 12px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.bag-tab.on {
+  background: #3a9d3a;
+  border-color: #1f5a1f;
+}
+.bag-close {
+  margin: 0;
+  min-width: 44px;
+}
+.bag-body {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.bag-grid {
+  flex: 0 0 auto;
+}
+.bag-row {
+  display: grid;
+  grid-template-columns: repeat(9, 42px);
+  gap: 3px;
+}
+.bag-row.hotrow {
+  grid-template-columns: repeat(10, 42px);
+  margin-top: 4px;
+}
+.bag-label {
+  font-size: 12px;
+  opacity: 0.75;
+  margin: 8px 0 2px;
+}
+.bag-cell {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bag-cell.hot {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.bag-cell.selected {
+  outline: 3px solid #ffd257;
+  outline-offset: -1px;
+}
+.bag-cell.bottle {
+  outline: 3px solid #7ad7ff;
+  outline-offset: -1px;
+}
+.bag-cell.ingredient {
+  outline: 3px solid #ff9f43;
+  outline-offset: -1px;
+}
+.bag-cell canvas {
+  pointer-events: none;
+  width: 34px;
+  height: 34px;
+}
+.bag-count {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+}
+.bag-side {
+  flex: 1 1 260px;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bag-info {
+  font-size: 15px;
+  font-weight: 700;
+}
+.bag-tip {
+  font-size: 13px;
+  opacity: 0.8;
+  line-height: 1.4;
+}
+.plain-btn.on {
+  background: rgba(58, 157, 58, 0.5);
+}
+.plain-btn.danger {
+  border-color: rgba(255, 120, 120, 0.6);
+  background: rgba(140, 30, 30, 0.45);
+}
+.bag-side .plain-btn {
+  margin: 0;
+  width: 100%;
+}
+.craft-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 60vh;
+  overflow: auto;
+}
+.craft-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+}
+.craft-row.no {
+  opacity: 0.6;
+}
+.craft-row canvas {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+}
+.craft-text {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.craft-station {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(122, 63, 214, 0.6);
+}
+.craft-need {
+  opacity: 0.85;
+}
+.big-btn.small {
+  min-width: 96px;
+  min-height: 40px;
+  padding: 6px 12px;
+  font-size: 15px;
+}
+.big-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.brew-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.brew-preview {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---------- 채팅 ---------- */
+.chat-card {
+  width: min(96vw, 520px);
+  max-height: 88vh;
+  overflow: auto;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.78);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.chat-emojis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chat-emoji {
+  width: 48px;
+  height: 48px;
+  font-size: 26px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.chat-phrases {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 6px;
+}
+.chat-phrase {
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  min-height: 44px;
+  background: rgba(58, 157, 58, 0.55);
+  border: 2px solid #1f5a1f;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.chat-close {
+  margin: 0;
+  align-self: center;
+}
+.chat-log {
+  position: absolute;
+  left: max(8px, env(safe-area-inset-left));
+  top: 90px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: #fff;
+  font-size: 14px;
+  text-shadow: 1px 1px 0 #000;
+  pointer-events: none;
+  max-width: 60vw;
+}
+.chat-log div {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 2px 8px;
+  border-radius: 4px;
+}

@@ -20,6 +20,7 @@ interface Figure {
   armR: THREE.Mesh;
   walk: number;
   lastMove: number;
+  bubble: { sprite: THREE.Sprite; until: number } | null;
 }
 
 const SKIN = 0xe8b89a;
@@ -41,7 +42,7 @@ function box(w: number, h: number, d: number, color: number): THREE.Mesh {
   return new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ vertexColors: true }));
 }
 
-function nameSprite(text: string): THREE.Sprite {
+function nameSprite(text: string, bg = 'rgba(0,0,0,0.45)'): THREE.Sprite {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
   ctx.font = 'bold 40px system-ui, sans-serif';
@@ -49,7 +50,7 @@ function nameSprite(text: string): THREE.Sprite {
   canvas.width = w;
   canvas.height = 56;
   ctx.font = 'bold 40px system-ui, sans-serif';
-  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, 56);
   ctx.fillStyle = '#fff';
   ctx.textBaseline = 'middle';
@@ -122,12 +123,34 @@ export class RemotePlayers {
       cur: { x: info.x, y: info.y, z: info.z, yaw: info.yaw },
       walk: 0,
       lastMove: 0,
+      bubble: null,
     });
+  }
+
+  /** 머리 위 말풍선 (채팅, 3초) */
+  say(idx: number, text: string, seconds = 3): void {
+    const f = this.figures.get(idx);
+    if (!f) return;
+    this.clearBubble(f);
+    const sprite = nameSprite(text, 'rgba(255,255,255,0.92)');
+    (sprite.material as THREE.SpriteMaterial).color.setHex(0x222233);
+    sprite.position.y = 2.75;
+    f.group.add(sprite);
+    f.bubble = { sprite, until: performance.now() + seconds * 1000 };
+  }
+
+  private clearBubble(f: Figure): void {
+    if (!f.bubble) return;
+    f.group.remove(f.bubble.sprite);
+    f.bubble.sprite.material.map?.dispose();
+    f.bubble.sprite.material.dispose();
+    f.bubble = null;
   }
 
   remove(idx: number): void {
     const f = this.figures.get(idx);
     if (!f) return;
+    this.clearBubble(f);
     this.group.remove(f.group);
     f.group.traverse((o) => {
       if (o instanceof THREE.Mesh) {
@@ -192,6 +215,7 @@ export class RemotePlayers {
       const sneak = (t.flags & FLAG_SNEAK) !== 0;
       f.body.scale.y = sneak ? 0.85 : 1;
       f.label.position.y = sneak ? 2.0 : 2.25;
+      if (f.bubble && performance.now() > f.bubble.until) this.clearBubble(f);
     }
   }
 

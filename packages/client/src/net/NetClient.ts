@@ -15,7 +15,13 @@ import {
   type ExpeditionResultItem,
   type ExpeditionStateInfo,
   type ExpeditionTimerMsg,
+  type EmoteMsg,
+  type InvSlotsMsg,
+  type Inventory,
   MSG,
+  encodeEmote,
+  encodeInvDrop,
+  encodeInvMove,
   PROTOCOL_VERSION,
   type PlayerInfo,
   type PlayerMoveMsg,
@@ -41,6 +47,8 @@ export interface Welcome {
   chunks: ChunkDataMsg[];
   /** 진행 중인 원정 (마을 포탈 카드용) */
   expedition: ExpeditionStateInfo | null;
+  /** 가방 37칸 (M4) */
+  inventory: Inventory;
 }
 
 /** 세계 전환 (worldEnter … ChunkData … ready 를 하나로 모은 것) */
@@ -77,6 +85,9 @@ export interface NetEvents {
   onExpeditionResult(r: ExpeditionResult): void;
   onExpeditionState(s: ExpeditionStateInfo | null): void;
   onTimer(m: ExpeditionTimerMsg): void;
+  /** 가방 칸 바뀜 (M4) */
+  onInvSlots(m: InvSlotsMsg): void;
+  onEmote(m: EmoteMsg): void;
 }
 
 export class NetError extends Error {
@@ -210,6 +221,21 @@ export class NetClient {
   sendReturnHome(): void {
     this.sendJson({ t: 'returnHome' });
   }
+  sendInvMove(from: number, to: number, count: number): void {
+    this.send(encodeInvMove({ from, to, count }));
+  }
+  sendInvDrop(slot: number, count: number): void {
+    this.send(encodeInvDrop({ slot, count }));
+  }
+  sendCraft(recipe: string): void {
+    this.sendJson({ t: 'craft', recipe });
+  }
+  sendBrew(bottles: number[], ingredient: number): void {
+    this.sendJson({ t: 'brew', bottles, ingredient });
+  }
+  sendEmote(kind: number, id: number): void {
+    this.send(encodeEmote({ idx: 0, kind, id }));
+  }
 
   private send(bytes: Uint8Array): void {
     if (this.connected) this.ws!.send(bytes);
@@ -231,7 +257,15 @@ export class NetClient {
         this.helloResolve = null;
         return;
       case 'welcome':
-        this.pendingWelcome = { playerIdx: msg.playerIdx, village: msg.village, spawn: msg.spawn, players: msg.players, chunks: [], expedition: msg.expedition ?? null };
+        this.pendingWelcome = {
+          playerIdx: msg.playerIdx,
+          village: msg.village,
+          spawn: msg.spawn,
+          players: msg.players,
+          chunks: [],
+          expedition: msg.expedition ?? null,
+          inventory: (msg.inventory ?? new Array(37).fill(null)) as Inventory,
+        };
         return;
       case 'worldEnter':
         this.pendingWorld = { kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] };
@@ -316,6 +350,12 @@ export class NetClient {
         break;
       case MSG.ExpeditionTimer:
         ev.onTimer(m.msg);
+        break;
+      case MSG.InvSlots:
+        ev.onInvSlots(m.msg);
+        break;
+      case MSG.Emote:
+        ev.onEmote(m.msg);
         break;
     }
   }
