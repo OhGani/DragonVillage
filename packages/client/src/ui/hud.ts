@@ -232,7 +232,7 @@ export class Hud {
     });
     q<HTMLButtonElement>('.sbtn.help').addEventListener('click', openHelp);
     q<HTMLButtonElement>('.overlay .overlay-help').addEventListener('click', openHelp);
-    q<HTMLButtonElement>('.help-close').addEventListener('click', closeHelp);
+    q<HTMLButtonElement>('.help-panel .help-close').addEventListener('click', closeHelp); // 오늘 창의 닫기(.today-close)도 help-close 클래스를 쓰므로 범위를 좁힌다
     q<HTMLButtonElement>('.help-ok').addEventListener('click', closeHelp);
     this.villageEl = q('.help-village');
     this.timerEl = q('.exp-timer');
@@ -478,8 +478,14 @@ export class Hud {
   }
 
   /** 가족 연결 상태 (게임 방법 창 아래). code 가 있으면 연결됨 */
-  setFamily(code: string | null): void {
-    this.familyText.textContent = code ? `가족 연결됨 (코드 ${code}) — 할 일·시간은 다음 단계에서` : '아빠·엄마 화면(/family)의 가족 코드로 내 계정을 연결해요';
+  setFamily(code: string | null, parentOf: string | null = null): void {
+    if (parentOf) {
+      this.familyText.textContent = `부모로 연결됨 (가족 코드 ${parentOf}) — 아이가 할 일을 체크하면 승인 카드가 떠요`;
+      this.familyBtn.hidden = true;
+      return;
+    }
+    this.familyBtn.hidden = false;
+    this.familyText.textContent = code ? `가족 연결됨 (코드 ${code}) — 위의 ⏱ 에서 오늘 할 일과 남은 시간을 봐요` : '아빠·엄마 화면(/family)의 가족 코드로 내 계정을 연결해요 (아이만)';
     this.familyBtn.textContent = code ? '다시 연결' : '가족 연결';
   }
 

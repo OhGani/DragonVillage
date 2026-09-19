@@ -44,7 +44,7 @@ function verifyPassword(pw: string, stored: string): boolean {
 
 export type SignupResult = { ok: true; parent: Parent; sid: string } | { ok: false; reason: 'BAD_EMAIL' | 'WEAK_PASSWORD' | 'EMAIL_TAKEN' };
 export type LoginResult = { ok: true; parent: Parent; sid: string } | { ok: false; reason: 'BAD_LOGIN' | 'LOCKED' };
-export type LinkResult = { ok: true; familyCode: string } | { ok: false; reason: 'NO_FAMILY' | 'NO_SUCH_NICK' | 'NO_PIN' | 'BAD_PIN' | 'PIN_LOCKED' | 'ALREADY_LINKED' };
+export type LinkResult = { ok: true; familyCode: string } | { ok: false; reason: 'NO_FAMILY' | 'NO_SUCH_NICK' | 'NO_PIN' | 'BAD_PIN' | 'PIN_LOCKED' | 'ALREADY_LINKED' | 'IS_PARENT' };
 export type CheckResult = { ok: true; card: TodayCard; needsApproval: boolean } | { ok: false; reason: 'NOT_CHILD' | 'NO_TODO' | 'NOT_TODAY' | 'ALREADY' };
 
 /** 부모 화면용 할 일 한 줄 */
@@ -155,6 +155,7 @@ export class FamilyService {
     const family = this.storage.getFamilyByCode(String(familyCode).trim());
     if (!family) return { ok: false, reason: 'NO_FAMILY' };
     const key = nickKey(nick);
+    if (this.storage.getParentPlayer(key)) return { ok: false, reason: 'IS_PARENT' }; // 부모 플레이어는 아이가 될 수 없다 (아빠가 실수로 눌렀던 것, 2026-09-19)
     const existing = this.storage.getChild(key);
     if (existing && existing.family === family.id) return { ok: true, familyCode: family.code };
     const check = this.accounts.resume(nick, pin, now); // PIN 확인만 (토큰은 쓰지 않는다)

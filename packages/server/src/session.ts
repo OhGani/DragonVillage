@@ -25,6 +25,7 @@ const TOKEN_RE = /^[a-f0-9]{32}$/;
 const LINK_ERROR_KO: Record<string, string> = {
   NO_FAMILY: '그 가족 코드는 없어요. 부모 화면의 6자리를 다시 봐 주세요',
   ALREADY_LINKED: '이미 다른 가족에 연결돼 있어요',
+  IS_PARENT: '이 이름은 부모로 연결돼 있어요. 아이는 자기 이름으로 들어가서 연결해요',
 };
 /** 할 일 체크 거절 이유 (M5-3) */
 const TODO_ERROR_KO: Record<string, string> = {

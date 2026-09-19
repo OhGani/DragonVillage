@@ -144,6 +144,9 @@ describe('할 일·승인·시간 (M5-3)', () => {
     expect(family.parentFamilyOfNick('오가니')).toBe(code);
     expect(family.parentFamilyOfNick('쁘뚜')).toBeNull();
     expect(family.parentPlayers(fid)).toEqual(['오가니']);
+    // 부모 플레이어는 아이로 연결할 수 없다 (아빠가 게임 안 "가족 연결"을 눌렀던 실수)
+    expect(family.linkChild(code, '오가니', '2222')).toEqual({ ok: false, reason: 'IS_PARENT' });
+    expect(family.familyOfNick('오가니')).toBeNull();
 
     const gotParent: ServerJson[] = [];
     const gotChild: ServerJson[] = [];

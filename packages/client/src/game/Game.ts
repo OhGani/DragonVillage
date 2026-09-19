@@ -571,7 +571,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   hud.onApprove = (ask, ok) => net.sendApproveTodo(ask.id, ask.date, ok);
   if (welcome.today) hud.toast(`오늘 남은 시간 ${welcome.today.remainingMin}분 · 할 일 ${welcome.today.todos.length}개 — 위의 ⏱ 를 누르면 보여요`, 6000);
   // 가족 연결 (M5-2): 부모 화면의 가족 코드 + 내 PIN
-  hud.setFamily(welcome.family);
+  hud.setFamily(welcome.family, welcome.parentOf);
   hud.familyBtn.addEventListener('click', async () => {
     const code = await askInput(root, { title: '가족 연결', sub: '아빠·엄마 화면(/family)에 있는 가족 코드 6자리를 넣어요', pattern: /^\d{6}$/, invalid: '숫자 6자리예요', placeholder: '가족 코드 6자리', maxLength: 6, okLabel: '다음' });
     if (!code) return;
