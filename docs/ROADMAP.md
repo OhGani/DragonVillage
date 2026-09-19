@@ -215,10 +215,10 @@ M4 에서 하지 않는 것: 아이템 엔티티(바닥에 떨어지는 것 — 
 - [x] 다른 기기에서 같은 이름 → `NICK_TAKEN` → PIN 창 → `resume{nick,pin}` → `resumed{token}` → 토큰 바꿔 저장하고 다시 join. 틀리면 이름당 10분에 5번
 - [x] 테스트 5개: 첫 입장·재입장·다른 토큰 거절·PIN 정하기·이어하기·잠금·이름 바꾸기·저장. 전체 184개
 
-### 2. 부모 계정·가족 (`server/family.ts`, HTTP `/family`)
-- [ ] `parents(email, pw_hash)`, `families(code)`, `children(nick_key → family)`. 부모 가입·로그인(세션 쿠키), 가족 코드 6자리
-- [ ] 아이 연결: 게임 로비 "가족 연결" → 가족 코드 + 내 PIN → 내 계정이 그 가족의 아이가 된다. 부모도 플레이어(자기 계정을 가족의 부모로 연결)
-- [ ] `/family` 페이지 뼈대(서버가 내주는 정적 HTML + JSON API): 로그인, 아이 목록
+### 2. 부모 계정·가족 (`server/family.ts`, HTTP `/family`) — 완료·라이브 배포 2026-09-19 (패널 검증: /family 가입 → 코드 표시 → 게임 "가족 연결" → 코드 + PIN → 부모 화면에 아이 이름)
+- [x] `parents(email, pw_hash)`, `families(code)`, `children(nick_key → family)`, `parent_sessions`(쿠키 30일). 부모 가입·로그인 scrypt, 이메일당 5회/10분 잠금, 가족 코드 6자리
+- [x] 아이 연결: 게임 방법 창 "가족 연결" → 가족 코드 + 내 PIN → `linkFamily` → 내 계정이 그 가족의 아이. welcome `family` 로 상태 표시. 부모가 플레이어이기도 한 경우(자기 계정을 부모로 표시)는 M5-3 승인 카드와 함께
+- [x] `/family` 페이지 뼈대(`static/family.html` + `/api/family/me|signup|login|logout|unlink`): 로그인, 가족 코드, 아이 목록·끊기. 테스트 3개, 전체 187개
 
 ### 3. 할 일·승인
 - [ ] `todos`·`todo_logs`: 제목·반복(매일/요일/한 번)·승인 필요·활성. 오늘 카드 계산은 순수 함수(`shared/rules/family.ts`)
