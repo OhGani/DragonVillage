@@ -412,12 +412,18 @@ const TEX = {
   // ---- 빠져 있던 그림 16장 (2026-09-19): 시작 키트 횃불이 자홍색 체크로 나와서. 전부 임시 — 아들이 덮어쓸 것
   torch: (c) => {
     c.clear();
-    for (let y = 7; y < S; y++) for (const x of [7, 8]) c.set(x, y, 122 + (c.rnd() - 0.5) * 16, 90, 48);
-    for (const x of [7, 8]) c.set(x, 6, 60, 50, 40);
-    for (const x of [7, 8]) c.set(x, 5, 255, 220, 80);
-    for (const x of [6, 7, 8, 9]) c.set(x, 4, 255, 200, 60);
-    for (const x of [7, 8]) c.set(x, 3, 255, 160, 40);
-    c.set(7, 2, 255, 120, 30);
+    // 막대: 왼쪽 밝은 갈색, 오른쪽 어두운 갈색, 4칸마다 어두운 줄
+    for (let y = 6; y < S; y++) {
+      const stripe = y % 4 === 1 ? 0.72 : 1;
+      c.set(7, y, 132 * stripe, 100 * stripe, 58 * stripe);
+      c.set(8, y, 96 * stripe, 70 * stripe, 40 * stripe);
+    }
+    // 불꽃: 주황 테 → 노랑 → 흰 점
+    for (const [x, y] of [[6, 3], [9, 3], [6, 4], [9, 4], [7, 2], [8, 2]]) c.set(x, y, 255, 150, 30);
+    for (const [x, y] of [[7, 3], [8, 3], [7, 4], [8, 4], [7, 5], [8, 5]]) c.set(x, y, 255, 220, 60);
+    c.set(7, 3, 255, 250, 200);
+    c.set(6, 5, 255, 170, 40);
+    c.set(9, 5, 255, 170, 40);
   },
   flower: (c) => {
     c.clear();

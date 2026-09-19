@@ -341,7 +341,7 @@ export class VillageRoom {
     // 가방에 그 아이템(액체면 찬 양동이)이 있어야 한다 (M4, #66)
     const item = itemForPlacing(def.id, this.registry);
     if (!item || countOf(p.inv, item) < 1) return REJECT.NO_ITEM;
-    if (cur.solid) return REJECT.OCCUPIED;
+    if (cur.num !== AIR_ID && !cur.fluid) return REJECT.OCCUPIED; // 횃불·꽃 같은 비고체 블록도 덮어쓰지 않는다(아이템이 사라지니까)
     if (def.solid) for (const other of this.playersIn(p.world)) if (bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, y, z)) return REJECT.OCCUPIED;
     return null;
   }

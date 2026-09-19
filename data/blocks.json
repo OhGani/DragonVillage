@@ -113,7 +113,7 @@
       "hardness": 0.3,
       "tool": null,
       "transparent": true,
-      "drops": null,
+      "_note": "마인크래프트는 유리를 깨면 사라지지만 여기서는 유리로 돌아온다(아빠 2026-09-19, 결정 #70 — 실크 터치 없음)",
       "lightEmit": 0,
       "texture": "glass"
     },
@@ -216,7 +216,6 @@
       "hardness": 0.5,
       "tool": "pickaxe",
       "transparent": true,
-      "drops": null,
       "lightEmit": 0,
       "lightFilter": 1,
       "texture": "ice",
@@ -304,7 +303,7 @@
       "name": "책장",
       "hardness": 1.5,
       "tool": null,
-      "drops": "book",
+      "_note": "캐면 책장 그대로(결정 #70). 마인크래프트의 책 3개 드롭은 안 씀",
       "lightEmit": 0,
       "texture": "bookshelf"
     },

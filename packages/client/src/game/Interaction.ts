@@ -44,8 +44,8 @@ export class Interaction {
   ) {}
 
   private readonly getBlock = (x: number, y: number, z: number) => this.world.getBlock(x, y, z);
-  /** 물·용암을 들고 있으면 양동이처럼 액체도 조준한다 */
-  private readonly targetable = (id: number) => this.registry.isSolid(id) || (this.bucketMode && this.registry.isFluid(id));
+  /** 공기가 아닌 블록은 전부 조준한다(횃불·꽃처럼 몸이 통과되는 것도 캘 수 있게). 액체는 물·용암을 들고 있을 때만(양동이처럼) */
+  private readonly targetable = (id: number) => id !== AIR_ID && (this.bucketMode || !this.registry.isFluid(id));
 
   get bucketMode(): boolean {
     return this.selectedBlock > 0 && this.registry.get(this.selectedBlock).fluid !== null;
@@ -128,7 +128,7 @@ export class Interaction {
       z = t.z + t.nz;
     if (!this.world.inBounds(x, y, z)) return;
     const cur = this.world.getBlock(x, y, z);
-    if (this.registry.isSolid(cur)) return; // air·물만 덮어쓴다
+    if (cur !== AIR_ID && !this.registry.isFluid(cur)) return; // 공기·액체 자리에만 놓는다 (횃불 위에 덮어쓰지 않게)
     const def = this.registry.get(this.selectedBlock);
     if (def.solid && bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y, z)) return; // 내 몸 안에는 못 놓는다
     // 물·용암은 양동이 하나만큼(8/8)의 고인 액체로 놓는다 — 사방으로 퍼지되 양만큼만 (결정 #65)

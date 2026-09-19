@@ -6,6 +6,7 @@ import {
   MSG,
   REJECT,
   VILLAGE_GEN_VERSION,
+  countOf,
   decodeServerBinary,
   type ServerBinary,
 } from '@dragon-village/shared';
@@ -151,6 +152,30 @@ describe('VillageRoom 블록 변경 검증', () => {
     room.onBlockChange(ia, { seq: 10, x: 64, y: GROUND_Y, z: 66, id: 'stone' }, 1000); // 잔디 위에 덮어쓰기
     expect(rejected(a).at(-1)).toEqual({ seq: 10, reason: REJECT.OCCUPIED });
     expect(b.bin.filter((m) => m.type === MSG.BlockChanged)).toHaveLength(0);
+  });
+
+  it('횃불·유리는 놓고 캐면 그대로 돌아오고, 횃불 자리에는 덮어 놓을 수 없다 (#70)', () => {
+    const { room, a, ia } = setup();
+    room.giveItems(ia, 'torch', 2);
+    room.giveItems(ia, 'glass', 2);
+    const p = room.players.get(ia)!;
+    const at = { x: 66, y: GROUND_Y + 1, z: 64 };
+    room.onBlockChange(ia, { seq: 1, ...at, id: 'torch' }, 1000);
+    expect(countOf(p.inv, 'torch')).toBe(1);
+    // 횃불 위에 돌 덮기 → OCCUPIED (횃불이 사라지면 안 되니까)
+    room.onBlockChange(ia, { seq: 2, ...at, id: 'stone' }, 1000);
+    expect(rejected(a).at(-1)).toEqual({ seq: 2, reason: REJECT.OCCUPIED });
+    expect(BLOCKS.get(room.world.getBlock(at.x, at.y, at.z)).id).toBe('torch');
+    // 캐면 횃불이 돌아온다
+    room.onBlockChange(ia, { seq: 3, ...at, id: 'air' }, 1000);
+    expect(countOf(p.inv, 'torch')).toBe(2);
+    // 유리도 마인크래프트와 달리 돌아온다
+    room.onBlockChange(ia, { seq: 4, ...at, id: 'glass' }, 1000);
+    room.onBlockChange(ia, { seq: 5, ...at, id: 'air' }, 1000);
+    expect(countOf(p.inv, 'glass')).toBe(2);
+    expect(BLOCKS.require('glass').drops).toBe('glass');
+    expect(BLOCKS.require('ice').drops).toBe('ice');
+    expect(BLOCKS.require('bookshelf').drops).toBe('bookshelf');
   });
 
   it('초당 상한을 넘으면 RATE', () => {
