@@ -360,6 +360,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const prev = todayCard;
     todayCard = card;
     hud.setToday(card);
+    // 승인·자동 승인으로 보너스가 늘면 "+N분!" (제한 여부와 상관없이)
+    if (prev && card.bonusMin > prev.bonusMin) hud.toast(`+${card.bonusMin - prev.bonusMin}분! 할 일이 확인됐어요`, 5000);
     if (!card.enforced || !prev) return;
     if (prev.remainingMin > 5 && card.remainingMin <= 5 && card.remainingMin > 1) hud.toast(`오늘 게임 시간이 ${card.remainingMin}분 남았어요`, 6000);
     else if (prev.remainingMin > 1 && card.remainingMin === 1) hud.toast('1분 남았어요 — 곧 마을에서 나가요. 내일 다시!', 8000);
