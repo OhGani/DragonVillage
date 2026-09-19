@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS chunk_diffs(
 CREATE TABLE IF NOT EXISTS players(
   token TEXT PRIMARY KEY, village TEXT, nick TEXT NOT NULL, color INTEGER NOT NULL,
   x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL, yaw REAL NOT NULL, pitch REAL NOT NULL, last_seen INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS storage(
+  village TEXT NOT NULL, item TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(village, item));
 `;
 
 export class Storage {
@@ -64,6 +66,10 @@ export class Storage {
       getPlayer: this.db.prepare(
         'SELECT token, village, nick, color, x, y, z, yaw, pitch, last_seen AS lastSeen FROM players WHERE token = ?',
       ),
+      addItem: this.db.prepare(
+        'INSERT INTO storage(village, item, count) VALUES (?, ?, ?) ON CONFLICT(village, item) DO UPDATE SET count = count + excluded.count',
+      ),
+      getStorage: this.db.prepare('SELECT item, count FROM storage WHERE village = ? ORDER BY item'),
       upsertPlayer: this.db.prepare(
         `INSERT INTO players(token, village, nick, color, x, y, z, yaw, pitch, last_seen)
          VALUES (@token, @village, @nick, @color, @x, @y, @z, @yaw, @pitch, @lastSeen)
@@ -108,6 +114,17 @@ export class Storage {
   }
   savePlayer(row: PlayerRow): void {
     this.stmts.upsertPlayer.run(row);
+  }
+
+  /** 마을 창고에 더한다 (원정 정산, M3). 0 이하는 무시 */
+  addItems(code: string, items: readonly { id: string; count: number }[]): void {
+    const tx = this.db.transaction((list: readonly { id: string; count: number }[]) => {
+      for (const it of list) if (it.count > 0) this.stmts.addItem.run(code, it.id, it.count);
+    });
+    tx(items);
+  }
+  getStorage(code: string): { item: string; count: number }[] {
+    return this.stmts.getStorage.all(code) as { item: string; count: number }[];
   }
 
   /** 온라인 백업 (WAL 포함 일관된 사본) */

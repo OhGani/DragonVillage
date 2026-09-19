@@ -5,6 +5,7 @@
  * - 로비 메시지는 JSON 텍스트.
  * - 블록은 숫자 번호가 아니라 **문자열 id** 로 보낸다 (결정 #39 — 아들이 blocks.json 순서를 바꿔도 안전).
  * - 청크는 diff 목록 대신 `serialize.ts` 의 청크 blob 통째로 (저장 형식과 같다, 결정 #60).
+ * - M3 원정: 세계 전환·정산은 드물어서 JSON(worldEnter·expeditionResult·expeditionState), 1Hz 타이머만 바이너리(ExpeditionTimer).
  */
 import { ByteReader, ByteWriter } from './bytes';
 
@@ -26,6 +27,8 @@ export const MSG = {
   BlockBatch: 0x13,
   /** S→C 입장 시 저장된 청크 (blob) */
   ChunkData: 0x20,
+  /** S→C 원정 중 1Hz: 경과·전체 초, 낮/저녁/밤 */
+  ExpeditionTimer: 0x30,
   Ping: 0x7f,
   Pong: 0x7e,
 } as const;
@@ -108,6 +111,13 @@ export interface ChunkDataMsg {
 export interface PingMsg {
   clientMs: number;
 }
+/** 원정 시각 (1Hz). phase 0 낮, 1 저녁, 2 밤 (shared/rules/expeditions phaseAt) */
+export interface ExpeditionTimerMsg {
+  elapsedSec: number;
+  durationSec: number;
+  phase: number;
+}
+export const PHASE_NUM = { day: 0, evening: 1, night: 2 } as const;
 
 // ---------------------------------------------------------------- 인코딩
 
@@ -137,6 +147,9 @@ export function encodeBlockChangeRejected(m: BlockChangeRejectedMsg): Uint8Array
 export function encodeChunkData(m: ChunkDataMsg): Uint8Array {
   return new ByteWriter(17 + m.bytes.length).u8(MSG.ChunkData).i32(m.cx).i32(m.cy).i32(m.cz).bytes(m.bytes).finish();
 }
+export function encodeExpeditionTimer(m: ExpeditionTimerMsg): Uint8Array {
+  return new ByteWriter(6).u8(MSG.ExpeditionTimer).u16(m.elapsedSec).u16(m.durationSec).u8(m.phase).finish();
+}
 export function encodePing(m: PingMsg): Uint8Array {
   return new ByteWriter(5).u8(MSG.Ping).u32(m.clientMs).finish();
 }
@@ -157,6 +170,7 @@ export type ServerBinary =
   | { type: typeof MSG.BlockChangeRejected; msg: BlockChangeRejectedMsg }
   | { type: typeof MSG.BlockBatch; msg: BlockBatchMsg }
   | { type: typeof MSG.ChunkData; msg: ChunkDataMsg }
+  | { type: typeof MSG.ExpeditionTimer; msg: ExpeditionTimerMsg }
   | { type: typeof MSG.Pong; msg: PingMsg };
 
 /** 서버가 받은 바이너리. 모르는 종류면 null */
@@ -200,6 +214,8 @@ export function decodeServerBinary(bytes: Uint8Array): ServerBinary | null {
     }
     case MSG.ChunkData:
       return { type, msg: { cx: r.i32(), cy: r.i32(), cz: r.i32(), bytes: r.bytes() } };
+    case MSG.ExpeditionTimer:
+      return { type, msg: { elapsedSec: r.u16(), durationSec: r.u16(), phase: r.u8() } };
     case MSG.Pong:
       return { type, msg: { clientMs: r.u32() } };
     default:
@@ -226,16 +242,51 @@ export interface VillageInfo {
   genVersion: number;
 }
 
+/** 진행 중인 원정 요약 (마을에 있는 사람이 "따라가기" 카드를 보이려면) */
+export interface ExpeditionStateInfo {
+  id: string;
+  name: string;
+  players: number;
+  remainingSec: number;
+}
+/** 원정 세계에 들어갈 때 — 클라는 시드로 같은 섬을 만든다 */
+export interface ExpeditionEnterInfo {
+  id: string;
+  name: string;
+  seed: number;
+  genVersion: number;
+  durationSec: number;
+  nightStartsAt: number;
+  /** 서버 시각 기준 시작·지금 (ms). 클라는 둘의 차로 경과를 맞춘다 */
+  startedAt: number;
+  serverNow: number;
+  treasures: number;
+}
+export interface ExpeditionResultItem {
+  id: string;
+  count: number;
+}
+
 export type ClientJson =
   | { t: 'hello'; token: string | null; protocol: number }
   | { t: 'join'; nick: string; color: number; code: string }
-  | { t: 'create'; nick: string; color: number; name: string };
+  | { t: 'create'; nick: string; color: number; name: string }
+  /** 마을 포탈에서: 원정 시작(또는 진행 중인 원정에 합류) */
+  | { t: 'startExpedition'; expedition: string }
+  /** 원정 포탈 안에서: 마을로 돌아가기 (정산) */
+  | { t: 'returnHome' };
 
 export type ServerJson =
   | { t: 'hello'; token: string; protocol: number }
-  | { t: 'welcome'; playerIdx: number; village: VillageInfo; spawn: PlayerInfo; players: PlayerInfo[]; chunkCount: number }
-  /** 저장된 청크를 다 보냈다 — 이제 놀 수 있다 */
+  | { t: 'welcome'; playerIdx: number; village: VillageInfo; spawn: PlayerInfo; players: PlayerInfo[]; chunkCount: number; expedition?: ExpeditionStateInfo | null }
+  /** 저장된 청크를 다 보냈다 — 이제 놀 수 있다 (welcome·worldEnter 뒤 ChunkData 들 다음에) */
   | { t: 'ready' }
+  /** 세계 전환: 마을 ↔ 원정. 이어서 그 세계의 바뀐 청크(ChunkData)와 ready 가 온다 */
+  | { t: 'worldEnter'; kind: 'village' | 'expedition'; expedition: ExpeditionEnterInfo | null; spawn: PlayerInfo; players: PlayerInfo[]; chunkCount: number }
+  /** 귀환 정산 (worldEnter village 직전) */
+  | { t: 'expeditionResult'; expedition: string; name: string; items: ExpeditionResultItem[]; late: boolean; keepRatio: number; elapsedSec: number }
+  /** 마을에 있는 사람들에게: 원정이 시작·변경·끝났다 */
+  | { t: 'expeditionState'; expedition: ExpeditionStateInfo | null }
   | { t: 'playerJoined'; player: PlayerInfo }
   | { t: 'playerLeft'; idx: number }
   | { t: 'error'; code: string; message: string };

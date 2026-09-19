@@ -149,12 +149,12 @@ M3 에서 하지 않는 것: 가방·인벤토리(M4 — 정산은 "모은 블�
 - [x] 지문 스냅샷 테스트 + 시드가 다르면 다른 섬 + 생성 시간 — **2코어 VM 290~360ms**(875 청크, 283만 블록). 폰 실측은 5절에서
 - [x] 동물·몹은 M7. 새 블록 없이 기존 blocks.json 으로(사탕수수·호박·수박·상자·발광석 이미 있음)
 
-### 3. 서버 원정 룸 (`packages/server/src/expedition.ts`)
-- [ ] `ExpeditionRoom`: 마을 룸 안의 임시 서브 월드. 시작 요청(포탈 앞 누구나, M3) → 시드(crypto) → `generateIsland(seed)` → 참가자 이동(WorldEnter). 진행 중 합류 가능. 블록 변경 검증은 마을과 같되 보호 구역 없음, 저장 없음. 액체 틱 동일
-- [ ] 타이머: durationSec, 1Hz `ExpeditionTimer`(서버 시각·끝나는 시각·단계). 끝나면 전원 마을 스폰으로(WorldLeave). 포탈 안으로 들어가면 개인 귀환. `returnGraceSec` 뒤 세계 폐기
-- [ ] 정산: 플레이어별 "부순 블록 → 드롭 아이템" 집계(가방 대신). 귀환 시 `ExpeditionResult`(JSON: 모은 것, 처음 본 블록 = 도감 신규). 마을 `storage(village,item,count)` 에 더한다(M4·M6 이 쓴다). 늦게 돌아오면 절반(`failedReturnKeepRatio`)
-- [ ] 프로토콜: WorldEnter 0x21 / WorldLeave 0x22 / ExpeditionTimer 0x30 / ExpeditionStartReq 0x31 / ExpeditionResult 0x32 (PROTOCOL.md 표대로, 시드로 클라가 지형을 만들고 변경분만 받는다)
-- [ ] 테스트: 시작→타이머→종료 전이, 늦은 합류자가 변경 청크를 받는지, 정산 집계·절반 규칙, 세계 폐기
+### 3. 서버 원정 룸 (`packages/server/src/expedition.ts`) — 완료 2026-09-19
+- [x] `Expedition`(마을 룸 안의 서브 월드, `RoomPlayer.world` 로 구분): 마을 룸 안의 임시 서브 월드. 시작 요청(포탈 앞 누구나, M3) → 시드(crypto) → `generateIsland(seed)` → 참가자 이동(WorldEnter). 진행 중 합류 가능. 블록 변경 검증은 마을과 같되 보호 구역 없음, 저장 없음. 액체 틱 동일
+- [x] 타이머: durationSec, 1Hz `ExpeditionTimer`(서버 시각·끝나는 시각·단계). 끝나면 전원 마을 스폰으로(WorldLeave). 포탈 안으로 들어가면 개인 귀환. `returnGraceSec` 뒤 세계 폐기
+- [x] 정산: 플레이어별 "부순 블록 → 드롭 아이템" 집계(dropCount 는 자리·시드로 결정론)(가방 대신). 귀환 시 `ExpeditionResult`(JSON: 모은 것, 처음 본 블록 = 도감 신규). 마을 `storage(village,item,count)` 에 더한다(M4·M6 이 쓴다). 늦게 돌아오면 절반(`failedReturnKeepRatio`)
+- [x] 프로토콜: 전환·정산은 JSON(`worldEnter`·`expeditionResult`·`expeditionState`·`startExpedition`·`returnHome`), 1Hz 타이머만 바이너리 `ExpeditionTimer 0x30`. 시드로 클라가 지형을 만들고 변경분(ChunkData·BlockChanged)만 받는다. 모두 돌아오면 원정 종료(다음 출발은 새 섬)
+- [x] 테스트 9개: 시작·합류(같은 시드)·welcome 에 진행 상태, 세계별 브로드캐스트·드롭 집계·타이머 단계·경계, 포탈 귀환 정산·창고, 시간 종료 강제 귀환(절반 올림)·유예 폐기·새 시드, 끊김
 
 ### 4. 클라이언트
 - [ ] 마을 포탈 문틀 안에 포탈 블록(보라, 반투명, 빛). 그 안에 서면 "원정 출발" 카드(초원 섬 · 10분 · 참가자) → 요청. 원정 중이면 "따라가기"

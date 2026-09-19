@@ -19,6 +19,14 @@ import type { RoomManager } from './rooms';
 import type { VillageRoom } from './village';
 
 const TOKEN_RE = /^[a-f0-9]{32}$/;
+/** 원정 시작 거절 이유 (초5가 읽을 말) */
+const START_ERROR_KO: Record<string, string> = {
+  ALREADY_OUT: '이미 원정 중이에요',
+  OTHER_EXPEDITION: '다른 원정이 진행 중이에요. 끝나면 출발할 수 있어요',
+  ENDING: '원정이 끝나는 중이에요. 잠깐 뒤에 다시',
+  BAD_EXPEDITION: '그런 원정지는 없어요',
+  NOT_YET: '이 원정지는 아직 준비 중이에요',
+};
 /** 잘못된 마을 코드 시도: 연결당 이 횟수를 넘으면 끊는다 */
 const MAX_BAD_CODES = 5;
 
@@ -107,9 +115,22 @@ export class Session {
         if (!result) return this.error('VILLAGE_FULL', '마을이 꽉 찼어요 (6명까지)');
         this.room = room;
         this.idx = result.idx;
-        this.sendJson({ t: 'welcome', playerIdx: result.idx, village: room.info, spawn: result.spawn, players: result.players, chunkCount: room.modifiedCount });
+        this.sendJson({ t: 'welcome', playerIdx: result.idx, village: room.info, spawn: result.spawn, players: result.players, chunkCount: room.modifiedCount, expedition: result.expedition });
         room.sendModifiedChunks(this.send);
         this.sendJson({ t: 'ready' });
+        return;
+      }
+      case 'startExpedition': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (typeof msg.expedition !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.startExpedition(this.idx, msg.expedition);
+        if (err) return this.error(err, START_ERROR_KO[err] ?? '지금은 출발할 수 없어요');
+        return;
+      }
+      case 'returnHome': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        const err = this.room.returnHome(this.idx);
+        if (err) return this.error(err, err === 'NOT_IN_PORTAL' ? '포탈 안에 서야 돌아갈 수 있어요' : '지금은 돌아갈 수 없어요');
         return;
       }
       default:
