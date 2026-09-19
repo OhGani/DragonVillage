@@ -361,7 +361,7 @@
         },
         {
           "material": "sapling",
-          "count": 2
+          "count": 1
         },
         {
           "material": "leaves",
@@ -394,7 +394,7 @@
       "ride": true,
       "model": "models/dragon_wood.json",
       "sketch": "아들 그림 2026-09-12",
-      "_recipeNote": "아들 그림에는 '나무 묘목 1개', 1차 답변에는 '2개' — 확인 필요. 현재 2개 유지"
+      "_recipeNote": "아들 확정(2026-09-19): 나무 묘목 1개 (그림대로). 1차 답변의 2개는 정정"
     },
     {
       "id": "earth",
