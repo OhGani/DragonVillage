@@ -18,6 +18,7 @@ import {
   chunkKey,
   generateIsland,
   hash3,
+  portalContains,
   phaseAt,
   remainingSec,
 } from '@dragon-village/shared';
@@ -92,8 +93,7 @@ export class Expedition {
 
   /** 포탈 문틀 안(4×5 흑요석 틀의 가운데 2×3 공기)에 서 있나 — 귀환 판정 */
   inPortal(x: number, y: number, z: number): boolean {
-    const p = this.portal;
-    return x >= p.x - 1 && x < p.x + 1 && z >= p.z - 0.6 && z <= p.z + 1.6 && y >= p.y + 0.5 && y <= p.y + 4;
+    return portalContains(this.portal, x, y, z);
   }
 
   /** 부순 블록의 드롭을 센다. dropCount 범위는 자리·시드로 결정론적으로 뽑는다 */

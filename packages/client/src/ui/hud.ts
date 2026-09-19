@@ -41,6 +41,17 @@ export class Hud {
   private toastTimer: number | null = null;
   onSelect: ((index: number) => void) | null = null;
   onOverlayClick: (() => void) | null = null;
+  private readonly timerEl: HTMLElement;
+  private readonly timerPhase: HTMLElement;
+  private readonly timerTime: HTMLElement;
+  private readonly actionEl: HTMLElement;
+  private readonly actionTitle: HTMLElement;
+  private readonly actionSub: HTMLElement;
+  private readonly actionBtn: HTMLButtonElement;
+  private onAction: (() => void) | null = null;
+  private readonly resultEl: HTMLElement;
+  private onResultAgain: (() => void) | null = null;
+  private onResultClose: (() => void) | null = null;
 
   constructor(root: HTMLElement, isTouch: boolean) {
     const el = document.createElement('div');
@@ -75,8 +86,25 @@ export class Hud {
         <button class="sbtn fullscreen" aria-label="전체화면">⛶ 전체화면</button>
         <button class="sbtn debug" aria-label="정보">i</button>
       </div>
+      <div class="exp-timer" hidden><span class="exp-phase"></span><span class="exp-time"></span></div>
       <pre class="debug-text" hidden></pre>
       <div class="toast" hidden></div>
+      <div class="action-card" hidden>
+        <div class="action-title"></div>
+        <div class="action-sub"></div>
+        <button class="overlay-btn action-btn"></button>
+      </div>
+      <div class="result-panel" hidden>
+        <div class="result-card">
+          <h2 class="result-title"></h2>
+          <p class="result-sub"></p>
+          <ul class="result-items"></ul>
+          <div class="result-buttons">
+            <button class="overlay-btn result-again"></button>
+            <button class="overlay-help result-close">마을 구경하기</button>
+          </div>
+        </div>
+      </div>
       <div class="overlay">
         <div class="overlay-card">
           <h1 class="overlay-title"></h1>
@@ -134,6 +162,26 @@ export class Hud {
     q<HTMLButtonElement>('.help-close').addEventListener('click', closeHelp);
     q<HTMLButtonElement>('.help-ok').addEventListener('click', closeHelp);
     this.villageEl = q('.help-village');
+    this.timerEl = q('.exp-timer');
+    this.timerPhase = q('.exp-phase');
+    this.timerTime = q('.exp-time');
+    this.actionEl = q('.action-card');
+    this.actionTitle = q('.action-title');
+    this.actionSub = q('.action-sub');
+    this.actionBtn = q<HTMLButtonElement>('.action-btn');
+    this.actionBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.onAction?.();
+    });
+    this.resultEl = q('.result-panel');
+    q<HTMLButtonElement>('.result-again').addEventListener('click', () => {
+      this.hideResult();
+      this.onResultAgain?.();
+    });
+    q<HTMLButtonElement>('.result-close').addEventListener('click', () => {
+      this.hideResult();
+      this.onResultClose?.();
+    });
     this.touchUI = {
       surface: el,
       stickBase: q('.stick-base'),
@@ -249,6 +297,82 @@ export class Hud {
     if (text !== null) this.debugEl.textContent = text;
   }
 
+  /** 원정 타이머 (상단 가운데). null 이면 숨김. phase 로 색이 바뀐다 */
+  setTimer(remainingSec: number | null, phase: 'day' | 'evening' | 'night' | null): void {
+    if (remainingSec === null) {
+      this.timerEl.hidden = true;
+      return;
+    }
+    this.timerEl.hidden = false;
+    const m = Math.floor(remainingSec / 60),
+      sec = Math.floor(remainingSec % 60);
+    this.timerTime.textContent = m + ':' + String(sec).padStart(2, '0');
+    this.timerPhase.textContent = phase === 'night' ? '🌙 밤' : phase === 'evening' ? '🌇 저녁' : '☀️ 낮';
+    this.timerEl.classList.toggle('warn', remainingSec <= 180);
+    this.timerEl.classList.toggle('danger', remainingSec <= 60);
+    this.timerEl.classList.toggle('night', phase === 'night');
+  }
+
+  /** 포탈 앞 카드 (원정 출발 / 따라가기 / 마을로). 같은 내용이면 다시 그리지 않는다 */
+  showAction(title: string, sub: string, button: string, onClick: () => void): void {
+    this.onAction = onClick;
+    if (this.actionTitle.textContent !== title) this.actionTitle.textContent = title;
+    if (this.actionSub.textContent !== sub) this.actionSub.textContent = sub;
+    if (this.actionBtn.textContent !== button) this.actionBtn.textContent = button;
+    this.actionEl.hidden = false;
+  }
+  hideAction(): void {
+    this.actionEl.hidden = true;
+    this.onAction = null;
+  }
+  get actionVisible(): boolean {
+    return !this.actionEl.hidden;
+  }
+
+  /** 귀환 정산 창 */
+  showResult(
+    title: string,
+    sub: string,
+    items: { name: string; count: number; icon: HTMLCanvasElement | null }[],
+    againLabel: string,
+    onAgain: () => void,
+    onClose: () => void,
+  ): void {
+    this.onResultAgain = onAgain;
+    this.onResultClose = onClose;
+    const q = <T extends Element>(sel: string) => this.resultEl.querySelector(sel) as T;
+    q<HTMLElement>('.result-title').textContent = title;
+    q<HTMLElement>('.result-sub').textContent = sub;
+    const list = q<HTMLElement>('.result-items');
+    list.innerHTML = '';
+    if (items.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'result-empty';
+      li.textContent = '이번엔 빈손이에요. 블록을 부수면 가져올 수 있어요';
+      list.appendChild(li);
+    }
+    for (const it of items) {
+      const li = document.createElement('li');
+      if (it.icon) li.appendChild(it.icon);
+      const name = document.createElement('span');
+      name.className = 'result-name';
+      name.textContent = it.name;
+      const count = document.createElement('span');
+      count.className = 'result-count';
+      count.textContent = '×' + it.count;
+      li.append(name, count);
+      list.appendChild(li);
+    }
+    q<HTMLButtonElement>('.result-again').textContent = againLabel;
+    this.resultEl.hidden = false;
+  }
+  hideResult(): void {
+    this.resultEl.hidden = true;
+  }
+  get resultVisible(): boolean {
+    return !this.resultEl.hidden;
+  }
+
   showOverlay(title: string, sub: string, button: string | null): void {
     this.overlayTitle.textContent = title;
     this.overlaySub.textContent = sub;
@@ -315,8 +439,9 @@ function helpHtml(isTouch: boolean): string {
     '블록마다 부수는 시간이 달라요. 흙·모래 0.5초, 돌 1.5초, 원목·판자 2초. 맨 아래 기반암과 물은 못 부숴요.',
     '내 몸이 있는 자리에는 블록을 놓을 수 없어요.',
     '물에 들어가면 천천히 가라앉고, 점프를 누르면 위로 헤엄쳐요.',
-    '내가 놓은 물·용암은 내가 보는 방향으로만 흘러요(아래로는 떨어져요). 원래 있던 연못은 벽이 없으면 사방으로 퍼져요. 물이나 용암을 들고 원천을 꾹 누르면(PC: 왼쪽 클릭) 떠낼 수 있어요. 물이 용암을 만나면 돌이 돼요.',
-    '광장 남쪽에 뼈대만 있는 집이 있어요. 문·창문·지붕을 채워 봐요. 북쪽 흑요석 문틀은 나중에 포탈이 될 자리. 동남쪽 언덕엔 동굴 입구가 있고 땅속엔 광물과 동굴이 있어요.',
+    '내가 놓은 물·용암은 양동이 하나만큼이에요. 사방으로 퍼지면서 낮아지고, 양만큼만 퍼지고 멈춰요(위로는 안 차요). 강·연못 같은 원래 있던 물은 마르지 않아요. 물이나 용암을 꾹 누르면(PC: 왼쪽 클릭) 떠내거나 닦아낼 수 있어요. 물이 용암을 만나면 돌이 돼요.',
+    '광장 남쪽에 뼈대만 있는 집이 있어요. 문·창문·지붕을 채워 봐요. 동남쪽 언덕엔 동굴 입구가 있고 땅속엔 광물과 동굴이 있어요.',
+    '<b>원정</b>: 광장 북쪽 보라색 포탈 안에 서면 "원정 출발" 버튼이 나와요. 초원 섬에 10분 동안 다녀오는데, 6분이 지나면 밤이 돼요. 섬 가운데 포탈로 돌아오면 부순 블록을 마을 창고에 가져와요. 시간이 다 되면 저절로 돌아오지만 절반만 가져와요. 친구가 먼저 갔으면 같은 포탈에서 "따라가기".',
     '세계 끝은 보이지 않는 벽. 떨어지면 광장으로 돌아와요.',
     '만든 것은 서버에 저장돼요. 같은 마을 코드로 들어오면 어느 폰·PC 에서도 같은 마을이에요. 친구에게 마을 코드 6자리를 알려 주면 함께 지을 수 있어요(6명까지).',
     '다른 사람이 놓거나 부순 블록도 바로 보여요. 서버가 "너무 멀어요" 같은 말을 하면 그 블록은 되돌아가요.',

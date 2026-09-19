@@ -11,6 +11,10 @@ import {
   type BlockChangedMsg,
   type ChunkDataMsg,
   type ClientJson,
+  type ExpeditionEnterInfo,
+  type ExpeditionResultItem,
+  type ExpeditionStateInfo,
+  type ExpeditionTimerMsg,
   MSG,
   PROTOCOL_VERSION,
   type PlayerInfo,
@@ -35,6 +39,26 @@ export interface Welcome {
   players: PlayerInfo[];
   /** welcome 과 ready 사이에 받은 저장 청크 */
   chunks: ChunkDataMsg[];
+  /** 진행 중인 원정 (마을 포탈 카드용) */
+  expedition: ExpeditionStateInfo | null;
+}
+
+/** 세계 전환 (worldEnter … ChunkData … ready 를 하나로 모은 것) */
+export interface WorldEnter {
+  kind: 'village' | 'expedition';
+  expedition: ExpeditionEnterInfo | null;
+  spawn: PlayerInfo;
+  players: PlayerInfo[];
+  chunks: ChunkDataMsg[];
+}
+
+export interface ExpeditionResult {
+  expedition: string;
+  name: string;
+  items: ExpeditionResultItem[];
+  late: boolean;
+  keepRatio: number;
+  elapsedSec: number;
 }
 
 export interface NetEvents {
@@ -48,6 +72,11 @@ export interface NetEvents {
   /** 서버가 보낸 오류 (연결은 살아 있을 수도) */
   onError(code: string, message: string): void;
   onClose(reason: string): void;
+  /** 세계 전환 (M3): 마을 ↔ 원정 */
+  onWorldEnter(w: WorldEnter): void;
+  onExpeditionResult(r: ExpeditionResult): void;
+  onExpeditionState(s: ExpeditionStateInfo | null): void;
+  onTimer(m: ExpeditionTimerMsg): void;
 }
 
 export class NetError extends Error {
@@ -74,6 +103,7 @@ export class NetClient {
   private readonly backlog: ServerBinary[] = [];
   private readonly jsonBacklog: ServerJson[] = [];
   private pendingWelcome: Welcome | null = null;
+  private pendingWorld: WorldEnter | null = null;
   private joinResolve: ((w: Welcome) => void) | null = null;
   private joinReject: ((e: Error) => void) | null = null;
   private helloResolve: (() => void) | null = null;
@@ -172,6 +202,14 @@ export class NetClient {
   sendBlockChange(m: BlockChangeReqMsg): void {
     this.send(encodeBlockChangeReq(m));
   }
+  /** 마을 포탈에서: 원정 시작 또는 진행 중인 원정에 합류 */
+  sendStartExpedition(expedition: string): void {
+    this.sendJson({ t: 'startExpedition', expedition });
+  }
+  /** 원정 포탈 안에서: 마을로 (정산) */
+  sendReturnHome(): void {
+    this.sendJson({ t: 'returnHome' });
+  }
 
   private send(bytes: Uint8Array): void {
     if (this.connected) this.ws!.send(bytes);
@@ -193,9 +231,19 @@ export class NetClient {
         this.helloResolve = null;
         return;
       case 'welcome':
-        this.pendingWelcome = { playerIdx: msg.playerIdx, village: msg.village, spawn: msg.spawn, players: msg.players, chunks: [] };
+        this.pendingWelcome = { playerIdx: msg.playerIdx, village: msg.village, spawn: msg.spawn, players: msg.players, chunks: [], expedition: msg.expedition ?? null };
+        return;
+      case 'worldEnter':
+        this.pendingWorld = { kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] };
         return;
       case 'ready': {
+        if (this.pendingWorld) {
+          const w = this.pendingWorld;
+          this.pendingWorld = null;
+          if (this.events) this.events.onWorldEnter(w);
+          else this.jsonBacklog.push({ t: 'worldEnter', kind: w.kind, expedition: w.expedition, spawn: w.spawn, players: w.players, chunkCount: w.chunks.length });
+          return;
+        }
         const w = this.pendingWelcome;
         this.pendingWelcome = null;
         if (w && this.joinResolve) this.joinResolve(w);
@@ -224,6 +272,9 @@ export class NetClient {
     if (msg.t === 'playerJoined') ev.onPlayerJoined(msg.player);
     else if (msg.t === 'playerLeft') ev.onPlayerLeft(msg.idx);
     else if (msg.t === 'error') ev.onError(msg.code, msg.message);
+    else if (msg.t === 'expeditionResult') ev.onExpeditionResult({ expedition: msg.expedition, name: msg.name, items: msg.items, late: msg.late, keepRatio: msg.keepRatio, elapsedSec: msg.elapsedSec });
+    else if (msg.t === 'expeditionState') ev.onExpeditionState(msg.expedition);
+    else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }
 
   private onBinary(m: ServerBinary | null): void {
@@ -232,7 +283,11 @@ export class NetClient {
       this.rtt = Math.round(performance.now() - this.pingSent);
       return;
     }
-    // welcome 과 ready 사이의 청크는 welcome 에 모아 둔다
+    // welcome/worldEnter 와 ready 사이의 청크는 거기에 모아 둔다
+    if (m.type === MSG.ChunkData && this.pendingWorld) {
+      this.pendingWorld.chunks.push(m.msg);
+      return;
+    }
     if (m.type === MSG.ChunkData && this.pendingWelcome) {
       this.pendingWelcome.chunks.push(m.msg);
       return;
@@ -258,6 +313,9 @@ export class NetClient {
         break;
       case MSG.PlayersState:
         ev.onPlayers(m.msg);
+        break;
+      case MSG.ExpeditionTimer:
+        ev.onTimer(m.msg);
         break;
     }
   }

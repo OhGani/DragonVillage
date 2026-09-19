@@ -4,6 +4,12 @@
     {
       "name": "client",
       "url": "http://localhost:5173"
+    },
+    {
+      "name": "dev",
+      "runtimeExecutable": "C:\\Users\\smile-user\\AppData\\Local\\Packages\\claude_pzs8sxrjxfjjc\\LocalCache\\Local\\nodejs\\node-v22.23.2-win-x64\\node.exe",
+      "runtimeArgs": ["packages/client/node_modules/vite/bin/vite.js", "packages/client", "--port", "5174", "--strictPort"],
+      "port": 5174
     }
   ]
 }

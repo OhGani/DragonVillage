@@ -142,6 +142,11 @@ export class RemotePlayers {
     this.figures.delete(idx);
   }
 
+  /** 지금 보이는 사람들의 번호 (세계 전환 때 전부 지우기용) */
+  indices(): number[] {
+    return [...this.figures.keys()];
+  }
+
   nickOf(idx: number): string | undefined {
     return this.figures.get(idx)?.info.nick;
   }

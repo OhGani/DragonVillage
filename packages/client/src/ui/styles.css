@@ -682,3 +682,156 @@ body {
   font-size: 13px;
   line-height: 1.5;
 }
+
+/* ---------- 원정 (M3): 타이머·포탈 카드·정산 ---------- */
+.exp-timer {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 6px 16px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  color: #fff;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.exp-timer .exp-time {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.exp-timer .exp-phase {
+  font-size: 14px;
+  opacity: 0.9;
+}
+.exp-timer.night {
+  border-color: rgba(140, 160, 255, 0.5);
+}
+.exp-timer.warn .exp-time {
+  color: #ffd257;
+}
+.exp-timer.danger .exp-time {
+  color: #ff5e5e;
+  animation: exp-blink 1s steps(2, start) infinite;
+}
+@keyframes exp-blink {
+  to {
+    opacity: 0.35;
+  }
+}
+
+.action-card {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  text-align: center;
+  color: #fff;
+  padding: 12px 18px;
+  background: rgba(20, 10, 40, 0.7);
+  border: 2px solid rgba(190, 140, 255, 0.6);
+  border-radius: 10px;
+  pointer-events: auto;
+  max-width: 90vw;
+}
+.action-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.action-sub {
+  font-size: 14px;
+  opacity: 0.9;
+  margin-bottom: 10px;
+  white-space: pre-line;
+}
+.action-btn {
+  min-width: 160px;
+  background: #7a3fd6;
+  border-color: #3f1f73;
+}
+.hud.touch .action-card {
+  bottom: 110px;
+}
+
+.result-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 20, 40, 0.6);
+  pointer-events: auto;
+}
+.result-panel[hidden] {
+  display: none;
+}
+.result-card {
+  width: min(92vw, 420px);
+  max-height: 88vh;
+  overflow: auto;
+  color: #fff;
+  padding: 18px 20px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  text-align: center;
+}
+.result-title {
+  margin: 0 0 6px;
+  font-size: 24px;
+}
+.result-sub {
+  margin: 0 0 12px;
+  font-size: 14px;
+  opacity: 0.9;
+  white-space: pre-line;
+}
+.result-items {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  text-align: left;
+}
+.result-items li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  font-size: 15px;
+}
+.result-items li canvas {
+  width: 28px;
+  height: 28px;
+  image-rendering: pixelated;
+}
+.result-name {
+  flex: 1;
+}
+.result-count {
+  font-weight: 700;
+}
+.result-empty {
+  grid-column: 1 / -1;
+  justify-content: center;
+  opacity: 0.85;
+}
+.result-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+.result-buttons .overlay-help {
+  margin: 0;
+}

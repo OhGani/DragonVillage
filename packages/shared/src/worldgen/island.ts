@@ -32,6 +32,14 @@ const CENTER = SIZE / 2; // 128
 const ISLAND_R = 100;
 const PORTAL_FLAT_R = 8;
 
+/**
+ * 포탈 문틀(흑요석 4×5, 동서로 서 있음) 안에 서 있나. portal = 문틀 아래 가운데 (마을·섬 공용 모양).
+ * 안쪽 공기 2×3: x ∈ [p.x-1, p.x+1), y ∈ [p.y+1, p.y+4), z 는 문틀 판 ±0.6.
+ */
+export function portalContains(portal: { x: number; y: number; z: number }, x: number, y: number, z: number): boolean {
+  return x >= portal.x - 1 && x < portal.x + 1 && z >= portal.z - 0.6 && z <= portal.z + 1.6 && y >= portal.y + 0.5 && y <= portal.y + 4;
+}
+
 export interface IslandLayout {
   center: { x: number; z: number };
   /** 흑요석 문틀 아래 가운데 */
