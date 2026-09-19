@@ -31,6 +31,7 @@ export function itemIcon(id: string, size: number, registry: BlockRegistry, atla
     canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
+    canvas.style.width = canvas.style.height = `${size}px`;
     const ctx = canvas.getContext('2d')!;
     const potion = id === 'water_bottle' || id.startsWith('potion.') || id.startsWith('splash_potion.') || id.startsWith('lingering_potion.');
     const h = potion ? 280 : hue(id);
@@ -59,10 +60,13 @@ export function itemIcon(id: string, size: number, registry: BlockRegistry, atla
   return cloneCanvas(canvas);
 }
 
+/** 복사본. 그림 픽셀은 dpr 배지만 화면 크기(css)는 size 로 — 안 그러면 고해상도 화면에서 2배로 커진다 */
 function cloneCanvas(src: HTMLCanvasElement): HTMLCanvasElement {
   const c = document.createElement('canvas');
   c.width = src.width;
   c.height = src.height;
+  c.style.width = src.style.width;
+  c.style.height = src.style.height;
   c.getContext('2d')!.drawImage(src, 0, 0);
   return c;
 }
