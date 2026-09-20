@@ -103,7 +103,11 @@
     </div>
     <h3>시간 조정</h3>
     <div class="row">
-      <input class="adjDelta" type="number" inputmode="numeric" placeholder="±분 (예: 10, -5)" min="-120" max="120" style="max-width: 150px" />
+      <select class="adjSign" style="max-width: 96px" aria-label="더하기 또는 빼기">
+        <option value="1">＋ 더하기</option>
+        <option value="-1">－ 빼기</option>
+      </select>
+      <input class="adjDelta" type="number" inputmode="numeric" placeholder="분 (1~120)" min="1" max="120" style="max-width: 120px" />
       <input class="adjReason" placeholder="사유 (예: 방 청소 잘함)" maxlength="40" />
     </div>
     <button class="adjust small" style="margin-top:8px">조정</button>
@@ -259,7 +263,9 @@
       $('.adjust', el).onclick = async () => {
         $('.adjErr', el).textContent = '';
         try {
-          await act('adjust', { nick: c.nick, delta: Number($('.adjDelta', el).value), reason: $('.adjReason', el).value });
+          const minutes = Math.abs(Number($('.adjDelta', el).value));
+          if (!minutes) throw new Error('분을 1~120 사이로 넣어 주세요');
+          await act('adjust', { nick: c.nick, delta: Number($('.adjSign', el).value) * minutes, reason: $('.adjReason', el).value });
           $('.adjDelta', el).value = '';
           $('.adjReason', el).value = '';
         } catch (e) { $('.adjErr', el).textContent = e.message; }
