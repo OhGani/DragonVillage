@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import dragonsJson from '../../../../data/dragons.json';
 import { DRAGONS, ITEM_NAMES, RECIPES } from './data';
-import { NEST, OLD_NEST_SITES, dragonOfEgg, eggItem, eggRecipes, isEggItem, isNestBuiltAt, nestBlocks, nestBlocksAt, nestContains, nestSlotPos, parseDragons } from './dragons';
+import { NEST, NEST_PERCHES, OLD_NEST_SITES, dragonOfEgg, eggItem, eggRecipes, feedItems, growAtOf, isEggItem, isNestBuiltAt, nestBlocks, nestBlocksAt, nestContains, nestSlotPos, parseDragons, perchOf, perchYaw } from './dragons';
 import { emptyInventory, give } from './inventory';
 import { canCraft, craft } from './recipes';
 
@@ -70,6 +70,39 @@ describe('드래곤 16종 (M6-2)', () => {
     expect(isNestBuiltAt(idAt, 40, 74, 42)).toBe(true);
     expect(isNestBuiltAt(idAt, 40, 60, 81)).toBe(false);
     for (const s of NEST.slots) expect(nestContains(40, s.x + 0.5, 41, s.z + 0.5)).toBe(true);
+  });
+
+  it('성장 시각: 부화 + 60분 − 먹이 1개당 10분, 먹이는 만들 때 쓴 재료 (M6-3)', () => {
+    const r = DRAGONS.rules;
+    expect(growAtOf(r, 1_000_000, 0)).toBe(1_000_000 + 60 * 60_000);
+    expect(growAtOf(r, 1_000_000, 3)).toBe(1_000_000 + 30 * 60_000);
+    expect(growAtOf(r, 1_000_000, 6)).toBe(1_000_000);
+    expect(feedItems(DRAGONS.require('wood'))).toEqual(['log', 'sapling', 'leaves']);
+    expect(feedItems(DRAGONS.require('iron'))).toEqual(['iron_ingot']);
+  });
+
+  it('드래곤 자리 21개는 둥지 안쪽이고 알 자리와 겹치지 않으며, 처음 다섯은 서로 2칸 이상 떨어진다', () => {
+    expect(NEST_PERCHES).toHaveLength(21);
+    const eggs = new Set(NEST.slots.map((s) => `${s.x},${s.z}`));
+    const seen = new Set<string>();
+    for (const p of NEST_PERCHES) {
+      expect(p.x).toBeGreaterThanOrEqual(NEST.x0 + 1);
+      expect(p.x).toBeLessThanOrEqual(NEST.x0 + 5);
+      expect(p.z).toBeGreaterThanOrEqual(NEST.z0 + 1);
+      expect(p.z).toBeLessThanOrEqual(NEST.z0 + 5);
+      expect(eggs.has(`${p.x},${p.z}`)).toBe(false);
+      seen.add(`${p.x},${p.z}`);
+    }
+    expect(seen.size).toBe(21);
+    for (let i = 0; i < 5; i++) for (let j = i + 1; j < 5; j++) expect(Math.abs(NEST_PERCHES[i]!.x - NEST_PERCHES[j]!.x) + Math.abs(NEST_PERCHES[i]!.z - NEST_PERCHES[j]!.z)).toBeGreaterThanOrEqual(2);
+    expect(perchOf(0)).toEqual({ x: 63, z: 84 });
+    expect(perchOf(21)).toEqual(perchOf(0));
+    expect(perchYaw(1)).toBeGreaterThan(Math.PI - 0.5);
+    expect(perchYaw(1)).toBeLessThan(Math.PI + 0.5);
+  });
+
+  it('16종 모두 색이 있다 (도감·둥지 창 색 점)', () => {
+    for (const d of DRAGONS.list) expect(d.color).toMatch(/^#[0-9a-fA-F]{6}$/);
   });
 
   it('같은 티어가 둘이면 한국어로 알려준다', () => {

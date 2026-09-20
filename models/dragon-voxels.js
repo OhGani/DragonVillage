@@ -261,6 +261,79 @@
       seed: 33, scaleNoise: 0.15, horn: 'blade', wing: 'plate', tailTip: 'blade', spineStyle: 'blade', bulky: false, plates: true,
       colors: { body: '#9AA4AD', belly: '#CDD5DB', dark: '#5F6A73', accent: '#3F4A53', wing: '#B7C1C9', wingVein: '#7F8B94', eye: '#57D3F5', eyeDark: '#0D2B36', tooth: '#F7FAFC' }
     },
+    // ---- 아래 12종은 아들 그림이 아직 없어 색·부품 조합만 정한 임시 디자인 (M6-3, 2026-09-20). 그림이 오면 교체
+    cake: {
+      id: 'cake', name: '케이크 드래곤', tier: 4, colorName: '분홍·크림',
+      recipe: '케이크 2', signature: '케이크 던지기', beam: '달콤한 분홍 빔',
+      seed: 44, scaleNoise: 0.2, horn: 'ears', wing: 'stub', tailTip: 'club', spineStyle: 'thorn', bulky: true,
+      colors: { body: '#F4A7C3', belly: '#FFF3E0', dark: '#C9789A', accent: '#8B2E52', wing: '#FFE08A', wingVein: '#D9A93E', eye: '#FF4F79', eyeDark: '#4A1020', tooth: '#FFFFFF' }
+    },
+    gold: {
+      id: 'gold', name: '금 드래곤', tier: 5, colorName: '금색',
+      recipe: '금 2', signature: '금 블록 소환', beam: '눈부신 금빛 빔',
+      seed: 55, scaleNoise: 0.15, horn: 'blade', wing: 'plate', tailTip: 'blade', spineStyle: 'blade', bulky: false, plates: true,
+      colors: { body: '#E2B32B', belly: '#FFE27A', dark: '#B8860B', accent: '#8A6508', wing: '#F5D66B', wingVein: '#B8860B', eye: '#FF6F3C', eyeDark: '#3A1A00', tooth: '#FFF8E1' }
+    },
+    diamond: {
+      id: 'diamond', name: '다이아몬드 드래곤', tier: 6, colorName: '하늘·청록',
+      recipe: '다이아몬드 2', signature: '다이아몬드 창', beam: '반짝이는 청록 빔',
+      seed: 77, scaleNoise: 0.15, horn: 'blade', wing: 'plate', tailTip: 'blade', spineStyle: 'blade', bulky: false, plates: true,
+      colors: { body: '#5FD3E6', belly: '#C8F7FF', dark: '#2FA3B8', accent: '#1B6C7D', wing: '#9FE9F5', wingVein: '#3FB6CC', eye: '#FFFFFF', eyeDark: '#0B3A44', tooth: '#FFFFFF' }
+    },
+    netherite: {
+      id: 'netherite', name: '네더라이트 드래곤', tier: 7, colorName: '어두운 갈색·금',
+      recipe: '네더라이트 2', signature: '네더라이트 갑옷', beam: '무거운 검붉은 빔',
+      seed: 88, scaleNoise: 0.3, horn: 'blade', wing: 'plate', tailTip: 'blade', spineStyle: 'blade', bulky: true, armor: true, plates: true,
+      colors: { body: '#4A3B3F', belly: '#6B5A5F', dark: '#2C2124', accent: '#B58B5A', wing: '#5A484D', wingVein: '#8A6B4A', eye: '#FF9A3C', eyeDark: '#2A0F00', tooth: '#E8E0DA' }
+    },
+    fire: {
+      id: 'fire', name: '화염 드래곤', tier: 8, colorName: '빨강·주황',
+      recipe: '용암 양동이 1, 블레이즈 막대기 2, 가스트의 눈물 1', signature: '불 뿜기', beam: '뜨거운 주황 빔',
+      seed: 99, scaleNoise: 0.3, horn: 'spiky', wing: 'leaf', tailTip: 'blade', spineStyle: 'thorn', bulky: false,
+      colors: { body: '#E0562A', belly: '#FFB347', dark: '#A83415', accent: '#FFE04D', wing: '#FF7A2A', wingVein: '#B53A0C', eye: '#FFF176', eyeDark: '#4A1500', tooth: '#FFF3E0' }
+    },
+    ice: {
+      id: 'ice', name: '아이스 드래곤', tier: 9, colorName: '하늘·하양',
+      recipe: '얼음 2, 눈 블록 2', signature: '얼리기', beam: '차가운 하늘색 빔',
+      seed: 111, scaleNoise: 0.2, horn: 'spiky', wing: 'plate', tailTip: 'blade', spineStyle: 'blade', bulky: false,
+      colors: { body: '#8FD3F4', belly: '#E6F9FF', dark: '#5AA9D6', accent: '#FFFFFF', wing: '#BFEAFF', wingVein: '#7FC4E8', eye: '#1F5FBF', eyeDark: '#0A2A5C', tooth: '#FFFFFF' }
+    },
+    water: {
+      id: 'water', name: '워터 드래곤', tier: 10, colorName: '파랑',
+      recipe: '물 양동이 1', signature: '물살', beam: '푸른 물 빔',
+      seed: 122, scaleNoise: 0.25, horn: 'ears', wing: 'leaf', tailTip: 'club', spineStyle: 'thorn', bulky: false,
+      colors: { body: '#2F80D6', belly: '#8CC8FF', dark: '#1F5AA0', accent: '#1B3F73', wing: '#5CA9F0', wingVein: '#2F6FB8', eye: '#B3FFF7', eyeDark: '#062B4A', tooth: '#EAF6FF' }
+    },
+    time: {
+      id: 'time', name: '타임 드래곤', tier: 11, colorName: '청동',
+      recipe: '시계 4', signature: '시간 멈추기', beam: '반짝이는 청동 빔',
+      seed: 133, scaleNoise: 0.2, horn: 'ears', wing: 'stub', tailTip: 'club', spineStyle: 'thorn', bulky: false,
+      colors: { body: '#B08D57', belly: '#E6D3A3', dark: '#7A5C2E', accent: '#3F2E12', wing: '#D4B36A', wingVein: '#8C6D35', eye: '#37E0FF', eyeDark: '#0B2A33', tooth: '#F4EFE1' }
+    },
+    teleport: {
+      id: 'teleport', name: '텔레포트 드래곤', tier: 12, colorName: '검정·연보라',
+      recipe: '엔더 진주 2', signature: '순간이동', beam: '보라 빔',
+      seed: 144, scaleNoise: 0.3, horn: 'spiky', wing: 'leaf', tailTip: 'blade', spineStyle: 'thorn', bulky: false,
+      colors: { body: '#1A1A22', belly: '#3D2B4F', dark: '#0D0D12', accent: '#9B59FF', wing: '#2B1F3D', wingVein: '#B47CFF', eye: '#D65CFF', eyeDark: '#2A0A4A', tooth: '#EDE7F6' }
+    },
+    healing: {
+      id: 'healing', name: '치유 드래곤', tier: 13, colorName: '분홍·빨강',
+      recipe: '치유의 물약 6', signature: '치유', beam: '따뜻한 분홍 빔',
+      seed: 155, scaleNoise: 0.15, horn: 'ears', wing: 'leaf', tailTip: 'club', spineStyle: 'thorn', bulky: false,
+      colors: { body: '#F06292', belly: '#FFD6E3', dark: '#C2185B', accent: '#FFFFFF', wing: '#FF9EBE', wingVein: '#D8467A', eye: '#7CFFB2', eyeDark: '#0D3D22', tooth: '#FFFFFF' }
+    },
+    earthquake: {
+      id: 'earthquake', name: '어스퀘이크 드래곤', tier: 14, colorName: '갈색·주황',
+      recipe: '곡괭이 6종', signature: '지진', beam: '땅을 흔드는 갈색 빔',
+      seed: 166, scaleNoise: 0.4, horn: 'ears', wing: 'stub', tailTip: 'club', spineStyle: 'thorn', bulky: true, armor: true,
+      colors: { body: '#8D6E4A', belly: '#C9A97A', dark: '#5A4229', accent: '#E08A2E', wing: '#A67C52', wingVein: '#6E4E2E', eye: '#FFB300', eyeDark: '#3A2000', tooth: '#F4EFE1' }
+    },
+    explosion: {
+      id: 'explosion', name: '폭발 드래곤', tier: 15, colorName: '빨강·검정',
+      recipe: 'TNT 2, 위더 스켈레톤 머리 3', signature: '폭발', beam: '터지는 빨간 빔',
+      seed: 177, scaleNoise: 0.35, horn: 'spiky', wing: 'leaf', tailTip: 'blade', spineStyle: 'thorn', bulky: true,
+      colors: { body: '#B71C1C', belly: '#E57373', dark: '#7F0000', accent: '#212121', wing: '#D32F2F', wingVein: '#7F0000', eye: '#FFEB3B', eyeDark: '#3A2A00', tooth: '#F4EFE1' }
+    },
     ender: {
       id: 'ender', name: '엔더 드래곤', tier: 16, colorName: '검정·보라',
       recipe: '드래곤의 숨결 4, 엔더 드래곤의 알 1', signature: '드래곤의 숨결 뿌리기', beam: '가장 강력한 보라·검정 빔',

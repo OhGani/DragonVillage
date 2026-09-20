@@ -1470,3 +1470,12 @@ body {
   font-size: 12px;
   opacity: 0.8;
 }
+
+/* ---- 둥지 먹이 버튼 (M6-3) ---- */
+.nest-feed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  align-items: center;
+}

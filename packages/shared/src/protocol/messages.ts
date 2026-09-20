@@ -7,7 +7,7 @@
  * - 청크는 diff 목록 대신 `serialize.ts` 의 청크 blob 통째로 (저장 형식과 같다, 결정 #60).
  * - M3 원정: 세계 전환·정산은 드물어서 JSON(worldEnter·expeditionResult·expeditionState), 1Hz 타이머만 바이너리(ExpeditionTimer).
  */
-import type { DragonInfo, NestSlotInfo } from '../rules/dragons';
+import type { DragonInfo, NestDragonInfo, NestSlotInfo } from '../rules/dragons';
 import type { TodayCard } from '../rules/family';
 import { ByteReader, ByteWriter } from './bytes';
 
@@ -417,7 +417,9 @@ export type ClientJson =
   /** 둥지 자리에 알 놓기 (M6-2): 둥지 안에 서서, 가방의 알 아이템 */
   | { t: 'placeEgg'; slot: number; item: string }
   /** 알 부화 (M6-2): 내 알 행 id. 레벨을 낸다 */
-  | { t: 'hatch'; id: number };
+  | { t: 'hatch'; id: number }
+  /** 먹이 주기 (M6-3): 내 아기 드래곤에게 만들 때 쓴 재료 1개 */
+  | { t: 'feed'; id: number; item: string };
 
 export type ServerJson =
   | { t: 'hello'; token: string; protocol: number }
@@ -447,6 +449,8 @@ export type ServerJson =
       dragons?: DragonInfo[];
       /** 둥지 자리 상태 (모두) */
       nest?: NestSlotInfo[];
+      /** 둥지의 드래곤들 (모두, M6-3) */
+      nestDragons?: NestDragonInfo[];
     }
   | { t: 'familyLinked'; code: string }
   /** 오늘 카드가 바뀌었다 (체크·승인·1분 경과·할 일 편집) */
@@ -460,7 +464,7 @@ export type ServerJson =
   /** 내 드래곤 목록이 바뀌었다 (알 놓기·부화) */
   | { t: 'dragons'; list: DragonInfo[] }
   /** 둥지 자리가 바뀌었다 (마을 사람 모두) */
-  | { t: 'nest'; slots: NestSlotInfo[] }
+  | { t: 'nest'; slots: NestSlotInfo[]; dragons: NestDragonInfo[] }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }

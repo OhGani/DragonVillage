@@ -414,3 +414,76 @@ describe('둥지·알·부화 (M6-2)', () => {
     expect(BLOCKS.get(room2.world.getBlock(60, GROUND_Y, 81)).id).toBe('log'); // 새 자리 둥지는 그대로
   });
 });
+
+describe('드래곤 성장·먹이 (M6-3)', () => {
+  it('부화하면 둥지 자리에 서고, 먹이로 시간이 줄고, 시간이 되면 어른 + 성장 경험치(티어×3), 접속 안 한 주인은 저장소에', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox(),
+      b = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const rb = room.join('b'.repeat(32), '아들', 1, b.send)!;
+    expect(ra.nestDragons).toEqual([]);
+    room.giveItems(ra.idx, 'dragon_egg.iron', 1);
+    room.giveItems(ra.idx, 'iron_ingot', 3);
+    room.giveItems(ra.idx, 'log', 1);
+    room.onMove(ra.idx, { x: 63.5, y: GROUND_Y + 1, z: 84.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onMove(rb.idx, { x: 63.5, y: GROUND_Y + 1, z: 84.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.placeEgg(ra.idx, 1, 'dragon_egg.iron', 1000)).toBeNull();
+    const id = room.myDragons('a'.repeat(32))[0]!.id;
+    room.giveXp(ra.idx, 100); // 철(티어 3) 부화 레벨 확보
+    a.clear();
+    b.clear();
+    const T0 = 10_000_000;
+    expect(room.hatch(ra.idx, id, T0)).toBeNull();
+    // 둥지의 드래곤: 가운데 자리, 아기, 60분 뒤 어른
+    const nd = room.nestDragons('b'.repeat(32));
+    expect(nd).toMatchObject([{ id, dragon: 'iron', owner: '아빠', mine: false, stage: 'baby', perch: { x: 63, y: GROUND_Y + 1, z: 84 }, fed: 0, growAt: T0 + 60 * 60_000 }]);
+    expect(b.json.find((m) => m.t === 'nest')).toMatchObject({ dragons: [{ id, stage: 'baby' }] });
+    expect(room.myDragons('a'.repeat(32))[0]).toMatchObject({ stage: 'baby', fed: 0, growAt: T0 + 60 * 60_000 });
+    // 먹이: 남의 것·다른 재료·둥지 밖은 거절
+    expect(room.feed(rb.idx, id, 'iron_ingot', T0)).toBe('NO_DRAGON');
+    expect(room.feed(ra.idx, id, 'log', T0)).toBe('NOT_FOOD');
+    expect(room.feed(ra.idx, id, 'diamond', T0)).toBe('NOT_FOOD');
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.feed(ra.idx, id, 'iron_ingot', T0)).toBe('NOT_AT_NEST');
+    room.onMove(ra.idx, { x: 63.5, y: GROUND_Y + 1, z: 84.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.feed(ra.idx, id, 'iron_ingot', T0 + 1000)).toBeNull();
+    expect(countOf(room.players.get(ra.idx)!.inv, 'iron_ingot')).toBe(2);
+    expect(room.myDragons('a'.repeat(32))[0]).toMatchObject({ stage: 'baby', fed: 1, growAt: T0 + 50 * 60_000 });
+    // 49분 뒤엔 아직 아기, 50분 뒤 어른
+    room.checkGrowth(T0 + 49 * 60_000);
+    expect(room.myDragons('a'.repeat(32))[0]!.stage).toBe('baby');
+    const xpBefore = room.xpOf(ra.idx);
+    a.clear();
+    b.clear();
+    room.checkGrowth(T0 + 50 * 60_000 + 1);
+    expect(room.myDragons('a'.repeat(32))[0]).toMatchObject({ stage: 'adult', growAt: null });
+    expect(room.xpOf(ra.idx)).toBe(xpBefore + 9);
+    expect(a.bin.find((m) => m.type === MSG.XpGained)).toMatchObject({ msg: { amount: 9, source: 5 } });
+    expect(b.json.find((m) => m.t === 'nest')).toMatchObject({ dragons: [{ id, stage: 'adult' }] });
+    expect(room.feed(ra.idx, id, 'iron_ingot', T0)).toBe('NOT_BABY');
+    expect(room.feed(ra.idx, 9999, 'iron_ingot', T0)).toBe('NO_DRAGON');
+
+    // 둘째 드래곤: 먹이를 많이 주면 바로 어른. 주인이 나가 있으면 경험치는 저장소로
+    room.giveItems(ra.idx, 'dragon_egg.wood', 1);
+    room.giveItems(ra.idx, 'log', 6);
+    expect(room.placeEgg(ra.idx, 0, 'dragon_egg.wood', T0)).toBeNull();
+    const id2 = room.myDragons('a'.repeat(32)).find((d) => d.stage === 'egg')!.id;
+    expect(room.hatch(ra.idx, id2, T0)).toBeNull();
+    expect(room.nestDragons('a'.repeat(32)).map((d) => d.perch)).toEqual([
+      { x: 63, y: GROUND_Y + 1, z: 84 },
+      { x: 63, y: GROUND_Y + 1, z: 82 },
+    ]);
+    for (let i = 0; i < 5; i++) expect(room.feed(ra.idx, id2, 'log', T0 + 1)).toBeNull();
+    expect(room.myDragons('a'.repeat(32)).find((d) => d.id === id2)).toMatchObject({ stage: 'baby', fed: 5 });
+    const xp2 = room.xpOf(ra.idx);
+    room.leave(ra.idx);
+    // 주인 없음 → 6번째 먹이는 못 주니 시간으로 자란다
+    room.checkGrowth(T0 + 10 * 60_000 + 1);
+    const saved = storage.getPlayer('a'.repeat(32))!;
+    expect(saved.xpTotal).toBe(xp2 + 3);
+    expect(storage.getDragon(id2)!.stage).toBe('adult');
+    expect(b.json.filter((m) => m.t === 'nest').at(-1)).toMatchObject({ dragons: [{ id, stage: 'adult' }, { id: id2, stage: 'adult' }] });
+  });
+});

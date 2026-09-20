@@ -242,6 +242,10 @@ export class Storage {
       listDragonsByToken: this.db.prepare('SELECT id, village, token, dragon, stage, slot, placed_at AS placedAt, hatched_at AS hatchedAt, fed, resting_until AS restingUntil FROM dragons WHERE village = ? AND token = ? ORDER BY id'),
       listNestEggs: this.db.prepare("SELECT id, village, token, dragon, stage, slot, placed_at AS placedAt, hatched_at AS hatchedAt, fed, resting_until AS restingUntil FROM dragons WHERE village = ? AND stage = 'egg' ORDER BY slot"),
       hatchDragon: this.db.prepare("UPDATE dragons SET stage = 'baby', slot = NULL, hatched_at = ? WHERE id = ?"),
+      listHatched: this.db.prepare("SELECT id, village, token, dragon, stage, slot, placed_at AS placedAt, hatched_at AS hatchedAt, fed, resting_until AS restingUntil FROM dragons WHERE village = ? AND stage != 'egg' ORDER BY id"),
+      feedDragon: this.db.prepare('UPDATE dragons SET fed = ? WHERE id = ?'),
+      growDragon: this.db.prepare("UPDATE dragons SET stage = 'adult' WHERE id = ?"),
+      addXpOffline: this.db.prepare('UPDATE players SET xp_total = xp_total + ? WHERE token = ?'),
       getSettlement: this.db.prepare('SELECT child, week_start AS weekStart, rate, bonus_cap AS bonusCap, approved, expected, settled_at AS settledAt FROM week_settlements WHERE child = ? AND week_start = ?'),
       insertSettlement: this.db.prepare('INSERT OR IGNORE INTO week_settlements(child, week_start, rate, bonus_cap, approved, expected, settled_at) VALUES (?, ?, ?, ?, ?, ?, ?)'),
       listSettlements: this.db.prepare('SELECT child, week_start AS weekStart, rate, bonus_cap AS bonusCap, approved, expected, settled_at AS settledAt FROM week_settlements WHERE child = ? ORDER BY week_start DESC LIMIT ?'),
@@ -462,6 +466,20 @@ export class Storage {
   }
   hatchDragon(id: number, now: number): void {
     this.stmts.hatchDragon.run(now, id);
+  }
+  /** 부화한 드래곤(아기·어른), id 순 */
+  listHatched(village: string): DragonRow[] {
+    return this.stmts.listHatched.all(village) as DragonRow[];
+  }
+  feedDragon(id: number, fed: number): void {
+    this.stmts.feedDragon.run(fed, id);
+  }
+  growDragon(id: number): void {
+    this.stmts.growDragon.run(id);
+  }
+  /** 접속 안 한 주인에게 경험치 (드래곤 성장, M6-3) */
+  addXpOffline(token: string, amount: number): void {
+    this.stmts.addXpOffline.run(amount, token);
   }
 
   getSettlement(child: string, weekStart: string): SettlementRow | undefined {

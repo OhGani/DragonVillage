@@ -1,8 +1,9 @@
 /**
- * 드래곤 둥지 창 (M6-2): 둥지 안에 서면 카드 → 열기. 자리 4개에 알 놓기, 내 알 부화(레벨 소모), 내 드래곤 목록.
+ * 드래곤 둥지 창 (M6-2·M6-3): 둥지 안에 서면 카드 → 열기. 자리 4개에 알 놓기, 내 알 부화(레벨 소모),
+ * 둥지의 드래곤(모두) — 내 아기 드래곤은 먹이(만들 때 쓴 재료)를 줘서 성장 시간을 줄인다.
  * 서버가 진실 — 여기서는 요청만 보내고 dragons/nest 메시지로 다시 그린다.
  */
-import { type DragonInfo, type DragonRegistry, type Inventory, NEST, type NestSlotInfo, type XpRules, hatchCost, isEggItem, xpProgress } from '@dragon-village/shared';
+import { type DragonInfo, type DragonRegistry, type Inventory, NEST, type NestDragonInfo, type NestSlotInfo, type XpRules, feedItems, hatchCost, isEggItem, xpProgress } from '@dragon-village/shared';
 
 export interface NestDeps {
   dragons: DragonRegistry;
@@ -10,7 +11,19 @@ export interface NestDeps {
   nameOf(id: string): string;
   onPlace(slot: number, item: string): void;
   onHatch(id: number): void;
+  onFeed(id: number, item: string): void;
   onClose(): void;
+  /** 지금 시각(ms) — 성장 남은 시간 표시용 */
+  now?(): number;
+}
+
+/** 어른까지 남은 시간 문구 */
+export function growText(growAt: number | null, now: number): string {
+  if (growAt === null) return '어른';
+  const left = growAt - now;
+  if (left <= 0) return '곧 어른이 돼요';
+  const min = Math.ceil(left / 60_000);
+  return min >= 60 ? `어른까지 ${Math.floor(min / 60)}시간 ${min % 60}분` : `어른까지 ${min}분`;
 }
 
 export class NestView {
@@ -18,6 +31,7 @@ export class NestView {
   private inv: Inventory = [];
   private mine: DragonInfo[] = [];
   private slots: NestSlotInfo[] = [];
+  private nestDragons: NestDragonInfo[] = [];
   private xpTotal = 0;
   private readonly body: HTMLElement;
 
@@ -65,8 +79,9 @@ export class NestView {
     this.mine = list;
     if (this.visible) this.render();
   }
-  setNest(slots: NestSlotInfo[]): void {
+  setNest(slots: NestSlotInfo[], dragons?: NestDragonInfo[]): void {
     this.slots = slots;
+    if (dragons) this.nestDragons = dragons;
     if (this.visible) this.render();
   }
   setXp(total: number): void {
@@ -81,17 +96,32 @@ export class NestView {
     return [...m].map(([item, count]) => ({ item, count }));
   }
 
+  private countOf(item: string): number {
+    let n = 0;
+    for (const s of this.inv) if (s && s.item === item) n += s.count;
+    return n;
+  }
+
+  private chip(color: string | undefined): HTMLSpanElement {
+    const chip = document.createElement('span');
+    chip.className = 'nest-chip';
+    chip.style.background = color ?? '#999';
+    return chip;
+  }
+
   private render(): void {
     const b = this.body;
     b.innerHTML = '';
     const level = xpProgress(this.xpTotal).level;
     const eggs = this.eggsInBag();
+    const now = this.deps.now ? this.deps.now() : Date.now();
 
     const head = document.createElement('p');
     head.className = 'nest-note';
     head.textContent = `내 레벨 ${level} · 가방에 알 ${eggs.reduce((n, e) => n + e.count, 0)}개 · 내 드래곤 ${this.mine.filter((d) => d.stage !== 'egg').length}마리`;
     b.appendChild(head);
 
+    // ---- 알 자리 4개
     const grid = document.createElement('div');
     grid.className = 'nest-slots';
     for (let i = 0; i < NEST.slots.length; i++) {
@@ -118,10 +148,7 @@ export class NestView {
         }
       } else {
         const def = this.deps.dragons.find(s.dragon);
-        const chip = document.createElement('span');
-        chip.className = 'nest-chip';
-        chip.style.background = def?.color ?? '#999';
-        title.append(chip, document.createTextNode(` ${def?.name ?? s.dragon} 알 — ${s.mine ? '내 것' : `${s.owner} 것`}`));
+        title.append(this.chip(def?.color), document.createTextNode(` ${def?.name ?? s.dragon} 알 — ${s.mine ? '내 것' : `${s.owner} 것`}`));
         cell.appendChild(title);
         if (s.mine && def) {
           const cost = hatchCost(this.deps.xp, def.tier);
@@ -138,31 +165,60 @@ export class NestView {
     }
     b.appendChild(grid);
 
+    // ---- 둥지의 드래곤 (모두). 내 아기에게는 먹이 버튼
     const h3 = document.createElement('h3');
-    h3.textContent = '내 드래곤';
+    h3.textContent = `둥지의 드래곤 ${this.nestDragons.length}마리`;
     b.appendChild(h3);
     const list = document.createElement('ul');
     list.className = 'nest-list';
-    const hatched = this.mine.filter((d) => d.stage !== 'egg');
-    if (hatched.length === 0) {
+    if (this.nestDragons.length === 0) {
       const li = document.createElement('li');
       li.className = 'nest-hint';
       li.textContent = '아직 없어요. 알을 놓고 부화시켜요!';
       list.appendChild(li);
     }
-    for (const d of hatched) {
+    const sorted = [...this.nestDragons].sort((a, b2) => Number(b2.mine) - Number(a.mine) || a.id - b2.id);
+    for (const d of sorted) {
       const def = this.deps.dragons.find(d.dragon);
       const li = document.createElement('li');
-      const chip = document.createElement('span');
-      chip.className = 'nest-chip';
-      chip.style.background = def?.color ?? '#999';
-      li.append(chip, document.createTextNode(` ${def?.name ?? d.dragon} · ${d.stage === 'baby' ? '아기' : '어른'} (티어 ${def?.tier ?? '?'})`));
+      const line = document.createElement('div');
+      line.append(this.chip(def?.color), document.createTextNode(` ${def?.name ?? d.dragon} · ${d.stage === 'baby' ? '아기' : '어른'} · ${d.mine ? '내 것' : `${d.owner} 것`}`));
+      li.appendChild(line);
+      if (d.stage === 'baby') {
+        const sub = document.createElement('div');
+        sub.className = 'nest-hint';
+        sub.textContent = growText(d.growAt, now) + (d.mine ? ` · 먹이 ${d.fed}개 줬어요` : '');
+        li.appendChild(sub);
+        if (d.mine && def) {
+          const row = document.createElement('div');
+          row.className = 'nest-feed';
+          const foods = feedItems(def);
+          let any = false;
+          for (const item of foods) {
+            const have = this.countOf(item);
+            if (have <= 0) continue;
+            any = true;
+            const btn = document.createElement('button');
+            btn.className = 'plain-btn nest-btn';
+            btn.textContent = `${this.deps.nameOf(item)} 먹이기 (${have})`;
+            btn.addEventListener('click', () => this.deps.onFeed(d.id, item));
+            row.appendChild(btn);
+          }
+          if (!any) {
+            const hint = document.createElement('span');
+            hint.className = 'nest-hint';
+            hint.textContent = `먹이: ${foods.map((f) => this.deps.nameOf(f)).join('·')} (1개 = 10분 빨리 자라요)`;
+            row.appendChild(hint);
+          }
+          li.appendChild(row);
+        }
+      }
       list.appendChild(li);
     }
     b.appendChild(list);
     const note = document.createElement('p');
     note.className = 'nest-note';
-    note.textContent = '부화한 드래곤이 둥지에서 보이는 것, 먹이·성장·타기는 다음 단계에서 생겨요.';
+    note.textContent = '아기는 1시간이면 어른이 돼요(먹이로 더 빨리). 안장·타기·빔은 다음 단계에서 생겨요.';
     b.appendChild(note);
   }
 }

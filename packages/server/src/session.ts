@@ -34,6 +34,10 @@ const NEST_ERROR_KO: Record<string, string> = {
   NO_EGG: '그 알이 가방에 없어요',
   BAD_SLOT: '그런 자리는 없어요',
   SLOT_TAKEN: '그 자리엔 이미 알이 있어요',
+  NO_DRAGON: '그건 내 드래곤이 아니에요',
+  NOT_BABY: '이미 어른이에요',
+  NOT_FOOD: '그건 이 드래곤 먹이가 아니에요 (만들 때 쓴 재료를 줘요)',
+  NO_ITEM: '그 먹이가 가방에 없어요',
   NO_STORAGE: '이 서버는 드래곤을 저장할 수 없어요',
 };
 /** 할 일 체크 거절 이유 (M5-3) */
@@ -190,6 +194,7 @@ export class Session {
           xp: result.xp,
           dragons: result.dragons,
           nest: result.nest,
+          nestDragons: result.nestDragons,
           needPin,
           family: this.family?.familyOfNick(nick) ?? null,
           today: this.family?.todayCard(nick) ?? null,
@@ -306,6 +311,13 @@ export class Session {
         }
         if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 부화할 수 없어요');
         this.log(`세션 ${this.remote}: '${this.nick}' 부화`);
+        return;
+      }
+      case 'feed': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.id) || typeof msg.item !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.feed(this.idx, msg.id, msg.item);
+        if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 먹일 수 없어요');
         return;
       }
       case 'craft': {

@@ -7,6 +7,7 @@
 import {
   type ApprovalItem,
   type DragonInfo,
+  type NestDragonInfo,
   type NestSlotInfo,
   type TodayCard,
   type XpGainedMsg,
@@ -71,6 +72,8 @@ export interface Welcome {
   dragons: DragonInfo[];
   /** 둥지 자리 (모두) */
   nest: NestSlotInfo[];
+  /** 둥지의 드래곤 (모두, M6-3) */
+  nestDragons: NestDragonInfo[];
 }
 
 /** 세계 전환 (worldEnter … ChunkData … ready 를 하나로 모은 것) */
@@ -124,8 +127,8 @@ export interface NetEvents {
   onXpState(m: XpStateMsg): void;
   /** 내 드래곤 목록 (M6-2) */
   onDragons(list: DragonInfo[]): void;
-  /** 둥지 자리 (M6-2) */
-  onNest(slots: NestSlotInfo[]): void;
+  /** 둥지 자리·드래곤 (M6-2·3) */
+  onNest(slots: NestSlotInfo[], dragons: NestDragonInfo[]): void;
 }
 
 export type ApprovalAsk = ApprovalItem;
@@ -303,6 +306,10 @@ export class NetClient {
   sendHatch(id: number): void {
     this.sendJson({ t: 'hatch', id });
   }
+  /** 먹이 주기 (M6-3) */
+  sendFeed(id: number, item: string): void {
+    this.sendJson({ t: 'feed', id, item });
+  }
   /** 오늘 카드의 할 일 체크 (M5-3) */
   sendCheckTodo(id: number): void {
     this.sendJson({ t: 'checkTodo', id });
@@ -357,6 +364,7 @@ export class NetClient {
           xp: msg.xp ?? 0,
           dragons: msg.dragons ?? [],
           nest: msg.nest ?? [],
+          nestDragons: msg.nestDragons ?? [],
         };
         return;
       case 'familyLinked':
@@ -426,7 +434,7 @@ export class NetClient {
     else if (msg.t === 'pending') ev.onPending(msg.items);
     else if (msg.t === 'timeUp') ev.onTimeUp(msg.reason, msg.message);
     else if (msg.t === 'dragons') ev.onDragons(msg.list);
-    else if (msg.t === 'nest') ev.onNest(msg.slots);
+    else if (msg.t === 'nest') ev.onNest(msg.slots, msg.dragons ?? []);
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }
 

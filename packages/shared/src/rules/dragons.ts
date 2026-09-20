@@ -183,7 +183,7 @@ export function nestSlotPos(groundY: number, slot: number): { x: number; y: numb
   return s ? { x: s.x, y: groundY + 1, z: s.z } : null;
 }
 
-/** 드래곤 한 마리 (서버 → 클라). stage: egg(둥지에 놓인 알) / baby / adult */
+/** 드래곤 한 마리 (서버 → 클라, 내 것). stage: egg(둥지에 놓인 알) / baby / adult */
 export interface DragonInfo {
   id: number;
   dragon: string;
@@ -192,6 +192,60 @@ export interface DragonInfo {
   slot: number | null;
   /** 부화 시각 (ms). 알이면 null */
   hatchedAt: number | null;
+  /** 먹인 재료 수 (M6-3) */
+  fed: number;
+  /** 어른이 되는 시각 (ms, 서버 시계). 아기일 때만 */
+  growAt: number | null;
+}
+
+// ---------------------------------------------------------------- 성장·먹이 (M6-3, 결정 #77)
+
+/** 어른이 되는 시각: 부화 + 기본 60분 − 먹이 1개당 10분 (dragons.json rules.growth) */
+export function growAtOf(rules: DragonRules, hatchedAt: number, fed: number): number {
+  return hatchedAt + rules.baseGrowMinutes * 60_000 - fed * rules.feedShortcutMinutes * 60_000;
+}
+
+/** 먹이 = 만들 때 쓴 재료들 (아들 답변 4: feedWithRecipeMaterials) */
+export function feedItems(def: DragonDef): string[] {
+  return def.recipe.map((r) => r.material);
+}
+
+/**
+ * 부화한 드래곤이 서는 자리(둥지 안쪽 5×5 에서 알 자리 4개를 뺀 21칸). 가운데부터, 처음 다섯은 서로 2칸 떨어져 어른도 겹치지 않게.
+ * i 번째 드래곤(id 순) → perches[i % 21]. 서버가 정하고 모두에게 같은 자리로 보인다
+ */
+export const NEST_PERCHES: readonly { x: number; z: number }[] = (() => {
+  const cx = NEST.x0 + 3,
+    cz = NEST.z0 + 3;
+  const order: [number, number][] = [
+    [0, 0], [0, -2], [-2, 0], [2, 0], [0, 2],
+    [-1, -1], [1, -1], [-1, 1], [1, 1],
+    [-1, -2], [1, -2], [-2, -1], [2, -1], [-2, 1], [2, 1], [-1, 2], [1, 2],
+    [-1, 0], [1, 0], [0, -1], [0, 1],
+  ];
+  return order.map(([dx, dz]) => ({ x: cx + dx, z: cz + dz }));
+})();
+
+export function perchOf(index: number): { x: number; z: number } {
+  return NEST_PERCHES[((index % NEST_PERCHES.length) + NEST_PERCHES.length) % NEST_PERCHES.length]!;
+}
+
+/** 드래곤이 보는 방향 (라디안). 대체로 북쪽(광장 쪽, 모델 머리 +z → π) 을 보되 id 로 조금씩 다르게 */
+export function perchYaw(id: number): number {
+  return Math.PI + (((id * 37) % 100) / 100 - 0.5) * 0.9;
+}
+
+/** 둥지에 있는 드래곤 하나 (모두에게). 위치·단계는 서버가 정한다 */
+export interface NestDragonInfo {
+  id: number;
+  dragon: string;
+  owner: string;
+  mine: boolean;
+  stage: 'baby' | 'adult';
+  perch: { x: number; y: number; z: number };
+  yaw: number;
+  fed: number;
+  growAt: number | null;
 }
 
 /** 둥지 자리 하나 (모두에게): 누구의 무슨 알인가 */

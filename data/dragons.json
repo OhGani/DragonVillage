@@ -513,7 +513,7 @@
         }
       ],
       "texture": "dragon_cake",
-      "color": null,
+      "color": "#F4A7C3",
       "skills": [
         {
           "id": "throw_cake",
@@ -554,7 +554,7 @@
         }
       ],
       "texture": "dragon_gold",
-      "color": null,
+      "color": "#E2B32B",
       "skills": [
         {
           "id": "throw_gold_block",
@@ -602,7 +602,7 @@
         }
       ],
       "texture": "dragon_diamond",
-      "color": null,
+      "color": "#5FD3E6",
       "skills": [
         {
           "id": "throw_diamond_block",
@@ -653,7 +653,7 @@
         }
       ],
       "texture": "dragon_netherite",
-      "color": null,
+      "color": "#4A3B3F",
       "skills": [
         {
           "id": "throw_netherite_block",
@@ -845,7 +845,7 @@
         }
       ],
       "texture": "dragon_water",
-      "color": null,
+      "color": "#2F80D6",
       "skills": [
         {
           "id": "shoot_water",
@@ -906,7 +906,7 @@
         }
       ],
       "texture": "dragon_time",
-      "color": null,
+      "color": "#B08D57",
       "skills": [
         {
           "id": "rewind_time",
@@ -971,7 +971,7 @@
         }
       ],
       "texture": "dragon_teleport",
-      "color": null,
+      "color": "#1A1A22",
       "skills": [
         {
           "id": "teleport_self",
@@ -1019,7 +1019,7 @@
         }
       ],
       "texture": "dragon_healing",
-      "color": null,
+      "color": "#F06292",
       "skills": [
         {
           "id": "heal_allies",
@@ -1089,7 +1089,7 @@
         }
       ],
       "texture": "dragon_earthquake",
-      "color": null,
+      "color": "#8D6E4A",
       "skills": [
         {
           "id": "dig_5x5",
@@ -1142,7 +1142,7 @@
         }
       ],
       "texture": "dragon_explosion",
-      "color": null,
+      "color": "#B71C1C",
       "skills": [
         {
           "id": "self_detonate",

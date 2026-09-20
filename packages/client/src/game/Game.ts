@@ -58,6 +58,7 @@ import { BagView, type Stations } from '../ui/bag';
 import { ChatView } from '../ui/chat';
 import { Hud, type HotbarSlot } from '../ui/hud';
 import { NestView } from '../ui/nest';
+import { NestDragons } from '../render/DragonMesh';
 import { askInput, askPin } from '../ui/pinDialog';
 import { itemIcon } from '../ui/itemIcon';
 import { MesherPool } from '../workers/MesherPool';
@@ -139,6 +140,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const highlight = new BlockHighlight(scene);
   const hand = new HandView(materials, blockInfo);
   const remote = new RemotePlayers(scene);
+  // 둥지의 드래곤들 (M6-3): 서버 자리대로 복셀 드래곤
+  const nestDragons = new NestDragons(scene);
+  nestDragons.setNames((id) => DRAGONS.find(id)?.name ?? id);
+  nestDragons.sync(welcome.nestDragons);
 
   // ---- HUD ----
   const hud = new Hud(root, isTouch);
@@ -194,11 +199,12 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     nameOf,
     onPlace: (slot, item) => net.sendPlaceEgg(slot, item),
     onHatch: (id) => net.sendHatch(id),
+    onFeed: (id, item) => net.sendFeed(id, item),
     onClose: () => closeNest(),
   });
   nest.setInventory(inv);
   nest.setDragons(myDragons);
-  nest.setNest(nestSlots);
+  nest.setNest(nestSlots, welcome.nestDragons);
   nest.setXp(welcome.xp);
   const chat = new ChatView(
     root,
@@ -346,6 +352,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     // 그 세계에 있는 사람들만 보인다
     for (const idx of remote.indices()) remote.remove(idx);
     for (const p of w.players) remote.upsert(p);
+    nestDragons.visible = w.kind === 'village'; // 둥지 드래곤은 마을에서만
     warned3 = warned1 = false;
     hud.hideAction();
     if (w.kind === 'expedition' && w.expedition) {
@@ -475,6 +482,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     onToday: (card) => onTodayCard(card),
     onDragons: (list) => {
       const before = myDragons.filter((d) => d.stage !== 'egg').length;
+      const prevStage = new Map(myDragons.map((d) => [d.id, d.stage]));
       myDragons = list;
       nest.setDragons(list);
       const after = list.filter((d) => d.stage !== 'egg').length;
@@ -482,10 +490,12 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const d = list.filter((x) => x.stage !== 'egg').at(-1)!;
         hud.toast(`🐉 ${DRAGONS.find(d.dragon)?.name ?? d.dragon}이 태어났어요! 도감에 등록됐어요`, 6000);
       }
+      for (const d of list) if (d.stage === 'adult' && prevStage.get(d.id) === 'baby') hud.toast(`🐲 ${DRAGONS.find(d.dragon)?.name ?? d.dragon}이 어른이 됐어요! 더 크고 무서워졌어요`, 6000);
     },
-    onNest: (slots) => {
+    onNest: (slots, dragons) => {
       nestSlots = slots;
-      nest.setNest(slots);
+      nest.setNest(slots, dragons);
+      nestDragons.sync(dragons);
     },
     onXpGained: (m) => onXp(xpTotal + m.amount, { x: m.x, y: m.y, z: m.z }, m.amount),
     onXpState: (m) => onXp(m.total, null, 0),
@@ -869,6 +879,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       sendMove();
     }
     remote.update(dt);
+    nestDragons.update(dt);
 
     // 이 프레임에 바뀐 블록들의 빛을 한 번에 다시 계산 → 빛이 바뀐 청크도 다시 메싱
     chunks.markDirtyAll(light.flush());

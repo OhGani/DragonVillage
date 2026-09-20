@@ -42,7 +42,7 @@ function box(w: number, h: number, d: number, color: number): THREE.Mesh {
   return new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ vertexColors: true }));
 }
 
-function nameSprite(text: string, bg = 'rgba(0,0,0,0.45)'): THREE.Sprite {
+export function nameSprite(text: string, bg = 'rgba(0,0,0,0.45)', scale = 0.55): THREE.Sprite {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
   ctx.font = 'bold 40px system-ui, sans-serif';
@@ -58,7 +58,6 @@ function nameSprite(text: string, bg = 'rgba(0,0,0,0.45)'): THREE.Sprite {
   const tex = new THREE.CanvasTexture(canvas);
   tex.minFilter = THREE.LinearFilter;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: true, transparent: true }));
-  const scale = 0.55;
   sprite.scale.set((w / 56) * scale, scale, 1);
   return sprite;
 }
