@@ -82,6 +82,19 @@ export interface SettlementRow {
   expected: number;
   settledAt: number;
 }
+/** 드래곤 한 마리 (M6-2). stage: egg(둥지 자리 slot 에 알) / baby / adult */
+export interface DragonRow {
+  id: number;
+  village: string;
+  token: string;
+  dragon: string;
+  stage: 'egg' | 'baby' | 'adult';
+  slot: number | null;
+  placedAt: number;
+  hatchedAt: number | null;
+  fed: number;
+  restingUntil: number | null;
+}
 export interface AdjustmentRow {
   id: number;
   child: string;
@@ -141,6 +154,10 @@ CREATE TABLE IF NOT EXISTS time_ledger(
 CREATE TABLE IF NOT EXISTS week_settlements(
   child TEXT NOT NULL, week_start TEXT NOT NULL, rate REAL NOT NULL, bonus_cap INTEGER NOT NULL, approved INTEGER NOT NULL, expected INTEGER NOT NULL,
   settled_at INTEGER NOT NULL, PRIMARY KEY(child, week_start));
+CREATE TABLE IF NOT EXISTS dragons(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, village TEXT NOT NULL, token TEXT NOT NULL, dragon TEXT NOT NULL, stage TEXT NOT NULL,
+  slot INTEGER, placed_at INTEGER NOT NULL, hatched_at INTEGER, fed INTEGER NOT NULL DEFAULT 0, resting_until INTEGER);
+CREATE INDEX IF NOT EXISTS dragons_owner ON dragons(village, token);
 CREATE TABLE IF NOT EXISTS time_adjustments(
   id INTEGER PRIMARY KEY AUTOINCREMENT, child TEXT NOT NULL, date TEXT NOT NULL, delta_min INTEGER NOT NULL, reason TEXT NOT NULL, created_at INTEGER NOT NULL);
 `;
@@ -220,6 +237,11 @@ export class Storage {
       insertAdjustment: this.db.prepare('INSERT INTO time_adjustments(child, date, delta_min, reason, created_at) VALUES (?, ?, ?, ?, ?)'),
       listAdjustments: this.db.prepare('SELECT id, child, date, delta_min AS deltaMin, reason, created_at AS createdAt FROM time_adjustments WHERE child = ? AND date = ? ORDER BY id'),
       clearAccountPin: this.db.prepare('UPDATE accounts SET pin_hash = NULL WHERE nick_key = ?'),
+      insertDragon: this.db.prepare("INSERT INTO dragons(village, token, dragon, stage, slot, placed_at) VALUES (?, ?, ?, 'egg', ?, ?)"),
+      getDragon: this.db.prepare('SELECT id, village, token, dragon, stage, slot, placed_at AS placedAt, hatched_at AS hatchedAt, fed, resting_until AS restingUntil FROM dragons WHERE id = ?'),
+      listDragonsByToken: this.db.prepare('SELECT id, village, token, dragon, stage, slot, placed_at AS placedAt, hatched_at AS hatchedAt, fed, resting_until AS restingUntil FROM dragons WHERE village = ? AND token = ? ORDER BY id'),
+      listNestEggs: this.db.prepare("SELECT id, village, token, dragon, stage, slot, placed_at AS placedAt, hatched_at AS hatchedAt, fed, resting_until AS restingUntil FROM dragons WHERE village = ? AND stage = 'egg' ORDER BY slot"),
+      hatchDragon: this.db.prepare("UPDATE dragons SET stage = 'baby', slot = NULL, hatched_at = ? WHERE id = ?"),
       getSettlement: this.db.prepare('SELECT child, week_start AS weekStart, rate, bonus_cap AS bonusCap, approved, expected, settled_at AS settledAt FROM week_settlements WHERE child = ? AND week_start = ?'),
       insertSettlement: this.db.prepare('INSERT OR IGNORE INTO week_settlements(child, week_start, rate, bonus_cap, approved, expected, settled_at) VALUES (?, ?, ?, ?, ?, ?, ?)'),
       listSettlements: this.db.prepare('SELECT child, week_start AS weekStart, rate, bonus_cap AS bonusCap, approved, expected, settled_at AS settledAt FROM week_settlements WHERE child = ? ORDER BY week_start DESC LIMIT ?'),
@@ -425,6 +447,23 @@ export class Storage {
   clearAccountPin(nickKey: string): void {
     this.stmts.clearAccountPin.run(nickKey);
   }
+  // ---- 드래곤 (M6-2)
+  insertDragon(village: string, token: string, dragon: string, slot: number, now: number): number {
+    return Number(this.stmts.insertDragon.run(village, token, dragon, slot, now).lastInsertRowid);
+  }
+  getDragon(id: number): DragonRow | undefined {
+    return this.stmts.getDragon.get(id) as DragonRow | undefined;
+  }
+  listDragonsByToken(village: string, token: string): DragonRow[] {
+    return this.stmts.listDragonsByToken.all(village, token) as DragonRow[];
+  }
+  listNestEggs(village: string): DragonRow[] {
+    return this.stmts.listNestEggs.all(village) as DragonRow[];
+  }
+  hatchDragon(id: number, now: number): void {
+    this.stmts.hatchDragon.run(now, id);
+  }
+
   getSettlement(child: string, weekStart: string): SettlementRow | undefined {
     return this.stmts.getSettlement.get(child, weekStart) as SettlementRow | undefined;
   }

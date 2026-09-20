@@ -31,6 +31,9 @@ function inbox() {
   return { bin, json, send, clear: () => ((bin.length = 0), (json.length = 0)) };
 }
 
+/** 둥지(M6-2, #76)가 서버 시작 때 광장 북동쪽 청크 4개(x 64~95, z 32~63)를 바꾼다 — 바뀐 청크 수 기대값에 더한다 */
+const NEST_CHUNKS = 4;
+
 function makeRoom(storage: Storage | null = null) {
   return new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null });
 }
@@ -256,16 +259,18 @@ describe('VillageRoom 액체 틱과 저장', () => {
     room.onMove(ra.idx, { x: 70.5, y: GROUND_Y + 1, z: 70.5, yaw: 1, pitch: 0.2, flags: 0 });
     room.onBlockChange(ra.idx, { seq: 1, x: 72, y: GROUND_Y + 1, z: 70, id: 'planks' }, 1000);
     room.flush(2000);
-    expect(storage.countChunks(INFO.code)).toBe(1);
+    expect(storage.countChunks(INFO.code)).toBe(1 + NEST_CHUNKS);
 
     const room2 = new VillageRoom({ ...INFO }, BLOCKS, storage);
     expect(BLOCKS.get(room2.world.getBlock(72, GROUND_Y + 1, 70)).id).toBe('planks');
-    expect(room2.modifiedCount).toBe(1);
+    expect(room2.modifiedCount).toBe(1 + NEST_CHUNKS);
     const b = inbox();
     const rb = room2.join('a'.repeat(32), '아빠', 2, b.send)!;
     expect(rb.spawn).toMatchObject({ x: 70.5, z: 70.5, yaw: 1 }); // 저장된 자리
-    expect(room2.sendModifiedChunks(b.send)).toBe(1);
-    expect(b.bin.find((m) => m.type === MSG.ChunkData)?.msg).toMatchObject({ cx: 4, cy: 2, cz: 4 });
+    expect(room2.sendModifiedChunks(b.send)).toBe(1 + NEST_CHUNKS);
+    const chunks = b.bin.filter((m) => m.type === MSG.ChunkData).map((m) => m.msg as { cx: number; cy: number; cz: number });
+    expect(chunks).toContainEqual(expect.objectContaining({ cx: 4, cy: 2, cz: 4 })); // 판자 놓은 청크
+    expect(chunks).toContainEqual(expect.objectContaining({ cx: 4, cy: 2, cz: 2 })); // 둥지 청크
   });
 
   it('지형 버전이 다르면 저장 청크를 버린다', () => {
@@ -273,7 +278,7 @@ describe('VillageRoom 액체 틱과 저장', () => {
     storage.createVillage({ ...INFO, genVersion: VILLAGE_GEN_VERSION + 1, createdAt: 1 });
     storage.saveChunks(INFO.code, [{ cx: 0, cy: 0, cz: 0, blob: new Uint8Array([1, 0, 0, 0, 0]) }]);
     const room = new VillageRoom({ ...INFO, genVersion: VILLAGE_GEN_VERSION + 1 }, BLOCKS, storage);
-    expect(room.modifiedCount).toBe(0);
+    expect(room.modifiedCount).toBe(NEST_CHUNKS); // 저장은 버렸고 둥지만 새로 지었다
     expect(storage.countChunks(INFO.code)).toBe(0);
     expect(room.info.genVersion).toBe(VILLAGE_GEN_VERSION);
   });
@@ -331,5 +336,57 @@ describe('곡괭이 등급 (아들 2026-09-20)', () => {
     room.onBlockChange(ia, { seq: 4, x: 66, y: GROUND_Y + 1, z: 64, id: 'air', slot: 1 }, 1300); // 돌 곡괭이
     expect(room.world.getBlock(66, GROUND_Y + 1, 64)).toBe(0);
     expect(countOf(room.players.get(ia)!.inv, 'coal')).toBe(1);
+  });
+});
+
+describe('둥지·알·부화 (M6-2)', () => {
+  it('둥지가 지어져 있고, 알을 놓으면 알 블록이 서며, 레벨이 있어야 부화한다', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox(),
+      b = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const rb = room.join('b'.repeat(32), '아들', 1, b.send)!;
+    // 둥지 구조물: 모서리 원목, 안 건초, 위 발광석
+    expect(BLOCKS.get(room.world.getBlock(74, GROUND_Y, 42)).id).toBe('log');
+    expect(BLOCKS.get(room.world.getBlock(77, GROUND_Y, 45)).id).toBe('hay_bale');
+    expect(BLOCKS.get(room.world.getBlock(74, GROUND_Y + 4, 42)).id).toBe('glowstone');
+    expect(ra.nest).toEqual([]);
+    expect(ra.dragons).toEqual([]);
+    room.giveItems(ra.idx, 'dragon_egg.wood', 1);
+    // 둥지 밖에서는 못 놓는다
+    expect(room.placeEgg(ra.idx, 0, 'dragon_egg.wood', 1000)).toBe('NOT_AT_NEST');
+    room.onMove(ra.idx, { x: 77.5, y: GROUND_Y + 1, z: 45.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.placeEgg(ra.idx, 9, 'dragon_egg.wood', 1000)).toBe('BAD_SLOT');
+    expect(room.placeEgg(ra.idx, 0, 'dragon_egg.fire', 1000)).toBe('NO_EGG');
+    a.clear();
+    b.clear();
+    expect(room.placeEgg(ra.idx, 0, 'dragon_egg.wood', 1000)).toBeNull();
+    expect(BLOCKS.get(room.world.getBlock(75, GROUND_Y + 1, 43)).id).toBe('dragon_egg');
+    expect(countOf(room.players.get(ra.idx)!.inv, 'dragon_egg.wood')).toBe(0);
+    expect(b.bin.find((m) => m.type === MSG.BlockChanged)).toMatchObject({ msg: { id: 'dragon_egg', x: 75, z: 43 } });
+    expect(a.json.find((m) => m.t === 'dragons')).toMatchObject({ list: [{ dragon: 'wood', stage: 'egg', slot: 0 }] });
+    expect(b.json.find((m) => m.t === 'nest')).toMatchObject({ slots: [{ slot: 0, dragon: 'wood', owner: '아빠', mine: false }] });
+    expect(room.placeEgg(ra.idx, 0, 'dragon_egg.wood', 1000)).toBe('NO_EGG'); // 가방에 더 없음
+    room.giveItems(ra.idx, 'dragon_egg.wood', 1);
+    expect(room.placeEgg(ra.idx, 0, 'dragon_egg.wood', 1000)).toBe('SLOT_TAKEN');
+    const eggId = room.myDragons('a'.repeat(32))[0]!.id;
+    // 남의 알은 못 부화, 레벨 0 이면 모자람 (나무 = 레벨 1)
+    room.onMove(rb.idx, { x: 77.5, y: GROUND_Y + 1, z: 45.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.hatch(rb.idx, eggId)).toBe('NO_EGG');
+    expect(room.hatch(ra.idx, eggId)).toBe('NEED_LEVEL:1:0');
+    room.giveXp(ra.idx, 20); // 레벨 2 (7 + 9 = 16)
+    a.clear();
+    expect(room.hatch(ra.idx, eggId, 2000)).toBeNull();
+    expect(room.world.getBlock(75, GROUND_Y + 1, 43)).toBe(0);
+    expect(room.myDragons('a'.repeat(32))).toMatchObject([{ dragon: 'wood', stage: 'baby', slot: null, hatchedAt: 2000 }]);
+    // 레벨 2 에서 1 내면 레벨 1 총량(7) + 부화 경험치 티어1 × 5 = 12
+    expect(room.xpOf(ra.idx)).toBe(7 + 5);
+    expect(a.bin.find((m) => m.type === MSG.XpGained)).toMatchObject({ msg: { amount: 5, source: 4 } });
+    expect(room.nestSlots('a'.repeat(32))).toEqual([]);
+    // 다시 켜도 둥지·드래곤이 남는다
+    const room2 = makeRoom(storage);
+    expect(room2.myDragons('a'.repeat(32))).toHaveLength(1);
+    expect(BLOCKS.get(room2.world.getBlock(74, GROUND_Y, 42)).id).toBe('log');
   });
 });

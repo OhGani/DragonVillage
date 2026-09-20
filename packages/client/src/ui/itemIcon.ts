@@ -1,4 +1,6 @@
 import type { BlockRegistry } from '@dragon-village/shared';
+import { DRAGONS } from '@dragon-village/shared/data';
+import { dragonOfEgg } from '@dragon-village/shared';
 import { renderBlockIcon } from './icons';
 
 export interface IconSource {
@@ -59,6 +61,27 @@ function drawItem(ctx: CanvasRenderingContext2D, id: string, name: string, s: nu
   const isStick = id === 'stick' || id === 'blaze_rod' || id === 'breeze_rod' || id === 'bone';
   const isString = id === 'string';
 
+  const egg = dragonOfEgg(id);
+  if (egg) {
+    // 드래곤 알: 드래곤 색 타원 + 점, 아래 어둡게
+    const color = DRAGONS.find(egg)?.color ?? '#9a9a9a';
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.ellipse(8 * u, 9 * u, 4.6 * u, 6 * u, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(8 * u, 12 * u, 4 * u, 2.6 * u, 0, 0, Math.PI);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    for (const [x, y] of [
+      [6.2, 6.5],
+      [9.5, 8],
+      [7, 10.5],
+    ]) ctx.fillRect(x * u, y * u, u, u);
+    return;
+  }
   if (potion) {
     // 병: 코르크 + 목 + 둥근 몸, 안에 액체
     const liquid = id === 'glass_bottle' ? null : id === 'water_bottle' ? '#3d7be6' : id.includes('healing') ? '#e64a4a' : id.includes('speed') ? '#7fd3ff' : id.includes('awkward') ? '#6b6ba8' : '#a24ae6';

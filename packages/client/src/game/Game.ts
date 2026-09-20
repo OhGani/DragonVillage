@@ -1,5 +1,7 @@
 import {
   AIR_ID,
+  GROUND_Y,
+  nestContains,
   COSMETIC_KO,
   unlockedBetween,
   xpProgress,
@@ -34,7 +36,7 @@ import {
   portalContains,
   skyLightAt,
 } from '@dragon-village/shared';
-import { BLOCKS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, PHRASES, POTIONS, RECIPES, XP } from '@dragon-village/shared/data';
+import { BLOCKS, DRAGONS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, PHRASES, POTIONS, RECIPES, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { ding, levelUp } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
@@ -55,6 +57,7 @@ import { loadTextureAtlas } from '../render/textures';
 import { BagView, type Stations } from '../ui/bag';
 import { ChatView } from '../ui/chat';
 import { Hud, type HotbarSlot } from '../ui/hud';
+import { NestView } from '../ui/nest';
 import { askInput, askPin } from '../ui/pinDialog';
 import { itemIcon } from '../ui/itemIcon';
 import { MesherPool } from '../workers/MesherPool';
@@ -165,9 +168,14 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   };
 
   // ---- 가방 화면·채팅 (M4) ----
+  // 드래곤 (M6-2): 내 목록·둥지 자리는 서버가 진실
+  let myDragons = welcome.dragons;
+  let nestSlots = welcome.nest;
   const bag = new BagView(root, {
     recipes: RECIPES,
     potions: POTIONS,
+    dragons: DRAGONS,
+    owned: () => new Set(myDragons.filter((d) => d.stage !== 'egg').map((d) => d.dragon)),
     icon: iconOf,
     nameOf,
     onMove: (from, to, count) => net.sendInvMove(from, to, count),
@@ -180,6 +188,18 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     onClose: () => closeBag(),
   });
   bag.setInventory(inv);
+  const nest = new NestView(root, {
+    dragons: DRAGONS,
+    xp: XP,
+    nameOf,
+    onPlace: (slot, item) => net.sendPlaceEgg(slot, item),
+    onHatch: (id) => net.sendHatch(id),
+    onClose: () => closeNest(),
+  });
+  nest.setInventory(inv);
+  nest.setDragons(myDragons);
+  nest.setNest(nestSlots);
+  nest.setXp(welcome.xp);
   const chat = new ChatView(
     root,
     PHRASES,
@@ -365,6 +385,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const before = xpProgress(xpTotal).level;
     xpTotal = total;
     hud.setXp(xpTotal);
+    nest.setXp(xpTotal);
     if (orbAt) {
       const v = new THREE.Vector3(orbAt.x, orbAt.y, orbAt.z).project(camera);
       const w = renderer.domElement.clientWidth,
@@ -452,6 +473,20 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     },
     onError: (_code, message) => hud.toast(message, 4000),
     onToday: (card) => onTodayCard(card),
+    onDragons: (list) => {
+      const before = myDragons.filter((d) => d.stage !== 'egg').length;
+      myDragons = list;
+      nest.setDragons(list);
+      const after = list.filter((d) => d.stage !== 'egg').length;
+      if (after > before) {
+        const d = list.filter((x) => x.stage !== 'egg').at(-1)!;
+        hud.toast(`🐉 ${DRAGONS.find(d.dragon)?.name ?? d.dragon}이 태어났어요! 도감에 등록됐어요`, 6000);
+      }
+    },
+    onNest: (slots) => {
+      nestSlots = slots;
+      nest.setNest(slots);
+    },
     onXpGained: (m) => onXp(xpTotal + m.amount, { x: m.x, y: m.y, z: m.z }, m.amount),
     onXpState: (m) => onXp(m.total, null, 0),
     onTimeUp: (_reason, message) => {
@@ -489,6 +524,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       for (const e of m.slots) if (e.slot >= 0 && e.slot < inv.length) inv[e.slot] = e.count > 0 ? { item: e.item, count: e.count } : null;
       refreshHotbar();
       bag.setInventory(inv);
+      nest.setInventory(inv);
     },
     onEmote: (m) => {
       const text = PHRASES.text(m.kind, m.id);
@@ -628,6 +664,20 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     chat.hide();
     if (started && !hud.overlayVisible && !hud.resultVisible && !bag.visible) resume();
   };
+  // 둥지 창 (M6-2)
+  const openNest = () => {
+    if (nest.visible || bag.visible || chat.visible) return;
+    nest.setXp(xpTotal);
+    nest.setInventory(inv);
+    nest.show();
+    input.paused = true;
+    kbm.enabled = false;
+  };
+  const closeNest = () => {
+    if (!nest.visible) return;
+    nest.hide();
+    if (started && !hud.overlayVisible && !hud.resultVisible && !bag.visible && !chat.visible) resume();
+  };
   hud.bagBtn.addEventListener('click', () => (bag.visible ? closeBag() : openBag()));
   // 오늘 카드 (M5-3): 아이면 남은 시간·할 일. 시간 제한은 걸지 않는다(표시만, 아빠 2026-09-19)
   hud.setToday(welcome.today);
@@ -733,6 +783,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const p = ctx.player.pos;
     const inside = portalContains(ctx.portalPos, p.x, p.y, p.z);
     if (!inside) {
+      // 둥지 안 (M6-2): 광장 북동쪽
+      if (ctx.kind === 'village' && nestContains(GROUND_Y, p.x, p.y, p.z)) {
+        hud.showAction('드래곤 둥지', '알을 놓고, 레벨을 써서 부화시켜요', '둥지 열기' + KEY_HINT, openNest);
+        return;
+      }
       if (hud.actionVisible) hud.hideAction();
       return;
     }

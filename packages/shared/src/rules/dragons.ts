@@ -1,0 +1,192 @@
+/**
+ * 드래곤 (M6-2, data/dragons.json — 아들 설계 16종). 검증·조회, 알 아이템, 알 레시피, 둥지 자리.
+ *
+ * - 알 아이템 id: `dragon_egg.<dragon id>` (예: dragon_egg.wood). 재료(recipe)를 제작대에서 모으면 알 하나.
+ * - 둥지(1단계, 4마리)는 마을 광장 북동쪽 7×7. 세계 생성기를 바꾸면 저장이 날아가므로 서버가 켜질 때 블록으로 짓는다(결정 #76).
+ * - 알을 둥지 자리에 놓으면 `dragon_egg` 블록이 서고(못 부숨), 레벨을 내고 부화시키면 아기 드래곤이 된다.
+ */
+import { z } from 'zod';
+import { DataError, koreanizeMessage } from './blocks';
+import type { RecipeDef } from './recipes';
+
+const DragonFile = z
+  .object({
+    _comment: z.string().optional(),
+    rules: z
+      .object({
+        growth: z
+          .object({
+            baseGrowMinutes: z.number().int().min(1, '1 이상이어야 해요'),
+            feedShortcutMinutes: z.number().int().min(0, '0 이상이어야 해요'),
+          })
+          .loose(),
+      })
+      .loose(),
+    dragons: z
+      .array(
+        z
+          .object({
+            id: z.string().regex(/^[a-z0-9_]+$/, '영문 소문자·숫자·밑줄(_)만'),
+            name: z.string().min(1, '이름이 비었어요'),
+            tier: z.number().int().min(1, '1~16 사이여야 해요').max(16, '1~16 사이여야 해요'),
+            recipe: z.array(z.object({ material: z.string().min(1), count: z.number().int().min(1, '1 이상이어야 해요') }).loose()).min(1, '재료가 하나는 있어야 해요'),
+            color: z.string().nullable().optional(),
+            model: z.string().optional(),
+            skills: z.array(z.object({ id: z.string(), name: z.string(), type: z.string() }).loose()).optional(),
+          })
+          .loose(),
+      )
+      .min(1),
+  })
+  .loose();
+
+export interface DragonDef {
+  readonly id: string;
+  readonly name: string;
+  readonly tier: number;
+  readonly recipe: readonly { material: string; count: number }[];
+  /** 없으면 회색 */
+  readonly color: string;
+  readonly model: string | null;
+  readonly skills: readonly { id: string; name: string; type: string }[];
+}
+
+export interface DragonRules {
+  readonly baseGrowMinutes: number;
+  readonly feedShortcutMinutes: number;
+}
+
+export class DragonRegistry {
+  private readonly byId = new Map<string, DragonDef>();
+  constructor(
+    readonly list: readonly DragonDef[],
+    readonly rules: DragonRules,
+  ) {
+    for (const d of list) this.byId.set(d.id, d);
+  }
+  find(id: string): DragonDef | undefined {
+    return this.byId.get(id);
+  }
+  require(id: string): DragonDef {
+    const d = this.byId.get(id);
+    if (!d) throw new Error(`드래곤 '${id}' 을(를) data/dragons.json 에서 찾을 수 없어요`);
+    return d;
+  }
+  get count(): number {
+    return this.list.length;
+  }
+}
+
+export function parseDragons(raw: unknown, fileName = 'data/dragons.json'): DragonRegistry {
+  const result = DragonFile.safeParse(raw);
+  if (!result.success) {
+    throw new DataError(fileName, result.error.issues.map((i) => `${i.path.map(String).join('.')}: ${koreanizeMessage(i.message)}`));
+  }
+  const problems: string[] = [];
+  const seen = new Set<string>();
+  const tiers = new Set<number>();
+  const list: DragonDef[] = result.data.dragons.map((d) => {
+    if (seen.has(d.id)) problems.push(`드래곤 '${d.id}' 가 두 번 나와요`);
+    seen.add(d.id);
+    if (tiers.has(d.tier)) problems.push(`티어 ${d.tier} 이 두 드래곤에 있어요 (${d.id})`);
+    tiers.add(d.tier);
+    return { id: d.id, name: d.name, tier: d.tier, recipe: d.recipe.map((r) => ({ material: r.material, count: r.count })), color: d.color ?? '#9a9a9a', model: d.model ?? null, skills: (d.skills ?? []).map((s) => ({ id: s.id, name: s.name, type: s.type })) };
+  });
+  if (problems.length) throw new DataError(fileName, problems);
+  return new DragonRegistry(list, { baseGrowMinutes: result.data.rules.growth.baseGrowMinutes, feedShortcutMinutes: result.data.rules.growth.feedShortcutMinutes });
+}
+
+// ---------------------------------------------------------------- 알
+
+export const EGG_PREFIX = 'dragon_egg.';
+export function eggItem(dragonId: string): string {
+  return EGG_PREFIX + dragonId;
+}
+export function isEggItem(item: string): boolean {
+  return item.startsWith(EGG_PREFIX);
+}
+/** 알 아이템 → 드래곤 id (알 아니면 null) */
+export function dragonOfEgg(item: string): string | null {
+  return isEggItem(item) ? item.slice(EGG_PREFIX.length) : null;
+}
+
+/** 알 레시피 16개 — 제작대에서 재료 → 알 1개. RECIPES 에 합쳐서 가방 "만들기" 탭에 그대로 뜬다 */
+export function eggRecipes(dragons: DragonRegistry): RecipeDef[] {
+  return dragons.list.map((d) => ({
+    id: `egg_${d.id}`,
+    name: `${d.name} 알`,
+    station: 'crafting_table',
+    in: Object.fromEntries(d.recipe.map((r) => [r.material, r.count])),
+    out: { [eggItem(d.id)]: 1 },
+    toolTier: 0,
+    release: 'v1',
+  }));
+}
+
+// ---------------------------------------------------------------- 둥지 (1단계, 4자리)
+
+/** 둥지 1단계: 마을 광장 북동쪽. 7×7 바닥, 자리 4개. y 는 광장 높이(GROUND_Y) */
+export const NEST = {
+  x0: 74,
+  z0: 42,
+  size: 7,
+  /** 알 자리 (바닥 위 한 칸에 알 블록이 선다) */
+  slots: [
+    { x: 75, z: 43 },
+    { x: 79, z: 43 },
+    { x: 75, z: 47 },
+    { x: 79, z: 47 },
+  ] as readonly { x: number; z: number }[],
+  /** 둥지 안에 서 있는 판정 높이 (바닥 y 부터 이만큼) */
+  height: 5,
+} as const;
+
+/** 둥지 안(바닥 위)에 서 있나. groundY = 둥지 바닥 높이 */
+export function nestContains(groundY: number, px: number, py: number, pz: number): boolean {
+  return px >= NEST.x0 && px < NEST.x0 + NEST.size && pz >= NEST.z0 && pz < NEST.z0 + NEST.size && py >= groundY && py < groundY + NEST.height + 1;
+}
+
+/** 둥지 구조물: 어디에 무엇을 놓나 (서버가 켜질 때 한 번, 클라 표시용 아님) */
+export function nestBlocks(groundY: number): { x: number; y: number; z: number; id: string }[] {
+  const out: { x: number; y: number; z: number; id: string }[] = [];
+  const { x0, z0, size } = NEST;
+  for (let dx = 0; dx < size; dx++)
+    for (let dz = 0; dz < size; dz++) {
+      const x = x0 + dx,
+        z = z0 + dz;
+      const edge = dx === 0 || dz === 0 || dx === size - 1 || dz === size - 1;
+      const corner = (dx === 0 || dx === size - 1) && (dz === 0 || dz === size - 1);
+      out.push({ x, y: groundY, z, id: corner ? 'log' : edge ? 'cobblestone' : 'hay_bale' });
+      for (let y = groundY + 1; y <= groundY + NEST.height; y++) out.push({ x, y, z, id: corner && y <= groundY + 3 ? 'log' : corner && y === groundY + 4 ? 'glowstone' : 'air' });
+    }
+  return out;
+}
+
+/** 둥지 자리 번호 → 알 블록 좌표 */
+export function nestSlotPos(groundY: number, slot: number): { x: number; y: number; z: number } | null {
+  const s = NEST.slots[slot];
+  return s ? { x: s.x, y: groundY + 1, z: s.z } : null;
+}
+
+/** 드래곤 한 마리 (서버 → 클라). stage: egg(둥지에 놓인 알) / baby / adult */
+export interface DragonInfo {
+  id: number;
+  dragon: string;
+  stage: 'egg' | 'baby' | 'adult';
+  /** 알이면 둥지 자리 번호 */
+  slot: number | null;
+  /** 부화 시각 (ms). 알이면 null */
+  hatchedAt: number | null;
+}
+
+/** 둥지 자리 하나 (모두에게): 누구의 무슨 알인가 */
+export interface NestSlotInfo {
+  slot: number;
+  dragon: string;
+  /** 주인 닉 */
+  owner: string;
+  /** 내 것인가 (받는 사람 기준) */
+  mine: boolean;
+  /** 드래곤 행 id (내 것일 때 부화용) */
+  id: number;
+}

@@ -7,6 +7,7 @@
  * - 청크는 diff 목록 대신 `serialize.ts` 의 청크 blob 통째로 (저장 형식과 같다, 결정 #60).
  * - M3 원정: 세계 전환·정산은 드물어서 JSON(worldEnter·expeditionResult·expeditionState), 1Hz 타이머만 바이너리(ExpeditionTimer).
  */
+import type { DragonInfo, NestSlotInfo } from '../rules/dragons';
 import type { TodayCard } from '../rules/family';
 import { ByteReader, ByteWriter } from './bytes';
 
@@ -412,7 +413,11 @@ export type ClientJson =
   /** 오늘 카드의 할 일 체크 (M5-3, 아이) */
   | { t: 'checkTodo'; id: number }
   /** 게임 안 승인·거절 (M5-3, 부모 플레이어) */
-  | { t: 'approveTodo'; id: number; date: string; ok: boolean };
+  | { t: 'approveTodo'; id: number; date: string; ok: boolean }
+  /** 둥지 자리에 알 놓기 (M6-2): 둥지 안에 서서, 가방의 알 아이템 */
+  | { t: 'placeEgg'; slot: number; item: string }
+  /** 알 부화 (M6-2): 내 알 행 id. 레벨을 낸다 */
+  | { t: 'hatch'; id: number };
 
 export type ServerJson =
   | { t: 'hello'; token: string; protocol: number }
@@ -438,6 +443,10 @@ export type ServerJson =
       pending?: ApprovalItem[];
       /** 내 경험치 총량 (M6-1). 레벨·바는 클라가 공식으로 계산 */
       xp?: number;
+      /** 내 드래곤(알 포함) (M6-2) */
+      dragons?: DragonInfo[];
+      /** 둥지 자리 상태 (모두) */
+      nest?: NestSlotInfo[];
     }
   | { t: 'familyLinked'; code: string }
   /** 오늘 카드가 바뀌었다 (체크·승인·1분 경과·할 일 편집) */
@@ -448,6 +457,10 @@ export type ServerJson =
   | { t: 'pending'; items: ApprovalItem[] }
   /** 아이에게: 오늘은 여기까지 (시간 다 씀·차단 시간대·오늘 게임 없음·5분 무입력). 이어서 연결이 닫힌다 (M5-4, 제한이 켜져 있을 때만) */
   | { t: 'timeUp'; reason: 'noPlay' | 'blocked' | 'over' | 'idle'; message: string }
+  /** 내 드래곤 목록이 바뀌었다 (알 놓기·부화) */
+  | { t: 'dragons'; list: DragonInfo[] }
+  /** 둥지 자리가 바뀌었다 (마을 사람 모두) */
+  | { t: 'nest'; slots: NestSlotInfo[] }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }

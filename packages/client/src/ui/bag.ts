@@ -4,6 +4,7 @@
  * 조작: 칸을 탭해 고르고 다른 칸을 탭하면 옮긴다(합치기·맞바꾸기). "반만" 을 켜면 반을 옮긴다.
  */
 import {
+  type DragonRegistry,
   type Inventory,
   type PotionRegistry,
   type RecipeDef,
@@ -21,6 +22,9 @@ import { HOTBAR_SLOTS, INV_SLOTS } from '@dragon-village/shared';
 export interface BagDeps {
   recipes: RecipeRegistry;
   potions: PotionRegistry;
+  /** 도감 탭 (M6-2): 드래곤 16종과 내가 얻은 것 */
+  dragons: DragonRegistry;
+  owned(): ReadonlySet<string>;
   icon(id: string, size: number): HTMLCanvasElement | null;
   nameOf(id: string): string;
   onMove(from: number, to: number, count: number): void;
@@ -32,7 +36,7 @@ export interface BagDeps {
 
 /** 근처에 있는 작업대 블록 */
 export type Stations = { crafting_table?: boolean; furnace?: boolean; brewing_stand?: boolean };
-type Tab = 'bag' | 'craft' | 'brew';
+type Tab = 'bag' | 'craft' | 'brew' | 'codex';
 
 export class BagView {
   readonly el: HTMLElement;
@@ -126,6 +130,7 @@ export class BagView {
       ['craft', '🔨 만들기'],
     ];
     if (this.stations.brewing_stand) tabs.push(['brew', '⚗️ 양조']);
+    tabs.push(['codex', '📖 도감']);
     this.tabs.innerHTML = '';
     for (const [id, label] of tabs) {
       const b = document.createElement('button');
@@ -205,9 +210,39 @@ export class BagView {
 
   private renderSide(): void {
     this.side.innerHTML = '';
+    this.grid.hidden = this.tab === 'codex';
     if (this.tab === 'bag') this.renderBagSide();
     else if (this.tab === 'craft') this.renderCraftSide();
+    else if (this.tab === 'codex') this.renderCodex();
     else this.renderBrewSide();
+  }
+
+  /** 도감: 드래곤 16종. 얻은 것은 색, 아직이면 회색 + 재료 */
+  private renderCodex(): void {
+    const owned = this.deps.owned();
+    const h = document.createElement('div');
+    h.className = 'bag-title';
+    h.textContent = `드래곤 도감 ${[...owned].length}/${this.deps.dragons.count}`;
+    this.side.appendChild(h);
+    const grid = document.createElement('div');
+    grid.className = 'codex-grid';
+    for (const d of this.deps.dragons.list) {
+      const cell = document.createElement('div');
+      const has = owned.has(d.id);
+      cell.className = 'codex-cell' + (has ? ' on' : '');
+      const chip = document.createElement('span');
+      chip.className = 'nest-chip';
+      chip.style.background = has ? d.color : '#444';
+      const name = document.createElement('span');
+      name.className = 'codex-name';
+      name.textContent = `${d.tier}. ${d.name}`;
+      const sub = document.createElement('span');
+      sub.className = 'codex-sub';
+      sub.textContent = has ? '얻었어요!' : d.recipe.map((r) => `${this.deps.nameOf(r.material)} ${r.count}`).join(' · ');
+      cell.append(chip, name, sub);
+      grid.appendChild(cell);
+    }
+    this.side.appendChild(grid);
   }
 
   private button(label: string, cls: string, onClick: () => void, disabled = false): HTMLButtonElement {

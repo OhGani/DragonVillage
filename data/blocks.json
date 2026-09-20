@@ -98,6 +98,9 @@
     {
       "id": "leaves",
       "name": "나뭇잎",
+      "bonusDrops": "sapling",
+      "bonusCount": [0, 1],
+      "_saplingNote": "나뭇잎을 부수면 묘목이 덤으로 0~1개 (아들: 확률 드롭). 나무 드래곤 알 재료",
       "hardness": 0.2,
       "tool": null,
       "transparent": true,
@@ -289,6 +292,15 @@
       "lightEmit": 0,
       "texture": "obsidian",
       "_note": "용암 블록에 물 양동이를 부으면 생성. 다이아 곡괭이(티어3)로만 캔다 (아들)"
+    },
+    {
+      "id": "dragon_egg",
+      "name": "드래곤 알",
+      "tool": null,
+      "lightEmit": 4,
+      "transparent": true,
+      "texture": "dragon_egg",
+      "_note": "둥지 자리에 놓인 알 (M6-2). hardness 가 없어 못 부순다. 부화하면 사라진다. 아이템은 dragon_egg.<드래곤 id>(제작대에서 재료로 만든다)"
     },
     {
       "id": "hay_bale",

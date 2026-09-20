@@ -65,6 +65,15 @@ import {
   encodeXpGained,
   canBreakWith,
   pickaxeOf,
+  type DragonInfo,
+  type NestSlotInfo,
+  GROUND_Y,
+  dragonOfEgg,
+  hatchCost,
+  nestBlocks,
+  nestContains,
+  nestSlotPos,
+  spendLevels,
   encodeXpState,
   miningXp,
   XP_SOURCE,
@@ -72,7 +81,7 @@ import {
   encodePlayersState,
   generateVillage,
 } from '@dragon-village/shared';
-import { EXPEDITIONS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP } from '@dragon-village/shared/data';
+import { DRAGONS, EXPEDITIONS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import type { Storage } from './storage';
@@ -124,6 +133,10 @@ export interface JoinResult {
   inventory: Inventory;
   /** 내 경험치 총량 */
   xp: number;
+  /** 내 드래곤 (M6-2) */
+  dragons: DragonInfo[];
+  /** 둥지 자리 (모두) */
+  nest: NestSlotInfo[];
 }
 
 export interface RoomOptions {
@@ -185,6 +198,115 @@ export class VillageRoom {
     this.fluids = new FluidSim(this.world, registry);
     this.fluids.onBlockSet = (x, y, z) => this.batch.push({ x, y, z, id: registry.get(this.world.getBlock(x, y, z)).id });
     this.load();
+    this.ensureNest();
+  }
+
+  // ---------------------------------------------------------------- 둥지·드래곤 (M6-2)
+
+  /** 둥지 1단계가 없으면 블록으로 짓는다 (생성기를 안 바꾸고 바뀐 청크로 — 저장을 지키기 위해, 결정 #76). 저장된 알도 다시 세운다 */
+  private ensureNest(): void {
+    const blocks = nestBlocks(GROUND_Y);
+    const marker = blocks.find((b) => b.y === GROUND_Y)!; // 모서리 원목
+    const has = this.registry.get(this.world.getBlock(marker.x, marker.y, marker.z)).id === marker.id;
+    if (!has) {
+      for (const b of blocks) {
+        const res = this.world.setBlock(b.x, b.y, b.z, this.registry.numOf(b.id));
+        if (res.changed) this.markDirtyBlock(b.x, b.y, b.z);
+      }
+      this.log(`마을 ${this.info.code}: 드래곤 둥지를 지었어요 (${nestBlocks(GROUND_Y).length}칸)`);
+    }
+    const egg = this.registry.numOf('dragon_egg');
+    for (const row of this.storage?.listNestEggs(this.info.code) ?? []) {
+      const pos = nestSlotPos(GROUND_Y, row.slot ?? -1);
+      if (pos && this.world.getBlock(pos.x, pos.y, pos.z) !== egg) {
+        this.world.setBlock(pos.x, pos.y, pos.z, egg);
+        this.markDirtyBlock(pos.x, pos.y, pos.z);
+      }
+    }
+  }
+
+  /** 둥지 자리 상태 (받는 사람 기준 mine) */
+  nestSlots(forToken: string | null): NestSlotInfo[] {
+    if (!this.storage) return [];
+    return this.storage.listNestEggs(this.info.code).map((r) => ({ slot: r.slot ?? -1, dragon: r.dragon, owner: this.ownerNick(r.token), mine: r.token === forToken, id: r.id }));
+  }
+
+  private ownerNick(token: string): string {
+    for (const p of this.players.values()) if (p.token === token) return p.nick;
+    return this.storage?.getPlayer(token)?.nick ?? '?';
+  }
+
+  /** 내 드래곤 목록 */
+  myDragons(token: string): DragonInfo[] {
+    if (!this.storage) return [];
+    return this.storage.listDragonsByToken(this.info.code, token).map((r) => ({ id: r.id, dragon: r.dragon, stage: r.stage, slot: r.slot, hatchedAt: r.hatchedAt }));
+  }
+
+  private broadcastNest(): void {
+    for (const p of this.playersIn('village')) this.sendJson(p, { t: 'nest', slots: this.nestSlots(p.token) });
+  }
+
+  /** 알 놓기: 둥지 안에 서서, 가방의 알을 빈 자리에. 오류 코드 또는 null */
+  placeEgg(idx: number, slot: number, item: string, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (!this.storage) return 'NO_STORAGE';
+    if (p.world !== 'village' || !nestContains(GROUND_Y, p.pos.x, p.pos.y, p.pos.z)) return 'NOT_AT_NEST';
+    const dragonId = dragonOfEgg(item);
+    if (!dragonId || !DRAGONS.find(dragonId) || countOf(p.inv, item) < 1) return 'NO_EGG';
+    const pos = nestSlotPos(GROUND_Y, slot);
+    if (!pos) return 'BAD_SLOT';
+    if (this.storage.listNestEggs(this.info.code).some((r) => r.slot === slot)) return 'SLOT_TAKEN';
+    const changed = new Set<number>();
+    take(p.inv, item, 1, changed);
+    this.sendInv(p, changed);
+    this.storage.saveInventory(p.token, this.info.code, p.inv, now);
+    this.storage.insertDragon(this.info.code, p.token, dragonId, slot, now);
+    const num = this.registry.numOf('dragon_egg');
+    if (this.world.setBlock(pos.x, pos.y, pos.z, num).changed) {
+      this.markDirtyBlock(pos.x, pos.y, pos.z);
+      this.broadcast(encodeBlockChanged({ x: pos.x, y: pos.y, z: pos.z, id: 'dragon_egg', by: idx }), -1, 'village');
+    }
+    this.sendJson(p, { t: 'dragons', list: this.myDragons(p.token) });
+    this.broadcastNest();
+    this.log(`마을 ${this.info.code}: ${p.nick} 둥지 ${slot}번에 ${dragonId} 알`);
+    return null;
+  }
+
+  /**
+   * 부화: 내 알, 둥지 안에서, 레벨을 낸다(티어별 hatchLevelCostByTier). 모자라면 'NEED_LEVEL:필요:지금'.
+   * 성공하면 알 블록이 사라지고 아기 드래곤 + 부화 경험치(티어 × dragonHatchedPerTier)
+   */
+  hatch(idx: number, id: number, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (!this.storage) return 'NO_STORAGE';
+    if (p.world !== 'village' || !nestContains(GROUND_Y, p.pos.x, p.pos.y, p.pos.z)) return 'NOT_AT_NEST';
+    const row = this.storage.getDragon(id);
+    if (!row || row.village !== this.info.code || row.token !== p.token || row.stage !== 'egg') return 'NO_EGG';
+    const def = DRAGONS.require(row.dragon);
+    const cost = hatchCost(XP, def.tier);
+    const spent = spendLevels(p.xp, cost);
+    if (!spent.ok) return `NEED_LEVEL:${cost}:${spent.level}`;
+    p.xp = spent.total;
+    p.send(encodeXpState({ total: p.xp }));
+    this.storage.hatchDragon(id, now);
+    const pos = nestSlotPos(GROUND_Y, row.slot ?? -1);
+    if (pos && this.world.setBlock(pos.x, pos.y, pos.z, AIR_ID).changed) {
+      this.markDirtyBlock(pos.x, pos.y, pos.z);
+      this.broadcast(encodeBlockChanged({ x: pos.x, y: pos.y, z: pos.z, id: 'air', by: idx }), -1, 'village');
+    }
+    this.addXp(p, def.tier * XP.ours.dragonHatchedPerTier, XP_SOURCE.hatch, pos ? pos.x + 0.5 : p.pos.x, pos ? pos.y + 0.5 : p.pos.y + 1, pos ? pos.z + 0.5 : p.pos.z, now);
+    this.sendJson(p, { t: 'dragons', list: this.myDragons(p.token) });
+    this.broadcastNest();
+    this.log(`마을 ${this.info.code}: ${p.nick} ${def.name} 부화 (레벨 ${cost} 씀)`);
+    return null;
+  }
+
+  /** 시험용: 경험치 주기 */
+  giveXp(idx: number, amount: number): void {
+    const p = this.players.get(idx);
+    if (p) this.addXp(p, amount, XP_SOURCE.mining, p.pos.x, p.pos.y, p.pos.z);
   }
 
   /** 저장된 청크를 덮어쓴다. 생성기 버전이 다르면 저장을 버린다 */
@@ -260,7 +382,7 @@ export class VillageRoom {
     this.savePlayer(player);
     if (savedInv === null) this.storage?.saveInventory(token, this.info.code, inv); // 키트는 한 번만 — 바로 저장해 둔다
     this.log(`마을 ${this.info.code}: ${nick}(#${idx}) 입장${savedInv === null ? ' (처음, 시작 키트)' : ''}, ${this.players.size}명`);
-    return { idx, spawn: me, players: others, expedition: this.expeditionState(), inventory: inv, xp: player.xp };
+    return { idx, spawn: me, players: others, expedition: this.expeditionState(), inventory: inv, xp: player.xp, dragons: this.myDragons(token), nest: this.nestSlots(token) };
   }
 
   /** 입장 직후: 생성 지형과 다른 청크를 전부 보낸다 */

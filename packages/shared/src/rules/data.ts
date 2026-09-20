@@ -14,11 +14,12 @@ import starterKitJson from '../../../../data/starter-kit.json';
 import toolsJson from '../../../../data/tools.json';
 import xpJson from '../../../../data/xp.json';
 import { parseBlocks } from './blocks';
+import { eggItem, eggRecipes, parseDragons } from './dragons';
 import { parseExpeditions } from './expeditions';
 import { parseFamilyRules } from './family';
 import { buildItemNames } from './items';
 import { parsePhrases } from './phrases';
-import { parseRecipes } from './recipes';
+import { RecipeRegistry, parseRecipes } from './recipes';
 import { parsePotions } from './potions';
 import { parseRedstone } from './redstone';
 import { parseStarterKit } from './starterKit';
@@ -29,7 +30,10 @@ export const BLOCKS = parseBlocks(blocksJson);
 export const POTIONS = parsePotions(potionsJson);
 export const REDSTONE = parseRedstone(redstoneJson);
 export const EXPEDITIONS = parseExpeditions(expeditionsJson);
-export const RECIPES = parseRecipes(recipesJson);
+/** 드래곤 16종 (M6-2, 아들 설계) */
+export const DRAGONS = parseDragons(dragonsJson);
+/** 레시피 + 드래곤 알 레시피 16개(제작대) */
+export const RECIPES = new RecipeRegistry([...parseRecipes(recipesJson).defs, ...eggRecipes(DRAGONS)]);
 export const PHRASES = parsePhrases(phrasesJson);
 /** 가족 시간 규칙 (M5, 아들 값: 평일 20·주말 30·보너스 5) */
 export const FAMILY_RULES = parseFamilyRules(familyRulesJson);
@@ -41,3 +45,4 @@ export const XP = parseXp(xpJson);
 export const STARTER_KIT = parseStarterKit(starterKitJson);
 /** 아이템 id → 한국어 이름 (블록 아닌 것). 블록은 BLOCKS 에서 */
 export const ITEM_NAMES = buildItemNames({ recipes: recipesJson, dragons: dragonsJson, potions: potionsJson });
+for (const d of DRAGONS.list) ITEM_NAMES.set(eggItem(d.id), `${d.name} 알`);

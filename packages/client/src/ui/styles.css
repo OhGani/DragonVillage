@@ -1373,3 +1373,100 @@ body {
   text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.9);
   pointer-events: none;
 }
+
+/* ---- 둥지 창·도감 (M6-2) ---- */
+.nest-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 20, 40, 0.7);
+  pointer-events: auto;
+  z-index: 5;
+}
+.nest-panel[hidden] {
+  display: none;
+}
+.nest-note {
+  font-size: 13px;
+  opacity: 0.85;
+  margin: 6px 0 10px;
+}
+.nest-slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.nest-slot {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 10px;
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nest-slot-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+.nest-btn {
+  font-size: 14px;
+  min-height: 40px;
+  padding: 6px 10px;
+}
+.nest-btn:disabled {
+  opacity: 0.5;
+}
+.nest-hint {
+  font-size: 13px;
+  opacity: 0.75;
+}
+.nest-chip {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  vertical-align: -2px;
+}
+.nest-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.nest-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 15px;
+}
+.codex-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.codex-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  opacity: 0.6;
+}
+.codex-cell.on {
+  opacity: 1;
+  background: rgba(127, 255, 0, 0.12);
+}
+.codex-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+.codex-sub {
+  font-size: 12px;
+  opacity: 0.8;
+}

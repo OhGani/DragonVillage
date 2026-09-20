@@ -255,10 +255,10 @@ M4 에서 하지 않는 것: 아이템 엔티티(바닥에 떨어지는 것 — 
 - [x] 클라: 핫바 위 초록 경험치 바 + 가운데 레벨 숫자, 구슬이 튀어나와 날아오는 연출 + "딩"(음높이 흔들림)·레벨업 소리(Web Audio 합성, 파일 없음), 레벨 5/10/20/30 꾸미기 해제 토스트(모자·망토 그리기는 뒤로)
 - [ ] 죽음 드롭·회수는 M7
 
-### 2. 드래곤 알·둥지·부화 (`shared/rules/dragons.ts`, 서버 `dragons` 표)
-- [ ] `dragons.json` 검증·로더(`DRAGONS`, 16종·재료·티어·스킬), 알 만들기 = 제작대 레시피처럼 `recipe` 재료 → 아이템 `dragon_egg.<id>`(가방 "만들기" 탭에 "드래곤 알" 묶음)
-- [ ] 둥지 1단계(`buildings.json dragon_nest_1`, 4마리): 마을 광장 정해진 자리에 서버가 실제 블록 구조물로 짓는다(비용은 6번 창고에서 — 그 전엔 시작부터 지어져 있음). 둥지 "알 자리"에 알 놓기 → 부화 카드(필요 레벨·내 레벨) → `hatch` → 레벨 차감(`hatchLevelCostByTier`) → 아기 드래곤. 레벨이 모자라면 알은 둥지에 보관
-- [ ] 드래곤은 개인 소유·영구: `dragons(id, token, dragon, stage, hatched_at, fed, resting_until)`. welcome 에 내 드래곤 목록, 도감 창(Tab / 📖)에 드래곤 탭 16칸(얻은 것만 색)
+### 2. 드래곤 알·둥지·부화 (`shared/rules/dragons.ts`, 서버 `dragons` 표) — 완료·라이브 2026-09-20 (#76)
+- [x] `dragons.json` 검증·로더(`DRAGONS`, 16종·재료·티어·스킬), 알 만들기 = 제작대 레시피처럼 `recipe` 재료 → 아이템 `dragon_egg.<id>`(가방 "만들기" 탭에 "드래곤 알" 묶음)
+- [x] 둥지 1단계(`buildings.json dragon_nest_1`, 4마리): 마을 광장 정해진 자리에 서버가 실제 블록 구조물로 짓는다(비용은 6번 창고에서 — 그 전엔 시작부터 지어져 있음). 둥지 "알 자리"에 알 놓기 → 부화 카드(필요 레벨·내 레벨) → `hatch` → 레벨 차감(`hatchLevelCostByTier`) → 아기 드래곤. 레벨이 모자라면 알은 둥지에 보관
+- [x] 드래곤은 개인 소유·영구: `dragons(id, village, token, dragon, stage, slot, placed_at, hatched_at, fed, resting_until)`. welcome 에 내 드래곤 목록, 도감 창(Tab / 📖)에 드래곤 탭 16칸(얻은 것만 색)
 
 ### 3. 드래곤 보이기·성장 (`client/render/DragonMesh`)
 - [ ] `models/*.json` 복셀(아기·어른) → Three.js 메시. 나머지 13종은 `models/dragon-voxels.js` 생성기에 색 파라미터만 추가(아들 그림이 오면 교체)

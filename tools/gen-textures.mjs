@@ -570,6 +570,21 @@ const TEX = {
       c.set((x + 1) % S, y, 60, 40, 34);
     }
   },
+  // 드래곤 알 (M6-2): 진한 보라 바탕에 분홍·검정 점, 아래쪽 어둡게
+  dragon_egg: (c) => {
+    c.clear();
+    for (let y = 1; y < S; y++) {
+      const t = (y - 1) / 14; // 0 위 … 1 아래
+      const half = Math.round(3 + 4.5 * Math.sin(Math.PI * Math.min(1, t * 1.15)));
+      for (let x = 8 - half; x < 8 + half; x++) {
+        const shade = 1 - t * 0.35 + (x < 8 - half + 2 ? 0.12 : 0);
+        c.set(x, y, 60 * shade, 20 * shade, 80 * shade);
+      }
+    }
+    for (const [x, y] of [[6, 4], [9, 6], [5, 9], [10, 10], [7, 12], [8, 7]]) c.set(x, y, 214, 88, 190);
+    for (const [x, y] of [[8, 3], [6, 7], [10, 12], [7, 10]]) c.set(x, y, 20, 8, 30);
+    c.set(7, 2, 120, 60, 150);
+  },
   spawner: (c) => {
     c.noise([46, 46, 56], 8);
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (x % 3 === 1 || y % 3 === 1) c.mul(x, y, 0.55);

@@ -6,6 +6,8 @@
  */
 import {
   type ApprovalItem,
+  type DragonInfo,
+  type NestSlotInfo,
   type TodayCard,
   type XpGainedMsg,
   type XpStateMsg,
@@ -65,6 +67,10 @@ export interface Welcome {
   pending: ApprovalItem[];
   /** 내 경험치 총량 (M6-1) */
   xp: number;
+  /** 내 드래곤 (M6-2) */
+  dragons: DragonInfo[];
+  /** 둥지 자리 (모두) */
+  nest: NestSlotInfo[];
 }
 
 /** 세계 전환 (worldEnter … ChunkData … ready 를 하나로 모은 것) */
@@ -116,6 +122,10 @@ export interface NetEvents {
   onXpGained(m: XpGainedMsg): void;
   /** 경험치 총량 정정 */
   onXpState(m: XpStateMsg): void;
+  /** 내 드래곤 목록 (M6-2) */
+  onDragons(list: DragonInfo[]): void;
+  /** 둥지 자리 (M6-2) */
+  onNest(slots: NestSlotInfo[]): void;
 }
 
 export type ApprovalAsk = ApprovalItem;
@@ -285,6 +295,14 @@ export class NetClient {
   sendInvDrop(slot: number, count: number): void {
     this.send(encodeInvDrop({ slot, count }));
   }
+  /** 둥지에 알 놓기 (M6-2) */
+  sendPlaceEgg(slot: number, item: string): void {
+    this.sendJson({ t: 'placeEgg', slot, item });
+  }
+  /** 알 부화 (M6-2) */
+  sendHatch(id: number): void {
+    this.sendJson({ t: 'hatch', id });
+  }
   /** 오늘 카드의 할 일 체크 (M5-3) */
   sendCheckTodo(id: number): void {
     this.sendJson({ t: 'checkTodo', id });
@@ -337,6 +355,8 @@ export class NetClient {
           parentOf: msg.parentOf ?? null,
           pending: msg.pending ?? [],
           xp: msg.xp ?? 0,
+          dragons: msg.dragons ?? [],
+          nest: msg.nest ?? [],
         };
         return;
       case 'familyLinked':
@@ -405,6 +425,8 @@ export class NetClient {
     else if (msg.t === 'approvalAsk') ev.onApprovalAsk({ id: msg.id, date: msg.date, child: msg.child, title: msg.title });
     else if (msg.t === 'pending') ev.onPending(msg.items);
     else if (msg.t === 'timeUp') ev.onTimeUp(msg.reason, msg.message);
+    else if (msg.t === 'dragons') ev.onDragons(msg.list);
+    else if (msg.t === 'nest') ev.onNest(msg.slots);
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }
 

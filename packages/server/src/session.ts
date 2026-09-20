@@ -28,6 +28,14 @@ const LINK_ERROR_KO: Record<string, string> = {
   ALREADY_LINKED: '이미 다른 가족에 연결돼 있어요',
   IS_PARENT: '이 이름은 부모로 연결돼 있어요. 아이는 자기 이름으로 들어가서 연결해요',
 };
+/** 둥지·부화 거절 이유 (M6-2) */
+const NEST_ERROR_KO: Record<string, string> = {
+  NOT_AT_NEST: '둥지 안에 서서 해요 (광장 북동쪽)',
+  NO_EGG: '그 알이 가방에 없어요',
+  BAD_SLOT: '그런 자리는 없어요',
+  SLOT_TAKEN: '그 자리엔 이미 알이 있어요',
+  NO_STORAGE: '이 서버는 드래곤을 저장할 수 없어요',
+};
 /** 할 일 체크 거절 이유 (M5-3) */
 const TODO_ERROR_KO: Record<string, string> = {
   NOT_CHILD: '가족에 연결된 아이만 할 일을 체크해요',
@@ -180,6 +188,8 @@ export class Session {
           expedition: result.expedition,
           inventory: result.inventory,
           xp: result.xp,
+          dragons: result.dragons,
+          nest: result.nest,
           needPin,
           family: this.family?.familyOfNick(nick) ?? null,
           today: this.family?.todayCard(nick) ?? null,
@@ -277,6 +287,25 @@ export class Session {
         if (fam === null) return this.error('NOT_PARENT', '부모로 연결된 플레이어만 승인할 수 있어요');
         if (!this.family.decideTodo(fam, msg.id, msg.date, msg.ok)) return this.error('NO_TODO', '그 할 일을 찾을 수 없어요');
         this.log(`세션 ${this.remote}: '${this.nick}' 할 일 ${msg.id} ${msg.ok ? '승인' : '거절'}`);
+        return;
+      }
+      case 'placeEgg': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.slot) || typeof msg.item !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.placeEgg(this.idx, msg.slot, msg.item);
+        if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 놓을 수 없어요');
+        return;
+      }
+      case 'hatch': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.id)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.hatch(this.idx, msg.id);
+        if (err?.startsWith('NEED_LEVEL:')) {
+          const [, need, have] = err.split(':');
+          return this.error('NEED_LEVEL', `레벨 ${need}이 있어야 부화해요 (지금 레벨 ${have}). 원정에서 광석을 캐고 보물을 열면 올라요`);
+        }
+        if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 부화할 수 없어요');
+        this.log(`세션 ${this.remote}: '${this.nick}' 부화`);
         return;
       }
       case 'craft': {
