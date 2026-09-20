@@ -25,8 +25,8 @@ if (-not (Test-Path $tsx)) { Add-Content $log "[$(Get-Date -Format s)] start-ser
 
 $env:PORT = "$port"
 $env:DV_DEFAULT_CODE = '482913'
-# 시간 제한 켬 (아빠 '제한해' 2026-09-20, 결정 #73). 끄려면 이 줄을 지우고 서버 재시작
-$env:DV_ENFORCE_TIME = '1'
+# 시간 제한 스위치 (결정 #73). 켤 때는 아래 줄의 # 을 지우고 서버 재시작. 2026-09-20 저녁 켬 → 같은 날 아빠 'M6 동안 잠깐 꺼놓고' 로 끔
+# $env:DV_ENFORCE_TIME = '1'
 Add-Content $log "[$(Get-Date -Format s)] start-server: launching $node $tsx src/index.ts"
 # cmd 를 거쳐 >> 로 이어 쓴다(Start-Process 의 리다이렉트는 파일을 덮어쓴다). 창은 숨김.
 $args = "/c `"`"$node`" `"$tsx`" src/index.ts >> `"$log`" 2>&1`""
