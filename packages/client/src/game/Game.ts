@@ -142,7 +142,6 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const remote = new RemotePlayers(scene);
   // 둥지의 드래곤들 (M6-3): 서버 자리대로 복셀 드래곤
   const nestDragons = new NestDragons(scene);
-  nestDragons.setNames((id) => DRAGONS.find(id)?.name ?? id);
   nestDragons.sync(welcome.nestDragons);
 
   // ---- HUD ----

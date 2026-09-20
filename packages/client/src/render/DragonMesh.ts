@@ -37,15 +37,9 @@ export class NestDragons {
   readonly group = new THREE.Group();
   private readonly entries = new Map<number, Entry>();
   private t = 0;
-  private nameOf: (dragonId: string) => string = (id) => id;
 
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
-  }
-
-  /** 드래곤 id → 한국어 이름 (이름표용) */
-  setNames(fn: (dragonId: string) => string): void {
-    this.nameOf = fn;
   }
 
   get visible(): boolean {
