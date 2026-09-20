@@ -1,4 +1,4 @@
-import type { TodayCard } from '@dragon-village/shared';
+import { type TodayCard, xpProgress } from '@dragon-village/shared';
 import type { ApprovalAsk } from '../net/NetClient';
 import type { TouchUI } from '../input/touch';
 

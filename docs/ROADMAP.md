@@ -249,10 +249,10 @@ M4 에서 하지 않는 것: 아이템 엔티티(바닥에 떨어지는 것 — 
 
 목표: **2주 뒤 접속한 친구가 "마을 커졌다"고 먼저 말한다. 아들이 경험치 레벨을 써서 첫 드래곤 알을 부화시키고, 안장을 얹어 타고, 빔을 쏜다.** 정본 `docs/XP-SYSTEM.md`(경험치)·`docs/DESIGN.md` 3절(드래곤 시스템)·`docs/DRAGON-SKILLS.md`·`data/xp.json`·`data/dragons.json`·`data/buildings.json`·`models/`. 규칙 4(할 일과 경험치 절대 연결 안 함)·1(경험치·드래곤·건물은 서버가 진실). 시간 제한은 M6 동안 꺼 둠(아빠).
 
-### 1. 경험치·레벨 (`shared/rules/xp.ts`, `data/xp.json`)
-- [ ] 순수 함수: 마인크래프트 Java 레벨 공식(`xpToNextLevel`·`totalXpForLevel`·`levelFromTotalXp`, 참고값 55/160/315/550/1395 vitest), `xp.json` 검증·로더(`XP`), 획득량 뽑기(범위는 자리·시드 결정론)
-- [ ] 서버: `players.xp_total`(토큰별, 정수), 획득 — 광석 캐기(`xp.json mining`)·원정 귀환 성공 10·보물 상자 열기 5(오두막 상자를 부수면 = 열기). 프로토콜 `XpGained 0x52`(양·자리)·`XpState 0x53`(총량·레벨·진행도, welcome·정정용)
-- [ ] 클라: 핫바 위 초록 경험치 바 + 가운데 레벨 숫자, 구슬이 튀어나와 날아오는 연출 + "딩"(음높이 흔들림)·레벨업 소리(Web Audio 합성, 파일 없음), 레벨 5/10/20/30 꾸미기 해제 토스트(모자·망토 그리기는 뒤로)
+### 1. 경험치·레벨 (`shared/rules/xp.ts`, `data/xp.json`) — 완료·라이브 2026-09-20
+- [x] 순수 함수: 마인크래프트 Java 레벨 공식(`xpToNextLevel`·`totalXpForLevel`·`levelFromTotalXp`, 참고값 55/160/315/550/1395 vitest), `xp.json` 검증·로더(`XP`), 획득량 뽑기(범위는 자리·시드 결정론)
+- [x] 서버: `players.xp_total`(토큰별, 정수), 획득 — 광석 캐기(`xp.json mining`)·원정 귀환 성공 10·보물 상자 열기 5(오두막 상자를 부수면 = 열기). 프로토콜 `XpGained 0x52`(양·자리)·`XpState 0x53`(총량·레벨·진행도, welcome·정정용)
+- [x] 클라: 핫바 위 초록 경험치 바 + 가운데 레벨 숫자, 구슬이 튀어나와 날아오는 연출 + "딩"(음높이 흔들림)·레벨업 소리(Web Audio 합성, 파일 없음), 레벨 5/10/20/30 꾸미기 해제 토스트(모자·망토 그리기는 뒤로)
 - [ ] 죽음 드롭·회수는 M7
 
 ### 2. 드래곤 알·둥지·부화 (`shared/rules/dragons.ts`, 서버 `dragons` 표)
