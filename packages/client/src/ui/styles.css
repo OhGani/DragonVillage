@@ -160,7 +160,7 @@ body {
 .slot-name {
   position: absolute;
   left: 50%;
-  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 66px);
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 86px);
   transform: translateX(-50%);
   color: #fff;
   font-size: 16px;
@@ -1310,4 +1310,57 @@ body {
   font-size: 14px;
   opacity: 0.9;
   color: #ffd257;
+}
+
+/* ---- 경험치 바·구슬 (M6-1) — 마인크래프트처럼 핫바 바로 위 ---- */
+.xp-bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 62px);
+  transform: translateX(-50%);
+  width: min(94vw, 468px);
+  height: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-radius: 4px;
+  pointer-events: none;
+}
+.xp-bar[hidden] {
+  display: none;
+}
+.xp-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(#b6ff5c, #7fff00);
+  border-radius: 2px;
+  transition: width 0.25s;
+}
+.xp-level {
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  transform: translate(-50%, -100%);
+  color: #7fff00;
+  font-weight: 800;
+  font-size: 18px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.9);
+  font-variant-numeric: tabular-nums;
+}
+.xp-level.zero {
+  opacity: 0.6;
+}
+.xp-orbs {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  overflow: hidden;
+}
+.xp-orb {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #e4ff9a, #7fff00 60%, #4c9e00);
+  box-shadow: 0 0 6px #7fff00;
 }

@@ -100,6 +100,8 @@ export interface PlayerRow {
   yaw: number;
   pitch: number;
   lastSeen: number;
+  /** 경험치 총량 (M6-1, 토큰별) */
+  xpTotal: number;
 }
 
 const SCHEMA = `
@@ -153,6 +155,7 @@ export class Storage {
     this.db.exec(SCHEMA);
     // 있던 표에 열 추가 (CREATE TABLE IF NOT EXISTS 는 열을 못 더한다)
     this.ensureColumn('time_ledger', 'no_play', 'INTEGER NOT NULL DEFAULT 0');
+    this.ensureColumn('players', 'xp_total', 'INTEGER NOT NULL DEFAULT 0');
     this.stmts = {
       getVillage: this.db.prepare('SELECT code, name, seed, gen_version AS genVersion, created_at AS createdAt FROM villages WHERE code = ?'),
       listVillages: this.db.prepare('SELECT code, name, seed, gen_version AS genVersion, created_at AS createdAt FROM villages ORDER BY created_at'),
@@ -164,7 +167,7 @@ export class Storage {
       ),
       countChunks: this.db.prepare('SELECT COUNT(*) AS n FROM chunk_diffs WHERE village = ?'),
       getPlayer: this.db.prepare(
-        'SELECT token, village, nick, color, x, y, z, yaw, pitch, last_seen AS lastSeen FROM players WHERE token = ?',
+        'SELECT token, village, nick, color, x, y, z, yaw, pitch, last_seen AS lastSeen, xp_total AS xpTotal FROM players WHERE token = ?',
       ),
       addItem: this.db.prepare(
         'INSERT INTO storage(village, item, count) VALUES (?, ?, ?) ON CONFLICT(village, item) DO UPDATE SET count = count + excluded.count',
@@ -227,10 +230,11 @@ export class Storage {
         'INSERT INTO inventories(token, village, json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(token) DO UPDATE SET village = excluded.village, json = excluded.json, updated_at = excluded.updated_at',
       ),
       upsertPlayer: this.db.prepare(
-        `INSERT INTO players(token, village, nick, color, x, y, z, yaw, pitch, last_seen)
-         VALUES (@token, @village, @nick, @color, @x, @y, @z, @yaw, @pitch, @lastSeen)
+        `INSERT INTO players(token, village, nick, color, x, y, z, yaw, pitch, last_seen, xp_total)
+         VALUES (@token, @village, @nick, @color, @x, @y, @z, @yaw, @pitch, @lastSeen, @xpTotal)
          ON CONFLICT(token) DO UPDATE SET village = excluded.village, nick = excluded.nick, color = excluded.color,
-           x = excluded.x, y = excluded.y, z = excluded.z, yaw = excluded.yaw, pitch = excluded.pitch, last_seen = excluded.last_seen`,
+           x = excluded.x, y = excluded.y, z = excluded.z, yaw = excluded.yaw, pitch = excluded.pitch, last_seen = excluded.last_seen,
+           xp_total = excluded.xp_total`,
       ),
     };
   }

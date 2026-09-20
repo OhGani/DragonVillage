@@ -11,6 +11,7 @@ import potionsJson from '../../../../data/potions.json';
 import recipesJson from '../../../../data/recipes.json';
 import redstoneJson from '../../../../data/redstone.json';
 import starterKitJson from '../../../../data/starter-kit.json';
+import xpJson from '../../../../data/xp.json';
 import { parseBlocks } from './blocks';
 import { parseExpeditions } from './expeditions';
 import { parseFamilyRules } from './family';
@@ -20,6 +21,7 @@ import { parseRecipes } from './recipes';
 import { parsePotions } from './potions';
 import { parseRedstone } from './redstone';
 import { parseStarterKit } from './starterKit';
+import { parseXp } from './xp';
 
 export const BLOCKS = parseBlocks(blocksJson);
 export const POTIONS = parsePotions(potionsJson);
@@ -29,6 +31,8 @@ export const RECIPES = parseRecipes(recipesJson);
 export const PHRASES = parsePhrases(phrasesJson);
 /** 가족 시간 규칙 (M5, 아들 값: 평일 20·주말 30·보너스 5) */
 export const FAMILY_RULES = parseFamilyRules(familyRulesJson);
+/** 경험치 규칙 (M6-1, 마인크래프트 값 + 우리 것) */
+export const XP = parseXp(xpJson);
 /** 처음 들어올 때 한 번 받는 것 (#67) */
 export const STARTER_KIT = parseStarterKit(starterKitJson);
 /** 아이템 id → 한국어 이름 (블록 아닌 것). 블록은 BLOCKS 에서 */

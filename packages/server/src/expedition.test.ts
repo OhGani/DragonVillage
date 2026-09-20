@@ -224,3 +224,27 @@ describe('귀환·정산·종료', () => {
     expect(storage.getPlayer('a'.repeat(32))).toMatchObject({ x: 64.5, y: GROUND_Y + 1 });
   });
 });
+
+describe('원정 경험치 (M6-1)', () => {
+  it('보물 상자를 부수면 5, 늦지 않게 돌아오면 10 + XpState', () => {
+    const { room, a, ia } = setup();
+    room.startExpedition(ia, 'grass_island', T0);
+    const e = room.expedition!;
+    const t = e.treasures[0]!;
+    expect(e.isTreasure(t.x, t.y, t.z)).toBe(true);
+    expect(BLOCKS.get(e.world.getBlock(t.x, t.y, t.z)).id).toBe('chest');
+    room.onMove(ia, { x: t.x + 0.5, y: t.y, z: t.z + 1.5, yaw: 0, pitch: 0, flags: 0 });
+    a.clear();
+    room.onBlockChange(ia, { seq: 1, ...t, id: 'air' }, T0 + 100);
+    expect(a.bin.find((m) => m.type === MSG.XpGained)).toMatchObject({ msg: { amount: 5, source: 2 } });
+    expect(room.xpOf(ia)).toBe(5);
+    // 귀환
+    room.onMove(ia, { x: e.portal.x, y: e.portal.y + 1, z: e.portal.z + 0.5, yaw: 0, pitch: 0, flags: 0 });
+    a.clear();
+    expect(room.returnHome(ia, T0 + 60_000)).toBeNull();
+    const gains = a.bin.filter((m) => m.type === MSG.XpGained).map((m) => (m.msg as { amount: number; source: number }));
+    expect(gains).toEqual([{ amount: 10, source: 1, x: expect.any(Number), y: expect.any(Number), z: expect.any(Number) }]);
+    expect(a.bin.find((m) => m.type === MSG.XpState)).toMatchObject({ msg: { total: 15 } });
+    expect(room.xpOf(ia)).toBe(15);
+  });
+});

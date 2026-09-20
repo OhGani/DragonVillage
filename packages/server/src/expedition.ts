@@ -43,6 +43,9 @@ export class Expedition {
   ended = false;
   /** 생성 ms */
   readonly genMs: number;
+  /** 보물 오두막 상자 자리 (열면 = 부수면 경험치, M6-1) */
+  readonly treasures: readonly { x: number; y: number; z: number }[];
+  private readonly treasureKeys: Set<string>;
 
   constructor(
     readonly def: ExpeditionDef,
@@ -55,11 +58,17 @@ export class Expedition {
     this.world = gen.world;
     this.spawn = gen.spawn;
     this.portal = gen.layout.portal;
+    this.treasures = gen.layout.treasures;
+    this.treasureKeys = new Set(gen.layout.treasures.map((t) => `${t.x},${t.y},${t.z}`));
     this.genVersion = ISLAND_GEN_VERSION;
     this.genMs = gen.ms;
     this.endsAt = startedAt + def.durationSec * 1000;
     this.fluids = new FluidSim(this.world, registry);
     this.fluids.onBlockSet = (x, y, z) => this.batch.push({ x, y, z, id: registry.get(this.world.getBlock(x, y, z)).id });
+  }
+
+  isTreasure(x: number, y: number, z: number): boolean {
+    return this.treasureKeys.has(`${x},${y},${z}`);
   }
 
   elapsedSec(now: number): number {

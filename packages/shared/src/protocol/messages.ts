@@ -38,6 +38,10 @@ export const MSG = {
   ExpeditionTimer: 0x30,
   /** 양방향 채팅: 이모지·문구 번호만 (규칙 3). C→S 는 idx 무시 */
   Emote: 0x40,
+  /** 경험치를 얻었다 (M6-1) S→C */
+  XpGained: 0x52,
+  /** 경험치 총량 정정 S→C */
+  XpState: 0x53,
   Ping: 0x7f,
   Pong: 0x7e,
 } as const;
@@ -124,6 +128,25 @@ export interface PingMsg {
   clientMs: number;
 }
 /** 원정 시각 (1Hz). phase 0 낮, 1 저녁, 2 밤 (shared/rules/expeditions phaseAt) */
+/** 경험치를 얻었다 (M6-1): 양·출처(XP_SOURCE)·자리(구슬 연출). 클라는 총량에 더한다 */
+export interface XpGainedMsg {
+  amount: number;
+  source: number;
+  x: number;
+  y: number;
+  z: number;
+}
+/** 경험치 총량 정정 (귀환 뒤 등) */
+export interface XpStateMsg {
+  total: number;
+}
+export function encodeXpGained(m: XpGainedMsg): Uint8Array {
+  return new ByteWriter(16).u8(MSG.XpGained).u16(Math.min(65535, Math.max(0, Math.floor(m.amount)))).u8(m.source & 0xff).f32(m.x).f32(m.y).f32(m.z).finish();
+}
+export function encodeXpState(m: XpStateMsg): Uint8Array {
+  return new ByteWriter(5).u8(MSG.XpState).u32(Math.max(0, Math.floor(m.total)) >>> 0).finish();
+}
+
 export interface ExpeditionTimerMsg {
   elapsedSec: number;
   durationSec: number;
@@ -224,6 +247,8 @@ export type ServerBinary =
   | { type: typeof MSG.BlockBatch; msg: BlockBatchMsg }
   | { type: typeof MSG.ChunkData; msg: ChunkDataMsg }
   | { type: typeof MSG.ExpeditionTimer; msg: ExpeditionTimerMsg }
+  | { type: typeof MSG.XpGained; msg: XpGainedMsg }
+  | { type: typeof MSG.XpState; msg: XpStateMsg }
   | { type: typeof MSG.InvSlots; msg: InvSlotsMsg }
   | { type: typeof MSG.Emote; msg: EmoteMsg }
   | { type: typeof MSG.Pong; msg: PingMsg };
@@ -277,6 +302,10 @@ export function decodeServerBinary(bytes: Uint8Array): ServerBinary | null {
       return { type, msg: { cx: r.i32(), cy: r.i32(), cz: r.i32(), bytes: r.bytes() } };
     case MSG.ExpeditionTimer:
       return { type, msg: { elapsedSec: r.u16(), durationSec: r.u16(), phase: r.u8() } };
+    case MSG.XpGained:
+      return { type, msg: { amount: r.u16(), source: r.u8(), x: r.f32(), y: r.f32(), z: r.f32() } };
+    case MSG.XpState:
+      return { type, msg: { total: r.u32() } };
     case MSG.InvSlots: {
       const n = r.u8();
       const slots: InvSlotEntry[] = [];
@@ -397,6 +426,8 @@ export type ServerJson =
       parentOf?: string | null;
       /** 부모 플레이어: 지금 승인 기다리는 것들 (M5-3) */
       pending?: ApprovalItem[];
+      /** 내 경험치 총량 (M6-1). 레벨·바는 클라가 공식으로 계산 */
+      xp?: number;
     }
   | { t: 'familyLinked'; code: string }
   /** 오늘 카드가 바뀌었다 (체크·승인·1분 경과·할 일 편집) */

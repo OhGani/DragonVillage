@@ -7,6 +7,8 @@
 import {
   type ApprovalItem,
   type TodayCard,
+  type XpGainedMsg,
+  type XpStateMsg,
   type BlockBatchMsg,
   type BlockChangeReqMsg,
   type BlockChangeRejectedMsg,
@@ -61,6 +63,8 @@ export interface Welcome {
   parentOf: string | null;
   /** 부모 플레이어: 지금 승인 기다리는 것들 */
   pending: ApprovalItem[];
+  /** 내 경험치 총량 (M6-1) */
+  xp: number;
 }
 
 /** 세계 전환 (worldEnter … ChunkData … ready 를 하나로 모은 것) */
@@ -108,6 +112,10 @@ export interface NetEvents {
   onPending(items: ApprovalItem[]): void;
   /** 오늘은 여기까지 (M5-4, 제한이 켜져 있을 때). 곧 연결이 닫힌다 */
   onTimeUp(reason: string, message: string): void;
+  /** 경험치를 얻었다 (M6-1) */
+  onXpGained(m: XpGainedMsg): void;
+  /** 경험치 총량 정정 */
+  onXpState(m: XpStateMsg): void;
 }
 
 export type ApprovalAsk = ApprovalItem;
@@ -328,6 +336,7 @@ export class NetClient {
           today: msg.today ?? null,
           parentOf: msg.parentOf ?? null,
           pending: msg.pending ?? [],
+          xp: msg.xp ?? 0,
         };
         return;
       case 'familyLinked':
@@ -444,6 +453,12 @@ export class NetClient {
         break;
       case MSG.Emote:
         ev.onEmote(m.msg);
+        break;
+      case MSG.XpGained:
+        ev.onXpGained(m.msg);
+        break;
+      case MSG.XpState:
+        ev.onXpState(m.msg);
         break;
     }
   }

@@ -179,6 +179,7 @@ export class Session {
           chunkCount: room.modifiedCount,
           expedition: result.expedition,
           inventory: result.inventory,
+          xp: result.xp,
           needPin,
           family: this.family?.familyOfNick(nick) ?? null,
           today: this.family?.todayCard(nick) ?? null,

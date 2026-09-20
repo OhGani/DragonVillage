@@ -10,6 +10,13 @@ export interface HotbarSlot {
   icon: HTMLCanvasElement | null;
 }
 
+let orbSeed = 0x2545f491;
+function orbRnd(): number {
+  orbSeed ^= orbSeed << 13;
+  orbSeed ^= orbSeed >>> 17;
+  orbSeed ^= orbSeed << 5;
+  return (orbSeed >>> 0) / 4294967296;
+}
 const GAUGE_R = 15;
 const GAUGE_C = 2 * Math.PI * GAUGE_R;
 /** 방위각 0°·45°·… 순서. 마인크래프트와 같이 -Z 가 북, +X 가 동 */
@@ -21,6 +28,11 @@ export class Hud {
   readonly touchUI: TouchUI;
   private readonly gaugeFg: SVGCircleElement;
   private readonly hotbar: HTMLElement;
+  // 경험치 바 (M6-1)
+  private readonly xpBar: HTMLElement;
+  private readonly xpFill: HTMLElement;
+  private readonly xpLevel: HTMLElement;
+  private readonly orbLayer: HTMLElement;
   private readonly slotEls: HTMLElement[] = [];
   private readonly slotName: HTMLElement;
   private readonly toastEl: HTMLElement;
@@ -92,6 +104,8 @@ export class Hud {
         <circle class="gauge-fg" cx="20" cy="20" r="${GAUGE_R}"></circle>
       </svg>
       <div class="slot-name"></div>
+      <div class="xp-bar" hidden><div class="xp-fill"></div><div class="xp-level"></div></div>
+      <div class="xp-orbs"></div>
       <div class="hotbar"></div>
       <div class="side-btns">
         <button class="sbtn bag-btn" aria-label="가방">🎒</button>
@@ -185,6 +199,10 @@ export class Hud {
     this.gaugeFg.style.strokeDasharray = `${GAUGE_C}`;
     this.gaugeFg.style.strokeDashoffset = `${GAUGE_C}`;
     this.hotbar = q('.hotbar');
+    this.xpBar = q('.xp-bar');
+    this.xpFill = q('.xp-fill');
+    this.xpLevel = q('.xp-level');
+    this.orbLayer = q('.xp-orbs');
     this.slotName = q('.slot-name');
     this.toastEl = q('.toast');
     this.debugEl = q('.debug-text');
@@ -508,6 +526,45 @@ export class Hud {
     this.onApprove?.(ask, ok);
     // 서버가 곧 새 목록을 보내지만, 먼저 칩 숫자를 내려 둔다
     this.setPending(this.pending.filter((i) => !(i.id === ask.id && i.date === ask.date)));
+  }
+
+  // ---------------------------------------------------------------- 경험치 (M6-1)
+
+  /** 초록 바 + 레벨 숫자. 마인크래프트처럼 핫바 바로 위 */
+  setXp(total: number): void {
+    const p = xpProgress(total);
+    this.xpBar.hidden = false;
+    this.xpFill.style.width = `${Math.round(p.progress * 100)}%`;
+    this.xpLevel.textContent = String(p.level);
+    this.xpLevel.classList.toggle('zero', p.level === 0);
+  }
+
+  /** 구슬 연출: 화면 (sx, sy) 에서 튀어나와 경험치 바로 날아간다 (흔들림은 시드 xorshift — Math.random 금지 규칙 통일) */
+  xpOrbs(sx: number, sy: number, count: number): void {
+    const bar = this.xpBar.getBoundingClientRect();
+    const host = this.el.getBoundingClientRect();
+    const tx = bar.left + bar.width / 2 - host.left;
+    const ty = bar.top + bar.height / 2 - host.top;
+    for (let i = 0; i < count; i++) {
+      const orb = document.createElement('div');
+      orb.className = 'xp-orb';
+      const ang = orbRnd() * Math.PI * 2;
+      const r = 12 + orbRnd() * 28;
+      const mx = sx + Math.cos(ang) * r;
+      const my = sy + Math.sin(ang) * r - 20;
+      orb.style.left = `${sx}px`;
+      orb.style.top = `${sy}px`;
+      this.orbLayer.appendChild(orb);
+      const anim = orb.animate(
+        [
+          { transform: 'translate(-50%, -50%) scale(0.6)', opacity: 0.9, left: `${sx}px`, top: `${sy}px` },
+          { transform: 'translate(-50%, -50%) scale(1.1)', opacity: 1, left: `${mx}px`, top: `${my}px`, offset: 0.3 },
+          { transform: 'translate(-50%, -50%) scale(0.5)', opacity: 0.2, left: `${tx}px`, top: `${ty}px` },
+        ],
+        { duration: 550 + orbRnd() * 350, delay: i * 40, easing: 'cubic-bezier(0.3, 0.1, 0.2, 1)', fill: 'forwards' },
+      );
+      anim.onfinish = () => orb.remove();
+    }
   }
 
   /** 가족 연결 상태 (게임 방법 창 아래). code 가 있으면 연결됨 */

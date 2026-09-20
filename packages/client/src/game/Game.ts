@@ -1,5 +1,8 @@
 import {
   AIR_ID,
+  COSMETIC_KO,
+  unlockedBetween,
+  xpProgress,
   type TodayCard,
   canStartExpedition,
   expeditionNeedMin,
@@ -31,8 +34,9 @@ import {
   portalContains,
   skyLightAt,
 } from '@dragon-village/shared';
-import { BLOCKS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, PHRASES, POTIONS, RECIPES } from '@dragon-village/shared/data';
+import { BLOCKS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, PHRASES, POTIONS, RECIPES, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
+import { ding, levelUp } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
 import { InputManager } from '../input/InputManager';
 import { KeyboardMouse } from '../input/keyboard';
@@ -353,6 +357,28 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   // ---- 서버에서 오는 것 ----
   let disconnected = false;
   let endedByTime = false;
+  // 경험치 (M6-1): 서버가 진실, 클라는 더하며 연출. 레벨·바는 공식으로
+  let xpTotal = welcome.xp;
+  hud.setXp(xpTotal);
+  const onXp = (total: number, orbAt: { x: number; y: number; z: number } | null, amount: number) => {
+    const before = xpProgress(xpTotal).level;
+    xpTotal = total;
+    hud.setXp(xpTotal);
+    if (orbAt) {
+      const v = new THREE.Vector3(orbAt.x, orbAt.y, orbAt.z).project(camera);
+      const w = renderer.domElement.clientWidth,
+        h = renderer.domElement.clientHeight;
+      const onScreen = v.z < 1 && Math.abs(v.x) <= 1.1 && Math.abs(v.y) <= 1.1;
+      hud.xpOrbs(onScreen ? ((v.x + 1) / 2) * w : w / 2, onScreen ? ((1 - v.y) / 2) * h : h * 0.55, Math.min(8, 2 + Math.ceil(amount / 2)));
+      ding();
+    }
+    const after = xpProgress(xpTotal).level;
+    if (after > before) {
+      levelUp();
+      const unlocked = unlockedBetween(XP, before, after);
+      hud.toast(unlocked.length ? `레벨 ${after}! ${unlocked.map((u) => COSMETIC_KO[u.id] ?? u.id).join('·')} 열렸어요` : `레벨 ${after}!`, 4000);
+    }
+  };
   /** 아이의 오늘 카드 (M5-3/4). 아이가 아니면 null */
   let todayCard = welcome.today;
   /** 카드가 갱신될 때: 표시 + (제한이 켜져 있을 때) 5분·1분 경고, 차단 5분 전 경고 */
@@ -420,6 +446,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     },
     onError: (_code, message) => hud.toast(message, 4000),
     onToday: (card) => onTodayCard(card),
+    onXpGained: (m) => onXp(xpTotal + m.amount, { x: m.x, y: m.y, z: m.z }, m.amount),
+    onXpState: (m) => onXp(m.total, null, 0),
     onTimeUp: (_reason, message) => {
       // 오늘은 여기까지 (제한이 켜져 있을 때만 온다). 서버가 곧 연결을 닫으니 그 전에 화면을 바꾼다
       endedByTime = true;

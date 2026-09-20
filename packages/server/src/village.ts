@@ -62,11 +62,15 @@ import {
   encodeChunkData,
   encodeEmote,
   encodeExpeditionTimer,
+  encodeXpGained,
+  encodeXpState,
+  miningXp,
+  XP_SOURCE,
   encodeInvSlots,
   encodePlayersState,
   generateVillage,
 } from '@dragon-village/shared';
-import { EXPEDITIONS, PHRASES, POTIONS, RECIPES, STARTER_KIT } from '@dragon-village/shared/data';
+import { EXPEDITIONS, PHRASES, POTIONS, RECIPES, STARTER_KIT, XP } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import type { Storage } from './storage';
@@ -106,6 +110,8 @@ export interface RoomPlayer {
   /** 양조기 연료 남은 횟수 */
   brewFuel: number;
   lastEmote: number;
+  /** 경험치 총량 (M6-1, 서버가 진실) */
+  xp: number;
 }
 
 export interface JoinResult {
@@ -114,6 +120,8 @@ export interface JoinResult {
   players: PlayerInfo[];
   expedition: ExpeditionStateInfo | null;
   inventory: Inventory;
+  /** 내 경험치 총량 */
+  xp: number;
 }
 
 export interface RoomOptions {
@@ -242,7 +250,7 @@ export class VillageRoom {
     const inv = savedInv ?? emptyInventory();
     // 처음 온 사람(가방 저장이 없음)에게 시작 키트 (#67). 저장소가 없는 시험 룸도 준다
     if (savedInv === null && this.starterKit) for (const [item, n] of Object.entries(this.starterKit)) give(inv, item, n);
-    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0 };
+    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0 };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     const me = this.toInfo(player);
@@ -250,7 +258,7 @@ export class VillageRoom {
     this.savePlayer(player);
     if (savedInv === null) this.storage?.saveInventory(token, this.info.code, inv); // 키트는 한 번만 — 바로 저장해 둔다
     this.log(`마을 ${this.info.code}: ${nick}(#${idx}) 입장${savedInv === null ? ' (처음, 시작 키트)' : ''}, ${this.players.size}명`);
-    return { idx, spawn: me, players: others, expedition: this.expeditionState(), inventory: inv };
+    return { idx, spawn: me, players: others, expedition: this.expeditionState(), inventory: inv, xp: player.xp };
   }
 
   /** 입장 직후: 생성 지형과 다른 청크를 전부 보낸다 */
@@ -419,6 +427,10 @@ export class VillageRoom {
         this.giveTo(p, drop.item, drop.count, changed);
         if (drop.bonus) this.giveTo(p, drop.bonus.item, drop.bonus.count, changed);
       }
+      // 경험치 (M6-1): 광석은 xp.json 값(자리·시드 결정론), 원정 보물 상자는 열기 = 부수기
+      const mined = miningXp(XP, prev.id, req.x, req.y, req.z, seed);
+      if (mined > 0) this.addXp(p, mined, XP_SOURCE.mining, req.x + 0.5, req.y + 0.5, req.z + 0.5);
+      if (prev.id === 'chest' && p.world === 'expedition' && this.expedition?.isTreasure(req.x, req.y, req.z)) this.addXp(p, XP.ours.treasureChestOpen, XP_SOURCE.treasure, req.x + 0.5, req.y + 0.5, req.z + 0.5);
     } else {
       const item = itemForPlacing(req.id, this.registry);
       if (item) {
@@ -691,6 +703,9 @@ export class VillageRoom {
     this.sendModifiedChunks(p.send);
     this.sendJson(p, { t: 'ready' });
     this.sendJson(p, { t: 'expeditionState', expedition: this.expeditionState(now) });
+    // 원정 귀환 성공 경험치 (M6-1): 늦지 않게 돌아오면. 세계가 바뀐 뒤에 보내 마을 스폰 자리에 구슬이 뜬다
+    if (!late) this.addXp(p, XP.ours.expeditionReturn, XP_SOURCE.expeditionReturn, p.pos.x, p.pos.y + 1, p.pos.z, now);
+    p.send(encodeXpState({ total: p.xp }));
     this.savePlayer(p, now);
     this.storage?.saveInventory(p.token, this.info.code, p.inv, now);
     this.log(`마을 ${this.info.code}: ${p.nick} 귀환${late ? '(늦음)' : ''} — ${items.map((i) => `${i.id}×${i.count}`).join(', ') || '빈손'}`);
@@ -824,7 +839,22 @@ export class VillageRoom {
       yaw: p.pos.yaw,
       pitch: p.pos.pitch,
       lastSeen: now,
+      xpTotal: p.xp,
     });
+  }
+
+  /** 경험치 주기 (M6-1): 총량에 더하고 XpGained(양·자리)를 보낸다. 저장은 바로 */
+  private addXp(p: RoomPlayer, amount: number, source: number, x: number, y: number, z: number, now = Date.now()): void {
+    const n = Math.floor(amount);
+    if (n <= 0) return;
+    p.xp += n;
+    p.send(encodeXpGained({ amount: n, source, x, y, z }));
+    this.savePlayer(p, now);
+  }
+
+  /** 시험용 */
+  xpOf(idx: number): number {
+    return this.players.get(idx)?.xp ?? 0;
   }
 
   private sendJson(p: RoomPlayer, obj: unknown): void {

@@ -278,3 +278,32 @@ describe('VillageRoom 액체 틱과 저장', () => {
     expect(room.info.genVersion).toBe(VILLAGE_GEN_VERSION);
   });
 });
+
+describe('경험치 (M6-1)', () => {
+  it('광석을 캐면 xp.json 값만큼 XpGained, 총량은 저장된다. 돌은 0', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    a.clear();
+    room.world.setBlock(66, GROUND_Y + 1, 64, BLOCKS.numOf('diamond_ore'));
+    room.world.setBlock(66, GROUND_Y + 1, 65, BLOCKS.numOf('stone'));
+    room.onBlockChange(ra.idx, { seq: 1, x: 66, y: GROUND_Y + 1, z: 64, id: 'air' }, 1000);
+    const got = a.bin.find((m) => m.type === MSG.XpGained)!;
+    expect(got).toBeDefined();
+    const amount = (got.msg as { amount: number }).amount;
+    expect(amount).toBeGreaterThanOrEqual(3);
+    expect(amount).toBeLessThanOrEqual(7);
+    expect(got.msg).toMatchObject({ source: 0, x: 66.5, y: GROUND_Y + 1.5, z: 64.5 });
+    expect(room.xpOf(ra.idx)).toBe(amount);
+    expect(storage.getPlayer('a'.repeat(32))!.xpTotal).toBe(amount);
+    a.clear();
+    room.onBlockChange(ra.idx, { seq: 2, x: 66, y: GROUND_Y + 1, z: 65, id: 'air' }, 1200);
+    expect(a.bin.find((m) => m.type === MSG.XpGained)).toBeUndefined();
+    // 다시 들어오면 총량이 welcome 에 실려 온다
+    room.leave(ra.idx);
+    const b = inbox();
+    const rb = room.join('a'.repeat(32), '아빠', 0, b.send)!;
+    expect(rb.xp).toBe(amount);
+  });
+});
