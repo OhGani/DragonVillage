@@ -30,7 +30,7 @@ const LINK_ERROR_KO: Record<string, string> = {
 };
 /** 둥지·부화 거절 이유 (M6-2) */
 const NEST_ERROR_KO: Record<string, string> = {
-  NOT_AT_NEST: '둥지 안에 서서 해요 (광장 북동쪽)',
+  NOT_AT_NEST: '둥지 안에 서서 해요 (광장 남쪽 길 끝)',
   NO_EGG: '그 알이 가방에 없어요',
   BAD_SLOT: '그런 자리는 없어요',
   SLOT_TAKEN: '그 자리엔 이미 알이 있어요',

@@ -783,7 +783,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const p = ctx.player.pos;
     const inside = portalContains(ctx.portalPos, p.x, p.y, p.z);
     if (!inside) {
-      // 둥지 안 (M6-2): 광장 북동쪽
+      // 둥지 안 (M6-2): 광장 남쪽 집터
       if (ctx.kind === 'village' && nestContains(GROUND_Y, p.x, p.y, p.z)) {
         hud.showAction('드래곤 둥지', '알을 놓고, 레벨을 써서 부화시켜요', '둥지 열기' + KEY_HINT, openNest);
         return;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import dragonsJson from '../../../../data/dragons.json';
 import { DRAGONS, ITEM_NAMES, RECIPES } from './data';
-import { NEST, dragonOfEgg, eggItem, eggRecipes, isEggItem, nestBlocks, nestContains, nestSlotPos, parseDragons } from './dragons';
+import { NEST, OLD_NEST_SITES, dragonOfEgg, eggItem, eggRecipes, isEggItem, isNestBuiltAt, nestBlocks, nestBlocksAt, nestContains, nestSlotPos, parseDragons } from './dragons';
 import { emptyInventory, give } from './inventory';
 import { canCraft, craft } from './recipes';
 
@@ -47,18 +47,28 @@ describe('드래곤 16종 (M6-2)', () => {
     expect(inv.some((s) => s?.item === 'log')).toBe(false);
   });
 
-  it('둥지: 광장 북동쪽 7×7, 자리 4개, 안에 서 있는 판정', () => {
+  it('둥지: 광장 남쪽 집터 7×7(생성기 집 뼈대 x 61~66/z 82~86 을 덮음), 자리 4개, 안에 서 있는 판정', () => {
+    expect(NEST).toMatchObject({ x0: 60, z0: 81, size: 7 });
     const blocks = nestBlocks(40);
     expect(blocks.filter((b) => b.y === 40)).toHaveLength(49);
-    expect(blocks.find((b) => b.x === 74 && b.z === 42 && b.y === 40)!.id).toBe('log');
-    expect(blocks.find((b) => b.x === 77 && b.z === 45 && b.y === 40)!.id).toBe('hay_bale');
-    expect(blocks.find((b) => b.x === 74 && b.z === 42 && b.y === 44)!.id).toBe('glowstone');
+    expect(blocks.find((b) => b.x === 60 && b.z === 81 && b.y === 40)!.id).toBe('log');
+    expect(blocks.find((b) => b.x === 63 && b.z === 84 && b.y === 40)!.id).toBe('hay_bale');
+    expect(blocks.find((b) => b.x === 60 && b.z === 81 && b.y === 44)!.id).toBe('glowstone');
     expect(blocks.filter((b) => b.y === 42 && b.id === 'air')).toHaveLength(45);
-    expect(nestSlotPos(40, 0)).toEqual({ x: 75, y: 41, z: 43 });
+    expect(blocks.filter((b) => b.y === 45)).toHaveLength(49); // 집 지붕(y 45)까지 덮는다
+    expect(nestSlotPos(40, 0)).toEqual({ x: 61, y: 41, z: 82 });
     expect(nestSlotPos(40, 4)).toBeNull();
-    expect(nestContains(40, 77.5, 41, 45.5)).toBe(true);
+    expect(nestContains(40, 63.5, 41, 84.5)).toBe(true);
     expect(nestContains(40, 64.5, 41, 64.5)).toBe(false);
-    expect(nestContains(40, 77.5, 50, 45.5)).toBe(false);
+    expect(nestContains(40, 63.5, 50, 84.5)).toBe(false);
+    // 옛 자리(북동쪽)와 판정 함수
+    expect(OLD_NEST_SITES).toEqual([{ x0: 74, z0: 42 }]);
+    const old = nestBlocksAt(40, 74, 42);
+    expect(old.find((b) => b.x === 77 && b.z === 45 && b.y === 40)!.id).toBe('hay_bale');
+    const map = new Map(old.map((b) => [`${b.x},${b.y},${b.z}`, b.id]));
+    const idAt = (x: number, y: number, z: number) => map.get(`${x},${y},${z}`) ?? 'grass';
+    expect(isNestBuiltAt(idAt, 40, 74, 42)).toBe(true);
+    expect(isNestBuiltAt(idAt, 40, 60, 81)).toBe(false);
     for (const s of NEST.slots) expect(nestContains(40, s.x + 0.5, 41, s.z + 0.5)).toBe(true);
   });
 

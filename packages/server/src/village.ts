@@ -68,9 +68,13 @@ import {
   type DragonInfo,
   type NestSlotInfo,
   GROUND_Y,
+  NEST,
+  OLD_NEST_SITES,
   dragonOfEgg,
   hatchCost,
+  isNestBuiltAt,
   nestBlocks,
+  nestBlocksAt,
   nestContains,
   nestSlotPos,
   spendLevels,
@@ -197,23 +201,46 @@ export class VillageRoom {
     this.spawn = gen.spawn;
     this.fluids = new FluidSim(this.world, registry);
     this.fluids.onBlockSet = (x, y, z) => this.batch.push({ x, y, z, id: registry.get(this.world.getBlock(x, y, z)).id });
+    const pristine = this.snapshotOldNestSites(); // 저장을 덮기 전, 생성 지형 그대로
     this.load();
-    this.ensureNest();
+    this.ensureNest(pristine);
+  }
+
+  /** 옛 둥지 자리들의 생성 지형 (되돌릴 때 쓴다) */
+  private snapshotOldNestSites(): Map<string, number[]> {
+    const out = new Map<string, number[]>();
+    for (const s of OLD_NEST_SITES) out.set(`${s.x0},${s.z0}`, nestBlocksAt(GROUND_Y, s.x0, s.z0).map((b) => this.world.getBlock(b.x, b.y, b.z)));
+    return out;
   }
 
   // ---------------------------------------------------------------- 둥지·드래곤 (M6-2)
 
   /** 둥지 1단계가 없으면 블록으로 짓는다 (생성기를 안 바꾸고 바뀐 청크로 — 저장을 지키기 위해, 결정 #76). 저장된 알도 다시 세운다 */
-  private ensureNest(): void {
+  private ensureNest(pristine: Map<string, number[]>): void {
+    const idAt = (x: number, y: number, z: number) => this.registry.get(this.world.getBlock(x, y, z)).id;
+    // 옛 자리에 둥지가 남아 있으면 생성 지형으로 되돌린다 (아빠 집과 겹쳤던 자리, 2026-09-20)
+    for (const s of OLD_NEST_SITES) {
+      if (!isNestBuiltAt(idAt, GROUND_Y, s.x0, s.z0)) continue;
+      const orig = pristine.get(`${s.x0},${s.z0}`) ?? [];
+      const coords = nestBlocksAt(GROUND_Y, s.x0, s.z0);
+      let n = 0;
+      coords.forEach((b, i) => {
+        const num = orig[i];
+        if (num !== undefined && this.world.setBlock(b.x, b.y, b.z, num).changed) {
+          this.markDirtyBlock(b.x, b.y, b.z);
+          n++;
+        }
+      });
+      this.log(`마을 ${this.info.code}: 옛 둥지 자리(x ${s.x0}~${s.x0 + 6}, z ${s.z0}~${s.z0 + 6})를 원래 땅으로 되돌렸어요 (${n}칸)`);
+    }
     const blocks = nestBlocks(GROUND_Y);
-    const marker = blocks.find((b) => b.y === GROUND_Y)!; // 모서리 원목
-    const has = this.registry.get(this.world.getBlock(marker.x, marker.y, marker.z)).id === marker.id;
+    const has = isNestBuiltAt(idAt, GROUND_Y, NEST.x0, NEST.z0);
     if (!has) {
       for (const b of blocks) {
         const res = this.world.setBlock(b.x, b.y, b.z, this.registry.numOf(b.id));
         if (res.changed) this.markDirtyBlock(b.x, b.y, b.z);
       }
-      this.log(`마을 ${this.info.code}: 드래곤 둥지를 지었어요 (${nestBlocks(GROUND_Y).length}칸)`);
+      this.log(`마을 ${this.info.code}: 드래곤 둥지를 지었어요 — 광장 남쪽 집터 (${blocks.length}칸)`);
     }
     const egg = this.registry.numOf('dragon_egg');
     for (const row of this.storage?.listNestEggs(this.info.code) ?? []) {

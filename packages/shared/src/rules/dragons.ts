@@ -2,7 +2,8 @@
  * 드래곤 (M6-2, data/dragons.json — 아들 설계 16종). 검증·조회, 알 아이템, 알 레시피, 둥지 자리.
  *
  * - 알 아이템 id: `dragon_egg.<dragon id>` (예: dragon_egg.wood). 재료(recipe)를 제작대에서 모으면 알 하나.
- * - 둥지(1단계, 4마리)는 마을 광장 북동쪽 7×7. 세계 생성기를 바꾸면 저장이 날아가므로 서버가 켜질 때 블록으로 짓는다(결정 #76).
+ * - 둥지(1단계, 4마리)는 마을 광장 남쪽 집터(생성기의 집 뼈대 자리) 7×7. 세계 생성기를 바꾸면 저장이 날아가므로 서버가 켜질 때 블록으로 짓는다(결정 #76).
+ *   처음(2026-09-20)엔 북동쪽 x 74~80/z 42~48 에 지었는데 아빠가 지은 집과 겹쳐 남쪽으로 옮겼다 — 옛 자리는 OLD_NEST_SITES 로 서버가 생성 지형으로 되돌린다.
  * - 알을 둥지 자리에 놓으면 `dragon_egg` 블록이 서고(못 부숨), 레벨을 내고 부화시키면 아기 드래곤이 된다.
  */
 import { z } from 'zod';
@@ -125,17 +126,17 @@ export function eggRecipes(dragons: DragonRegistry): RecipeDef[] {
 
 // ---------------------------------------------------------------- 둥지 (1단계, 4자리)
 
-/** 둥지 1단계: 마을 광장 북동쪽. 7×7 바닥, 자리 4개. y 는 광장 높이(GROUND_Y) */
+/** 둥지 1단계: 마을 광장 남쪽 집터(길 끝, 생성기 HOUSE x 61~66/z 82~86 을 덮는다). 7×7 바닥, 자리 4개. y 는 광장 높이(GROUND_Y) */
 export const NEST = {
-  x0: 74,
-  z0: 42,
+  x0: 60,
+  z0: 81,
   size: 7,
   /** 알 자리 (바닥 위 한 칸에 알 블록이 선다) */
   slots: [
-    { x: 75, z: 43 },
-    { x: 79, z: 43 },
-    { x: 75, z: 47 },
-    { x: 79, z: 47 },
+    { x: 61, z: 82 },
+    { x: 65, z: 82 },
+    { x: 61, z: 86 },
+    { x: 65, z: 86 },
   ] as readonly { x: number; z: number }[],
   /** 둥지 안에 서 있는 판정 높이 (바닥 y 부터 이만큼) */
   height: 5,
@@ -146,10 +147,24 @@ export function nestContains(groundY: number, px: number, py: number, pz: number
   return px >= NEST.x0 && px < NEST.x0 + NEST.size && pz >= NEST.z0 && pz < NEST.z0 + NEST.size && py >= groundY && py < groundY + NEST.height + 1;
 }
 
+/** 예전에 둥지를 지었던 자리들 — 서버가 켜질 때 이 자리에 둥지가 남아 있으면 생성 지형으로 되돌린다 (아빠 집과 겹침, 2026-09-20) */
+export const OLD_NEST_SITES: readonly { x0: number; z0: number }[] = [{ x0: 74, z0: 42 }];
+
 /** 둥지 구조물: 어디에 무엇을 놓나 (서버가 켜질 때 한 번, 클라 표시용 아님) */
 export function nestBlocks(groundY: number): { x: number; y: number; z: number; id: string }[] {
+  return nestBlocksAt(groundY, NEST.x0, NEST.z0);
+}
+
+/** 둥지가 (x0, z0) 에 지어져 있나: 모서리 원목·가운데 건초·기둥 위 발광석 세 곳을 본다 */
+export function isNestBuiltAt(idAt: (x: number, y: number, z: number) => string, groundY: number, x0: number, z0: number): boolean {
+  const mid = (NEST.size - 1) >> 1;
+  return idAt(x0, groundY, z0) === 'log' && idAt(x0 + mid, groundY, z0 + mid) === 'hay_bale' && idAt(x0, groundY + 4, z0) === 'glowstone';
+}
+
+/** 둥지 구조물을 (x0, z0) 기준으로 */
+export function nestBlocksAt(groundY: number, x0: number, z0: number): { x: number; y: number; z: number; id: string }[] {
   const out: { x: number; y: number; z: number; id: string }[] = [];
-  const { x0, z0, size } = NEST;
+  const { size } = NEST;
   for (let dx = 0; dx < size; dx++)
     for (let dz = 0; dz < size; dz++) {
       const x = x0 + dx,
