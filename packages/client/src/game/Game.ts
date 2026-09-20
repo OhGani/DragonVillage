@@ -428,8 +428,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       kbm.enabled = false;
       hud.hideToday();
       hud.hideAction();
-      hud.showOverlay('오늘은 여기까지!', message + '
-확인을 누르면 마을에서 나가요.', '확인'); // 확인 → 새로 고침(로비)
+      hud.showOverlay('오늘은 여기까지!', message + '\n확인을 누르면 마을에서 나가요.', '확인'); // 확인 → 새로 고침(로비)
     },
     onApprovalAsk: (ask) => hud.showApproval(ask),
     onPending: (items) => hud.setPending(items),
