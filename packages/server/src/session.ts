@@ -311,6 +311,7 @@ export class Session {
       return;
     }
     if (!this.room) return;
+    if (this.ending) return; // 오늘은 여기까지 — 확인 누를 때까지 화면만 남고 더 못 논다
     // 활동 감지 (5분 무입력 자동 로그아웃): 자리만 지키는 PlayerMove 는 활동이 아니다
     if (d.type === MSG.PlayerMove) {
       const m = d.msg;
@@ -325,13 +326,19 @@ export class Session {
     else if (d.type === MSG.Emote) this.room.onEmote(this.idx, d.msg.kind, d.msg.id);
   }
 
-  /** 오늘은 여기까지: timeUp 을 보낸 뒤 잠깐 있다가 연결을 닫는다 (클라가 화면을 바꿀 시간) */
+/** timeUp 뒤 클라가 "확인"을 안 눌러도 이만큼 지나면 서버가 닫는다 */
+  private static readonly TIME_UP_GRACE_MS = 60_000;
+
+  /**
+   * 오늘은 여기까지: timeUp 을 보내면 클라는 안내 창을 띄우고 "확인"을 누르면 스스로 나간다(아빠 2026-09-20: 갑자기 튕기지 않게).
+   * 그동안 게임 메시지는 무시하고(더 못 논다), 확인을 안 누르면 60초 뒤 서버가 닫는다
+   */
   private endByTime(): void {
     if (this.ending) return;
     this.ending = true;
     if (this.usageTimer) clearInterval(this.usageTimer);
     this.usageTimer = null;
-    setTimeout(() => this.ws.close(4002, 'TIME_UP'), 1500);
+    setTimeout(() => this.ws.close(4002, 'TIME_UP'), Session.TIME_UP_GRACE_MS);
   }
 
   private onClose(): void {
