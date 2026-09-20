@@ -8,8 +8,30 @@
     {
       "name": "dev",
       "runtimeExecutable": "C:\\Users\\smile-user\\AppData\\Local\\Packages\\claude_pzs8sxrjxfjjc\\LocalCache\\Local\\nodejs\\node-v22.23.2-win-x64\\node.exe",
-      "runtimeArgs": ["packages/client/node_modules/vite/bin/vite.js", "packages/client", "--port", "5174", "--strictPort"],
+      "runtimeArgs": [
+        "packages/client/node_modules/vite/bin/vite.js",
+        "packages/client",
+        "--port",
+        "5174",
+        "--strictPort"
+      ],
       "port": 5174
+    },
+    {
+      "name": "server-test",
+      "runtimeExecutable": "C:\\Users\\smile-user\\AppData\\Local\\Packages\\claude_pzs8sxrjxfjjc\\LocalCache\\Local\\nodejs\\node-v22.23.2-win-x64\\node.exe",
+      "runtimeArgs": [
+        "tools/dev/test-server.cjs"
+      ],
+      "port": 5175
+    },
+    {
+      "name": "dev-test",
+      "runtimeExecutable": "C:\\Users\\smile-user\\AppData\\Local\\Packages\\claude_pzs8sxrjxfjjc\\LocalCache\\Local\\nodejs\\node-v22.23.2-win-x64\\node.exe",
+      "runtimeArgs": [
+        "tools/dev/test-vite.cjs"
+      ],
+      "port": 5176
     }
   ]
 }
