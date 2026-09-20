@@ -33,6 +33,8 @@ export class Hud {
   private readonly xpFill: HTMLElement;
   private readonly xpLevel: HTMLElement;
   private readonly orbLayer: HTMLElement;
+  /** 날아가는 구슬·글자 (tickEffects 가 움직인다) */
+  private readonly effects: { el: HTMLElement; kind: 'orb' | 'label'; t: number; delay: number; dur: number; sx: number; sy: number; mx: number; my: number; tx: number; ty: number }[] = [];
   private readonly slotEls: HTMLElement[] = [];
   private readonly slotName: HTMLElement;
   private readonly toastEl: HTMLElement;
@@ -372,11 +374,6 @@ export class Hud {
   }
 
   /** 손에 든 아이템 id (빈 칸이면 null) */
-  /** 지금 고른 핫바 칸 번호 (0..9) */
-  get selectedIndex(): number {
-    return this.selected;
-  }
-
   get selectedItem(): string | null {
     return this.slots[this.selected]?.item ?? null;
   }
@@ -544,51 +541,76 @@ export class Hud {
     this.xpLevel.classList.toggle('zero', p.level === 0);
   }
 
-  /** 구슬 연출: 화면 (sx, sy) 에서 튀어나와 경험치 바로 날아간다 (흔들림은 시드 xorshift — Math.random 금지 규칙 통일) */
+  /**
+   * 구슬 연출: 화면 (sx, sy) 에서 튀어나와 경험치 바로 날아간다. "+N" 글자도 바 위로 떠오른다.
+   * 브라우저 애니메이션 API 대신 게임 프레임(tickEffects)에서 직접 움직인다 — 폰에서 확실히 보이고, 숨긴 탭·테스트에서도 같은 코드
+   * (흔들림은 시드 xorshift — Math.random 금지 규칙 통일)
+   */
   xpOrbs(sx: number, sy: number, count: number, amount = 0): void {
-    // "+N" 글자가 바 위로 떠오른다 (아빠 2026-09-20: 구슬이 안 보였다 → 크고 오래, 글자도)
-    if (amount > 0) {
-      const label = document.createElement('div');
-      label.className = 'xp-float';
-      label.textContent = `+${amount}`;
-      const b0 = this.xpBar.getBoundingClientRect();
-      const h0 = this.el.getBoundingClientRect();
-      label.style.left = `${b0.left + b0.width / 2 - h0.left}px`;
-      label.style.top = `${b0.top - h0.top - 28}px`;
-      this.orbLayer.appendChild(label);
-      const la = label.animate(
-        [
-          { transform: 'translate(-50%, 0) scale(0.8)', opacity: 0 },
-          { transform: 'translate(-50%, -10px) scale(1.15)', opacity: 1, offset: 0.2 },
-          { transform: 'translate(-50%, -40px) scale(1)', opacity: 0 },
-        ],
-        { duration: 1600, easing: 'ease-out', fill: 'forwards' },
-      );
-      la.onfinish = () => label.remove();
-    }
     const bar = this.xpBar.getBoundingClientRect();
     const host = this.el.getBoundingClientRect();
     const tx = bar.left + bar.width / 2 - host.left;
     const ty = bar.top + bar.height / 2 - host.top;
+    if (amount > 0) {
+      const label = document.createElement('div');
+      label.className = 'xp-float';
+      label.textContent = `+${amount}`;
+      label.style.left = `${tx}px`;
+      label.style.top = `${ty - 28}px`;
+      label.style.opacity = '0';
+      this.orbLayer.appendChild(label);
+      this.effects.push({ el: label, kind: 'label', t: 0, delay: 0, dur: 1.6, sx: tx, sy: ty - 28, mx: tx, my: ty - 68, tx, ty: ty - 68 });
+    }
     for (let i = 0; i < count; i++) {
       const orb = document.createElement('div');
       orb.className = 'xp-orb';
-      const ang = orbRnd() * Math.PI * 2;
-      const r = 24 + orbRnd() * 56;
-      const mx = sx + Math.cos(ang) * r;
-      const my = sy + Math.sin(ang) * r - 40;
       orb.style.left = `${sx}px`;
       orb.style.top = `${sy}px`;
+      orb.style.opacity = '0';
       this.orbLayer.appendChild(orb);
-      const anim = orb.animate(
-        [
-          { transform: 'translate(-50%, -50%) scale(0.6)', opacity: 0.9, left: `${sx}px`, top: `${sy}px` },
-          { transform: 'translate(-50%, -50%) scale(1.1)', opacity: 1, left: `${mx}px`, top: `${my}px`, offset: 0.3 },
-          { transform: 'translate(-50%, -50%) scale(0.5)', opacity: 0.2, left: `${tx}px`, top: `${ty}px` },
-        ],
-        { duration: 1100 + orbRnd() * 500, delay: i * 70, easing: 'cubic-bezier(0.3, 0.1, 0.2, 1)', fill: 'forwards' },
-      );
-      anim.onfinish = () => orb.remove();
+      const ang = orbRnd() * Math.PI * 2;
+      const r = 24 + orbRnd() * 56;
+      this.effects.push({ el: orb, kind: 'orb', t: 0, delay: i * 0.07, dur: 1.1 + orbRnd() * 0.5, sx, sy, mx: sx + Math.cos(ang) * r, my: sy + Math.sin(ang) * r - 40, tx, ty });
+    }
+  }
+
+  /** 매 프레임: 구슬·글자를 움직인다 (Game 의 tick 에서) */
+  tickEffects(dt: number): void {
+    if (this.effects.length === 0) return;
+    const ease = (u: number) => 1 - (1 - u) * (1 - u);
+    for (let i = this.effects.length - 1; i >= 0; i--) {
+      const e = this.effects[i]!;
+      e.t += dt;
+      const u = Math.max(0, Math.min(1, (e.t - e.delay) / e.dur));
+      if (e.t < e.delay) continue;
+      let x: number, y: number, scale: number, opacity: number;
+      if (e.kind === 'label') {
+        x = e.sx;
+        y = e.sy + (e.ty - e.sy) * u;
+        scale = u < 0.2 ? 0.8 + (u / 0.2) * 0.35 : 1.15 - ((u - 0.2) / 0.8) * 0.15;
+        opacity = u < 0.2 ? u / 0.2 : 1 - (u - 0.2) / 0.8;
+      } else if (u < 0.3) {
+        const v = ease(u / 0.3); // 튀어나오기
+        x = e.sx + (e.mx - e.sx) * v;
+        y = e.sy + (e.my - e.sy) * v;
+        scale = 0.6 + 0.5 * v;
+        opacity = 0.9 + 0.1 * v;
+      } else {
+        const v = (u - 0.3) / 0.7; // 바로 날아가기 (점점 빨라짐)
+        const w = v * v;
+        x = e.mx + (e.tx - e.mx) * w;
+        y = e.my + (e.ty - e.my) * w;
+        scale = 1.1 - 0.6 * v;
+        opacity = 1 - 0.8 * v;
+      }
+      e.el.style.left = `${x}px`;
+      e.el.style.top = `${y}px`;
+      e.el.style.opacity = String(opacity);
+      e.el.style.transform = `translate(-50%, -50%) scale(${scale.toFixed(3)})`;
+      if (u >= 1) {
+        e.el.remove();
+        this.effects.splice(i, 1);
+      }
     }
   }
 

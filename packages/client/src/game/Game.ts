@@ -796,6 +796,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     if ((sizeCheck = (sizeCheck + 1) % 15) === 0) applySize();
 
     const inp = input.frame(dt);
+    hud.tickEffects(dt);
     if (inp.toggleDebug) debugVisible = !debugVisible;
     if (inp.slotDelta !== 0) hud.selectDelta(inp.slotDelta);
     if (inp.slotSelect >= 0) hud.select(inp.slotSelect);

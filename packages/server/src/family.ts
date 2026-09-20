@@ -281,16 +281,6 @@ export class FamilyService {
     this.notifyParents(familyId, { t: 'pending', items: this.pendingItems(familyId) });
   }
 
-  /** 부모 플레이어의 게임 화면용: 승인 기다리는 목록 */
-  pendingItems(familyId: number): ApprovalItem[] {
-    return this.pendingApprovals(familyId).map((p) => ({ id: p.todoId, date: p.date, child: p.child, title: p.title }));
-  }
-
-  /** 승인 대기 목록이 바뀌면 접속 중인 부모 플레이어에게 */
-  private pushPending(familyId: number): void {
-    this.notifyParents(familyId, { t: 'pending', items: this.pendingItems(familyId) });
-  }
-
   // ---------------------------------------------------------------- 할 일
 
   private toTodo(r: TodoRow): Todo {

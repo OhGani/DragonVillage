@@ -2,7 +2,7 @@
  * SQLite 저장 (better-sqlite3). 마을·바뀐 청크·플레이어. ARCHITECTURE.md '저장' 절의 M2 부분.
  * 청크 blob 은 shared/chunk/serialize 의 형식(문자열 팔레트 + RLE) 그대로.
  */
-import { type Inventory, isValidInventory } from '@dragon-village/shared';
+import { type Inventory, type TodoStatus, isValidInventory } from '@dragon-village/shared';
 import Database from 'better-sqlite3';
 import { copyFileSync } from 'node:fs';
 
@@ -59,7 +59,8 @@ export interface TodoRow {
 export interface TodoLogRow {
   todoId: number;
   date: string;
-  status: string;
+  /** pending | checked | approved | rejected (shared TodoStatus) */
+  status: TodoStatus;
   checkedAt: number | null;
   decidedAt: number | null;
 }
@@ -392,7 +393,7 @@ export class Storage {
   getLog(todoId: number, date: string): TodoLogRow | undefined {
     return this.stmts.getLog.get(todoId, date) as TodoLogRow | undefined;
   }
-  upsertLog(todoId: number, date: string, status: string, checkedAt: number | null, decidedAt: number | null): void {
+  upsertLog(todoId: number, date: string, status: TodoStatus, checkedAt: number | null, decidedAt: number | null): void {
     this.stmts.upsertLog.run(todoId, date, status, checkedAt, decidedAt);
   }
   /** 아이의 기록 (sinceDate 이후) */
