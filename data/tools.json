@@ -1,0 +1,56 @@
+{
+  "_comment": "곡괭이 등급 — 아들 설계(2026-09-20). speed = 맨손으로 돌을 캘 때보다 몇 배 빠른가(곡괭이가 필요한 블록에만). tier = 캘 수 있는 등급: blocks.json 의 toolTier 가 이 값 이하인 블록만 캘 수 있다(맨손은 toolTier 0 만). obsidianSpeed = 흑요석을 캘 때 속도(맨손으로 돌 캐는 속도 기준 배수) — 없으면 흑요석을 못 캔다. durability = 내구도(쓸 수 있는 횟수, 대장간·수리와 함께 M6-6 에서 적용 예정). enchantSpeedPerLevel = 인챈트 한 단계마다 곱하는 속도(인챈트는 v1.1). 네더라이트 광석(ancient_debris)은 네더에만 있다(네더 원정지는 v1.1).",
+  "enchantSpeedPerLevel": 1.5,
+  "pickaxes": [
+    {
+      "id": "wooden_pickaxe",
+      "name": "나무 곡괭이",
+      "tier": 0,
+      "speed": 1.5,
+      "durability": 59,
+      "_note": "돌 캐는 속도 1.5배. 광석은 못 캔다"
+    },
+    {
+      "id": "stone_pickaxe",
+      "name": "돌 곡괭이",
+      "tier": 1,
+      "speed": 3,
+      "durability": 131,
+      "_note": "나무의 2배. 석탄·철·청금석·석영 광석까지"
+    },
+    {
+      "id": "iron_pickaxe",
+      "name": "철 곡괭이",
+      "tier": 2,
+      "speed": 7.5,
+      "durability": 250,
+      "_note": "돌의 2.5배. 모든 광석"
+    },
+    {
+      "id": "golden_pickaxe",
+      "name": "금 곡괭이",
+      "tier": 2,
+      "speed": 7,
+      "durability": 32,
+      "_note": "철보다 살짝 느리고 내구도는 매우 약함. 모든 광석"
+    },
+    {
+      "id": "diamond_pickaxe",
+      "name": "다이아몬드 곡괭이",
+      "tier": 3,
+      "speed": 18.75,
+      "obsidianSpeed": 1.5,
+      "durability": 1561,
+      "_note": "철의 2.5배. 흑요석은 나무 곡괭이로 돌 캐는 속도"
+    },
+    {
+      "id": "netherite_pickaxe",
+      "name": "네더라이트 곡괭이",
+      "tier": 4,
+      "speed": 37.5,
+      "obsidianSpeed": 3,
+      "durability": 2031,
+      "_note": "다이아몬드의 2배. 흑요석은 돌 곡괭이로 돌 캐는 속도"
+    }
+  ]
+}

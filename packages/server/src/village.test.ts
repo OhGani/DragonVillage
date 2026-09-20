@@ -285,10 +285,11 @@ describe('경험치 (M6-1)', () => {
     const room = makeRoom(storage);
     const a = inbox();
     const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.giveItems(ra.idx, 'iron_pickaxe', 1); // 칸 0 — 다이아 광석은 철 곡괭이부터
     a.clear();
     room.world.setBlock(66, GROUND_Y + 1, 64, BLOCKS.numOf('diamond_ore'));
     room.world.setBlock(66, GROUND_Y + 1, 65, BLOCKS.numOf('stone'));
-    room.onBlockChange(ra.idx, { seq: 1, x: 66, y: GROUND_Y + 1, z: 64, id: 'air' }, 1000);
+    room.onBlockChange(ra.idx, { seq: 1, x: 66, y: GROUND_Y + 1, z: 64, id: 'air', slot: 0 }, 1000);
     const got = a.bin.find((m) => m.type === MSG.XpGained)!;
     expect(got).toBeDefined();
     const amount = (got.msg as { amount: number }).amount;
@@ -298,12 +299,37 @@ describe('경험치 (M6-1)', () => {
     expect(room.xpOf(ra.idx)).toBe(amount);
     expect(storage.getPlayer('a'.repeat(32))!.xpTotal).toBe(amount);
     a.clear();
-    room.onBlockChange(ra.idx, { seq: 2, x: 66, y: GROUND_Y + 1, z: 65, id: 'air' }, 1200);
+    room.onBlockChange(ra.idx, { seq: 2, x: 66, y: GROUND_Y + 1, z: 65, id: 'air', slot: 0 }, 1200);
     expect(a.bin.find((m) => m.type === MSG.XpGained)).toBeUndefined();
     // 다시 들어오면 총량이 welcome 에 실려 온다
     room.leave(ra.idx);
     const b = inbox();
     const rb = room.join('a'.repeat(32), '아빠', 0, b.send)!;
     expect(rb.xp).toBe(amount);
+  });
+});
+
+describe('곡괭이 등급 (아들 2026-09-20)', () => {
+  it('맨손·나무 곡괭이로 석탄 광석은 TOOL 거절, 돌 곡괭이면 캔다. 돌은 맨손 ok', () => {
+    const { room, a, ia } = (() => {
+      const room = makeRoom();
+      const a = inbox();
+      const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+      room.giveItems(ra.idx, 'wooden_pickaxe', 1); // 칸 0
+      room.giveItems(ra.idx, 'stone_pickaxe', 1); // 칸 1
+      a.clear();
+      return { room, a, ia: ra.idx };
+    })();
+    room.world.setBlock(66, GROUND_Y + 1, 64, BLOCKS.numOf('coal_ore'));
+    room.world.setBlock(66, GROUND_Y + 1, 65, BLOCKS.numOf('stone'));
+    room.onBlockChange(ia, { seq: 1, x: 66, y: GROUND_Y + 1, z: 64, id: 'air' }, 1000); // 맨손
+    expect(a.bin.filter((m) => m.type === MSG.BlockChangeRejected).map((m) => m.msg)).toEqual([{ seq: 1, reason: REJECT.TOOL }]);
+    room.onBlockChange(ia, { seq: 2, x: 66, y: GROUND_Y + 1, z: 64, id: 'air', slot: 0 }, 1100); // 나무
+    expect(a.bin.filter((m) => m.type === MSG.BlockChangeRejected).at(-1)!.msg).toEqual({ seq: 2, reason: REJECT.TOOL });
+    room.onBlockChange(ia, { seq: 3, x: 66, y: GROUND_Y + 1, z: 65, id: 'air' }, 1200); // 돌은 맨손 ok
+    expect(room.world.getBlock(66, GROUND_Y + 1, 65)).toBe(0);
+    room.onBlockChange(ia, { seq: 4, x: 66, y: GROUND_Y + 1, z: 64, id: 'air', slot: 1 }, 1300); // 돌 곡괭이
+    expect(room.world.getBlock(66, GROUND_Y + 1, 64)).toBe(0);
+    expect(countOf(room.players.get(ia)!.inv, 'coal')).toBe(1);
   });
 });

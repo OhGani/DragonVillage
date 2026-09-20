@@ -1358,9 +1358,18 @@ body {
 }
 .xp-orb {
   position: absolute;
-  width: 9px;
-  height: 9px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, #e4ff9a, #7fff00 60%, #4c9e00);
   box-shadow: 0 0 6px #7fff00;
+}
+
+.xp-float {
+  position: absolute;
+  color: #b6ff5c;
+  font-weight: 900;
+  font-size: 22px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.9);
+  pointer-events: none;
 }

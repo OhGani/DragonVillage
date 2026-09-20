@@ -101,6 +101,8 @@ export interface BlockChangeReqMsg {
   z: number;
   /** 블록 문자열 id. 'air' = 부수기 */
   id: string;
+  /** 손에 든 핫바 칸(0..9). 서버가 곡괭이 등급을 확인한다(곡괭이 규칙). 없으면 생략(255) */
+  slot?: number;
 }
 export interface BlockChangedMsg {
   x: number;
@@ -189,7 +191,7 @@ export function encodePlayersState(list: readonly PlayerStateEntry[]): Uint8Arra
   return w.finish();
 }
 export function encodeBlockChangeReq(m: BlockChangeReqMsg): Uint8Array {
-  return new ByteWriter(32).u8(MSG.BlockChangeReq).u16(m.seq).i32(m.x).i32(m.y).i32(m.z).str(m.id).finish();
+  return new ByteWriter(32).u8(MSG.BlockChangeReq).u16(m.seq).i32(m.x).i32(m.y).i32(m.z).str(m.id).u8(m.slot ?? 255).finish();
 }
 export function encodeBlockChanged(m: BlockChangedMsg): Uint8Array {
   return new ByteWriter(32).u8(MSG.BlockChanged).i32(m.x).i32(m.y).i32(m.z).str(m.id).u8(m.by).finish();
@@ -262,7 +264,15 @@ export function decodeClientBinary(bytes: Uint8Array): ClientBinary | null {
     case MSG.PlayerMove:
       return { type, msg: { x: r.f32(), y: r.f32(), z: r.f32(), yaw: r.f32(), pitch: r.f32(), flags: r.u8() } };
     case MSG.BlockChangeReq:
-      return { type, msg: { seq: r.u16(), x: r.i32(), y: r.i32(), z: r.i32(), id: r.str() } };
+      return {
+        type,
+        msg: (() => {
+          const m: BlockChangeReqMsg = { seq: r.u16(), x: r.i32(), y: r.i32(), z: r.i32(), id: r.str() };
+          const slot = r.remaining > 0 ? r.u8() : 255;
+          if (slot !== 255) m.slot = slot;
+          return m;
+        })(),
+      };
     case MSG.InvMove:
       return { type, msg: { from: r.u8(), to: r.u8(), count: r.u8() } };
     case MSG.InvDrop:

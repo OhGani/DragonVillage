@@ -228,7 +228,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const sendBlock = (x: number, y: number, z: number, newNum: number, prev: number) => {
     seq = (seq + 1) & 0xffff;
     pending.set(seq, { x, y, z, prev, id: newNum });
-    net.sendBlockChange({ seq, x, y, z, id: registry.get(newNum).id });
+    net.sendBlockChange({ seq, x, y, z, id: registry.get(newNum).id, slot: hud.selectedIndex });
     if (pending.size > 200) pending.delete(pending.keys().next().value!); // 응답이 영영 안 오면 오래된 것부터 잊는다
   };
   const forgetPendingAt = (x: number, y: number, z: number) => {
@@ -275,6 +275,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         light.markChanged(x, y, z);
         sendBlock(x, y, z, AIR_ID, prev);
       },
+      onHint: (text) => hud.toast(text, 2000),
     });
     const portalPos = gen.layout.portal;
     const portal = new PortalView(scene, portalPos, kind === 'expedition' ? 0x3fbcfc : 0x8a3ffc);
@@ -369,8 +370,13 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       const w = renderer.domElement.clientWidth,
         h = renderer.domElement.clientHeight;
       const onScreen = v.z < 1 && Math.abs(v.x) <= 1.1 && Math.abs(v.y) <= 1.1;
-      hud.xpOrbs(onScreen ? ((v.x + 1) / 2) * w : w / 2, onScreen ? ((1 - v.y) / 2) * h : h * 0.55, Math.min(8, 2 + Math.ceil(amount / 2)));
-      ding();
+      const sx = onScreen ? ((v.x + 1) / 2) * w : w / 2,
+        sy = onScreen ? ((1 - v.y) / 2) * h : h * 0.55;
+      // 귀환 직후엔 세계를 바꾸느라 화면이 잠깐 멈추므로 조금 뒤에 띄운다
+      window.setTimeout(() => {
+        hud.xpOrbs(sx, sy, Math.min(10, 3 + Math.ceil(amount / 2)), amount);
+        ding();
+      }, 350);
     }
     const after = xpProgress(xpTotal).level;
     if (after > before) {
@@ -794,6 +800,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     if (inp.slotDelta !== 0) hud.selectDelta(inp.slotDelta);
     if (inp.slotSelect >= 0) hud.select(inp.slotSelect);
     interaction.selectedBlock = heldBlock();
+    interaction.heldItem = hud.selectedItem;
 
     player.update(inp, dt);
     interaction.update(inp, dt);

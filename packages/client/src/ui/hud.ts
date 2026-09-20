@@ -372,6 +372,11 @@ export class Hud {
   }
 
   /** 손에 든 아이템 id (빈 칸이면 null) */
+  /** 지금 고른 핫바 칸 번호 (0..9) */
+  get selectedIndex(): number {
+    return this.selected;
+  }
+
   get selectedItem(): string | null {
     return this.slots[this.selected]?.item ?? null;
   }
@@ -540,7 +545,27 @@ export class Hud {
   }
 
   /** 구슬 연출: 화면 (sx, sy) 에서 튀어나와 경험치 바로 날아간다 (흔들림은 시드 xorshift — Math.random 금지 규칙 통일) */
-  xpOrbs(sx: number, sy: number, count: number): void {
+  xpOrbs(sx: number, sy: number, count: number, amount = 0): void {
+    // "+N" 글자가 바 위로 떠오른다 (아빠 2026-09-20: 구슬이 안 보였다 → 크고 오래, 글자도)
+    if (amount > 0) {
+      const label = document.createElement('div');
+      label.className = 'xp-float';
+      label.textContent = `+${amount}`;
+      const b0 = this.xpBar.getBoundingClientRect();
+      const h0 = this.el.getBoundingClientRect();
+      label.style.left = `${b0.left + b0.width / 2 - h0.left}px`;
+      label.style.top = `${b0.top - h0.top - 28}px`;
+      this.orbLayer.appendChild(label);
+      const la = label.animate(
+        [
+          { transform: 'translate(-50%, 0) scale(0.8)', opacity: 0 },
+          { transform: 'translate(-50%, -10px) scale(1.15)', opacity: 1, offset: 0.2 },
+          { transform: 'translate(-50%, -40px) scale(1)', opacity: 0 },
+        ],
+        { duration: 1600, easing: 'ease-out', fill: 'forwards' },
+      );
+      la.onfinish = () => label.remove();
+    }
     const bar = this.xpBar.getBoundingClientRect();
     const host = this.el.getBoundingClientRect();
     const tx = bar.left + bar.width / 2 - host.left;
@@ -549,9 +574,9 @@ export class Hud {
       const orb = document.createElement('div');
       orb.className = 'xp-orb';
       const ang = orbRnd() * Math.PI * 2;
-      const r = 12 + orbRnd() * 28;
+      const r = 24 + orbRnd() * 56;
       const mx = sx + Math.cos(ang) * r;
-      const my = sy + Math.sin(ang) * r - 20;
+      const my = sy + Math.sin(ang) * r - 40;
       orb.style.left = `${sx}px`;
       orb.style.top = `${sy}px`;
       this.orbLayer.appendChild(orb);
@@ -561,7 +586,7 @@ export class Hud {
           { transform: 'translate(-50%, -50%) scale(1.1)', opacity: 1, left: `${mx}px`, top: `${my}px`, offset: 0.3 },
           { transform: 'translate(-50%, -50%) scale(0.5)', opacity: 0.2, left: `${tx}px`, top: `${ty}px` },
         ],
-        { duration: 550 + orbRnd() * 350, delay: i * 40, easing: 'cubic-bezier(0.3, 0.1, 0.2, 1)', fill: 'forwards' },
+        { duration: 1100 + orbRnd() * 500, delay: i * 70, easing: 'cubic-bezier(0.3, 0.1, 0.2, 1)', fill: 'forwards' },
       );
       anim.onfinish = () => orb.remove();
     }

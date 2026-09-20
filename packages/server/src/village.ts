@@ -63,6 +63,8 @@ import {
   encodeEmote,
   encodeExpeditionTimer,
   encodeXpGained,
+  canBreakWith,
+  pickaxeOf,
   encodeXpState,
   miningXp,
   XP_SOURCE,
@@ -70,7 +72,7 @@ import {
   encodePlayersState,
   generateVillage,
 } from '@dragon-village/shared';
-import { EXPEDITIONS, PHRASES, POTIONS, RECIPES, STARTER_KIT, XP } from '@dragon-village/shared/data';
+import { EXPEDITIONS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import type { Storage } from './storage';
@@ -350,6 +352,9 @@ export class VillageRoom {
         return null;
       }
       if (cur.hardness === null) return REJECT.UNBREAKABLE;
+      // 곡괭이 등급 (아들 2026-09-20): 손에 든 칸의 곡괭이로 이 블록을 캘 수 있나. 맨손은 toolTier 0 만
+      const held = req.slot !== undefined && req.slot >= 0 && req.slot < p.inv.length ? (p.inv[req.slot]?.item ?? null) : null;
+      if (!canBreakWith(cur, pickaxeOf(TOOLS, held))) return REJECT.TOOL;
       return null;
     }
     // 놓기: 액체는 플레이어가 놓는 고인 액체 8/8 만(자연 원천·흐름은 못 놓는다), 그 외 내부 블록 불가, 자리는 공기·액체만, 누가 서 있으면 안 됨

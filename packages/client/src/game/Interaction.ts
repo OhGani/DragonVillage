@@ -7,9 +7,13 @@ import {
   type RayHit,
   type VoxelWorld,
   bodyOverlapsBlock,
+  breakSeconds,
   facingOf,
+  needToolText,
+  pickaxeOf,
   raycastVoxels,
 } from '@dragon-village/shared';
+import { TOOLS } from '@dragon-village/shared/data';
 import type { InputState } from '../input/InputState';
 import { PLAYER_SIZE, type Player } from '../player/Player';
 
@@ -24,6 +28,8 @@ export interface InteractionEvents {
   onPlaced?(x: number, y: number, z: number, id: number, prev: number): void;
   /** 부쐈다: prev 가 부서진 블록 */
   onBroken?(x: number, y: number, z: number, prev: number): void;
+  /** 못 캐는 이유 등 짧은 안내 (토스트) */
+  onHint?(text: string): void;
 }
 
 /** 조준·부수기·놓기. 서버가 생기면(M2) setBlock 이 요청으로 바뀌고 나머지는 그대로. */
@@ -37,6 +43,9 @@ export class Interaction {
   private swingTimer = 0;
   /** 현재 손에 든 블록 번호 (없으면 0) */
   selectedBlock = 0;
+  /** 현재 손에 든 아이템 id (곡괭이 등급·속도용). 빈손이면 null */
+  heldItem: string | null = null;
+  private hintTimer = 0;
 
   constructor(
     private readonly world: VoxelWorld,
@@ -123,7 +132,18 @@ export class Interaction {
       } else if (def.hardness === null) {
         this.progress = 0; // 부술 수 없음 (기반암)
       } else if (this.cooldown <= 0) {
-        this.progress += def.hardness <= 0 ? 1 : dt / def.hardness;
+        // 곡괭이 등급·속도 (아들 2026-09-20): 곡괭이가 필요한 블록은 든 곡괭이로 시간이 달라지고, 등급이 낮으면 못 캔다
+        const secs = breakSeconds(def, pickaxeOf(TOOLS, this.heldItem));
+        if (secs === null) {
+          this.progress = 0;
+          this.hintTimer -= dt;
+          if (this.hintTimer <= 0) {
+            this.events.onHint?.(needToolText(def));
+            this.hintTimer = 2;
+          }
+          return;
+        }
+        this.progress += secs <= 0 ? 1 : dt / secs;
         if (this.progress >= 1) {
           const res = this.world.setBlock(t.x, t.y, t.z, AIR_ID);
           if (res.changed) {

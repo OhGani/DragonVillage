@@ -150,7 +150,7 @@
       "name": "철 광석",
       "hardness": 3.0,
       "tool": "pickaxe",
-      "toolTier": 2,
+      "toolTier": 1,
       "lightEmit": 0,
       "texture": "iron_ore"
     },
@@ -159,7 +159,7 @@
       "name": "금 광석",
       "hardness": 3.0,
       "tool": "pickaxe",
-      "toolTier": 3,
+      "toolTier": 2,
       "lightEmit": 0,
       "texture": "gold_ore"
     },
@@ -168,7 +168,7 @@
       "name": "다이아몬드 광석",
       "hardness": 3.0,
       "tool": "pickaxe",
-      "toolTier": 3,
+      "toolTier": 2,
       "drops": "diamond",
       "lightEmit": 0,
       "texture": "diamond_ore"
@@ -226,7 +226,7 @@
       "name": "엔드 돌",
       "hardness": 3.0,
       "tool": "pickaxe",
-      "toolTier": 2,
+      "toolTier": 1,
       "lightEmit": 0,
       "texture": "end_stone"
     },
@@ -276,7 +276,7 @@
       "name": "고대 잔해",
       "hardness": 30.0,
       "tool": "pickaxe",
-      "toolTier": 3,
+      "toolTier": 2,
       "lightEmit": 0,
       "texture": "ancient_debris"
     },
