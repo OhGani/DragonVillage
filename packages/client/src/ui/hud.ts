@@ -46,6 +46,8 @@ export class Hud {
   readonly fullscreenBtn: HTMLButtonElement;
   readonly debugBtn: HTMLButtonElement;
   readonly bagBtn: HTMLButtonElement;
+  /** 드래곤에서 내리기 (M6-4, 탈 때만 보임) */
+  readonly rideBtn: HTMLButtonElement;
   readonly familyBtn: HTMLButtonElement;
   private readonly familyText: HTMLElement;
   // 오늘 카드·승인 (M5-3)
@@ -112,6 +114,7 @@ export class Hud {
       <div class="side-btns">
         <button class="sbtn bag-btn" aria-label="가방">🎒</button>
         <button class="sbtn chat-btn" aria-label="채팅">💬</button>
+        <button class="sbtn ride-btn" aria-label="드래곤에서 내리기" hidden>🐉 내리기</button>
       </div>
       <div class="touch-controls">
         <div class="stick-base" hidden><div class="stick-knob"></div></div>
@@ -215,6 +218,7 @@ export class Hud {
     this.fullscreenBtn = q<HTMLButtonElement>('.fullscreen');
     this.debugBtn = q<HTMLButtonElement>('.debug');
     this.bagBtn = q<HTMLButtonElement>('.bag-btn');
+    this.rideBtn = q<HTMLButtonElement>('.ride-btn');
     this.familyBtn = q<HTMLButtonElement>('.help-family-btn');
     this.familyText = q('.help-family-text');
     this.timeChip = q<HTMLButtonElement>('.time-chip');
@@ -615,6 +619,11 @@ export class Hud {
   }
 
   /** 가족 연결 상태 (게임 방법 창 아래). code 가 있으면 연결됨 */
+  /** 타고 있으면 내리기 버튼 (M6-4) */
+  setRiding(on: boolean): void {
+    this.rideBtn.hidden = !on;
+  }
+
   setFamily(code: string | null, parentOf: string | null = null): void {
     if (parentOf) {
       this.familyText.textContent = `부모로 연결됨 (가족 코드 ${parentOf}) — 아이가 할 일을 체크하면 승인 카드가 떠요`;

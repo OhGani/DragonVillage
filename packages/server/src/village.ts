@@ -68,6 +68,9 @@ import {
   type DragonInfo,
   type NestDragonInfo,
   type NestSlotInfo,
+  RIDE_RANGE,
+  type RidingInfo,
+  SADDLE_ITEM,
   feedItems,
   growAtOf,
   perchOf,
@@ -134,6 +137,8 @@ export interface RoomPlayer {
   lastEmote: number;
   /** 경험치 총량 (M6-1, 서버가 진실) */
   xp: number;
+  /** 타고 있는 드래곤 (M6-4). 접속 동안만 — 끊기면 둥지로 돌아간다 */
+  riding: RidingInfo | null;
 }
 
 export interface JoinResult {
@@ -287,10 +292,19 @@ export class VillageRoom {
     }));
   }
 
-  /** 둥지의 드래곤들 (부화한 것 모두, id 순으로 자리 배정). 받는 사람 기준 mine */
+  /** 지금 누가 타고 있는 드래곤 id 들 — 둥지에서 빠진다 */
+  private riddenIds(): Set<number> {
+    const s = new Set<number>();
+    for (const p of this.players.values()) if (p.riding) s.add(p.riding.id);
+    return s;
+  }
+
+  /** 둥지의 드래곤들 (부화한 것 모두, id 순으로 자리 배정 — 누가 타고 나간 것은 빠지되 자리는 그대로). 받는 사람 기준 mine */
   nestDragons(forToken: string | null): NestDragonInfo[] {
     if (!this.storage) return [];
-    return this.storage.listHatched(this.info.code).map((r, i) => {
+    const ridden = this.riddenIds();
+    return this.storage.listHatched(this.info.code).flatMap((r, i) => {
+      if (ridden.has(r.id)) return [];
       const perch = perchOf(i);
       return {
         id: r.id,
@@ -337,6 +351,41 @@ export class VillageRoom {
       this.sendJson(p, { t: 'dragons', list: this.myDragons(p.token) });
       this.broadcastNest();
     }
+    return null;
+  }
+
+  /**
+   * 타기 (M6-4): 내 어른 드래곤, 가방에 안장, 마을에서 드래곤 자리 RIDE_RANGE 안. 같은 세계 모두에게 mount, 둥지에서 빠진다.
+   * 오류: ALREADY_RIDING·NO_DRAGON·NOT_ADULT·NO_SADDLE·TOO_FAR
+   */
+  ride(idx: number, id: number): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (!this.storage) return 'NO_STORAGE';
+    if (p.riding) return 'ALREADY_RIDING';
+    const row = this.storage.getDragon(id);
+    if (!row || row.village !== this.info.code || row.token !== p.token || row.stage === 'egg') return 'NO_DRAGON';
+    if (row.stage !== 'adult') return 'NOT_ADULT';
+    if (countOf(p.inv, SADDLE_ITEM) < 1) return 'NO_SADDLE';
+    if (p.world !== 'village') return 'TOO_FAR';
+    const i = this.storage.listHatched(this.info.code).findIndex((r) => r.id === id);
+    const perch = perchOf(Math.max(0, i));
+    if (Math.hypot(p.pos.x - (perch.x + 0.5), p.pos.z - (perch.z + 0.5)) > RIDE_RANGE) return 'TOO_FAR';
+    p.riding = { id, dragon: row.dragon };
+    this.broadcastJson({ t: 'mount', idx, riding: p.riding }, -1, p.world);
+    this.broadcastNest();
+    this.log(`마을 ${this.info.code}: ${p.nick} ${DRAGONS.require(row.dragon).name} 탑승`);
+    return null;
+  }
+
+  /** 내리기 (M6-4): 드래곤은 둥지 자리로 돌아간다 */
+  dismount(idx: number): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (!p.riding) return 'NOT_RIDING';
+    p.riding = null;
+    this.broadcastJson({ t: 'dismount', idx }, -1, p.world);
+    this.broadcastNest();
     return null;
   }
 
@@ -468,7 +517,7 @@ export class VillageRoom {
   }
 
   private toInfo(p: RoomPlayer): PlayerInfo {
-    return { idx: p.idx, nick: p.nick, color: p.color, x: p.pos.x, y: p.pos.y, z: p.pos.z, yaw: p.pos.yaw, pitch: p.pos.pitch };
+    return { idx: p.idx, nick: p.nick, color: p.color, x: p.pos.x, y: p.pos.y, z: p.pos.z, yaw: p.pos.yaw, pitch: p.pos.pitch, riding: p.riding };
   }
 
   private freeIdx(): number {
@@ -502,7 +551,7 @@ export class VillageRoom {
     const inv = savedInv ?? emptyInventory();
     // 처음 온 사람(가방 저장이 없음)에게 시작 키트 (#67). 저장소가 없는 시험 룸도 준다
     if (savedInv === null && this.starterKit) for (const [item, n] of Object.entries(this.starterKit)) give(inv, item, n);
-    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0 };
+    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     const me = this.toInfo(player);
@@ -541,6 +590,10 @@ export class VillageRoom {
     this.savePlayer(p);
     this.storage?.saveInventory(p.token, this.info.code, p.inv);
     this.broadcastJson({ t: 'playerLeft', idx }, -1, p.world);
+    if (p.riding) {
+      p.riding = null; // 타고 있던 드래곤은 둥지로 (M6-4)
+      this.broadcastNest();
+    }
     this.log(`마을 ${this.info.code}: ${p.nick}(#${idx}) 퇴장${why ? ` (${why})` : ''}, ${this.players.size}명`);
     // 서버가 내보낸 경우: 그 연결은 더 이상 이 룸의 누구도 아니다 → 세션에 알리고 끊는다
     if (why) {
@@ -685,7 +738,11 @@ export class VillageRoom {
       // 경험치 (M6-1): 광석은 xp.json 값(자리·시드 결정론), 원정 보물 상자는 열기 = 부수기
       const mined = miningXp(XP, prev.id, req.x, req.y, req.z, seed);
       if (mined > 0) this.addXp(p, mined, XP_SOURCE.mining, req.x + 0.5, req.y + 0.5, req.z + 0.5);
-      if (prev.id === 'chest' && p.world === 'expedition' && this.expedition?.isTreasure(req.x, req.y, req.z)) this.addXp(p, XP.ours.treasureChestOpen, XP_SOURCE.treasure, req.x + 0.5, req.y + 0.5, req.z + 0.5);
+      if (prev.id === 'chest' && p.world === 'expedition' && this.expedition?.isTreasure(req.x, req.y, req.z)) {
+        this.addXp(p, XP.ours.treasureChestOpen, XP_SOURCE.treasure, req.x + 0.5, req.y + 0.5, req.z + 0.5);
+        // 상자 속 물건 (M6-4 임시: 가죽 — expeditions.json treasureChestGives)
+        for (const [item, n] of Object.entries(this.expeditions.rules.treasureChestGives)) this.giveTo(p, item, n, changed);
+      }
     } else {
       const item = itemForPlacing(req.id, this.registry);
       if (item) {

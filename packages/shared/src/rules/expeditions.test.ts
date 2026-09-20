@@ -19,7 +19,7 @@ describe('parseExpeditions', () => {
     expect(reg.count).toBe(2);
     expect(reg.require('grass_island').release).toBe('v1');
     expect(reg.v1().map((d) => d.id)).toEqual(['grass_island']);
-    expect(reg.rules).toEqual({ returnGraceSec: 60, failedReturnKeepRatio: 0.5, minStartMarginMin: 3 });
+    expect(reg.rules).toEqual({ returnGraceSec: 60, failedReturnKeepRatio: 0.5, minStartMarginMin: 3, treasureChestGives: {} });
   });
 
   it('실제 data/expeditions.json 이 통과하고 v1 6곳이 순서대로 있다', () => {

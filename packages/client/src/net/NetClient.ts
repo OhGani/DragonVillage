@@ -9,6 +9,7 @@ import {
   type DragonInfo,
   type NestDragonInfo,
   type NestSlotInfo,
+  type RidingInfo,
   type TodayCard,
   type XpGainedMsg,
   type XpStateMsg,
@@ -129,6 +130,9 @@ export interface NetEvents {
   onDragons(list: DragonInfo[]): void;
   /** 둥지 자리·드래곤 (M6-2·3) */
   onNest(slots: NestSlotInfo[], dragons: NestDragonInfo[]): void;
+  /** 누가 드래곤을 탔다/내렸다 (M6-4, 나 포함) */
+  onMount(idx: number, riding: RidingInfo): void;
+  onDismount(idx: number): void;
 }
 
 export type ApprovalAsk = ApprovalItem;
@@ -310,6 +314,13 @@ export class NetClient {
   sendFeed(id: number, item: string): void {
     this.sendJson({ t: 'feed', id, item });
   }
+  /** 드래곤 타기 (M6-4) */
+  sendRide(id: number): void {
+    this.sendJson({ t: 'ride', id });
+  }
+  sendDismount(): void {
+    this.sendJson({ t: 'dismount' });
+  }
   /** 오늘 카드의 할 일 체크 (M5-3) */
   sendCheckTodo(id: number): void {
     this.sendJson({ t: 'checkTodo', id });
@@ -435,6 +446,8 @@ export class NetClient {
     else if (msg.t === 'timeUp') ev.onTimeUp(msg.reason, msg.message);
     else if (msg.t === 'dragons') ev.onDragons(msg.list);
     else if (msg.t === 'nest') ev.onNest(msg.slots, msg.dragons ?? []);
+    else if (msg.t === 'mount') ev.onMount(msg.idx, msg.riding);
+    else if (msg.t === 'dismount') ev.onDismount(msg.idx);
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }
 

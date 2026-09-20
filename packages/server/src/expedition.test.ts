@@ -238,6 +238,8 @@ describe('원정 경험치 (M6-1)', () => {
     room.onBlockChange(ia, { seq: 1, ...t, id: 'air' }, T0 + 100);
     expect(a.bin.find((m) => m.type === MSG.XpGained)).toMatchObject({ msg: { amount: 5, source: 2 } });
     expect(room.xpOf(ia)).toBe(5);
+    // 상자 속 물건 (M6-4 임시): 가죽 2 — 안장 재료
+    expect(room.players.get(ia)!.inv.find((s) => s?.item === 'leather')?.count).toBe(2);
     // 귀환
     room.onMove(ia, { x: e.portal.x, y: e.portal.y + 1, z: e.portal.z + 0.5, yaw: 0, pitch: 0, flags: 0 });
     a.clear();

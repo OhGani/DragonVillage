@@ -1479,3 +1479,16 @@ body {
   margin-top: 6px;
   align-items: center;
 }
+
+/* ---- 드래곤 내리기 버튼 (M6-4) ---- */
+.sbtn.ride-btn {
+  width: auto !important;
+  padding: 0 10px;
+  font-size: 14px !important;
+  font-weight: 700;
+  white-space: nowrap;
+  background: rgba(90, 40, 140, 0.6);
+}
+.sbtn.ride-btn[hidden] {
+  display: none;
+}

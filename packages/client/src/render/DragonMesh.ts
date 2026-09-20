@@ -3,7 +3,7 @@
  * 위치·단계(아기/어른)·주인은 서버가 진실(nest 메시지). 여기서는 그리기만.
  * 복셀 한 칸 = 1/16 블록 — 아기 약 1.4×0.9×1.8 블록, 어른 약 2.4×1.4×2.7 블록(2배, 결정 #77).
  */
-import type { NestDragonInfo } from '@dragon-village/shared';
+import { type NestDragonInfo, RIDE_SEAT_Y } from '@dragon-village/shared';
 import * as THREE from 'three';
 import { nameSprite } from '../net/RemotePlayers';
 import { type DragonStage, dragonVoxels } from './dragonModels';
@@ -32,6 +32,51 @@ function geometryFor(dragon: string, stage: DragonStage): THREE.BufferGeometry {
 }
 
 const material = new THREE.MeshBasicMaterial({ vertexColors: true });
+
+/** 드래곤 메시 하나 (지오메트리 공유). 탑승 표시용 */
+export function dragonMesh(dragon: string, stage: DragonStage): THREE.Mesh {
+  return new THREE.Mesh(geometryFor(dragon, stage), material);
+}
+
+/**
+ * 내가 탄 드래곤 (M6-4): 내 발 아래 RIDE_SEAT_Y 에 어른 드래곤을 두고 내 시선 방향으로 돌린다.
+ * 1인칭이라 머리·목·날개 끝이 화면 아래쪽에 보인다 (마인크래프트 말 타기처럼)
+ */
+export class MountView {
+  private readonly group = new THREE.Group();
+  private mesh: THREE.Mesh | null = null;
+  private t = 0;
+
+  constructor(scene: THREE.Scene) {
+    this.group.visible = false;
+    scene.add(this.group);
+  }
+
+  get active(): boolean {
+    return this.mesh !== null;
+  }
+
+  set(dragon: string | null): void {
+    if (this.mesh) {
+      this.group.remove(this.mesh);
+      this.mesh = null;
+    }
+    if (dragon) {
+      this.mesh = dragonMesh(dragon, 'adult');
+      this.group.add(this.mesh);
+    }
+    this.group.visible = dragon !== null;
+  }
+
+  /** 프레임마다: 내 위치·시선을 따라간다. 날개(몸통) 살짝 숨쉬기 */
+  update(player: { pos: { x: number; y: number; z: number }; yaw: number }, dt: number): void {
+    if (!this.mesh) return;
+    this.t += dt;
+    this.group.position.set(player.pos.x, player.pos.y - RIDE_SEAT_Y, player.pos.z);
+    this.group.rotation.y = player.yaw + Math.PI; // 모델 머리 +z → 내가 보는 -z 쪽
+    this.mesh.scale.set(1, 1 + 0.015 * Math.sin(this.t * 2.5), 1);
+  }
+}
 
 export class NestDragons {
   readonly group = new THREE.Group();

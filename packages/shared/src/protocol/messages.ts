@@ -7,7 +7,7 @@
  * - 청크는 diff 목록 대신 `serialize.ts` 의 청크 blob 통째로 (저장 형식과 같다, 결정 #60).
  * - M3 원정: 세계 전환·정산은 드물어서 JSON(worldEnter·expeditionResult·expeditionState), 1Hz 타이머만 바이너리(ExpeditionTimer).
  */
-import type { DragonInfo, NestDragonInfo, NestSlotInfo } from '../rules/dragons';
+import type { DragonInfo, NestDragonInfo, NestSlotInfo, RidingInfo } from '../rules/dragons';
 import type { TodayCard } from '../rules/family';
 import { ByteReader, ByteWriter } from './bytes';
 
@@ -52,6 +52,8 @@ export const FLAG_SNEAK = 1;
 export const FLAG_SPRINT = 2;
 export const FLAG_GROUND = 4;
 export const FLAG_WATER = 8;
+/** 드래곤을 타고 있다 (M6-4) — 다른 사람 인형의 다리를 안 흔든다 */
+export const FLAG_RIDING = 16;
 
 /** 서버(액체 흐름 등)가 바꾼 블록의 byIdx */
 export const BY_SERVER = 255;
@@ -343,6 +345,8 @@ export interface PlayerInfo {
   z: number;
   yaw: number;
   pitch: number;
+  /** 타고 있는 드래곤 (M6-4). 없으면 null/생략 */
+  riding?: RidingInfo | null;
 }
 export interface VillageInfo {
   code: string;
@@ -419,7 +423,11 @@ export type ClientJson =
   /** 알 부화 (M6-2): 내 알 행 id. 레벨을 낸다 */
   | { t: 'hatch'; id: number }
   /** 먹이 주기 (M6-3): 내 아기 드래곤에게 만들 때 쓴 재료 1개 */
-  | { t: 'feed'; id: number; item: string };
+  | { t: 'feed'; id: number; item: string }
+  /** 타기 (M6-4): 내 어른 드래곤, 안장 필요, 드래곤 가까이에서 */
+  | { t: 'ride'; id: number }
+  /** 내리기 (M6-4) */
+  | { t: 'dismount' };
 
 export type ServerJson =
   | { t: 'hello'; token: string; protocol: number }
@@ -465,6 +473,9 @@ export type ServerJson =
   | { t: 'dragons'; list: DragonInfo[] }
   /** 둥지 자리가 바뀌었다 (마을 사람 모두) */
   | { t: 'nest'; slots: NestSlotInfo[]; dragons: NestDragonInfo[] }
+  /** 누가 드래곤을 탔다/내렸다 (같은 세계 모두, 본인 포함) (M6-4) */
+  | { t: 'mount'; idx: number; riding: RidingInfo }
+  | { t: 'dismount'; idx: number }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }

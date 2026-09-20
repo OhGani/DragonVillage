@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import dragonsJson from '../../../../data/dragons.json';
-import { DRAGONS, ITEM_NAMES, RECIPES } from './data';
+import { DRAGONS, EXPEDITIONS, ITEM_NAMES, RECIPES } from './data';
 import { NEST, NEST_PERCHES, OLD_NEST_SITES, dragonOfEgg, eggItem, eggRecipes, feedItems, growAtOf, isEggItem, isNestBuiltAt, nestBlocks, nestBlocksAt, nestContains, nestSlotPos, parseDragons, perchOf, perchYaw } from './dragons';
 import { emptyInventory, give } from './inventory';
 import { canCraft, craft } from './recipes';
@@ -99,6 +99,11 @@ describe('드래곤 16종 (M6-2)', () => {
     expect(perchOf(21)).toEqual(perchOf(0));
     expect(perchYaw(1)).toBeGreaterThan(Math.PI - 0.5);
     expect(perchYaw(1)).toBeLessThan(Math.PI + 0.5);
+  });
+
+  it('탑승 (M6-4): 안장 레시피는 가죽 5 + 철 2, 가죽은 임시로 보물 상자에서 2개', () => {
+    expect(RECIPES.require('saddle')).toMatchObject({ station: 'crafting_table', in: { leather: 5, iron_ingot: 2 }, out: { saddle: 1 } });
+    expect(EXPEDITIONS.rules.treasureChestGives).toEqual({ leather: 2 });
   });
 
   it('16종 모두 색이 있다 (도감·둥지 창 색 점)', () => {

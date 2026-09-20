@@ -29,6 +29,7 @@ const ExpeditionsFile = z
     returnGraceSec: z.number().int().min(0, '0 이상이어야 해요'),
     failedReturnKeepRatio: z.number().min(0, '0~1 사이여야 해요').max(1, '0~1 사이여야 해요'),
     minStartMarginMin: z.number().min(0, '0 이상이어야 해요'),
+    treasureChestGives: z.record(z.string(), z.number().int().min(1, '1 이상이어야 해요')).optional(),
     expeditions: z.array(RawExpedition).min(1, '원정지가 하나도 없어요'),
   })
   .loose();
@@ -67,6 +68,8 @@ export interface ExpeditionRules {
   readonly failedReturnKeepRatio: number;
   /** 원정 시간 + 이 여유(분)가 남아야 출발할 수 있다 (M5 시간 규칙) */
   readonly minStartMarginMin: number;
+  /** 보물 상자를 열면(부수면) 나오는 것 (M6-4 임시: 소가 없어 가죽은 여기서, 결정 #78) */
+  readonly treasureChestGives: Readonly<Record<string, number>>;
 }
 
 export type ExpeditionPhase = 'day' | 'evening' | 'night';
@@ -177,5 +180,5 @@ export function parseExpeditions(raw: unknown, fileName = 'data/expeditions.json
   });
   if (problems.length) throw new DataError(fileName, problems);
   const { returnGraceSec, failedReturnKeepRatio, minStartMarginMin } = result.data;
-  return new ExpeditionRegistry(defs, { returnGraceSec, failedReturnKeepRatio, minStartMarginMin });
+  return new ExpeditionRegistry(defs, { returnGraceSec, failedReturnKeepRatio, minStartMarginMin, treasureChestGives: result.data.treasureChestGives ?? {} });
 }

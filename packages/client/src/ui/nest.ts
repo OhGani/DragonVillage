@@ -3,7 +3,7 @@
  * 둥지의 드래곤(모두) — 내 아기 드래곤은 먹이(만들 때 쓴 재료)를 줘서 성장 시간을 줄인다.
  * 서버가 진실 — 여기서는 요청만 보내고 dragons/nest 메시지로 다시 그린다.
  */
-import { type DragonInfo, type DragonRegistry, type Inventory, NEST, type NestDragonInfo, type NestSlotInfo, type XpRules, feedItems, hatchCost, isEggItem, xpProgress } from '@dragon-village/shared';
+import { type DragonInfo, type DragonRegistry, type Inventory, NEST, type NestDragonInfo, type NestSlotInfo, SADDLE_ITEM, type XpRules, feedItems, hatchCost, isEggItem, xpProgress } from '@dragon-village/shared';
 
 export interface NestDeps {
   dragons: DragonRegistry;
@@ -12,6 +12,8 @@ export interface NestDeps {
   onPlace(slot: number, item: string): void;
   onHatch(id: number): void;
   onFeed(id: number, item: string): void;
+  /** 타기 (M6-4): 내 어른 드래곤, 안장 필요 */
+  onRide(id: number): void;
   onClose(): void;
   /** 지금 시각(ms) — 성장 남은 시간 표시용 */
   now?(): number;
@@ -184,6 +186,23 @@ export class NestView {
       const line = document.createElement('div');
       line.append(this.chip(def?.color), document.createTextNode(` ${def?.name ?? d.dragon} · ${d.stage === 'baby' ? '아기' : '어른'} · ${d.mine ? '내 것' : `${d.owner} 것`}`));
       li.appendChild(line);
+      if (d.stage === 'adult' && d.mine) {
+        const row = document.createElement('div');
+        row.className = 'nest-feed';
+        if (this.countOf(SADDLE_ITEM) > 0) {
+          const btn = document.createElement('button');
+          btn.className = 'big-btn nest-btn';
+          btn.textContent = '🐉 타기';
+          btn.addEventListener('click', () => this.deps.onRide(d.id));
+          row.appendChild(btn);
+        } else {
+          const hint = document.createElement('span');
+          hint.className = 'nest-hint';
+          hint.textContent = '안장이 있으면 탈 수 있어요 (제작대: 가죽 5 + 철 2, 가죽은 원정 보물 상자)';
+          row.appendChild(hint);
+        }
+        li.appendChild(row);
+      }
       if (d.stage === 'baby') {
         const sub = document.createElement('div');
         sub.className = 'nest-hint';
@@ -218,7 +237,7 @@ export class NestView {
     b.appendChild(list);
     const note = document.createElement('p');
     note.className = 'nest-note';
-    note.textContent = '아기는 1시간이면 어른이 돼요(먹이로 더 빨리). 안장·타기·빔은 다음 단계에서 생겨요.';
+    note.textContent = '아기는 1시간이면 어른이 돼요(먹이로 더 빨리). 어른은 안장을 만들어 탈 수 있어요. 빔은 다음 단계에서.';
     b.appendChild(note);
   }
 }

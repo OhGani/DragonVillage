@@ -3,6 +3,10 @@
   "returnGraceSec": 60,
   "failedReturnKeepRatio": 0.5,
   "minStartMarginMin": 3,
+  "treasureChestGives": {
+    "leather": 2
+  },
+  "_treasureNote": "보물 상자를 열면(부수면) 안에서 나오는 것. 지금은 가죽 2개 — 소가 아직 없어서(M7) 안장(가죽 5 + 철 2)을 만들 길로 임시로 넣었다. 소가 생기면 아들이 정한다.",
   "expeditions": [
     {
       "id": "grass_island",

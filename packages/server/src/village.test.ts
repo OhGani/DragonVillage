@@ -487,3 +487,61 @@ describe('드래곤 성장·먹이 (M6-3)', () => {
     expect(b.json.filter((m) => m.t === 'nest').at(-1)).toMatchObject({ dragons: [{ id, stage: 'adult' }, { id: id2, stage: 'adult' }] });
   });
 });
+
+describe('드래곤 탑승 (M6-4)', () => {
+  it('어른 + 안장 + 가까이에서만 탄다. 타면 둥지에서 빠지고 모두에게 mount, 내리거나 나가면 돌아온다', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox(),
+      b = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const rb = room.join('b'.repeat(32), '아들', 1, b.send)!;
+    room.giveItems(ra.idx, 'dragon_egg.iron', 1);
+    room.giveItems(ra.idx, 'dragon_egg.wood', 1);
+    room.onMove(ra.idx, { x: 63.5, y: GROUND_Y + 1, z: 84.5, yaw: 0, pitch: 0, flags: 0 });
+    const T0 = 20_000_000;
+    expect(room.placeEgg(ra.idx, 0, 'dragon_egg.iron', T0)).toBeNull();
+    expect(room.placeEgg(ra.idx, 1, 'dragon_egg.wood', T0)).toBeNull();
+    room.giveXp(ra.idx, 200);
+    const [ironId, woodId] = room.myDragons('a'.repeat(32)).map((d) => d.id) as [number, number];
+    expect(room.hatch(ra.idx, ironId, T0)).toBeNull();
+    room.checkGrowth(T0 + 61 * 60_000); // 철은 어른
+    expect(room.hatch(ra.idx, woodId, T0 + 61 * 60_000)).toBeNull(); // 나무는 아기
+    expect(room.ride(ra.idx, ironId)).toBe('NO_SADDLE');
+    room.giveItems(ra.idx, 'saddle', 1);
+    expect(room.ride(ra.idx, woodId)).toBe('NOT_ADULT');
+    expect(room.ride(rb.idx, ironId)).toBe('NO_DRAGON');
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: 0 }); // 광장
+    expect(room.ride(ra.idx, ironId)).toBe('TOO_FAR');
+    room.onMove(ra.idx, { x: 63.5, y: GROUND_Y + 1, z: 80.5, yaw: 0, pitch: 0, flags: 0 }); // 둥지 입구 (자리 63,84 에서 4칸)
+    a.clear();
+    b.clear();
+    expect(room.ride(ra.idx, ironId)).toBeNull();
+    expect(room.ride(ra.idx, ironId)).toBe('ALREADY_RIDING');
+    const mountMsg = { t: 'mount', idx: ra.idx, riding: { id: ironId, dragon: 'iron' } };
+    expect(a.json.find((m) => m.t === 'mount')).toEqual(mountMsg);
+    expect(b.json.find((m) => m.t === 'mount')).toEqual(mountMsg);
+    // 둥지에서는 빠지되 나무 아기의 자리는 그대로(둘째 자리)
+    const nest = room.nestDragons('b'.repeat(32));
+    expect(nest.map((d) => d.id)).toEqual([woodId]);
+    expect(nest[0]!.perch).toEqual({ x: 63, y: GROUND_Y + 1, z: 82 });
+    expect(b.json.find((m) => m.t === 'nest')).toMatchObject({ dragons: [{ id: woodId }] });
+    // 새로 들어온 사람은 players 에서 타고 있는 걸 본다
+    const c = inbox();
+    const rc = room.join('c'.repeat(32), '친구', 2, c.send)!;
+    expect(rc.players.find((p) => p.idx === ra.idx)?.riding).toEqual({ id: ironId, dragon: 'iron' });
+    expect(rc.nestDragons.map((d) => d.id)).toEqual([woodId]);
+    // 내리기
+    a.clear();
+    expect(room.dismount(ra.idx)).toBeNull();
+    expect(room.dismount(ra.idx)).toBe('NOT_RIDING');
+    expect(a.json.find((m) => m.t === 'dismount')).toEqual({ t: 'dismount', idx: ra.idx });
+    expect(room.nestDragons('b'.repeat(32)).map((d) => d.id)).toEqual([ironId, woodId]);
+    // 타고 있다가 나가면 드래곤은 둥지로
+    expect(room.ride(ra.idx, ironId)).toBeNull();
+    b.clear();
+    room.leave(ra.idx);
+    expect(room.nestDragons('b'.repeat(32)).map((d) => d.id)).toEqual([ironId, woodId]);
+    expect(b.json.filter((m) => m.t === 'nest').at(-1)).toMatchObject({ dragons: [{ id: ironId }, { id: woodId }] });
+  });
+});

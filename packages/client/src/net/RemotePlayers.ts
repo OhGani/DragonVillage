@@ -2,7 +2,8 @@
  * 다른 플레이어 표시: 색 있는 복셀 인형(머리·몸·팔·다리) + 머리 위 이름.
  * 서버 위치(20Hz)를 받아 부드럽게 따라간다 (지수 보간, 약 100ms 지연).
  */
-import { FLAG_SNEAK, type PlayerInfo, type PlayerStateEntry } from '@dragon-village/shared';
+import { FLAG_RIDING, FLAG_SNEAK, type PlayerInfo, type PlayerStateEntry, RIDE_SEAT_Y, type RidingInfo } from '@dragon-village/shared';
+import { dragonMesh } from '../render/DragonMesh';
 import * as THREE from 'three';
 import { colorHex } from './colors';
 
@@ -21,6 +22,8 @@ interface Figure {
   walk: number;
   lastMove: number;
   bubble: { sprite: THREE.Sprite; until: number } | null;
+  /** 타고 있는 드래곤 (M6-4) */
+  mount: THREE.Mesh | null;
 }
 
 const SKIN = 0xe8b89a;
@@ -123,7 +126,26 @@ export class RemotePlayers {
       walk: 0,
       lastMove: 0,
       bubble: null,
+      mount: null,
     });
+    if (info.riding) this.setMount(info.idx, info.riding);
+  }
+
+  /** 드래곤 타기/내리기 (M6-4): 인형 발 아래에 어른 드래곤을 붙인다 */
+  setMount(idx: number, riding: RidingInfo | null): void {
+    const f = this.figures.get(idx);
+    if (!f) return;
+    if (f.mount) {
+      f.body.remove(f.mount);
+      f.mount = null;
+    }
+    if (riding) {
+      const m = dragonMesh(riding.dragon, 'adult');
+      m.position.y = -RIDE_SEAT_Y;
+      m.rotation.y = Math.PI;
+      f.body.add(m);
+      f.mount = m;
+    }
   }
 
   /** 머리 위 말풍선 (채팅, 3초) */
@@ -150,6 +172,7 @@ export class RemotePlayers {
     const f = this.figures.get(idx);
     if (!f) return;
     this.clearBubble(f);
+    this.setMount(idx, null); // 공유 지오메트리는 dispose 하지 않는다
     this.group.remove(f.group);
     f.group.traverse((o) => {
       if (o instanceof THREE.Mesh) {
@@ -206,7 +229,8 @@ export class RemotePlayers {
       f.head.rotation.x = -t.pitch * 0.6;
       const speed = Math.hypot(dx, dz) * 14;
       if (speed > 0.3) f.walk += dt * Math.min(12, speed * 2.2);
-      const swing = speed > 0.3 ? Math.sin(f.walk) * 0.7 : 0;
+      const riding = (t.flags & FLAG_RIDING) !== 0;
+      const swing = speed > 0.3 && !riding ? Math.sin(f.walk) * 0.7 : 0;
       f.legL.rotation.x = swing;
       f.legR.rotation.x = -swing;
       f.armL.rotation.x = -swing;

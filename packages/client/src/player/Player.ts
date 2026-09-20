@@ -21,6 +21,9 @@ const SWIM = 2.2;
 const GRAVITY = 32;
 const TERMINAL = 78;
 const JUMP_V = 9.0; // ≈ 1.27 블록
+/** 드래곤 탑승 (M6-4): 나는 속도·오르내리는 속도 (블록/초) */
+const RIDE_SPEED = 9;
+const RIDE_CLIMB = 6;
 const STEP = 1 / 60;
 /** 앞으로 걸을 때 자동으로 올라가는 턱 높이 (블록). 웅크리기에선 끔 */
 const AUTO_STEP = 1.0;
@@ -43,6 +46,8 @@ export class Player {
   sneaking = false;
   sprinting = false;
   inWater = false;
+  /** 드래곤을 타고 있다 (M6-4): 중력 없음, 점프 = 상승, 웅크리기 = 하강. 충돌은 사람 몸 그대로 */
+  riding = false;
   eyeHeight = EYE_STAND;
   /** 걷기 주기 (라디안) — 손·카메라 흔들림용 */
   walkCycle = 0;
@@ -108,7 +113,7 @@ export class Player {
     const pos = this.pos,
       vel = this.vel;
     this.inWater = this.isWaterAt(pos.x, pos.y + 0.2, pos.z) || this.isWaterAt(pos.x, pos.y + this.eyeHeight - 0.1, pos.z);
-    this.sneaking = input.sneak && !this.inWater;
+    this.sneaking = input.sneak && !this.inWater && !this.riding;
     this.sprinting = input.sprint && input.moveZ > 0.5 && !this.sneaking;
 
     // 원하는 수평 속도
@@ -121,14 +126,18 @@ export class Player {
       wx /= wl;
       wz /= wl;
     }
-    const speed = this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK;
-    const accel = this.inWater ? 6 : this.onGround ? 18 : 3.5;
+    const speed = this.riding ? RIDE_SPEED : this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK;
+    const accel = this.riding ? 8 : this.inWater ? 6 : this.onGround ? 18 : 3.5;
     const k = Math.min(1, accel * h);
     vel.x += (wx * speed - vel.x) * k;
     vel.z += (wz * speed - vel.z) * k;
 
     // 수직
-    if (this.inWater) {
+    if (this.riding) {
+      // 날기: ▲ 위로, ▼ 아래로, 아니면 멈춤 (중력 없음)
+      const target = input.jump ? RIDE_CLIMB : input.sneak ? -RIDE_CLIMB : 0;
+      vel.y += (target - vel.y) * Math.min(1, 8 * h);
+    } else if (this.inWater) {
       // 얕은 물(발 위 한 칸이 물이 아님)에서 바닥을 딛고 있으면 진짜 점프 — 밭 물길에서 뛰어나올 수 있다
       if (input.jump && this.onGround && !this.isWaterAt(pos.x, pos.y + 1.0, pos.z)) {
         vel.y = JUMP_V;
@@ -158,7 +167,7 @@ export class Player {
     this.onGround = this.moveOut.onGround;
 
     // 한 칸 턱 자동 오르기 (앞으로 걷다 막혔을 때). 물속에서는 바닥을 딛지 않아도(헤엄) 둑을 밀면 올라선다
-    if (!this.sneaking && (wasGround || this.inWater) && (this.moveOut.hitX || this.moveOut.hitZ)) {
+    if (!this.riding && !this.sneaking && (wasGround || this.inWater) && (this.moveOut.hitX || this.moveOut.hitZ)) {
       const r = tryStepUp(this.isSolid, { x: px, y: py, z: pz }, pos, PLAYER_SIZE, vx0, vz0, h, this.inWater ? WATER_STEP : AUTO_STEP);
       if (r) {
         vel.x = r.vx;

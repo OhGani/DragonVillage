@@ -38,6 +38,11 @@ const NEST_ERROR_KO: Record<string, string> = {
   NOT_BABY: '이미 어른이에요',
   NOT_FOOD: '그건 이 드래곤 먹이가 아니에요 (만들 때 쓴 재료를 줘요)',
   NO_ITEM: '그 먹이가 가방에 없어요',
+  NOT_ADULT: '아기는 아직 못 타요 — 어른이 되면 탈 수 있어요',
+  NO_SADDLE: '안장이 있어야 탈 수 있어요 (제작대: 가죽 5 + 철 2. 가죽은 원정 보물 상자에서)',
+  TOO_FAR: '드래곤 가까이 가서 타요',
+  ALREADY_RIDING: '이미 타고 있어요',
+  NOT_RIDING: '타고 있지 않아요',
   NO_STORAGE: '이 서버는 드래곤을 저장할 수 없어요',
 };
 /** 할 일 체크 거절 이유 (M5-3) */
@@ -311,6 +316,19 @@ export class Session {
         }
         if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 부화할 수 없어요');
         this.log(`세션 ${this.remote}: '${this.nick}' 부화`);
+        return;
+      }
+      case 'ride': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.id)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.ride(this.idx, msg.id);
+        if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 탈 수 없어요');
+        return;
+      }
+      case 'dismount': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        const err = this.room.dismount(this.idx);
+        if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 내릴 수 없어요');
         return;
       }
       case 'feed': {

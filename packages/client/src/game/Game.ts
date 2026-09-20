@@ -1,6 +1,10 @@
 import {
   AIR_ID,
+  FLAG_RIDING,
   GROUND_Y,
+  type NestDragonInfo,
+  type RidingInfo,
+  SADDLE_ITEM,
   nestContains,
   COSMETIC_KO,
   unlockedBetween,
@@ -58,7 +62,7 @@ import { BagView, type Stations } from '../ui/bag';
 import { ChatView } from '../ui/chat';
 import { Hud, type HotbarSlot } from '../ui/hud';
 import { NestView } from '../ui/nest';
-import { NestDragons } from '../render/DragonMesh';
+import { MountView, NestDragons } from '../render/DragonMesh';
 import { askInput, askPin } from '../ui/pinDialog';
 import { itemIcon } from '../ui/itemIcon';
 import { MesherPool } from '../workers/MesherPool';
@@ -143,6 +147,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   // 둥지의 드래곤들 (M6-3): 서버 자리대로 복셀 드래곤
   const nestDragons = new NestDragons(scene);
   nestDragons.sync(welcome.nestDragons);
+  let nestDragonList: NestDragonInfo[] = welcome.nestDragons;
+  // 탑승 (M6-4): 내가 탄 드래곤은 서버가 mount/dismount 로 알려 준다. 세계를 바꿔도(원정) 그대로 타고 간다
+  let myRiding: RidingInfo | null = null;
+  const mount = new MountView(scene);
 
   // ---- HUD ----
   const hud = new Hud(root, isTouch);
@@ -199,6 +207,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     onPlace: (slot, item) => net.sendPlaceEgg(slot, item),
     onHatch: (id) => net.sendHatch(id),
     onFeed: (id, item) => net.sendFeed(id, item),
+    onRide: (id) => {
+      net.sendRide(id);
+      closeNest();
+    },
     onClose: () => closeNest(),
   });
   nest.setInventory(inv);
@@ -280,6 +292,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     chunks.markAll();
     const player = new Player(world, registry, spawn, spawn.yaw);
     player.pitch = spawn.pitch;
+    player.riding = myRiding !== null;
     const applyServerBlock = (x: number, y: number, z: number, id: string) => {
       const def = registry.find(id);
       const num = def ? def.num : AIR_ID;
@@ -493,8 +506,31 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     },
     onNest: (slots, dragons) => {
       nestSlots = slots;
+      nestDragonList = dragons;
       nest.setNest(slots, dragons);
       nestDragons.sync(dragons);
+    },
+    onMount: (idx, riding) => {
+      if (idx !== myIdx) {
+        remote.setMount(idx, riding);
+        return;
+      }
+      myRiding = riding;
+      ctx.player.riding = true;
+      mount.set(riding.dragon);
+      hud.setRiding(true);
+      hud.hideAction();
+      hud.toast(`🐉 ${DRAGONS.find(riding.dragon)?.name ?? riding.dragon}을 탔어요! ${isTouch ? '▲ 위로 · ▼ 아래로' : 'Space 위로 · Shift 아래로'} · 내리기는 🐉 버튼`, 6000);
+    },
+    onDismount: (idx) => {
+      if (idx !== myIdx) {
+        remote.setMount(idx, null);
+        return;
+      }
+      myRiding = null;
+      ctx.player.riding = false;
+      mount.set(null);
+      hud.setRiding(false);
     },
     onXpGained: (m) => onXp(xpTotal + m.amount, { x: m.x, y: m.y, z: m.z }, m.amount),
     onXpState: (m) => onXp(m.total, null, 0),
@@ -688,6 +724,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     if (started && !hud.overlayVisible && !hud.resultVisible && !bag.visible && !chat.visible) resume();
   };
   hud.bagBtn.addEventListener('click', () => (bag.visible ? closeBag() : openBag()));
+  hud.rideBtn.addEventListener('click', () => net.sendDismount());
   // 오늘 카드 (M5-3): 아이면 남은 시간·할 일. 시간 제한은 걸지 않는다(표시만, 아빠 2026-09-19)
   hud.setToday(welcome.today);
   hud.onCheckTodo = (id) => net.sendCheckTodo(id);
@@ -770,7 +807,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   function sendMove(): void {
     if (!net.connected) return;
     const player = ctx.player;
-    const flags = (player.sneaking ? FLAG_SNEAK : 0) | (player.sprinting ? FLAG_SPRINT : 0) | (player.onGround ? FLAG_GROUND : 0) | (player.inWater ? FLAG_WATER : 0);
+    const flags = (player.sneaking ? FLAG_SNEAK : 0) | (player.sprinting ? FLAG_SPRINT : 0) | (player.onGround ? FLAG_GROUND : 0) | (player.inWater ? FLAG_WATER : 0) | (player.riding ? FLAG_RIDING : 0);
     net.sendMove({ x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw, pitch: player.pitch, flags });
   }
 
@@ -787,11 +824,44 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   };
   window.addEventListener('keydown', onActionKey);
 
+  /** 내 드래곤을 보고 있나 (M6-4): 5칸 안, 시선과 거의 일치. 가장 가까운 것 */
+  const lookedDragon = (): NestDragonInfo | null => {
+    const eye = ctx.player.eye;
+    const dir = ctx.player.lookDir;
+    let best: NestDragonInfo | null = null;
+    let bestDist = 5;
+    for (const d of nestDragonList) {
+      if (!d.mine) continue;
+      const dx = d.perch.x + 0.5 - eye.x,
+        dy = d.perch.y + 0.6 - eye.y,
+        dz = d.perch.z + 0.5 - eye.z;
+      const dist = Math.hypot(dx, dy, dz);
+      if (dist > bestDist || dist < 0.01) continue;
+      const dot = (dx * dir.x + dy * dir.y + dz * dir.z) / dist;
+      if (dot < 0.8) continue;
+      best = d;
+      bestDist = dist;
+    }
+    return best;
+  };
+  const hasSaddle = () => inv.some((s) => s !== null && s.item === SADDLE_ITEM);
+
   /** 포탈 안에 서 있으면 카드 */
   const updatePortalCard = () => {
     const p = ctx.player.pos;
     const inside = portalContains(ctx.portalPos, p.x, p.y, p.z);
     if (!inside) {
+      // 내 드래곤을 보고 있으면 타기 카드 (M6-4) — 둥지 카드보다 먼저
+      if (ctx.kind === 'village' && !myRiding) {
+        const d = lookedDragon();
+        if (d) {
+          const name = DRAGONS.find(d.dragon)?.name ?? d.dragon;
+          if (d.stage !== 'adult') hud.showAction(`${name} (아기)`, '어른이 되면 탈 수 있어요 — 둥지 창에서 먹이를 주면 빨리 자라요', '알겠어요', () => hud.hideAction());
+          else if (!hasSaddle()) hud.showAction(`${name} 타기`, '안장이 있어야 해요 — 제작대: 가죽 5 + 철 2 (가죽은 원정 보물 상자)', '알겠어요', () => hud.hideAction());
+          else hud.showAction(`🐉 ${name} 타기`, isTouch ? '▲ 위로 · ▼ 아래로 · 🐉 버튼으로 내려요' : 'Space 위로 · Shift 아래로 · 🐉 버튼으로 내려요', '타기' + KEY_HINT, () => net.sendRide(d.id));
+          return;
+        }
+      }
       // 둥지 안 (M6-2): 광장 남쪽 집터
       if (ctx.kind === 'village' && nestContains(GROUND_Y, p.x, p.y, p.z)) {
         hud.showAction('드래곤 둥지', '알을 놓고, 레벨을 써서 부화시켜요', '둥지 열기' + KEY_HINT, openNest);
@@ -879,6 +949,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
     remote.update(dt);
     nestDragons.update(dt);
+    mount.update(player, dt);
 
     // 이 프레임에 바뀐 블록들의 빛을 한 번에 다시 계산 → 빛이 바뀐 청크도 다시 메싱
     chunks.markDirtyAll(light.flush());

@@ -235,6 +235,22 @@ export function perchYaw(id: number): number {
   return Math.PI + (((id * 37) % 100) / 100 - 0.5) * 0.9;
 }
 
+// ---------------------------------------------------------------- 탑승 (M6-4, 결정 #78)
+
+/** 안장 아이템 (recipes.json saddle: 가죽 5 + 철 2, 제작대) */
+export const SADDLE_ITEM = 'saddle';
+/** 탄 사람의 발은 드래곤 발보다 이만큼 위 (어른 등 높이 ≈ 12/16 블록) */
+export const RIDE_SEAT_Y = 0.75;
+/** 드래곤 자리에서 이 거리(블록) 안에 서 있어야 탄다 */
+export const RIDE_RANGE = 6;
+/** 누가 무엇을 타고 있나 (PlayerInfo·mount 메시지) */
+export interface RidingInfo {
+  /** 드래곤 행 id */
+  id: number;
+  /** 드래곤 종류 (모델) */
+  dragon: string;
+}
+
 /** 둥지에 있는 드래곤 하나 (모두에게). 위치·단계는 서버가 정한다 */
 export interface NestDragonInfo {
   id: number;
