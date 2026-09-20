@@ -9,3 +9,6 @@ coverage/
 packages/client/certs/
 # 서버 SQLite·백업·기본 마을 코드 (세계의 진실 — 저장소에 넣지 않는다)
 packages/server/data/
+
+# 검증용 임시 서버 데이터 (tools/dev/test-server.cjs)
+.test-data/
