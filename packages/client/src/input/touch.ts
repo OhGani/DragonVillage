@@ -8,6 +8,8 @@ const STICK_RADIUS = 56; // CSS px — 스틱 노브가 움직이는 최대 거�
 const STICK_GRAB_MARGIN = 28;
 const DEADZONE = 0.12;
 const HOLD_MS = 220; // 이보다 오래 누르면 부수기
+/** 이 안에 다시 누르면 "두 번 톡톡" = 손을 떼도 계속 눌린 채 (아빠 2026-09-22) */
+const DOUBLE_TAP_MS = 320;
 const TAP_MOVE_PX = 14; // 이보다 많이 움직이면 탭이 아니라 드래그
 
 export interface TouchUI {
@@ -17,6 +19,66 @@ export interface TouchUI {
   jumpButton: HTMLElement;
   sneakButton: HTMLElement;
   onSneakToggle?: (on: boolean) => void;
+}
+
+/**
+ * 꾹 누르는 버튼 (▲ 점프 · ▼ 웅크리기).
+ * - 한 번 누르면 누르는 동안만, 손을 떼면 멈춘다
+ * - 빠르게 두 번 톡톡 치면 손을 떼도 계속 눌린 채 (잠김, 테두리가 노랗게)
+ * - 잠긴 상태에서 한 번 더 누르면 풀린다
+ */
+class HoldButton {
+  private held = false;
+  private locked = false;
+  private lockPending = false;
+  private lastUp = 0;
+
+  constructor(
+    private readonly el: HTMLElement,
+    private readonly onChange?: (on: boolean) => void,
+  ) {}
+
+  /** 지금 눌린 것으로 쳐야 하나 */
+  get on(): boolean {
+    return this.held || this.locked;
+  }
+
+  press(now: number): void {
+    if (this.locked) {
+      // 잠긴 걸 푼다 (이번 터치는 누른 것으로 치지 않는다)
+      this.locked = false;
+      this.held = false;
+      this.lockPending = false;
+      this.lastUp = now;
+      this.paint();
+      return;
+    }
+    this.lockPending = now - this.lastUp <= DOUBLE_TAP_MS;
+    this.held = true;
+    this.paint();
+  }
+
+  release(now: number): void {
+    this.lastUp = now;
+    if (this.lockPending) {
+      this.locked = true;
+      this.lockPending = false;
+    }
+    this.held = false;
+    this.paint();
+  }
+
+  /** 전부 풀기 (탑승·세계 전환 등) */
+  clear(): void {
+    this.held = this.locked = this.lockPending = false;
+    this.paint();
+  }
+
+  private paint(): void {
+    this.el.classList.toggle('active', this.on);
+    this.el.classList.toggle('locked', this.locked);
+    this.onChange?.(this.on);
+  }
 }
 
 interface LookTouch {
@@ -42,8 +104,8 @@ export class TouchControls implements InputSource {
   private lookDX = 0;
   private lookDY = 0;
   private secondaryTap = false;
-  private jumpHeld = false;
-  private sneakOn = false;
+  private readonly jump: HoldButton;
+  private readonly sneak: HoldButton;
   lastActive = 0;
 
   /** 스틱 원판 중심과, 그 근처(여유 포함)에 닿았는지 */
@@ -137,22 +199,32 @@ export class TouchControls implements InputSource {
   };
   private readonly onJumpStart = (e: Event) => {
     e.preventDefault();
-    this.jumpHeld = true;
-    this.ui.jumpButton.classList.add('active');
+    this.lastActive = performance.now();
+    this.jump.press(this.lastActive);
   };
   private readonly onJumpEnd = (e: Event) => {
     e.preventDefault();
-    this.jumpHeld = false;
-    this.ui.jumpButton.classList.remove('active');
+    this.jump.release(performance.now());
   };
-  private readonly onSneak = (e: Event) => {
+  private readonly onSneakStart = (e: Event) => {
     e.preventDefault();
-    this.sneakOn = !this.sneakOn;
-    this.ui.sneakButton.classList.toggle('active', this.sneakOn);
-    this.ui.onSneakToggle?.(this.sneakOn);
+    this.lastActive = performance.now();
+    this.sneak.press(this.lastActive);
+  };
+  private readonly onSneakEnd = (e: Event) => {
+    e.preventDefault();
+    this.sneak.release(performance.now());
   };
 
+  /** 잠긴 ▲▼ 를 모두 푼다 (세계 전환·내리기 등) */
+  clearHolds(): void {
+    this.jump.clear();
+    this.sneak.clear();
+  }
+
   constructor(private readonly ui: TouchUI) {
+    this.jump = new HoldButton(ui.jumpButton);
+    this.sneak = new HoldButton(ui.sneakButton, (on) => ui.onSneakToggle?.(on));
     const opt: AddEventListenerOptions = { passive: false };
     ui.surface.addEventListener('touchstart', this.onStart, opt);
     ui.surface.addEventListener('touchmove', this.onMove, opt);
@@ -161,7 +233,9 @@ export class TouchControls implements InputSource {
     ui.jumpButton.addEventListener('touchstart', this.onJumpStart, opt);
     ui.jumpButton.addEventListener('touchend', this.onJumpEnd, opt);
     ui.jumpButton.addEventListener('touchcancel', this.onJumpEnd, opt);
-    ui.sneakButton.addEventListener('touchstart', this.onSneak, opt);
+    ui.sneakButton.addEventListener('touchstart', this.onSneakStart, opt);
+    ui.sneakButton.addEventListener('touchend', this.onSneakEnd, opt);
+    ui.sneakButton.addEventListener('touchcancel', this.onSneakEnd, opt);
     ui.stickBase.hidden = false; // 고정 스틱은 항상 보인다
   }
 
@@ -192,8 +266,8 @@ export class TouchControls implements InputSource {
     this.lookDY = 0;
     if (this.secondaryTap) out.secondaryTap = true;
     this.secondaryTap = false;
-    if (this.jumpHeld) out.jump = true;
-    if (this.sneakOn) out.sneak = true;
+    if (this.jump.on) out.jump = true;
+    if (this.sneak.on) out.sneak = true;
   }
 
   dispose(): void {
@@ -205,6 +279,8 @@ export class TouchControls implements InputSource {
     this.ui.jumpButton.removeEventListener('touchstart', this.onJumpStart);
     this.ui.jumpButton.removeEventListener('touchend', this.onJumpEnd);
     this.ui.jumpButton.removeEventListener('touchcancel', this.onJumpEnd);
-    this.ui.sneakButton.removeEventListener('touchstart', this.onSneak);
+    this.ui.sneakButton.removeEventListener('touchstart', this.onSneakStart);
+    this.ui.sneakButton.removeEventListener('touchend', this.onSneakEnd);
+    this.ui.sneakButton.removeEventListener('touchcancel', this.onSneakEnd);
   }
 }

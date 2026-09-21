@@ -114,8 +114,8 @@ export class Hud {
       <div class="side-btns">
         <button class="sbtn bag-btn" aria-label="가방">🎒</button>
         <button class="sbtn chat-btn" aria-label="채팅">💬</button>
-        <button class="sbtn ride-btn" aria-label="드래곤에서 내리기" hidden>🐉 내리기</button>
       </div>
+      <button class="sbtn ride-btn" aria-label="드래곤에서 내리기" hidden>🐉 내리기</button>
       <div class="touch-controls">
         <div class="stick-base" hidden><div class="stick-knob"></div></div>
         <button class="tbtn jump" aria-label="점프">▲</button>
@@ -780,8 +780,8 @@ function helpHtml(isTouch: boolean): string {
         ['둘러보기', '스틱이 아닌 곳을 <b>드래그</b>'],
         ['블록 놓기', '놓을 자리를 <b>짧게 탭</b>'],
         ['블록 부수기', '블록을 <b>꾹 누르기</b>. 게이지가 차고 금이 가면 부서져요'],
-        ['점프', '오른쪽 아래 <b>▲</b>'],
-        ['웅크리기', '<b>▼</b> (한 번 누르면 켜짐, 다시 누르면 꺼짐). 웅크리면 모서리에서 안 떨어져요'],
+        ['점프', '오른쪽 아래 <b>▲</b> (꾹 누르면 그동안, <b>두 번 톡톡</b> 치면 손을 떼도 계속 눌린 채. 다시 한 번 누르면 풀려요)'],
+        ['웅크리기', '<b>▼</b> (▲ 와 같아요 — 꾹 누르면 그동안, 두 번 톡톡 치면 계속). 웅크리면 모서리에서 안 떨어져요'],
         ['블록 고르기', '아래 칸(핫바)을 탭'],
         ['가방 · 만들기', '핫바 옆 <b>🎒</b>. 칸을 탭해 고르고 다른 칸을 탭하면 옮겨요'],
         ['채팅', '<b>💬</b> → 이모지나 문구를 골라요'],

@@ -245,11 +245,16 @@ body {
   bottom: calc(max(10px, env(safe-area-inset-bottom)) + 80px);
 }
 .tbtn.sneak {
-  right: calc(max(24px, env(safe-area-inset-right)) + 88px);
+  right: calc(max(24px, env(safe-area-inset-right)) + 96px);
   bottom: calc(max(10px, env(safe-area-inset-bottom)) + 80px);
-  width: 56px;
-  height: 56px;
-  font-size: 20px;
+  width: 64px;
+  height: 64px;
+  font-size: 22px;
+}
+/* 두 번 톡톡 쳐서 계속 눌린 상태 (아빠 2026-09-22) */
+.tbtn.locked {
+  border-color: #ffd54f;
+  box-shadow: 0 0 0 3px rgba(255, 213, 79, 0.45);
 }
 
 /* ---------- 상단 버튼 ---------- */
@@ -866,7 +871,8 @@ body {
   font-size: 22px;
 }
 .hud.touch .side-btns {
-  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 150px);
+  /* ▲ 버튼(아래 80 + 높이 72 = 152)보다 위로 — 잘못 눌리지 않게 (아빠 2026-09-22) */
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 178px);
 }
 
 /* ---------- 가방 화면 ---------- */
@@ -1480,14 +1486,23 @@ body {
   align-items: center;
 }
 
-/* ---- 드래곤 내리기 버튼 (M6-4) ---- */
+/* ---- 드래곤 내리기 버튼 (M6-4) — 폰에서는 왼쪽(스틱 위)에 둬서 ▲▼ 와 멀리 (아빠 2026-09-22) ---- */
 .sbtn.ride-btn {
+  position: absolute;
+  left: max(10px, env(safe-area-inset-left));
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 60px);
   width: auto !important;
-  padding: 0 10px;
-  font-size: 14px !important;
+  height: 44px;
+  padding: 0 12px;
+  font-size: 15px !important;
   font-weight: 700;
   white-space: nowrap;
-  background: rgba(90, 40, 140, 0.6);
+  background: rgba(90, 40, 140, 0.72);
+  pointer-events: auto;
+}
+.hud.touch .sbtn.ride-btn {
+  left: calc(max(20px, env(safe-area-inset-left)) + 24px);
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 216px);
 }
 .sbtn.ride-btn[hidden] {
   display: none;

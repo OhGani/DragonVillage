@@ -365,6 +365,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     for (const idx of remote.indices()) remote.remove(idx);
     for (const p of w.players) remote.upsert(p);
     nestDragons.visible = w.kind === 'village'; // 둥지 드래곤은 마을에서만
+    touch.clearHolds();
     warned3 = warned1 = false;
     hud.hideAction();
     if (w.kind === 'expedition' && w.expedition) {
@@ -531,6 +532,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       ctx.player.riding = false;
       mount.set(null);
       hud.setRiding(false);
+      touch.clearHolds(); // 내리면 잠긴 ▲▼ 는 풀어 준다
     },
     onXpGained: (m) => onXp(xpTotal + m.amount, { x: m.x, y: m.y, z: m.z }, m.amount),
     onXpState: (m) => onXp(m.total, null, 0),
