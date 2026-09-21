@@ -67,6 +67,8 @@ import {
   pickaxeOf,
   type DragonInfo,
   type NestDragonInfo,
+  type GiftDef,
+  type GiftNotice,
   type NestSlotInfo,
   RIDE_RANGE,
   type RidingInfo,
@@ -93,7 +95,7 @@ import {
   encodePlayersState,
   generateVillage,
 } from '@dragon-village/shared';
-import { DRAGONS, EXPEDITIONS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP } from '@dragon-village/shared/data';
+import { DRAGONS, EXPEDITIONS, GIFTS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import type { DragonRow, Storage } from './storage';
@@ -155,6 +157,8 @@ export interface JoinResult {
   nest: NestSlotInfo[];
   /** 둥지의 드래곤 (모두, M6-3) */
   nestDragons: NestDragonInfo[];
+  /** 이번 입장에 받은 선물 (#79) */
+  gifts: GiftNotice[];
 }
 
 export interface RoomOptions {
@@ -164,6 +168,8 @@ export interface RoomOptions {
   phrases?: PhraseRegistry;
   /** 처음 들어오는 사람에게 주는 것 (null 이면 안 줌) */
   starterKit?: StarterKit | null;
+  /** 모두에게 한 번씩 주는 선물 (#79). 시험 룸은 [] 로 끈다 */
+  gifts?: readonly GiftDef[];
   /** 원정 시드 (테스트에서 고정) */
   seedFn?: () => number;
 }
@@ -194,6 +200,7 @@ export class VillageRoom {
   private readonly potions: PotionRegistry;
   private readonly phrases: PhraseRegistry;
   private readonly starterKit: StarterKit | null;
+  private readonly gifts: readonly GiftDef[];
   private readonly seedFn: () => number;
   /** 통계 */
   stats = { blockChanges: 0, rejected: 0, flushes: 0, chunksSaved: 0, expeditions: 0 };
@@ -210,6 +217,7 @@ export class VillageRoom {
     this.potions = opts.potions ?? POTIONS;
     this.phrases = opts.phrases ?? PHRASES;
     this.starterKit = opts.starterKit === undefined ? STARTER_KIT : opts.starterKit;
+    this.gifts = opts.gifts ?? GIFTS;
     this.seedFn = opts.seedFn ?? (() => randomInt(1, 2 ** 31 - 1));
     const gen = generateVillage(registry, info.seed);
     this.world = gen.world;
@@ -551,15 +559,26 @@ export class VillageRoom {
     const inv = savedInv ?? emptyInventory();
     // 처음 온 사람(가방 저장이 없음)에게 시작 키트 (#67). 저장소가 없는 시험 룸도 준다
     if (savedInv === null && this.starterKit) for (const [item, n] of Object.entries(this.starterKit)) give(inv, item, n);
+    // 아빠 선물 (#79): 아직 안 받은 것만, 한 사람당 한 번. 저장소가 있어야 기억한다
+    const gifts: GiftNotice[] = [];
+    if (this.storage) {
+      const already = this.storage.giftsGiven(token);
+      for (const g of this.gifts) {
+        if (already.has(g.id)) continue;
+        for (const [item, n] of Object.entries(g.items)) give(inv, item, n);
+        this.storage.markGiftGiven(token, g.id);
+        gifts.push({ id: g.id, name: g.name, message: g.message });
+      }
+    }
     const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     const me = this.toInfo(player);
     this.broadcastJson({ t: 'playerJoined', player: me }, idx, 'village');
     this.savePlayer(player);
-    if (savedInv === null) this.storage?.saveInventory(token, this.info.code, inv); // 키트는 한 번만 — 바로 저장해 둔다
-    this.log(`마을 ${this.info.code}: ${nick}(#${idx}) 입장${savedInv === null ? ' (처음, 시작 키트)' : ''}, ${this.players.size}명`);
-    return { idx, spawn: me, players: others, expedition: this.expeditionState(), inventory: inv, xp: player.xp, dragons: this.myDragons(token), nest: this.nestSlots(token), nestDragons: this.nestDragons(token) };
+    if (savedInv === null || gifts.length) this.storage?.saveInventory(token, this.info.code, inv); // 키트·선물은 한 번만 — 바로 저장해 둔다
+    this.log(`마을 ${this.info.code}: ${nick}(#${idx}) 입장${savedInv === null ? ' (처음, 시작 키트)' : ''}${gifts.length ? ` (선물 ${gifts.map((g) => g.name).join('·')})` : ''}, ${this.players.size}명`);
+    return { idx, spawn: me, players: others, expedition: this.expeditionState(), inventory: inv, xp: player.xp, dragons: this.myDragons(token), nest: this.nestSlots(token), nestDragons: this.nestDragons(token), gifts };
   }
 
   /** 입장 직후: 생성 지형과 다른 청크를 전부 보낸다 */

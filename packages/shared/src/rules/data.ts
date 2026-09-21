@@ -10,6 +10,7 @@ import phrasesJson from '../../../../data/phrases.json';
 import potionsJson from '../../../../data/potions.json';
 import recipesJson from '../../../../data/recipes.json';
 import redstoneJson from '../../../../data/redstone.json';
+import giftsJson from '../../../../data/gifts.json';
 import starterKitJson from '../../../../data/starter-kit.json';
 import toolsJson from '../../../../data/tools.json';
 import xpJson from '../../../../data/xp.json';
@@ -22,6 +23,7 @@ import { parsePhrases } from './phrases';
 import { RecipeRegistry, parseRecipes } from './recipes';
 import { parsePotions } from './potions';
 import { parseRedstone } from './redstone';
+import { parseGifts } from './gifts';
 import { parseStarterKit } from './starterKit';
 import { parseTools } from './tools';
 import { parseXp } from './xp';
@@ -43,6 +45,8 @@ export const TOOLS = parseTools(toolsJson);
 export const XP = parseXp(xpJson);
 /** 처음 들어올 때 한 번 받는 것 (#67) */
 export const STARTER_KIT = parseStarterKit(starterKitJson);
+/** 아빠가 모두에게 한 번씩 주는 선물 (#79) */
+export const GIFTS = parseGifts(giftsJson);
 /** 아이템 id → 한국어 이름 (블록 아닌 것). 블록은 BLOCKS 에서 */
 export const ITEM_NAMES = buildItemNames({ recipes: recipesJson, dragons: dragonsJson, potions: potionsJson });
 for (const d of DRAGONS.list) ITEM_NAMES.set(eggItem(d.id), `${d.name} 알`);

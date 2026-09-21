@@ -1088,6 +1088,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         else if (!standalone) hud.toast(IOS_HINT, 7000);
         if (window.innerHeight > window.innerWidth && (fullscreenAvailable || standalone)) hud.toast('폰을 가로로 돌리면 더 편해요', 3500);
       }
+      // 아빠 선물 (#79): 가방엔 이미 들어와 있고, 시작 뒤에 알려 준다 (시작 화면 뒤에서 혼자 떴다 사라지지 않게)
+      welcome.gifts.forEach((g, i) => setTimeout(() => hud.toast(`🎁 ${g.message}`, 8000), 2500 + i * 1500));
       sendMove();
       resume();
     },

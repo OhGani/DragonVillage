@@ -20,7 +20,7 @@ function inbox() {
 }
 
 function setup(storage: Storage | null = null) {
-  const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 777, starterKit: null });
+  const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 777, starterKit: null, gifts: [] });
   const a = inbox();
   const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
   a.clear();
@@ -96,7 +96,7 @@ describe('가방과 블록 (M4, #66)', () => {
     expect(loaded[0]).toEqual({ item: 'planks', count: 6 });
     // 다시 들어오면 그 가방
     const b = inbox();
-    const room2 = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null });
+    const room2 = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null, gifts: [] });
     const rb = room2.join('a'.repeat(32), '아빠', 0, b.send)!;
     expect(rb.inventory[0]).toEqual({ item: 'planks', count: 6 });
   });
@@ -106,7 +106,7 @@ describe('시작 키트 (#67)', () => {
   it('처음 들어오면 starter-kit.json 을 받고, 다시 들어오면 안 받는다', () => {
     const storage = new Storage(':memory:');
     storage.createVillage({ ...INFO, createdAt: 1 });
-    const room = new VillageRoom({ ...INFO }, BLOCKS, storage);
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { gifts: [] });
     const a = inbox();
     const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
     expect(countOf(ra.inventory, 'planks')).toBe(STARTER_KIT.planks);

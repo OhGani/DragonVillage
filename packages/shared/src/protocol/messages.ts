@@ -8,6 +8,7 @@
  * - M3 원정: 세계 전환·정산은 드물어서 JSON(worldEnter·expeditionResult·expeditionState), 1Hz 타이머만 바이너리(ExpeditionTimer).
  */
 import type { DragonInfo, NestDragonInfo, NestSlotInfo, RidingInfo } from '../rules/dragons';
+import type { GiftNotice } from '../rules/gifts';
 import type { TodayCard } from '../rules/family';
 import { ByteReader, ByteWriter } from './bytes';
 
@@ -453,6 +454,8 @@ export type ServerJson =
       pending?: ApprovalItem[];
       /** 내 경험치 총량 (M6-1). 레벨·바는 클라가 공식으로 계산 */
       xp?: number;
+      /** 이번 입장에 받은 선물 (data/gifts.json, #79). 가방엔 이미 들어와 있다 */
+      gifts?: GiftNotice[];
       /** 내 드래곤(알 포함) (M6-2) */
       dragons?: DragonInfo[];
       /** 둥지 자리 상태 (모두) */

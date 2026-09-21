@@ -7,6 +7,7 @@
 import {
   type ApprovalItem,
   type DragonInfo,
+  type GiftNotice,
   type NestDragonInfo,
   type NestSlotInfo,
   type RidingInfo,
@@ -75,6 +76,8 @@ export interface Welcome {
   nest: NestSlotInfo[];
   /** 둥지의 드래곤 (모두, M6-3) */
   nestDragons: NestDragonInfo[];
+  /** 이번에 받은 선물 (#79) */
+  gifts: GiftNotice[];
 }
 
 /** 세계 전환 (worldEnter … ChunkData … ready 를 하나로 모은 것) */
@@ -376,6 +379,7 @@ export class NetClient {
           dragons: msg.dragons ?? [],
           nest: msg.nest ?? [],
           nestDragons: msg.nestDragons ?? [],
+          gifts: msg.gifts ?? [],
         };
         return;
       case 'familyLinked':

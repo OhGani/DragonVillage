@@ -158,6 +158,8 @@ CREATE TABLE IF NOT EXISTS dragons(
   id INTEGER PRIMARY KEY AUTOINCREMENT, village TEXT NOT NULL, token TEXT NOT NULL, dragon TEXT NOT NULL, stage TEXT NOT NULL,
   slot INTEGER, placed_at INTEGER NOT NULL, hatched_at INTEGER, fed INTEGER NOT NULL DEFAULT 0, resting_until INTEGER);
 CREATE INDEX IF NOT EXISTS dragons_owner ON dragons(village, token);
+CREATE TABLE IF NOT EXISTS gifts_given(
+  token TEXT NOT NULL, gift TEXT NOT NULL, given_at INTEGER NOT NULL, PRIMARY KEY(token, gift));
 CREATE TABLE IF NOT EXISTS time_adjustments(
   id INTEGER PRIMARY KEY AUTOINCREMENT, child TEXT NOT NULL, date TEXT NOT NULL, delta_min INTEGER NOT NULL, reason TEXT NOT NULL, created_at INTEGER NOT NULL);
 `;
@@ -246,6 +248,8 @@ export class Storage {
       feedDragon: this.db.prepare('UPDATE dragons SET fed = ? WHERE id = ?'),
       growDragon: this.db.prepare("UPDATE dragons SET stage = 'adult' WHERE id = ?"),
       addXpOffline: this.db.prepare('UPDATE players SET xp_total = xp_total + ? WHERE token = ?'),
+      giftsOf: this.db.prepare('SELECT gift FROM gifts_given WHERE token = ?'),
+      markGift: this.db.prepare('INSERT OR IGNORE INTO gifts_given(token, gift, given_at) VALUES (?, ?, ?)'),
       getSettlement: this.db.prepare('SELECT child, week_start AS weekStart, rate, bonus_cap AS bonusCap, approved, expected, settled_at AS settledAt FROM week_settlements WHERE child = ? AND week_start = ?'),
       insertSettlement: this.db.prepare('INSERT OR IGNORE INTO week_settlements(child, week_start, rate, bonus_cap, approved, expected, settled_at) VALUES (?, ?, ?, ?, ?, ?, ?)'),
       listSettlements: this.db.prepare('SELECT child, week_start AS weekStart, rate, bonus_cap AS bonusCap, approved, expected, settled_at AS settledAt FROM week_settlements WHERE child = ? ORDER BY week_start DESC LIMIT ?'),
@@ -477,6 +481,15 @@ export class Storage {
   growDragon(id: number): void {
     this.stmts.growDragon.run(id);
   }
+  // ---- 선물 (#79)
+  /** 이 사람이 이미 받은 선물 id 들 */
+  giftsGiven(token: string): Set<string> {
+    return new Set((this.stmts.giftsOf.all(token) as { gift: string }[]).map((r) => r.gift));
+  }
+  markGiftGiven(token: string, gift: string, now = Date.now()): void {
+    this.stmts.markGift.run(token, gift, now);
+  }
+
   /** 접속 안 한 주인에게 경험치 (드래곤 성장, M6-3) */
   addXpOffline(token: string, amount: number): void {
     this.stmts.addXpOffline.run(amount, token);

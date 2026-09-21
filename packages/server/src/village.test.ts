@@ -35,7 +35,7 @@ function inbox() {
 const NEST_CHUNKS = 2;
 
 function makeRoom(storage: Storage | null = null) {
-  return new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null });
+  return new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null, gifts: [] });
 }
 /** M4: 블록이 유한하므로 시험 전에 손에 쥐어 준다 */
 function kit(room: VillageRoom, idx: number) {
@@ -252,7 +252,7 @@ describe('VillageRoom 액체 틱과 저장', () => {
   it('flush → 저장소에 바뀐 청크, 새 룸이 그것을 불러오고 입장자에게 ChunkData 로 보낸다', () => {
     const storage = new Storage(':memory:');
     storage.createVillage({ ...INFO, createdAt: 1 });
-    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null });
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null, gifts: [] });
     const a = inbox();
     const ra = room.join('a'.repeat(32), '아빠', 2, a.send)!;
     kit(room, ra.idx);
@@ -261,7 +261,7 @@ describe('VillageRoom 액체 틱과 저장', () => {
     room.flush(2000);
     expect(storage.countChunks(INFO.code)).toBe(1 + NEST_CHUNKS);
 
-    const room2 = new VillageRoom({ ...INFO }, BLOCKS, storage);
+    const room2 = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { gifts: [] });
     expect(BLOCKS.get(room2.world.getBlock(72, GROUND_Y + 1, 70)).id).toBe('planks');
     expect(room2.modifiedCount).toBe(1 + NEST_CHUNKS);
     const b = inbox();
@@ -277,7 +277,7 @@ describe('VillageRoom 액체 틱과 저장', () => {
     const storage = new Storage(':memory:');
     storage.createVillage({ ...INFO, genVersion: VILLAGE_GEN_VERSION + 1, createdAt: 1 });
     storage.saveChunks(INFO.code, [{ cx: 0, cy: 0, cz: 0, blob: new Uint8Array([1, 0, 0, 0, 0]) }]);
-    const room = new VillageRoom({ ...INFO, genVersion: VILLAGE_GEN_VERSION + 1 }, BLOCKS, storage);
+    const room = new VillageRoom({ ...INFO, genVersion: VILLAGE_GEN_VERSION + 1 }, BLOCKS, storage, () => {}, { gifts: [] });
     expect(room.modifiedCount).toBe(NEST_CHUNKS); // 저장은 버렸고 둥지만 새로 지었다
     expect(storage.countChunks(INFO.code)).toBe(0);
     expect(room.info.genVersion).toBe(VILLAGE_GEN_VERSION);
@@ -543,5 +543,48 @@ describe('드래곤 탑승 (M6-4)', () => {
     room.leave(ra.idx);
     expect(room.nestDragons('b'.repeat(32)).map((d) => d.id)).toEqual([ironId, woodId]);
     expect(b.json.filter((m) => m.t === 'nest').at(-1)).toMatchObject({ dragons: [{ id: ironId }, { id: woodId }] });
+  });
+});
+
+describe('아빠 선물 (#79)', () => {
+  const GIFT = [{ id: 'axe_test', name: '철 도끼', message: '아빠가 철 도끼를 줬어요!', items: { iron_axe: 1 } }];
+
+  it('이미 놀던 사람도 다음 입장에 한 번 받고, 두 번째 입장에는 안 받는다', () => {
+    const storage = new Storage(':memory:');
+    // 1) 선물 없이 한 번 놀고 나간다 (가방 저장이 생긴다)
+    const before = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null, gifts: [] });
+    const r0 = before.join('a'.repeat(32), '아빠', 0, () => {})!;
+    expect(r0.gifts).toEqual([]);
+    expect(countOf(before.players.get(r0.idx)!.inv, 'iron_axe')).toBe(0);
+    before.leave(r0.idx);
+
+    // 2) 선물을 넣고 다시 들어오면 받는다
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null, gifts: GIFT });
+    const a = inbox();
+    const r1 = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    expect(r1.gifts).toEqual([{ id: 'axe_test', name: '철 도끼', message: '아빠가 철 도끼를 줬어요!' }]);
+    expect(countOf(room.players.get(r1.idx)!.inv, 'iron_axe')).toBe(1);
+    expect(r1.inventory.some((s) => s?.item === 'iron_axe')).toBe(true);
+    room.leave(r1.idx);
+
+    // 3) 또 들어와도 다시 주지 않는다 (가방에 그대로 1개)
+    const r2 = room.join('a'.repeat(32), '아빠', 0, () => {})!;
+    expect(r2.gifts).toEqual([]);
+    expect(countOf(room.players.get(r2.idx)!.inv, 'iron_axe')).toBe(1);
+
+    // 4) 다른 사람은 자기 차례에 받는다
+    const r3 = room.join('b'.repeat(32), '아들', 1, () => {})!;
+    expect(r3.gifts.map((g) => g.id)).toEqual(['axe_test']);
+    expect(countOf(room.players.get(r3.idx)!.inv, 'iron_axe')).toBe(1);
+  });
+
+  it('선물은 나가기 전에도 저장되어, 서버가 죽어도 두 번 받지 않는다', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null, gifts: GIFT });
+    room.join('a'.repeat(32), '아빠', 0, () => {});
+    expect(storage.giftsGiven('a'.repeat(32))).toEqual(new Set(['axe_test']));
+    expect(storage.getInventory('a'.repeat(32))!.some((s) => s?.item === 'iron_axe')).toBe(true);
+    const room2 = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null, gifts: GIFT });
+    expect(room2.join('a'.repeat(32), '아빠', 0, () => {})!.gifts).toEqual([]);
   });
 });

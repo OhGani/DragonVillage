@@ -200,6 +200,7 @@ export class Session {
           dragons: result.dragons,
           nest: result.nest,
           nestDragons: result.nestDragons,
+          gifts: result.gifts,
           needPin,
           family: this.family?.familyOfNick(nick) ?? null,
           today: this.family?.todayCard(nick) ?? null,
