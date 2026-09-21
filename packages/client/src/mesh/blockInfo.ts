@@ -25,9 +25,10 @@ export function buildMeshBlockInfo(registry: BlockRegistry, textureIndex: Readon
       const [fx, fz] = DOOR_DIR[d.door.facing]!;
       if (!d.door.open) panel = [fx !== 0 ? 0 : 2, fx < 0 || fz < 0 ? 1 : 0];
       else {
-        const lx = fz,
-          lz = -fx; // 왼쪽 = 위 × 앞
-        panel = [lx !== 0 ? 0 : 2, lx < 0 || lz < 0 ? 0 : 1];
+        // 열린 문은 경첩 쪽 가장자리에 붙는다 (왼쪽 0 / 오른쪽 1, 결정 #83)
+        const hx = d.door.hinge ? -fz : fz,
+          hz = d.door.hinge ? fx : -fx;
+        panel = [hx !== 0 ? 0 : 2, hx < 0 || hz < 0 ? 0 : 1];
       }
     }
     return {

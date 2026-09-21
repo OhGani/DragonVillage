@@ -36,6 +36,7 @@ import {
   craft,
   dropOf,
   emptyInventory,
+  doorHinge,
   facingFromYaw,
   give,
   isPotionItem,
@@ -658,7 +659,7 @@ export class VillageRoom {
     if (!def) return REJECT.INVALID;
     const cur = this.registry.get(world.getBlock(x, y, z));
     // 문 열고 닫기 (#71): 같은 문·같은 방향·같은 반쪽에서 열림만 뒤집는 요청. 가방과 무관, 아무나 가능
-    if (def.door && cur.door && def.door.base === cur.door.base && def.door.facing === cur.door.facing && def.door.upper === cur.door.upper && def.door.open !== cur.door.open) {
+    if (def.door && cur.door && def.door.base === cur.door.base && def.door.facing === cur.door.facing && def.door.hinge === cur.door.hinge && def.door.upper === cur.door.upper && def.door.open !== cur.door.open) {
       if (def.door.open) return null;
       const ly = def.door.upper ? y - 1 : y; // 닫을 때는 문 두 칸에 누가 서 있으면 안 된다
       for (const other of this.playersIn(p.world)) if (bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, ly, z) || bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, ly + 1, z)) return REJECT.OCCUPIED;
@@ -701,7 +702,15 @@ export class VillageRoom {
     // 핫바의 문 자체(JSON id)를 놓는 요청은 보던 방향의 아래·닫힘 변형으로 바꾼다
     const rawDef = this.registry.find(req.id);
     if (rawDef && rawDef.shape === 'door' && !rawDef.door && this.registry.isDoor(rawDef.num)) {
-      req = { ...req, id: this.registry.get(this.registry.doorVariant(rawDef.num, facingFromYaw(p.pos.yaw), false, false)).id };
+      const facing = facingFromYaw(p.pos.yaw);
+      const w = this.worldOf(p);
+      const isWall = (bx: number, by: number, bz: number) => {
+        if (!w.inBounds(bx, by, bz)) return false;
+        const d = this.registry.get(w.getBlock(bx, by, bz));
+        return d.solid && d.door === null;
+      };
+      const hinge = doorHinge(isWall, req.x, req.y, req.z, facing);
+      req = { ...req, id: this.registry.get(this.registry.doorVariant(rawDef.num, facing, false, false, hinge)).id };
     }
     const reason = this.validate(p, req, now);
     if (reason !== null) {
@@ -735,7 +744,7 @@ export class VillageRoom {
     const doorHalf = def.door ?? prev.door;
     if (doorHalf) {
       const oy = doorHalf.upper ? req.y - 1 : req.y + 1;
-      const other = def.door ? this.registry.doorVariant(def.door.base, def.door.facing, !def.door.upper, def.door.open) : AIR_ID;
+      const other = def.door ? this.registry.doorVariant(def.door.base, def.door.facing, !def.door.upper, def.door.open, def.door.hinge) : AIR_ID;
       if (world.inBounds(req.x, oy, req.z) && world.setBlock(req.x, oy, req.z, other).changed) {
         touched(req.x, oy, req.z);
         this.broadcast(encodeBlockChanged({ x: req.x, y: oy, z: req.z, id: this.registry.get(other).id, by: idx }), -1, p.world);

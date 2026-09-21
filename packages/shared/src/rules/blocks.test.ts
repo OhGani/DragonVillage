@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AIR_ID, DataError, facingFromYaw, parseBlocks } from './blocks';
+import { AIR_ID, DataError, doorHinge, facingFromYaw, parseBlocks } from './blocks';
 import { BLOCKS } from './data';
 import { itemForPlacing } from './items';
 
@@ -108,7 +108,7 @@ describe('dropCount', () => {
 });
 
 describe('문 변형 (#71)', () => {
-  it('문 하나에 16개 내부 변형, 열린 문은 지나갈 수 있고, 윗칸은 드롭 없음', () => {
+  it('문 하나에 32개 내부 변형(방향 4 × 위아래 × 열림 × 경첩 2), 열린 문은 지나갈 수 있고, 윗칸은 드롭 없음', () => {
     const reg = parseBlocks({
       blocks: [
         { id: 'air', name: '공기', solid: false, transparent: true },
@@ -116,7 +116,7 @@ describe('문 변형 (#71)', () => {
       ],
     });
     const base = reg.numOf('oak_door');
-    expect(reg.defs.filter((d) => d.door)).toHaveLength(16);
+    expect(reg.defs.filter((d) => d.door)).toHaveLength(32);
     const lower = reg.get(reg.doorVariant(base, 0, false, false));
     expect(lower.id).toBe('oak_door@n');
     expect(lower.solid).toBe(true);
@@ -128,7 +128,10 @@ describe('문 변형 (#71)', () => {
     expect(upperOpen.solid).toBe(false);
     expect(upperOpen.drops).toBeNull();
     expect(upperOpen.textures?.[1]).toBe('door_top');
-    expect(upperOpen.door).toEqual({ base, facing: 2, upper: true, open: true });
+    expect(upperOpen.door).toEqual({ base, facing: 2, upper: true, open: true, hinge: 0 });
+    // 오른쪽 경첩은 id 뒤에 r — 왼쪽 경첩 id 는 예전 그대로라 저장된 마을의 문이 살아 있다 (#83)
+    expect(reg.get(reg.doorVariant(base, 2, true, true, 1)).id).toBe('oak_door@s^>r');
+    expect(reg.get(reg.doorVariant(base, 0, false, false, 1)).id).toBe('oak_door@nr');
     expect(reg.isDoor(base)).toBe(true);
     expect(reg.isDoor(AIR_ID)).toBe(false);
     // 놓을 때는 아래·닫힘 변형만 문 아이템 하나를 쓴다
@@ -139,7 +142,7 @@ describe('문 변형 (#71)', () => {
     expect(facingFromYaw(0)).toBe(0);
     expect(facingFromYaw(Math.PI / 2)).toBe(3);
     expect(facingFromYaw(Math.PI)).toBe(2);
-    expect(BLOCKS.defs.filter((d) => d.door)).toHaveLength(16);
+    expect(BLOCKS.defs.filter((d) => d.door)).toHaveLength(32);
   });
 });
 
@@ -164,5 +167,34 @@ describe('횃불 벽 변형 (#82)', () => {
   it('벽에 붙인 횃불을 놓아도 횃불 아이템 하나', () => {
     expect(itemForPlacing('torch', BLOCKS)).toBe('torch');
     expect(itemForPlacing('torch@w', BLOCKS)).toBe('torch');
+  });
+});
+
+describe('문 경첩 (#83, 아빠 2026-09-22)', () => {
+  // 북(-z)을 보고 놓은 문 기준: 왼쪽 = −x(서), 오른쪽 = +x(동)
+  const NORTH = 0;
+  const wallsAt = (...cells: [number, number, number][]) => {
+    const set = new Set(cells.map((c) => c.join(',')));
+    return (x: number, y: number, z: number) => set.has([x, y, z].join(','));
+  };
+
+  it('한쪽만 벽이면 그 벽 쪽에 붙는다', () => {
+    expect(doorHinge(wallsAt([9, 5, 5]), 10, 5, 5, NORTH)).toBe(0); // 왼쪽(−x)만 벽 → 왼쪽
+    expect(doorHinge(wallsAt([11, 5, 5]), 10, 5, 5, NORTH)).toBe(1); // 오른쪽(+x)만 벽 → 오른쪽
+  });
+
+  it('양쪽 다 벽이거나 둘 다 아니면 왼쪽', () => {
+    expect(doorHinge(wallsAt([11, 5, 5], [9, 5, 5]), 10, 5, 5, NORTH)).toBe(0);
+    expect(doorHinge(() => false, 10, 5, 5, NORTH)).toBe(0);
+  });
+
+  it('윗칸만 벽이어도 그 쪽으로 붙는다 (벽은 보통 두 칸)', () => {
+    expect(doorHinge(wallsAt([11, 6, 5]), 10, 5, 5, NORTH)).toBe(1);
+  });
+
+  it('보는 방향이 바뀌면 왼쪽·오른쪽도 같이 돈다', () => {
+    // 동(+x)을 보고 놓으면 왼쪽 = −z(북)
+    expect(doorHinge(wallsAt([10, 5, 4]), 10, 5, 5, 1)).toBe(0);
+    expect(doorHinge(wallsAt([10, 5, 6]), 10, 5, 5, 1)).toBe(1);
   });
 });

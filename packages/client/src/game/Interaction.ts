@@ -8,6 +8,7 @@ import {
   type VoxelWorld,
   bodyOverlapsBlock,
   breakSeconds,
+  doorHinge,
   facingOf,
   needToolText,
   toolOf,
@@ -61,8 +62,15 @@ export class Interaction {
     if (bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y, z) || bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y + 1, z)) return;
     const look = this.player.lookDir;
     const facing = facingOf(look.x, look.z);
-    const lower = this.registry.doorVariant(base.num, facing, false, false);
-    const upper = this.registry.doorVariant(base.num, facing, true, false);
+    // 경첩은 벽 쪽에 (결정 #83). 옆에 있는 다른 문은 벽으로 치지 않는다
+    const isWall = (bx: number, by: number, bz: number) => {
+      if (!this.world.inBounds(bx, by, bz)) return false;
+      const d = this.registry.get(this.world.getBlock(bx, by, bz));
+      return d.solid && d.door === null;
+    };
+    const hinge = doorHinge(isWall, x, y, z, facing);
+    const lower = this.registry.doorVariant(base.num, facing, false, false, hinge);
+    const upper = this.registry.doorVariant(base.num, facing, true, false, hinge);
     const r1 = this.world.setBlock(x, y, z, lower);
     const r2 = this.world.setBlock(x, y + 1, z, upper);
     if (r1.changed || r2.changed) {
@@ -78,8 +86,8 @@ export class Interaction {
     const ly = d.upper ? t.y - 1 : t.y;
     // 닫을 때 문 칸에 내가 서 있으면 안 된다
     if (d.open && (bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, t.x, ly, t.z) || bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, t.x, ly + 1, t.z))) return;
-    const lower = this.registry.doorVariant(d.base, d.facing, false, !d.open);
-    const upper = this.registry.doorVariant(d.base, d.facing, true, !d.open);
+    const lower = this.registry.doorVariant(d.base, d.facing, false, !d.open, d.hinge);
+    const upper = this.registry.doorVariant(d.base, d.facing, true, !d.open, d.hinge);
     const r1 = this.world.setBlock(t.x, ly, t.z, lower);
     const r2 = this.world.setBlock(t.x, ly + 1, t.z, upper);
     if (r1.changed || r2.changed) {

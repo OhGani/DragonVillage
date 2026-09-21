@@ -469,7 +469,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const d = registry.get(p.id).door ?? dPrev;
         if (d) {
           const oy = d.upper ? p.y - 1 : p.y + 1;
-          const other = dPrev ? registry.doorVariant(dPrev.base, dPrev.facing, !dPrev.upper, dPrev.open) : AIR_ID;
+          const other = dPrev ? registry.doorVariant(dPrev.base, dPrev.facing, !dPrev.upper, dPrev.open, dPrev.hinge) : AIR_ID;
           const r2 = ctx.world.setBlock(p.x, oy, p.z, other);
           if (r2.changed) {
             ctx.chunks.markDirtyAll(r2.dirty);

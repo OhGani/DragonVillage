@@ -153,6 +153,22 @@ export interface DoorInfo {
   readonly facing: number;
   readonly upper: boolean;
   readonly open: boolean;
+  /** 경첩(문이 붙어 돌아가는 쪽): 0 왼쪽, 1 오른쪽 — 놓은 사람 기준 (결정 #83) */
+  readonly hinge: number;
+}
+
+/**
+ * 문 경첩을 어느 쪽에 둘까 (결정 #83, 아빠 2026-09-22): **벽이 있는 쪽에 붙인다**.
+ * 한쪽만 벽이면 그쪽, 양쪽 다 벽이거나 둘 다 벽이 아니면 **왼쪽**(놓은 사람 기준).
+ * isWall 은 "문이 아닌 꽉 찬 블록"이어야 한다 — 옆에 있는 다른 문은 벽으로 치지 않는다.
+ */
+export function doorHinge(isWall: (x: number, y: number, z: number) => boolean, x: number, y: number, z: number, facing: number): number {
+  const [fx, fz] = DOOR_DIR[facing]!;
+  const lx = fz,
+    lz = -fx; // 놓은 사람의 왼쪽
+  const left = isWall(x + lx, y, z + lz) || isWall(x + lx, y + 1, z + lz);
+  const right = isWall(x - lx, y, z - lz) || isWall(x - lx, y + 1, z - lz);
+  return !left && right ? 1 : 0;
 }
 export const DOOR_FACING = ['n', 'e', 's', 'w'] as const;
 /** facing → 보는 방향 [dx, dz] */
@@ -193,7 +209,7 @@ export class BlockRegistry {
       if (d.door) {
         let arr = this.doors.get(d.door.base);
         if (!arr) this.doors.set(d.door.base, (arr = []));
-        arr[d.door.facing * 4 + (d.door.upper ? 2 : 0) + (d.door.open ? 1 : 0)] = d.num;
+        arr[d.door.facing * 8 + d.door.hinge * 4 + (d.door.upper ? 2 : 0) + (d.door.open ? 1 : 0)] = d.num;
       }
       if (d.fluid) {
         if (d.fluidVolume > 0) {
@@ -234,10 +250,10 @@ export class BlockRegistry {
     return this.torches.get(base)?.[wall] ?? base;
   }
 
-  doorVariant(base: number, facing: number, upper: boolean, open: boolean): number {
+  doorVariant(base: number, facing: number, upper: boolean, open: boolean, hinge = 0): number {
     const arr = this.doors.get(base);
     if (!arr) throw new Error(`문이 아닌 블록 번호: ${base}`);
-    return arr[((facing & 3) * 4) + (upper ? 2 : 0) + (open ? 1 : 0)]!;
+    return arr[(facing & 3) * 8 + (hinge & 1) * 4 + (upper ? 2 : 0) + (open ? 1 : 0)]!;
   }
 
   /** 문(JSON 의 문 또는 그 변형)인가 */
@@ -441,12 +457,14 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
     const [top, , bottom] = src.textures;
     for (let facing = 0; facing < 4; facing++)
       for (const upper of [false, true])
-        for (const open of [false, true]) {
+        for (const open of [false, true])
+          for (const hinge of [0, 1]) {
           const tex = upper ? top : bottom;
           defs.push({
             ...src,
             num: defs.length,
-            id: `${src.id}@${DOOR_FACING[facing]}${upper ? '^' : ''}${open ? '>' : ''}`,
+            // 왼쪽 경첩은 예전 id 그대로 (저장된 마을의 문이 그대로 열린다), 오른쪽만 뒤에 r
+            id: `${src.id}@${DOOR_FACING[facing]}${upper ? '^' : ''}${open ? '>' : ''}${hinge ? 'r' : ''}`,
             solid: !open,
             transparent: true,
             drops: upper ? null : src.drops,
@@ -454,7 +472,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
             lightFilter: 0,
             textures: [tex, tex, tex],
             internal: true,
-            door: { base: src.num, facing, upper, open },
+            door: { base: src.num, facing, upper, open, hinge },
           });
         }
   }
