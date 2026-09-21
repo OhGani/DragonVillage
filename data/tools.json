@@ -1,6 +1,56 @@
 {
-  "_comment": "곡괭이 등급 — 아들 설계(2026-09-20). speed = 맨손으로 돌을 캘 때보다 몇 배 빠른가(곡괭이가 필요한 블록에만). tier = 캘 수 있는 등급: blocks.json 의 toolTier 가 이 값 이하인 블록만 캘 수 있다(맨손은 toolTier 0 만). obsidianSpeed = 흑요석을 캘 때 속도(맨손으로 돌 캐는 속도 기준 배수) — 없으면 흑요석을 못 캔다. durability = 내구도(쓸 수 있는 횟수, 대장간·수리와 함께 M6-6 에서 적용 예정). enchantSpeedPerLevel = 인챈트 한 단계마다 곱하는 속도(인챈트는 v1.1). 네더라이트 광석(ancient_debris)은 네더에만 있다(네더 원정지는 v1.1).",
+  "_comment": "곡괭이·도끼 — 곡괭이는 아들 설계(2026-09-20), 도끼는 아빠가 준 마인크래프트 값(2026-09-21). speed = 맨손으로 돌을 캘 때보다 몇 배 빠른가(곡괭이가 필요한 블록에만). tier = 캘 수 있는 등급: blocks.json 의 toolTier 가 이 값 이하인 블록만 캘 수 있다(맨손은 toolTier 0 만). obsidianSpeed = 흑요석을 캘 때 속도(맨손으로 돌 캐는 속도 기준 배수) — 없으면 흑요석을 못 캔다. durability = 내구도(쓸 수 있는 횟수, 대장간·수리와 함께 M6-6 에서 적용 예정). enchantSpeedPerLevel = 인챈트 한 단계마다 곱하는 속도(인챈트는 v1.1). 네더라이트 광석(ancient_debris)은 네더에만 있다(네더 원정지는 v1.1). 도끼(axes)는 나무 계열 블록(blocks.json tool: \"axe\" — 원목·판자·문·상자·제작대·호박 등)을 speed 배 빨리 캔다. 도끼는 등급 제한이 없다(나무는 맨손으로도 캔다). 금 도끼가 가장 빠르고 네더라이트·다이아몬드 순이다.",
   "enchantSpeedPerLevel": 1.5,
+  "axes": [
+    {
+      "id": "wooden_axe",
+      "name": "나무 도끼",
+      "tier": 0,
+      "speed": 2,
+      "durability": 59,
+      "_note": "판자 3 + 막대기 2. 맨손의 2배"
+    },
+    {
+      "id": "stone_axe",
+      "name": "돌 도끼",
+      "tier": 1,
+      "speed": 4,
+      "durability": 131,
+      "_note": "조약돌 3 + 막대기 2"
+    },
+    {
+      "id": "iron_axe",
+      "name": "철 도끼",
+      "tier": 2,
+      "speed": 6,
+      "durability": 250,
+      "_note": "철 주괴 3 + 막대기 2"
+    },
+    {
+      "id": "golden_axe",
+      "name": "황금 도끼",
+      "tier": 2,
+      "speed": 12,
+      "durability": 32,
+      "_note": "금 주괴 3 + 막대기 2. 가장 빠르지만 금방 닳는다"
+    },
+    {
+      "id": "diamond_axe",
+      "name": "다이아몬드 도끼",
+      "tier": 3,
+      "speed": 8,
+      "durability": 1561,
+      "_note": "다이아몬드 3 + 막대기 2"
+    },
+    {
+      "id": "netherite_axe",
+      "name": "네더라이트 도끼",
+      "tier": 4,
+      "speed": 9,
+      "durability": 2031,
+      "_note": "다이아몬드 도끼 1 + 네더라이트 주괴 1 (대장간)"
+    }
+  ],
   "pickaxes": [
     {
       "id": "wooden_pickaxe",

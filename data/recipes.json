@@ -1,5 +1,5 @@
 {
-  "_comment": "제작 레시피. 드래곤 재료 중 '제작'으로 얻는 것들과 안장·도구. station = 어디서 만드나(inventory 가방 안 2×2 칸 / crafting_table 제작대 3×3 / forge 대장간 / brewing 양조기 / furnace 화로). 개수는 아빠 임시값, 아들이 바꿔도 됨. 아들 3차 디테일(2026-09-12)의 제작 사슬(종이→책→책장→인챈트 테이블)과 도구·장식 레시피 추가. 6차(2026-09-13): 가방 2×2 칸 레시피(판자·제작대·양털·염료·염색). release 없는 것은 v1. 8차(2026-09-18): 양조 물약은 data/potions.json 으로 옮겼다(양조 규칙이 따로 있어서). 여기에는 양조기와 물약 재료 만드는 법만 — water_bottle·brewing_stand·blaze_powder·fermented_spider_eye·glistering_melon·gold_nugget·magma_cream·turtle_shell(v1.1)·slime_block(v2).",
+  "_comment": "제작 레시피. 드래곤 재료 중 '제작'으로 얻는 것들과 안장·도구. station = 어디서 만드나(inventory 가방 안 2×2 칸 / crafting_table 제작대 3×3 / forge 대장간 / brewing 양조기 / furnace 화로). 개수는 아빠 임시값, 아들이 바꿔도 됨. 아들 3차 디테일(2026-09-12)의 제작 사슬(종이→책→책장→인챈트 테이블)과 도구·장식 레시피 추가. 6차(2026-09-13): 가방 2×2 칸 레시피(판자·제작대·양털·염료·염색). release 없는 것은 v1. 도끼 6종(2026-09-21, 아빠 — 마인크래프트 값): 핵심 재료 3 + 막대기 2, 네더라이트만 다이아몬드 도끼 + 네더라이트(대장간). 곡괭이와 같게 나무·돌은 제작대, 쇠붙이는 대장간(M6-6). 8차(2026-09-18): 양조 물약은 data/potions.json 으로 옮겼다(양조 규칙이 따로 있어서). 여기에는 양조기와 물약 재료 만드는 법만 — water_bottle·brewing_stand·blaze_powder·fermented_spider_eye·glistering_melon·gold_nugget·magma_cream·turtle_shell(v1.1)·slime_block(v2).",
   "recipes": [
     {
       "id": "saddle",
@@ -237,6 +237,84 @@
         "netherite_pickaxe": 1
       },
       "toolTier": 4
+    },
+    {
+      "id": "wooden_axe",
+      "name": "나무 도끼",
+      "station": "crafting_table",
+      "in": {
+        "planks": 3,
+        "stick": 2
+      },
+      "out": {
+        "wooden_axe": 1
+      },
+      "_note": "아빠 2026-09-21 (마인크래프트 값). 나무 캐는 속도는 data/tools.json axes"
+    },
+    {
+      "id": "stone_axe",
+      "name": "돌 도끼",
+      "station": "crafting_table",
+      "in": {
+        "cobblestone": 3,
+        "stick": 2
+      },
+      "out": {
+        "stone_axe": 1
+      },
+      "_note": "아빠 2026-09-21 (마인크래프트 값). 나무 캐는 속도는 data/tools.json axes"
+    },
+    {
+      "id": "iron_axe",
+      "name": "철 도끼",
+      "station": "forge",
+      "in": {
+        "iron_ingot": 3,
+        "stick": 2
+      },
+      "out": {
+        "iron_axe": 1
+      },
+      "_note": "아빠 2026-09-21 (마인크래프트 값). 나무 캐는 속도는 data/tools.json axes"
+    },
+    {
+      "id": "golden_axe",
+      "name": "황금 도끼",
+      "station": "forge",
+      "in": {
+        "gold_ingot": 3,
+        "stick": 2
+      },
+      "out": {
+        "golden_axe": 1
+      },
+      "_note": "아빠 2026-09-21 (마인크래프트 값). 나무 캐는 속도는 data/tools.json axes"
+    },
+    {
+      "id": "diamond_axe",
+      "name": "다이아몬드 도끼",
+      "station": "forge",
+      "in": {
+        "diamond": 3,
+        "stick": 2
+      },
+      "out": {
+        "diamond_axe": 1
+      },
+      "_note": "아빠 2026-09-21 (마인크래프트 값). 나무 캐는 속도는 data/tools.json axes"
+    },
+    {
+      "id": "netherite_axe",
+      "name": "네더라이트 도끼",
+      "station": "forge",
+      "in": {
+        "diamond_axe": 1,
+        "netherite": 1
+      },
+      "out": {
+        "netherite_axe": 1
+      },
+      "_note": "아빠 2026-09-21 (마인크래프트 값). 대장간에서 다이아몬드 도끼에 네더라이트를 붙인다"
     },
     {
       "id": "planks",
@@ -513,18 +591,6 @@
       },
       "out": {
         "iron_chestplate": 1
-      }
-    },
-    {
-      "id": "iron_axe",
-      "name": "철 도끼",
-      "station": "forge",
-      "in": {
-        "iron_ingot": 3,
-        "stick": 2
-      },
-      "out": {
-        "iron_axe": 1
       }
     },
     {

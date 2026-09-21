@@ -22,7 +22,7 @@
 | `docs/ROADMAP.md` | M0–M9 마일스톤과 완료 기준, M0 작업 분해 |
 | `docs/DECISIONS.md` | 확정된 결정과 이유 (ADR) |
 | `docs/QUESTIONS-FOR-SON.md` | 아들에게 받아야 할 기획 답변 (미확정 항목) |
-| `data/*.json` | 게임 데이터 — 아들이 직접 편집하는 파일들 (`tools.json` 곡괭이 등급·속도, `gifts.json` 모두에게 한 번씩 주는 선물 #79) |
+| `data/*.json` | 게임 데이터 — 아들이 직접 편집하는 파일들 (`tools.json` 곡괭이·도끼 등급·속도 #75·#80, `gifts.json` 모두에게 한 번씩 주는 선물 #79) |
 | `models/` | 드래곤 복셀 모델 생성기 + JSON 3종 + 뷰어. 게임의 드래곤 엔티티 메시는 이 복셀을 그대로 쓴다 |
 
 ## 역할
