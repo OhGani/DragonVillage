@@ -202,6 +202,19 @@ export class Interaction {
       this.placeDoor(x, y, z, def, cur);
       return;
     }
+    // 횃불(#82): 블록 옆면을 탭하면 그 벽에 붙이고, 윗면이면 바닥에 세운다. 천장에는 못 붙인다
+    if (def.torch) {
+      if (t.ny < 0) return;
+      const wall = t.ny > 0 ? -1 : facingOf(-t.nx, -t.nz);
+      const num = wall < 0 ? def.num : this.registry.torchVariant(def.num, wall);
+      const r = this.world.setBlock(x, y, z, num);
+      if (r.changed) {
+        this.events.onBlocksChanged(r.dirty);
+        this.events.onPlaced?.(x, y, z, num, cur);
+        this.events.onSwing();
+      }
+      return;
+    }
     if (def.solid && bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y, z)) return; // 내 몸 안에는 못 놓는다
     // 물·용암은 양동이 하나만큼(8/8)의 고인 액체로 놓는다 — 사방으로 퍼지되 양만큼만 (결정 #65)
     const blockNum = def.fluid ? this.registry.fluidFinite(def.fluidSource, FLUID_FULL) : this.selectedBlock;

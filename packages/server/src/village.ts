@@ -680,7 +680,7 @@ export class VillageRoom {
       return null;
     }
     // 놓기: 액체는 플레이어가 놓는 고인 액체 8/8 만(자연 원천·흐름은 못 놓는다), 그 외 내부 블록 불가, 자리는 공기·액체만, 누가 서 있으면 안 됨
-    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door) return REJECT.INVALID;
+    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82)
     if (def.door && (def.door.upper || def.door.open)) return REJECT.INVALID; // 문은 아래·닫힘 변형만 놓는다(윗칸은 서버가 채운다)
     // 가방에 그 아이템(액체면 찬 양동이)이 있어야 한다 (M4, #66)
     const item = itemForPlacing(def.id, this.registry);

@@ -11,7 +11,7 @@ export function buildMeshBlockInfo(registry: BlockRegistry, textureIndex: Readon
 
   return registry.defs.map((d): MeshBlockInfo => {
     if (d.id === 'air' || !d.textures) {
-      return { layer: LAYER_NONE, opaque: false, castAO: false, sameCull: false, tex: [0, 0, 0, 0, 0, 0], fluidKind: 0, fluidHeight: 0, panel: null };
+      return { layer: LAYER_NONE, opaque: false, castAO: false, sameCull: false, tex: [0, 0, 0, 0, 0, 0], fluidKind: 0, fluidHeight: 0, panel: null, torch: null };
     }
     const translucent = d.fluid === 'water' || d.id === 'ice';
     // 용암은 solid=false 지만 마인크래프트처럼 불투명하게 그린다
@@ -32,6 +32,7 @@ export function buildMeshBlockInfo(registry: BlockRegistry, textureIndex: Readon
     }
     return {
       panel,
+      torch: d.torch ? d.torch.wall : null,
       layer,
       opaque,
       castAO: (opaque && !d.fluid) || d.id === 'leaves',

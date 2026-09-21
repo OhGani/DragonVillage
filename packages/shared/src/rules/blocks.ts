@@ -137,6 +137,14 @@ export interface BlockDef {
   readonly internal: boolean;
   /** 문 변형이면 어느 문의 어떤 상태인지. 문 아니면 null (JSON 의 문 자체도 null — 세계에는 변형만 놓인다) */
   readonly door: DoorInfo | null;
+  /** 횃불이면 어디에 붙었는지 (결정 #82). 횃불 아니면 null */
+  readonly torch: TorchInfo | null;
+}
+
+/** 횃불 (결정 #82). wall −1 = 바닥에 세움, 0~3 = 그 방향 벽에 붙임(DOOR_FACING 과 같은 방향) */
+export interface TorchInfo {
+  readonly base: number;
+  readonly wall: number;
 }
 
 /** 문 변형 정보 (결정 #71). facing 0 북(-z) 1 동(+x) 2 남(+z) 3 서(-x) = 놓은 사람이 보던 방향 */
@@ -172,10 +180,16 @@ export class BlockRegistry {
   private readonly fluidVolumes = new Map<number, number[]>();
   /** 문 번호 → [facing*4 + upper*2 + open] 변형 번호 */
   private readonly doors = new Map<number, number[]>();
+  private readonly torches = new Map<number, number[]>();
 
   constructor(readonly defs: readonly BlockDef[]) {
     for (const d of defs) {
       this.byId.set(d.id, d);
+      if (d.torch && d.torch.wall >= 0) {
+        let t = this.torches.get(d.torch.base);
+        if (!t) this.torches.set(d.torch.base, (t = []));
+        t[d.torch.wall] = d.num;
+      }
       if (d.door) {
         let arr = this.doors.get(d.door.base);
         if (!arr) this.doors.set(d.door.base, (arr = []));
@@ -215,6 +229,11 @@ export class BlockRegistry {
   }
 
   /** 문 변형: 문 번호(JSON 것) + 방향 + 위/아래 + 열림 → 블록 번호 */
+  /** 벽에 붙은 횃불 변형 (wall 0~3). 없으면 바닥 횃불 그대로 */
+  torchVariant(base: number, wall: number): number {
+    return this.torches.get(base)?.[wall] ?? base;
+  }
+
   doorVariant(base: number, facing: number, upper: boolean, open: boolean): number {
     const arr = this.doors.get(base);
     if (!arr) throw new Error(`문이 아닌 블록 번호: ${base}`);
@@ -375,6 +394,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       fluidVolume: 0,
       internal: false,
       door: null,
+      torch: null,
     };
   });
 
@@ -437,6 +457,21 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
             door: { base: src.num, facing, upper, open },
           });
         }
+  }
+
+  // 횃불(shape 'torch'): 바닥 횃불(JSON 그대로) + 벽에 붙은 변형 4개. 벽 변형은 핫바에 안 보이고 부수면 횃불 아이템 하나 (결정 #82)
+  for (const src of [...defs]) {
+    if (src.shape !== 'torch' || !src.textures) continue;
+    Object.assign(src, { torch: { base: src.num, wall: -1 } });
+    for (let wall = 0; wall < 4; wall++) {
+      defs.push({
+        ...src,
+        num: defs.length,
+        id: `${src.id}@${DOOR_FACING[wall]}`,
+        internal: true,
+        torch: { base: src.num, wall },
+      });
+    }
   }
 
   if (defs.length > 65535) problems.push(`블록이 너무 많아요 (최대 65535개)`);

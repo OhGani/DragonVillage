@@ -21,6 +21,8 @@ export interface MeshBlockInfo {
   fluidHeight: number;
   /** 얇은 판(문): [얇은 축 0=x 2=z, 어느 쪽 가장자리 0=작은 쪽 1=큰 쪽]. greedy 대신 전용 패스로 3/16 두께 상자를 그린다. 아니면 null */
   panel: readonly [number, number] | null;
+  /** 횃불(#82): −1 바닥에 세움, 0~3 그 방향 벽에 붙임(기울어짐). 횃불이 아니면 null */
+  torch: number | null;
 }
 
 export interface MeshBuffers {

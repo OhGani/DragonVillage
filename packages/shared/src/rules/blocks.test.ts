@@ -142,3 +142,27 @@ describe('문 변형 (#71)', () => {
     expect(BLOCKS.defs.filter((d) => d.door)).toHaveLength(16);
   });
 });
+
+describe('횃불 벽 변형 (#82)', () => {
+  it('바닥 횃불 하나 + 벽 4방향 변형, 벽 변형은 핫바에 안 보이고 부수면 횃불', () => {
+    const base = BLOCKS.require('torch');
+    expect(base.torch).toEqual({ base: base.num, wall: -1 });
+    expect(base.internal).toBe(false);
+    for (const [wall, id] of [[0, 'torch@n'], [1, 'torch@e'], [2, 'torch@s'], [3, 'torch@w']] as const) {
+      const v = BLOCKS.require(id);
+      expect(v.torch, id).toEqual({ base: base.num, wall });
+      expect(v.internal, id).toBe(true);
+      expect(v.drops, id).toBe('torch');
+      expect(v.lightEmit, id).toBe(base.lightEmit);
+      expect(v.solid, id).toBe(false);
+      expect(BLOCKS.torchVariant(base.num, wall), id).toBe(v.num);
+    }
+    expect(BLOCKS.v1().some((d) => d.id === 'torch@n')).toBe(false); // 도감·핫바에는 바닥 횃불만
+    expect(BLOCKS.v1().some((d) => d.id === 'torch')).toBe(true);
+  });
+
+  it('벽에 붙인 횃불을 놓아도 횃불 아이템 하나', () => {
+    expect(itemForPlacing('torch', BLOCKS)).toBe('torch');
+    expect(itemForPlacing('torch@w', BLOCKS)).toBe('torch');
+  });
+});

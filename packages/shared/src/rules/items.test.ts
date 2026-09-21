@@ -55,3 +55,9 @@ describe('아이템 이름표', () => {
     expect(names.get('coal')).toBe('석탄');
   });
 });
+
+describe('횃불 아이템 (#82)', () => {
+  it('벽에 붙인 횃불을 부수면 횃불 하나', () => {
+    expect(dropOf(BLOCKS.require('torch@e'), 1, 2, 3, 7)).toMatchObject({ item: 'torch', count: 1 });
+  });
+});

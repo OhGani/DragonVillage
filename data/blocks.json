@@ -136,7 +136,9 @@
       "tool": null,
       "solid": false,
       "lightEmit": 14,
-      "texture": "torch"
+      "shape": "torch",
+      "texture": "torch",
+      "_note": "shape torch: 네모 덩어리가 아니라 2/16 굵기 막대로 그린다. 벽에 붙이면 기울어진다 (결정 #82). 벽 변형 torch@n/e/s/w 는 코드가 만든다"
     },
     {
       "id": "coal_ore",

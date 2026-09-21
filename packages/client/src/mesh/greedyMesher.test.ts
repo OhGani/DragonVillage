@@ -12,6 +12,7 @@ const registry = parseBlocks({
     { id: 'glass', name: '유리', hardness: 1, transparent: true, texture: 'glass' },
     { id: 'water', name: '물', solid: false, transparent: true, fluid: 'water', texture: 'water' },
     { id: 'oak_door', name: '문', hardness: 3, transparent: true, textureTop: 'door_top', textureSide: 'door_bottom', textureBottom: 'door_bottom', shape: 'door' },
+    { id: 'torch', name: '횃불', hardness: 0, solid: false, transparent: true, lightEmit: 14, shape: 'torch', texture: 'torch' },
   ],
 });
 const texIndex = new Map([
@@ -24,6 +25,7 @@ const texIndex = new Map([
   ['water', 6],
   ['door_top', 7],
   ['door_bottom', 8],
+  ['torch', 9],
 ]);
 const info = buildMeshBlockInfo(registry, texIndex);
 const STONE = registry.numOf('stone');
@@ -32,6 +34,8 @@ const GLASS = registry.numOf('glass');
 const WATER = registry.numOf('water');
 const DOOR_N = registry.doorVariant(registry.numOf('oak_door'), 0, false, false);
 const DOOR_N_OPEN_UP = registry.doorVariant(registry.numOf('oak_door'), 0, true, true);
+const TORCH = registry.numOf('torch');
+const TORCH_WALL_N = registry.torchVariant(TORCH, 0);
 
 function padded(fill: (x: number, y: number, z: number) => number): Uint16Array {
   const arr = new Uint16Array(PADDED_VOLUME);
@@ -313,5 +317,75 @@ describe('문 판 (#71)', () => {
       info,
     );
     expect(quadCount(s.opaque)).toBe(12);
+  });
+});
+
+describe('횃불 (#82)', () => {
+  /** 한 칸만 횃불, 나머지는 공기 */
+  const oneTorch = (num: number) => greedyMesh(padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? num : 0)), info).opaque!;
+
+  it('바닥 횃불은 2/16 굵기 10/16 높이 막대 (상자 여섯 면)', () => {
+    const m = oneTorch(TORCH);
+    expect(m.indexCount / 6).toBe(6); // 면 6개
+    const xs: number[] = [],
+      ys: number[] = [],
+      zs: number[] = [];
+    for (let i = 0; i < m.vertexCount; i++) {
+      xs.push(m.positions[i * 3]!);
+      ys.push(m.positions[i * 3 + 1]!);
+      zs.push(m.positions[i * 3 + 2]!);
+    }
+    expect(Math.min(...xs)).toBeCloseTo(5 + 7 / 16);
+    expect(Math.max(...xs)).toBeCloseTo(5 + 9 / 16);
+    expect(Math.min(...zs)).toBeCloseTo(5 + 7 / 16);
+    expect(Math.max(...zs)).toBeCloseTo(5 + 9 / 16);
+    expect(Math.min(...ys)).toBeCloseTo(5);
+    expect(Math.max(...ys)).toBeCloseTo(5 + 10 / 16);
+  });
+
+  it('벽 횃불은 벽 쪽에 붙어 반대쪽으로 기운다 (윗끝이 아랫끝보다 벽에서 멀다)', () => {
+    const m = oneTorch(TORCH_WALL_N); // 북(-z) 벽에 붙음 → 남(+z)으로 기운다
+    expect(m.indexCount / 6).toBe(6);
+    let lowZ = 0,
+      lowN = 0,
+      highZ = 0,
+      highN = 0;
+    let minY = Infinity,
+      maxY = -Infinity;
+    for (let i = 0; i < m.vertexCount; i++) {
+      const y = m.positions[i * 3 + 1]!;
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+    }
+    for (let i = 0; i < m.vertexCount; i++) {
+      const y = m.positions[i * 3 + 1]!;
+      const z = m.positions[i * 3 + 2]!;
+      if (y < minY + 0.01) {
+        lowZ += z;
+        lowN++;
+      }
+      if (y > maxY - 0.01) {
+        highZ += z;
+        highN++;
+      }
+    }
+    const low = lowZ / lowN,
+      high = highZ / highN;
+    expect(high).toBeGreaterThan(low); // 남쪽(+z)으로 기울었다
+    expect(minY).toBeGreaterThan(5); // 바닥에서 조금 띄워 벽에 붙는다
+    expect(maxY - minY).toBeGreaterThan(0.4);
+    expect(low).toBeLessThan(5.5); // 아랫끝은 북쪽 벽 가까이
+  });
+
+  it('횃불은 greedy 면(네모 덩어리)으로 그려지지 않는다', () => {
+    const m = oneTorch(TORCH);
+    // 꽉 찬 블록이면 면이 1×1 이라 x 폭이 1 이 된다 — 막대는 2/16
+    let minX = Infinity,
+      maxX = -Infinity;
+    for (let i = 0; i < m.vertexCount; i++) {
+      minX = Math.min(minX, m.positions[i * 3]!);
+      maxX = Math.max(maxX, m.positions[i * 3]!);
+    }
+    expect(maxX - minX).toBeCloseTo(2 / 16);
   });
 });

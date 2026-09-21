@@ -9,12 +9,23 @@
  *
  * 면 번호: 0 +X, 1 -X, 2 +Y, 3 -Y, 4 +Z, 5 -Z
  */
-import { CHUNK_SIZE, OUTSIDE_LIGHT, paddedIndex } from '@dragon-village/shared';
+import { CHUNK_SIZE, DOOR_DIR, OUTSIDE_LIGHT, paddedIndex } from '@dragon-village/shared';
 import { LAYER_NONE, LAYER_TRANSLUCENT, type MeshBlockInfo, type MeshBuffers, type MeshResult } from './meshTypes';
 
 const N = CHUNK_SIZE;
 /** 문 판 두께 (마인크래프트 3/16) */
 export const PANEL_THICKNESS = 3 / 16;
+/** 횃불 막대 (결정 #82): 굵기 2/16, 길이 10/16. 텍스처는 7~9열·아래 10줄에 그려 둔다 */
+export const TORCH_HALF = 1 / 16;
+export const TORCH_LEN = 10 / 16;
+/** 벽 횃불이 벽 반대쪽으로 기우는 각 */
+const TORCH_TILT = (25 * Math.PI) / 180;
+/** 막대가 그려진 텍스처 칸의 왼쪽 (7/16 ~ 9/16) */
+const TORCH_TEX_U = 7 / 16;
+/** 벽에서 이만큼 안쪽에 막대 가운데를 둔다 */
+const TORCH_WALL_OFF = 7 / 16;
+/** 벽 횃불이 붙는 높이 */
+const TORCH_WALL_Y = 3 / 16;
 
 /** 면별 텍스처 u(오른쪽)·v(위) 방향. 밖에서 볼 때 그림이 똑바로 서도록 */
 const FACE_U: readonly (readonly [number, number, number])[] = [
@@ -307,6 +318,68 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
         }
   };
 
+  /**
+   * 횃불 전용 패스 (#82): 바닥은 곧은 막대, 벽은 벽에 붙여 기울인 막대.
+   * 기울어진 면은 축과 나란하지 않아 UV 를 직접 준다 — 막대 굵기를 텍스처 7~9열에 맞춘다.
+   */
+  const emitTorches = () => {
+    for (let y = 0; y < N; y++)
+      for (let z = 0; z < N; z++)
+        for (let x = 0; x < N; x++) {
+          const bi = info[padded[paddedIndex(x, y, z)]];
+          if (bi === undefined || bi.torch === null) continue;
+          const lt = lightOfCell(x, y, z);
+          const layer = bi.tex[0];
+          if (bi.torch < 0) {
+            // 바닥: 축에 나란한 상자라 boxFace 로 충분 (UV 는 세계 좌표 투영 = 텍스처의 막대 자리와 그대로 맞는다)
+            const mn = [x + 0.5 - TORCH_HALF, y, z + 0.5 - TORCH_HALF];
+            const mx = [x + 0.5 + TORCH_HALF, y + TORCH_LEN, z + 0.5 + TORCH_HALF];
+            for (let f = 0; f < 6; f++) boxFace(opaque, f, mn, mx, layer, lt);
+            continue;
+          }
+          // 벽: 붙은 벽 쪽 n, 막대는 그 반대쪽으로 기운다
+          const [nx, nz] = DOOR_DIR[bi.torch]!;
+          const sn = Math.sin(TORCH_TILT),
+            cs = Math.cos(TORCH_TILT);
+          const up = [-nx * sn, cs, -nz * sn];
+          const side = [nz, 0, -nx];
+          const fwd = [nx * cs, sn, nz * cs];
+          const px = x + 0.5 + nx * TORCH_WALL_OFF,
+            py = y + TORCH_WALL_Y,
+            pz = z + 0.5 + nz * TORCH_WALL_OFF;
+          const P = (u: number, v: number, w: number): number[] => [px + side[0] * u + up[0] * v + fwd[0] * w, py + side[1] * u + up[1] * v + fwd[1] * w, pz + side[2] * u + up[2] * v + fwd[2] * w];
+          const tu = (a: number) => TORCH_TEX_U + (a + TORCH_HALF); // −1/16..1/16 → 7/16..9/16
+          const h = TORCH_HALF,
+            L = TORCH_LEN;
+          const quadOut = (pts: [number, number, number][], uvs: [number, number][], out: number[]) => {
+            let c = pts.map((q, i) => {
+              const p = P(q[0], q[1], q[2]);
+              return [p[0], p[1], p[2], uvs[i]![0], uvs[i]![1]];
+            });
+            const e1 = [c[1]![0] - c[0]![0], c[1]![1] - c[0]![1], c[1]![2] - c[0]![2]];
+            const e3 = [c[3]![0] - c[0]![0], c[3]![1] - c[0]![1], c[3]![2] - c[0]![2]];
+            const cr = [e1[1]! * e3[2]! - e1[2]! * e3[1]!, e1[2]! * e3[0]! - e1[0]! * e3[2]!, e1[0]! * e3[1]! - e1[1]! * e3[0]!];
+            if (cr[0]! * out[0]! + cr[1]! * out[1]! + cr[2]! * out[2]! < 0) c = [c[0]!, c[3]!, c[2]!, c[1]!];
+            const ax = Math.abs(out[0]!) >= Math.abs(out[1]!) && Math.abs(out[0]!) >= Math.abs(out[2]!) ? 0 : Math.abs(out[1]!) >= Math.abs(out[2]!) ? 1 : 2;
+            const face = ax === 0 ? (out[0]! > 0 ? 0 : 1) : ax === 1 ? (out[1]! > 0 ? 2 : 3) : out[2]! > 0 ? 4 : 5;
+            opaque.quad(
+              c.map((p) => [p[0]!, p[1]!, p[2]!, p[3]!, p[4]!, 3, lt]),
+              layer,
+              face,
+            );
+          };
+          // ±side 면: 가로 UV 는 w, 세로는 막대 길이
+          quadOut([[h, 0, -h], [h, 0, h], [h, L, h], [h, L, -h]], [[tu(-h), 0], [tu(h), 0], [tu(h), L], [tu(-h), L]], side);
+          quadOut([[-h, 0, -h], [-h, 0, h], [-h, L, h], [-h, L, -h]], [[tu(-h), 0], [tu(h), 0], [tu(h), L], [tu(-h), L]], [-side[0]!, -side[1]!, -side[2]!]);
+          // ±fwd 면: 가로 UV 는 u
+          quadOut([[-h, 0, h], [h, 0, h], [h, L, h], [-h, L, h]], [[tu(-h), 0], [tu(h), 0], [tu(h), L], [tu(-h), L]], fwd);
+          quadOut([[-h, 0, -h], [h, 0, -h], [h, L, -h], [-h, L, -h]], [[tu(-h), 0], [tu(h), 0], [tu(h), L], [tu(-h), L]], [-fwd[0]!, -fwd[1]!, -fwd[2]!]);
+          // 끝 면 (불꽃 쪽·바닥 쪽)
+          quadOut([[-h, L, -h], [h, L, -h], [h, L, h], [-h, L, h]], [[tu(-h), tu(-h)], [tu(h), tu(-h)], [tu(h), tu(h)], [tu(-h), tu(h)]], up);
+          quadOut([[-h, 0, -h], [h, 0, -h], [h, 0, h], [-h, 0, h]], [[tu(-h), tu(-h)], [tu(h), tu(-h)], [tu(h), tu(h)], [tu(-h), tu(h)]], [-up[0]!, -up[1]!, -up[2]!]);
+        }
+  };
+
   /** 액체 전용 패스: 블록마다 높이가 다르므로 greedy 없이 낱개로 */
   const emitFluids = () => {
     for (let y = 0; y < N; y++)
@@ -408,7 +481,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
             kb = 0,
             kfl = 0,
             kbl = 0;
-          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null) {
+          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null) {
             p[d] = i + 1;
             const idF = padded[paddedIndex(p[0], p[1], p[2])];
             p[d] = i;
@@ -453,6 +526,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
   }
   emitFluids();
   emitPanels();
+  emitTorches();
 
   return { opaque: opaque.build(), translucent: trans.build() };
 }
