@@ -1,11 +1,13 @@
 /**
- * 다른 플레이어 표시: 색 있는 복셀 인형(머리·몸·팔·다리) + 머리 위 이름.
+ * 다른 플레이어 표시: 복셀 인형(머리·몸·팔·다리) + 머리 위 이름.
  * 서버 위치(20Hz)를 받아 부드럽게 따라간다 (지수 보간, 약 100ms 지연).
+ * 인형 생김새는 `render/playerModel.ts` — 얼굴·머리카락·손·신발이 있고 색 16가지마다 다른 사람이다 (#86).
  */
 import { FLAG_RIDING, FLAG_SNEAK, type PlayerInfo, type PlayerStateEntry, RIDE_SEAT_Y, type RidingInfo } from '@dragon-village/shared';
 import { dragonMesh } from '../render/DragonMesh';
+import { PART_AT, VOXEL, paletteFor, playerVoxels } from '../render/playerModel';
+import { type Voxel, buildVoxelGeometry } from '../render/voxelGeometry';
 import * as THREE from 'three';
-import { colorHex } from './colors';
 
 interface Figure {
   info: PlayerInfo;
@@ -26,22 +28,16 @@ interface Figure {
   mount: THREE.Mesh | null;
 }
 
-const SKIN = 0xe8b89a;
-const PANTS_DARKEN = 0.55;
+/** 인형 키 (복셀 32칸 = 몸 판정과 같은 1.8). 이름표·말풍선 높이의 기준 */
+const FIGURE_H = 32 * VOXEL;
 
-function box(w: number, h: number, d: number, color: number): THREE.Mesh {
-  const geom = new THREE.BoxGeometry(w, h, d);
-  // 면마다 조금 다른 밝기 (조명 없는 씬에서 입체감)
-  const colors = new Float32Array(geom.attributes.position.count * 3);
-  const c = new THREE.Color(color);
-  const shade = [0.75, 0.75, 1.0, 0.5, 0.85, 0.85]; // +X -X +Y -Y +Z -Z (BoxGeometry 면 순서)
-  for (let f = 0; f < 6; f++) for (let v = 0; v < 4; v++) {
-      const i = (f * 4 + v) * 3;
-      colors[i] = c.r * shade[f];
-      colors[i + 1] = c.g * shade[f];
-      colors[i + 2] = c.b * shade[f];
-    }
-  geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+/**
+ * 부위 복셀 → 메시. buildVoxelGeometry 는 드래곤(홀수 폭, x 대칭)에 맞춰 반 칸 옮기므로,
+ * 짝수 폭인 사람 부위는 그만큼 되돌려야 가운데가 맞는다.
+ */
+function partMesh(voxels: readonly Voxel[]): THREE.Mesh {
+  const geom = buildVoxelGeometry(voxels, VOXEL);
+  geom.translate(VOXEL / 2, 0, VOXEL / 2);
   return new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ vertexColors: true }));
 }
 
@@ -79,34 +75,24 @@ export class RemotePlayers {
 
   upsert(info: PlayerInfo): void {
     this.remove(info.idx);
-    const color = colorHex(info.color);
-    const pants = new THREE.Color(color).multiplyScalar(PANTS_DARKEN).getHex();
+    const v = playerVoxels(paletteFor(info.color));
     const group = new THREE.Group();
     const body = new THREE.Group();
-    const torso = box(0.5, 0.7, 0.28, color);
-    torso.position.y = 0.75 + 0.35;
-    const head = box(0.48, 0.48, 0.48, SKIN);
-    head.position.y = 1.45 + 0.24;
-    const legL = box(0.22, 0.75, 0.24, pants);
-    legL.position.set(-0.13, 0.375, 0);
-    const legR = box(0.22, 0.75, 0.24, pants);
-    legR.position.set(0.13, 0.375, 0);
-    const armL = box(0.18, 0.66, 0.2, color);
-    armL.position.set(-0.36, 0.78 + 0.33, 0);
-    const armR = box(0.18, 0.66, 0.2, color);
-    armR.position.set(0.36, 0.78 + 0.33, 0);
-    // 눈
-    const eyeGeom = new THREE.BoxGeometry(0.08, 0.08, 0.02);
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x222233 });
-    for (const sx of [-0.11, 0.11]) {
-      const eye = new THREE.Mesh(eyeGeom, eyeMat);
-      eye.position.set(sx, 0.06, -0.245);
-      head.add(eye);
-    }
+    // 팔·다리는 붙이는 자리가 곧 회전축(어깨·엉덩이)이라 걸을 때 제대로 흔들린다
+    const at = (m: THREE.Mesh, spot: readonly [number, number]): THREE.Mesh => {
+      m.position.set(spot[0] * VOXEL, spot[1] * VOXEL, 0);
+      return m;
+    };
+    const torso = at(partMesh(v.torso), PART_AT.torso);
+    const head = at(partMesh(v.head), PART_AT.head);
+    const legL = at(partMesh(v.leg), PART_AT.legL);
+    const legR = at(partMesh(v.leg), PART_AT.legR);
+    const armL = at(partMesh(v.arm), PART_AT.armL);
+    const armR = at(partMesh(v.arm), PART_AT.armR);
     body.add(torso, head, legL, legR, armL, armR);
     group.add(body);
     const label = nameSprite(info.nick);
-    label.position.y = 2.25;
+    label.position.y = FIGURE_H + 0.3;
     group.add(label);
     group.position.set(info.x, info.y, info.z);
     body.rotation.y = info.yaw;
@@ -155,7 +141,7 @@ export class RemotePlayers {
     this.clearBubble(f);
     const sprite = nameSprite(text, 'rgba(255,255,255,0.92)');
     (sprite.material as THREE.SpriteMaterial).color.setHex(0x222233);
-    sprite.position.y = 2.75;
+    sprite.position.y = FIGURE_H + 0.8;
     f.group.add(sprite);
     f.bubble = { sprite, until: performance.now() + seconds * 1000 };
   }
@@ -230,14 +216,14 @@ export class RemotePlayers {
       const speed = Math.hypot(dx, dz) * 14;
       if (speed > 0.3) f.walk += dt * Math.min(12, speed * 2.2);
       const riding = (t.flags & FLAG_RIDING) !== 0;
-      const swing = speed > 0.3 && !riding ? Math.sin(f.walk) * 0.7 : 0;
+      const swing = speed > 0.3 && !riding ? Math.sin(f.walk) * 0.55 : 0; // 어깨·엉덩이가 축이라 전보다 작게
       f.legL.rotation.x = swing;
       f.legR.rotation.x = -swing;
       f.armL.rotation.x = -swing;
       f.armR.rotation.x = swing;
       const sneak = (t.flags & FLAG_SNEAK) !== 0;
       f.body.scale.y = sneak ? 0.85 : 1;
-      f.label.position.y = sneak ? 2.0 : 2.25;
+      f.label.position.y = (sneak ? FIGURE_H * 0.85 : FIGURE_H) + 0.3;
       if (f.bubble && performance.now() > f.bubble.until) this.clearBubble(f);
     }
   }

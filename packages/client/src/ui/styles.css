@@ -640,6 +640,13 @@ body {
   letter-spacing: 4px;
   font-variant-numeric: tabular-nums;
 }
+.lobby-avatar {
+  display: block;
+  width: 96px;
+  height: 192px;
+  margin: 2px auto 10px;
+  image-rendering: pixelated;
+}
 .lobby-colors {
   display: grid;
   grid-template-columns: repeat(8, 1fr);

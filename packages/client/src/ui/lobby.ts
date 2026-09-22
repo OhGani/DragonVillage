@@ -4,6 +4,7 @@
  */
 import { PLAYER_COLOR_COUNT, VILLAGE_CODE_RE } from '@dragon-village/shared';
 import { PLAYER_COLORS, colorCss } from '../net/colors';
+import { frontPixels, paletteFor } from '../render/playerModel';
 
 export interface LobbyChoice {
   nick: string;
@@ -54,7 +55,8 @@ export function showLobby(root: HTMLElement): LobbyHandle {
       <p class="overlay-sub">친구와 같은 마을에서 함께 지어요</p>
       <label class="lobby-label">내 이름 <span class="lobby-hint">(8글자까지)</span></label>
       <input class="lobby-input lobby-nick" type="text" maxlength="8" autocomplete="nickname" placeholder="예: 아들" value="${escapeAttr(nick0)}" />
-      <label class="lobby-label">내 색</label>
+      <label class="lobby-label">내 캐릭터</label>
+      <canvas class="lobby-avatar" width="64" height="128" aria-label="내 캐릭터 미리보기"></canvas>
       <div class="lobby-colors"></div>
       <label class="lobby-label">마을 코드 <span class="lobby-hint">(숫자 6자리)</span></label>
       <input class="lobby-input lobby-code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="예: 482913" value="${escapeAttr(code0)}" />
@@ -68,12 +70,25 @@ export function showLobby(root: HTMLElement): LobbyHandle {
   const nickEl = q<HTMLInputElement>('.lobby-nick');
   const codeEl = q<HTMLInputElement>('.lobby-code');
   const colorsEl = q<HTMLElement>('.lobby-colors');
+  const avatarEl = q<HTMLCanvasElement>('.lobby-avatar');
   const joinBtn = q<HTMLButtonElement>('.lobby-join');
   const createBtn = q<HTMLButtonElement>('.lobby-create');
   const statusEl = q<HTMLElement>('.lobby-status');
   const errorEl = q<HTMLElement>('.lobby-error');
 
   let color = color0;
+  /** 고른 색의 캐릭터를 앞에서 본 모습 (한 칸 4px, 16×32칸) */
+  const drawAvatar = () => {
+    const ctx = avatarEl.getContext('2d');
+    if (!ctx) return;
+    const px = 4;
+    ctx.clearRect(0, 0, avatarEl.width, avatarEl.height);
+    for (const p of frontPixels(paletteFor(color))) {
+      ctx.fillStyle = p.c;
+      ctx.fillRect((p.x + 8) * px, (31 - p.y) * px, px, px); // y 는 위아래가 뒤집힌다
+    }
+  };
+  drawAvatar();
   const swatches: HTMLButtonElement[] = [];
   PLAYER_COLORS.forEach((c, i) => {
     const b = document.createElement('button');
@@ -85,6 +100,7 @@ export function showLobby(root: HTMLElement): LobbyHandle {
     b.addEventListener('click', () => {
       color = i;
       swatches.forEach((s, j) => s.classList.toggle('selected', j === i));
+      drawAvatar();
     });
     colorsEl.appendChild(b);
     swatches.push(b);
