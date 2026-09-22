@@ -3,6 +3,7 @@
  * 번들러(Vite/vitest)가 JSON 을 그대로 import 한다.
  */
 import blocksJson from '../../../../data/blocks.json';
+import buildingsJson from '../../../../data/buildings.json';
 import dragonsJson from '../../../../data/dragons.json';
 import expeditionsJson from '../../../../data/expeditions.json';
 import familyRulesJson from '../../../../data/family-rules.json';
@@ -15,6 +16,7 @@ import starterKitJson from '../../../../data/starter-kit.json';
 import toolsJson from '../../../../data/tools.json';
 import xpJson from '../../../../data/xp.json';
 import { parseBlocks } from './blocks';
+import { parseBuildings } from './buildings';
 import { eggItem, eggRecipes, parseDragons } from './dragons';
 import { parseExpeditions } from './expeditions';
 import { parseFamilyRules } from './family';
@@ -29,6 +31,8 @@ import { parseTools } from './tools';
 import { parseXp } from './xp';
 
 export const BLOCKS = parseBlocks(blocksJson);
+/** 마을 건물 (M6-6) — 비용은 공유 창고에서 */
+export const BUILDINGS = parseBuildings(buildingsJson);
 export const POTIONS = parsePotions(potionsJson);
 export const REDSTONE = parseRedstone(redstoneJson);
 export const EXPEDITIONS = parseExpeditions(expeditionsJson);

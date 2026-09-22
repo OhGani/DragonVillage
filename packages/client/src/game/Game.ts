@@ -4,7 +4,10 @@ import {
   GROUND_Y,
   type NestDragonInfo,
   type RidingInfo,
+  STORAGE_REACH,
   beamOf,
+  siteCenter,
+  siteOf,
   staminaAt,
   staminaMaxFor,
   SADDLE_ITEM,
@@ -43,7 +46,7 @@ import {
   portalContains,
   skyLightAt,
 } from '@dragon-village/shared';
-import { BLOCKS, DRAGONS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, PHRASES, POTIONS, RECIPES, XP } from '@dragon-village/shared/data';
+import { BLOCKS, BUILDINGS, DRAGONS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, PHRASES, POTIONS, RECIPES, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { beam as beamSound, ding, levelUp } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
@@ -68,6 +71,7 @@ import { Hud, type HotbarSlot } from '../ui/hud';
 import { NestView } from '../ui/nest';
 import { MountView, NestDragons } from '../render/DragonMesh';
 import { BeamView } from '../render/BeamView';
+import { StorageView } from '../ui/storageView';
 import { askInput, askPin } from '../ui/pinDialog';
 import { itemIcon } from '../ui/itemIcon';
 import { MesherPool } from '../workers/MesherPool';
@@ -194,9 +198,12 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     return item ? (itemToBlock(item, registry) ?? 0) : 0;
   };
   let expeditionState: ExpeditionStateInfo | null = welcome.expedition;
+  // 마을 상태 (M6-6): 건물·레벨·도감은 서버가 진실
+  let villageState = welcome.village_state ?? { built: [], level: 1, codex: 0, codexIds: [] };
+  let codexBlocks = new Set<string>(villageState.codexIds);
   const updateVillageInfo = () => {
     const exp = expeditionState ? ` · 원정 중: ${expeditionState.name} ${expeditionState.players}명` : '';
-    hud.setVillageInfo(`마을 "${welcome.village.name}" · 코드 ${welcome.village.code} · 지금 ${remote.count + 1}명${exp} (친구에게 코드를 알려 주면 같은 마을에 들어와요)`);
+    hud.setVillageInfo(`마을 "${welcome.village.name}" 레벨 ${villageState.level} · 코드 ${welcome.village.code} · 지금 ${remote.count + 1}명${exp} (친구에게 코드를 알려 주면 같은 마을에 들어와요)`);
   };
 
   // ---- 가방 화면·채팅 (M4) ----
@@ -208,6 +215,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     potions: POTIONS,
     dragons: DRAGONS,
     owned: () => new Set(myDragons.filter((d) => d.stage !== 'egg').map((d) => d.dragon)),
+    codexBlocks: () => codexBlocks,
+    codexCandidates: () => registry.defs.filter((d) => !d.internal && d.id !== 'air' && d.textures).map((d) => [d.id, d.name] as [string, string]),
     icon: iconOf,
     nameOf,
     onMove: (from, to, count) => net.sendInvMove(from, to, count),
@@ -237,6 +246,18 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   nest.setDragons(myDragons);
   nest.setNest(nestSlots, welcome.nestDragons);
   nest.setXp(welcome.xp);
+  // 마을 창고·건물 (M6-6): 창고 건물 옆에서. 서버가 진실
+  const storageView = new StorageView(root, {
+    buildings: BUILDINGS,
+    icon: iconOf,
+    nameOf,
+    onMove: (item, count, dir) => net.sendStorageMove(item, count, dir),
+    onBuild: (id) => net.sendBuild(id),
+    onClose: () => closeStorage(),
+  });
+  storageView.setInventory(inv);
+  storageView.setStorage(welcome.storage ?? []);
+  storageView.setVillage(villageState.built, villageState.level, villageState.codex);
   // 상자 (#84): 서버가 진실. 탭하면 열리고, 옮기기는 요청만 보낸다
   const chest = new ChestView(root, {
     icon: iconOf,
@@ -578,6 +599,28 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       stamina = null;
       touch.clearHolds(); // 내리면 잠긴 ▲▼ 는 풀어 준다
     },
+    onStorage: (items) => {
+      storageView.setStorage(items);
+      if (!storageView.visible && pendingStorageOpen) {
+        pendingStorageOpen = false;
+        storageView.show();
+        input.paused = true;
+        kbm.enabled = false;
+        if (kbm.locked) document.exitPointerLock();
+      }
+    },
+    onVillage: (m) => {
+      const before = villageState.level;
+      villageState = { ...villageState, built: m.built, level: m.level, codex: m.codex };
+      storageView.setVillage(m.built, m.level, m.codex);
+      updateVillageInfo();
+      if (m.level > before) hud.toast(`🏘️ 마을 레벨 ${m.level}! 광장 깃대에 깃발이 늘었어요`, 5000);
+    },
+    onCodex: (m) => {
+      codexBlocks = new Set([...codexBlocks, m.id]);
+      bag.setInventory(inv); // 도감 탭이 열려 있으면 다시 그린다
+      hud.toast(`📖 새로 발견! ${nameOf(m.id)} — 마을 도감 ${m.total}종 (+${XP.ours.codexNewEntry})`, 4500);
+    },
     onBeam: (m) => {
       beams.fire(m.from, m.dir, m.color, m.power, m.range);
       beamSound(m.power);
@@ -626,6 +669,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       bag.setInventory(inv);
       nest.setInventory(inv);
       chest.setInventory(inv);
+      storageView.setInventory(inv);
     },
     onEmote: (m) => {
       const text = PHRASES.text(m.kind, m.id);
@@ -740,7 +784,19 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
   };
   /** 가방·채팅·둥지·상자 — 창이 하나라도 열려 있으면 마우스를 잠그지 않는다. 상자가 빠져 있었다 (아빠 2026-09-23) */
-  const anyPanelOpen = () => bag.visible || chat.visible || nest.visible || chest.visible;
+  const anyPanelOpen = () => bag.visible || chat.visible || nest.visible || chest.visible || storageView.visible;
+  // 창고 창 (M6-6): 서버가 재고를 보내 주면 연다 (열 자격도 서버가 본다)
+  let pendingStorageOpen = false;
+  const openStorage = () => {
+    if (anyPanelOpen() || !started || disconnected) return;
+    pendingStorageOpen = true;
+    net.sendOpenStorage();
+  };
+  const closeStorage = () => {
+    if (!storageView.visible) return;
+    storageView.hide();
+    if (started && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) resume();
+  };
   const openBag = () => {
     if (!started || disconnected || hud.resultVisible) return;
     input.paused = true;
@@ -938,6 +994,12 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
           else hud.showAction(`🐉 ${name} 타기`, isTouch ? '▲ 위로 · ▼ 아래로 · 🐉 버튼으로 내려요' : 'Space 위로 · Shift 아래로 · 🐉 버튼으로 내려요', '타기' + KEY_HINT, () => net.sendRide(d.id));
           return;
         }
+      }
+      // 창고 건물 옆 (M6-6): 광장 동쪽
+      const st = siteOf('storage');
+      if (ctx.kind === 'village' && st && Math.hypot(p.x - siteCenter(st).x, p.z - siteCenter(st).z) <= STORAGE_REACH) {
+        hud.showAction('마을 창고', `마을 레벨 ${villageState.level} · 재료를 모아 건물을 지어요`, '창고 열기' + KEY_HINT, openStorage);
+        return;
       }
       // 둥지 안 (M6-2): 광장 남쪽 집터
       if (ctx.kind === 'village' && nestContains(GROUND_Y, p.x, p.y, p.z)) {

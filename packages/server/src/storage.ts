@@ -161,6 +161,10 @@ CREATE INDEX IF NOT EXISTS dragons_owner ON dragons(village, token);
 CREATE TABLE IF NOT EXISTS chests(
   village TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL, json TEXT NOT NULL, updated_at INTEGER NOT NULL,
   PRIMARY KEY(village, x, y, z));
+CREATE TABLE IF NOT EXISTS buildings(
+  village TEXT NOT NULL, id TEXT NOT NULL, built_at INTEGER NOT NULL, PRIMARY KEY(village, id));
+CREATE TABLE IF NOT EXISTS codex(
+  village TEXT NOT NULL, kind TEXT NOT NULL, id TEXT NOT NULL, token TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY(village, kind, id));
 CREATE TABLE IF NOT EXISTS gifts_given(
   token TEXT NOT NULL, gift TEXT NOT NULL, given_at INTEGER NOT NULL, PRIMARY KEY(token, gift));
 CREATE TABLE IF NOT EXISTS time_adjustments(
@@ -196,6 +200,12 @@ export class Storage {
         'INSERT INTO storage(village, item, count) VALUES (?, ?, ?) ON CONFLICT(village, item) DO UPDATE SET count = count + excluded.count',
       ),
       getStorage: this.db.prepare('SELECT item, count FROM storage WHERE village = ? ORDER BY item'),
+      takeItem: this.db.prepare('UPDATE storage SET count = count - ? WHERE village = ? AND item = ? AND count >= ?'),
+      pruneStorage: this.db.prepare('DELETE FROM storage WHERE village = ? AND count <= 0'),
+      listBuildings: this.db.prepare('SELECT id FROM buildings WHERE village = ? ORDER BY built_at'),
+      addBuilding: this.db.prepare('INSERT OR IGNORE INTO buildings(village, id, built_at) VALUES (?, ?, ?)'),
+      addCodex: this.db.prepare('INSERT OR IGNORE INTO codex(village, kind, id, token, at) VALUES (?, ?, ?, ?, ?)'),
+      listCodex: this.db.prepare('SELECT id FROM codex WHERE village = ? AND kind = ? ORDER BY at'),
       getInventory: this.db.prepare('SELECT json FROM inventories WHERE token = ?'),
       getAccountByNick: this.db.prepare('SELECT nick_key AS nickKey, nick, token, pin_hash AS pinHash, created_at AS createdAt FROM accounts WHERE nick_key = ?'),
       getAccountByToken: this.db.prepare('SELECT nick_key AS nickKey, nick, token, pin_hash AS pinHash, created_at AS createdAt FROM accounts WHERE token = ?'),
@@ -320,6 +330,31 @@ export class Storage {
       for (const it of list) if (it.count > 0) this.stmts.addItem.run(code, it.id, it.count);
     });
     tx(items);
+  }
+  /** 마을 창고에 넣는다 (M6-6) */
+  storageAdd(code: string, item: string, count: number): void {
+    if (count > 0) this.stmts.addItem.run(code, item, count);
+  }
+  /** 마을 창고에서 뺀다. 모자라면 아무것도 안 빼고 false */
+  storageTake(code: string, item: string, count: number): boolean {
+    if (count <= 0) return true;
+    const r = this.stmts.takeItem.run(count, code, item, count);
+    if (r.changes === 0) return false;
+    this.stmts.pruneStorage.run(code);
+    return true;
+  }
+  listBuildings(code: string): string[] {
+    return (this.stmts.listBuildings.all(code) as { id: string }[]).map((r) => r.id);
+  }
+  addBuilding(code: string, id: string, now = Date.now()): void {
+    this.stmts.addBuilding.run(code, id, now);
+  }
+  /** 도감에 올린다. 처음이면 true */
+  codexAdd(code: string, kind: string, id: string, token: string, now = Date.now()): boolean {
+    return this.stmts.addCodex.run(code, kind, id, token, now).changes > 0;
+  }
+  listCodex(code: string, kind: string): string[] {
+    return (this.stmts.listCodex.all(code, kind) as { id: string }[]).map((r) => r.id);
   }
   getStorage(code: string): { item: string; count: number }[] {
     return this.stmts.getStorage.all(code) as { item: string; count: number }[];

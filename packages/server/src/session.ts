@@ -44,6 +44,13 @@ const NEST_ERROR_KO: Record<string, string> = {
   ALREADY_RIDING: '이미 타고 있어요',
   NOT_RIDING: '타고 있지 않아요',
   UNKNOWN_SKILL: '그런 스킬은 없어요',
+  NOT_AT_STORAGE: '창고 건물 옆에서 해요 (광장 동쪽)',
+  UNKNOWN_BUILDING: '그런 건물은 없어요',
+  NO_SITE: '그 건물은 아직 지을 자리가 없어요 (다음 단계)',
+  ALREADY_BUILT: '이미 지어졌어요',
+  NEED_LEVEL: '마을 레벨이 더 필요해요',
+  NEED_BUILDING: '먼저 지어야 하는 건물이 있어요',
+  NOT_ENOUGH: '창고에 재료가 모자라요',
   COOLDOWN: '아직 식지 않았어요 — 잠깐 뒤에',
   NO_STAMINA: '기력이 모자라요 — 조금 쉬면 차요',
   NO_CHEST: '거기엔 상자가 없어요',
@@ -205,6 +212,8 @@ export class Session {
           nest: result.nest,
           nestDragons: result.nestDragons,
           gifts: result.gifts,
+          storage: result.storage,
+          village_state: result.village,
           needPin,
           family: this.family?.familyOfNick(nick) ?? null,
           today: this.family?.todayCard(nick) ?? null,
@@ -348,6 +357,27 @@ export class Session {
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
         const err = this.room.dismount(this.idx);
         if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 내릴 수 없어요');
+        return;
+      }
+      case 'openStorage': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        const err = this.room.openStorage(this.idx);
+        if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 열 수 없어요');
+        return;
+      }
+      case 'storageMove': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (typeof msg.item !== 'string' || !Number.isInteger(msg.count) || (msg.dir !== 'in' && msg.dir !== 'out')) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.storageMove(this.idx, msg.item, msg.count, msg.dir);
+        if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 옮길 수 없어요');
+        return;
+      }
+      case 'build': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (typeof msg.id !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.build(this.idx, msg.id);
+        if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 지을 수 없어요');
+        this.log(`세션 ${this.remote}: '${this.nick}' 건물 ${msg.id}`);
         return;
       }
       case 'skill': {

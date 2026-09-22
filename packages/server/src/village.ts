@@ -73,6 +73,17 @@ import {
   type NestDragonInfo,
   type BlockDef,
   BEAM_RANGE,
+  PREBUILT,
+  STORAGE_REACH,
+  buildingBlocks,
+  flagBlocks,
+  flagContains,
+  isBuildingBuiltAt,
+  missingCost,
+  siteCenter,
+  siteContains,
+  siteOf,
+  villageLevel,
   CHEST_SLOTS,
   type Stamina,
   beamOf,
@@ -111,7 +122,7 @@ import {
   encodePlayersState,
   generateVillage,
 } from '@dragon-village/shared';
-import { DRAGONS, EXPEDITIONS, GIFTS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP } from '@dragon-village/shared/data';
+import { BUILDINGS, DRAGONS, EXPEDITIONS, GIFTS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import type { DragonRow, Storage } from './storage';
@@ -179,6 +190,10 @@ export interface JoinResult {
   nestDragons: NestDragonInfo[];
   /** 이번 입장에 받은 선물 (#79) */
   gifts: GiftNotice[];
+  /** 마을 창고 재고 (M6-6) */
+  storage: { item: string; count: number }[];
+  /** 마을 상태 (M6-6) */
+  village: { built: string[]; level: number; codex: number; codexIds: string[] };
 }
 
 export interface RoomOptions {
@@ -247,6 +262,7 @@ export class VillageRoom {
     const pristine = this.snapshotOldNestSites(); // 저장을 덮기 전, 생성 지형 그대로
     this.load();
     this.ensureNest(pristine);
+    this.ensureBuildings();
     this.repairChests();
   }
 
@@ -365,6 +381,168 @@ export class VillageRoom {
     }
     const saved = this.storage?.getChest(this.info.code, home.x, home.y, home.z) ?? null;
     return resizeChest(saved ?? emptyChest(paired), paired).chest;
+  }
+
+  // ---------------------------------------------------------------- 마을 건물·창고·도감 (M6-6)
+
+  /** 지어진 건물 id 들 (처음부터 서 있는 창고 포함) */
+  private builtIds(): string[] {
+    const fromDb = this.storage?.listBuildings(this.info.code) ?? [];
+    return [...new Set([...PREBUILT, ...fromDb])];
+  }
+
+  private codexCount(): number {
+    return this.storage?.listCodex(this.info.code, 'block').length ?? 0;
+  }
+
+  /** 마을 레벨 = 1 + 건물(둥지 포함) + 도감/10 */
+  private level(): number {
+    return villageLevel(this.builtIds().length + 1, this.codexCount());
+  }
+
+  villageState(): { built: string[]; level: number; codex: number; codexIds: string[] } {
+    return { built: this.builtIds(), level: this.level(), codex: this.codexCount(), codexIds: this.storage?.listCodex(this.info.code, 'block') ?? [] };
+  }
+
+  /** 켤 때 한 번: 창고(처음부터)와 지어 둔 건물이 서 있는지 보고 없으면 다시 세운다. 깃대도 레벨에 맞춘다 */
+  private ensureBuildings(): void {
+    const idAt = (x: number, y: number, z: number) => this.registry.get(this.world.getBlock(x, y, z)).id;
+    for (const id of this.builtIds()) {
+      if (!siteOf(id) || isBuildingBuiltAt(idAt, id, GROUND_Y)) continue;
+      const n = this.placeBlocks(buildingBlocks(id, GROUND_Y), null);
+      this.log(`마을 ${this.info.code}: ${BUILDINGS.find(id)?.name ?? id}을(를) 세웠어요 (${n}칸)`);
+    }
+    this.placeBlocks(flagBlocks(GROUND_Y, this.level()), null);
+  }
+
+  /** 블록 목록을 세계에 놓고 더러워진 청크를 표시한다. world 를 주면 그 세계 사람들에게 묶음으로 알린다. 바뀐 칸 수 */
+  private placeBlocks(blocks: readonly { x: number; y: number; z: number; id: string }[], world: WorldKind | null): number {
+    const changed: { x: number; y: number; z: number; id: string }[] = [];
+    for (const b of blocks) {
+      if (!this.world.inBounds(b.x, b.y, b.z)) continue;
+      const res = this.world.setBlock(b.x, b.y, b.z, this.registry.numOf(b.id));
+      if (res.changed) {
+        this.markDirtyBlock(b.x, b.y, b.z);
+        this.fluids.touch(b.x, b.y, b.z);
+        changed.push(b);
+      }
+    }
+    if (world && changed.length) for (let i = 0; i < changed.length; i += 2000) this.broadcast(encodeBlockBatch({ blocks: changed.slice(i, i + 2000) }), -1, world);
+    return changed.length;
+  }
+
+  /** 마을 건물·둥지·깃대 자리인가 — 아무도 부수거나 덮지 못한다 (DESIGN 6절 "마을 건물은 자동 보호") */
+  private isProtected(x: number, y: number, z: number): boolean {
+    if (x >= NEST.x0 && x < NEST.x0 + NEST.size && z >= NEST.z0 && z < NEST.z0 + NEST.size && y >= GROUND_Y && y <= GROUND_Y + NEST.height) return true;
+    if (flagContains(GROUND_Y, x, y, z)) return true;
+    for (const id of this.builtIds()) {
+      const s = siteOf(id);
+      if (s && siteContains(s, GROUND_Y, x, y, z)) return true;
+    }
+    return false;
+  }
+
+  private nearStorage(p: RoomPlayer): boolean {
+    const s = siteOf('storage');
+    if (!s || p.world !== 'village') return false;
+    const c = siteCenter(s);
+    return Math.hypot(p.pos.x - c.x, p.pos.z - c.z) <= STORAGE_REACH && Math.abs(p.pos.y - GROUND_Y) < 6;
+  }
+
+  private sendStorage(p: RoomPlayer): void {
+    this.sendJson(p, { t: 'storage', items: this.storage?.getStorage(this.info.code) ?? [] });
+  }
+  private broadcastStorage(): void {
+    for (const p of this.playersIn('village')) this.sendStorage(p);
+  }
+  private broadcastVillage(): void {
+    const v = this.villageState();
+    this.broadcastJson({ t: 'village', built: v.built, level: v.level, codex: v.codex }, -1, 'village');
+  }
+
+  /** 창고 열기: 창고 건물 옆에서. 오류: NOT_AT_STORAGE */
+  openStorage(idx: number): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (!this.storage) return 'NO_STORAGE';
+    if (!this.nearStorage(p)) return 'NOT_AT_STORAGE';
+    this.sendStorage(p);
+    const v = this.villageState();
+    this.sendJson(p, { t: 'village', built: v.built, level: v.level, codex: v.codex }); // 창을 열 때 마을 상태도 최신으로
+    return null;
+  }
+
+  /** 창고 ↔ 가방 (M6-6). in: 가방에서 빼서 창고로. out: 창고에서 빼서 가방으로(가득 차면 못 넣은 만큼 되돌린다) */
+  storageMove(idx: number, item: string, count: number, dir: 'in' | 'out', now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (!this.storage) return 'NO_STORAGE';
+    if (!this.nearStorage(p)) return 'NOT_AT_STORAGE';
+    if (!/^[a-z0-9_.]+$/.test(item) || !Number.isInteger(count) || count < 1 || count > 999) return 'BAD_MESSAGE';
+    const changed = new Set<number>();
+    if (dir === 'in') {
+      const have = countOf(p.inv, item);
+      const n = Math.min(have, count);
+      if (n < 1) return 'NO_ITEM';
+      take(p.inv, item, n, changed);
+      this.storage.storageAdd(this.info.code, item, n);
+    } else {
+      if (!this.storage.storageTake(this.info.code, item, count)) return 'NOT_ENOUGH';
+      const left = give(p.inv, item, count, changed);
+      if (left > 0) {
+        this.storage.storageAdd(this.info.code, item, left); // 가방이 꽉 차서 못 받은 건 창고에 그대로
+        this.sendJson(p, { t: 'error', code: 'BAG_FULL', message: `가방이 가득 차서 ${count - left}개만 꺼냈어요` });
+      }
+    }
+    this.sendInv(p, changed);
+    this.storage.saveInventory(p.token, this.info.code, p.inv, now);
+    this.broadcastStorage();
+    return null;
+  }
+
+  /**
+   * 건물 짓기 (M6-6): 창고 옆에서, 창고 재료로. 자리는 정해져 있다(BUILDING_SITES).
+   * 오류: NOT_AT_STORAGE · UNKNOWN_BUILDING · NO_SITE · ALREADY_BUILT · NEED_LEVEL · NEED_BUILDING · NOT_ENOUGH
+   */
+  build(idx: number, id: string, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (!this.storage) return 'NO_STORAGE';
+    if (!this.nearStorage(p)) return 'NOT_AT_STORAGE';
+    const def = BUILDINGS.find(id);
+    if (!def) return 'UNKNOWN_BUILDING';
+    if (!siteOf(id)) return 'NO_SITE';
+    const built = this.builtIds();
+    if (built.includes(id)) return 'ALREADY_BUILT';
+    if (this.level() < def.level) return 'NEED_LEVEL';
+    if (def.requires && def.requires !== 'dragon_nest_1' && !built.includes(def.requires)) return 'NEED_BUILDING';
+    const stock = new Map(this.storage.getStorage(this.info.code).map((r) => [r.item, r.count]));
+    if (Object.keys(missingCost(stock, def.cost)).length) return 'NOT_ENOUGH';
+    for (const [item, n] of Object.entries(def.cost)) this.storage.storageTake(this.info.code, item, n);
+    this.storage.addBuilding(this.info.code, id, now);
+    const n = this.placeBlocks(buildingBlocks(id, GROUND_Y), 'village');
+    this.placeBlocks(flagBlocks(GROUND_Y, this.level()), 'village');
+    this.log(`마을 ${this.info.code}: ${p.nick} 이(가) ${def.name}을(를) 지었어요 (${n}칸) — 마을 레벨 ${this.level()}`);
+    this.broadcastStorage();
+    this.broadcastVillage();
+    this.broadcastJson({ t: 'error', code: 'BUILT', message: `🏗️ ${p.nick} 님이 ${def.name}을(를) 지었어요! 마을 레벨 ${this.level()}` }, idx, 'village');
+    return null;
+  }
+
+  /** 처음 손에 넣은 블록 종류는 마을 도감에 오른다 → +경험치, 마을 레벨에 반영 (M6-6) */
+  private noteCodex(p: RoomPlayer, item: string, now: number): void {
+    if (!this.storage) return;
+    const def = this.registry.find(item);
+    if (!def || def.internal || def.id === 'air') return;
+    const before = this.level();
+    if (!this.storage.codexAdd(this.info.code, 'block', item, p.token, now)) return;
+    const total = this.codexCount();
+    this.addXp(p, XP.ours.codexNewEntry, XP_SOURCE.codex, p.pos.x, p.pos.y + 1, p.pos.z, now);
+    this.sendJson(p, { t: 'codex', kind: 'block', id: item, total });
+    if (this.level() !== before) {
+      this.placeBlocks(flagBlocks(GROUND_Y, this.level()), 'village');
+      this.broadcastVillage();
+    }
   }
 
   /**
@@ -860,7 +1038,20 @@ export class VillageRoom {
     this.savePlayer(player);
     if (savedInv === null || gifts.length) this.storage?.saveInventory(token, this.info.code, inv); // 키트·선물은 한 번만 — 바로 저장해 둔다
     this.log(`마을 ${this.info.code}: ${nick}(#${idx}) 입장${savedInv === null ? ' (처음, 시작 키트)' : ''}${gifts.length ? ` (선물 ${gifts.map((g) => g.name).join('·')})` : ''}, ${this.players.size}명`);
-    return { idx, spawn: me, players: others, expedition: this.expeditionState(), inventory: inv, xp: player.xp, dragons: this.myDragons(token), nest: this.nestSlots(token), nestDragons: this.nestDragons(token), gifts };
+    return {
+      idx,
+      spawn: me,
+      players: others,
+      expedition: this.expeditionState(),
+      inventory: inv,
+      xp: player.xp,
+      dragons: this.myDragons(token),
+      nest: this.nestSlots(token),
+      nestDragons: this.nestDragons(token),
+      gifts,
+      storage: this.storage?.getStorage(this.info.code) ?? [],
+      village: this.villageState(),
+    };
   }
 
   /** 입장 직후: 생성 지형과 다른 청크를 전부 보낸다 */
@@ -938,6 +1129,7 @@ export class VillageRoom {
 
     const def = this.registry.find(req.id);
     if (!def) return REJECT.INVALID;
+    if (p.world === 'village' && this.isProtected(x, y, z)) return REJECT.PROTECTED; // 마을 건물·둥지·깃대 (M6-6)
     const cur = this.registry.get(world.getBlock(x, y, z));
     // 문 열고 닫기 (#71): 같은 문·같은 방향·같은 반쪽에서 열림만 뒤집는 요청. 가방과 무관, 아무나 가능
     if (def.door && cur.door && def.door.base === cur.door.base && def.door.facing === cur.door.facing && def.door.hinge === cur.door.hinge && def.door.upper === cur.door.upper && def.door.open !== cur.door.open) {
@@ -1083,6 +1275,7 @@ export class VillageRoom {
     const left = give(p.inv, item, count, changed);
     const got = count - left;
     if (got > 0 && p.world === 'expedition') p.gained.set(item, (p.gained.get(item) ?? 0) + got);
+    if (got > 0) this.noteCodex(p, item, Date.now());
     if (left > 0) this.sendJson(p, { t: 'error', code: 'BAG_FULL', message: '가방이 가득 찼어요' });
     return left;
   }

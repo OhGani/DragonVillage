@@ -32,7 +32,7 @@ function inbox() {
 }
 
 /** 둥지(M6-2, #76)가 서버 시작 때 광장 남쪽 집터 청크 2개(x 48~79, z 80~95)를 바꾼다 — 바뀐 청크 수 기대값에 더한다 */
-const NEST_CHUNKS = 2;
+const NEST_CHUNKS = 4; // 둥지 2 + 창고 건물·깃대(M6-6, x 76~80 은 청크 두 개에 걸친다) 2
 
 function makeRoom(storage: Storage | null = null) {
   return new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null, gifts: [] });
@@ -295,22 +295,25 @@ describe('경험치 (M6-1)', () => {
     room.world.setBlock(66, GROUND_Y + 1, 64, BLOCKS.numOf('diamond_ore'));
     room.world.setBlock(66, GROUND_Y + 1, 65, BLOCKS.numOf('stone'));
     room.onBlockChange(ra.idx, { seq: 1, x: 66, y: GROUND_Y + 1, z: 64, id: 'air', slot: 0 }, 1000);
-    const got = a.bin.find((m) => m.type === MSG.XpGained)!;
+    // 처음 얻는 블록은 도감 경험치(source 3)도 같이 온다 (M6-6) — 채굴 것만 본다
+    const got = a.bin.filter((m) => m.type === MSG.XpGained).find((m) => (m.msg as { source: number }).source === 0)!;
+    const codexXp = a.bin.filter((m) => m.type === MSG.XpGained && (m.msg as { source: number }).source === 3).reduce((s2, m) => s2 + (m.msg as { amount: number }).amount, 0);
     expect(got).toBeDefined();
     const amount = (got.msg as { amount: number }).amount;
     expect(amount).toBeGreaterThanOrEqual(3);
     expect(amount).toBeLessThanOrEqual(7);
     expect(got.msg).toMatchObject({ source: 0, x: 66.5, y: GROUND_Y + 1.5, z: 64.5 });
-    expect(room.xpOf(ra.idx)).toBe(amount);
-    expect(storage.getPlayer('a'.repeat(32))!.xpTotal).toBe(amount);
+    expect(room.xpOf(ra.idx)).toBe(amount + codexXp);
+    expect(storage.getPlayer('a'.repeat(32))!.xpTotal).toBe(amount + codexXp);
     a.clear();
     room.onBlockChange(ra.idx, { seq: 2, x: 66, y: GROUND_Y + 1, z: 65, id: 'air', slot: 0 }, 1200);
-    expect(a.bin.find((m) => m.type === MSG.XpGained)).toBeUndefined();
+    expect(a.bin.filter((m) => m.type === MSG.XpGained).some((m) => (m.msg as { source: number }).source === 0)).toBe(false); // 돌은 채굴 경험치가 없다
     // 다시 들어오면 총량이 welcome 에 실려 온다
     room.leave(ra.idx);
     const b = inbox();
     const rb = room.join('a'.repeat(32), '아빠', 0, b.send)!;
-    expect(rb.xp).toBe(amount);
+    expect(rb.xp).toBe(storage.getPlayer('a'.repeat(32))!.xpTotal); // 다시 들어오면 저장된 총량(채굴 + 도감)을 그대로 받는다
+    expect(rb.xp).toBeGreaterThanOrEqual(amount + codexXp);
   });
 });
 
@@ -827,5 +830,121 @@ describe('드래곤 빔 (M6-5)', () => {
     expect(room.ride(ra.idx, id)).toBeNull();
     expect(room.players.get(ra.idx)!.stamina.value).toBe(150);
     expect(rb.idx).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('마을 창고·건물·도감 (M6-6)', () => {
+  const STORE = { x: 78.5, z: 60.5 }; // 창고 자리(76~80 · 58~62) 가운데
+
+  it('창고는 처음부터 서 있고 보호된다. 넣기·꺼내기는 창고 옆에서만, 재고는 모두에게', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox(),
+      b = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const rb = room.join('b'.repeat(32), '아들', 1, b.send)!;
+    expect(BLOCKS.get(room.world.getBlock(76, GROUND_Y + 1, 58)).id).toBe('log'); // 창고 모서리 기둥
+    expect(ra.village).toMatchObject({ built: ['storage'], codex: 0 });
+    expect(ra.village.level).toBe(1 + 2); // 1 + 건물(창고·둥지) 2
+    // 보호: 창고 벽을 못 부수고, 그 안에 못 놓는다
+    room.onMove(ra.idx, { x: 75.5, y: GROUND_Y + 1, z: 60.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.validate(room.players.get(ra.idx)!, { seq: 1, x: 76, y: GROUND_Y + 1, z: 58, id: 'air' }, 1000)).toBe(REJECT.PROTECTED);
+    room.giveItems(ra.idx, 'stone', 4);
+    expect(room.validate(room.players.get(ra.idx)!, { seq: 2, x: 78, y: GROUND_Y + 1, z: 60, id: 'stone' }, 1000)).toBe(REJECT.PROTECTED);
+    // 멀리서는 못 연다
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.openStorage(ra.idx)).toBe('NOT_AT_STORAGE');
+    expect(room.storageMove(ra.idx, 'stone', 1, 'in')).toBe('NOT_AT_STORAGE');
+    // 옆에서 넣는다 → 둘 다 재고를 받는다
+    room.onMove(ra.idx, { x: STORE.x, y: GROUND_Y + 1, z: STORE.z - 4, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.openStorage(ra.idx)).toBeNull();
+    a.clear();
+    b.clear();
+    expect(room.storageMove(ra.idx, 'stone', 3, 'in')).toBeNull();
+    expect(countOf(room.players.get(ra.idx)!.inv, 'stone')).toBe(1);
+    expect(a.json.find((m) => m.t === 'storage')).toEqual({ t: 'storage', items: [{ item: 'stone', count: 3 }] });
+    expect(b.json.find((m) => m.t === 'storage')).toEqual({ t: 'storage', items: [{ item: 'stone', count: 3 }] });
+    // 없는 건 못 꺼내고, 있는 건 아들도 꺼낸다
+    expect(room.storageMove(ra.idx, 'stone', 5, 'out')).toBe('NOT_ENOUGH');
+    room.onMove(rb.idx, { x: STORE.x, y: GROUND_Y + 1, z: STORE.z - 4, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.storageMove(rb.idx, 'stone', 2, 'out')).toBeNull();
+    expect(countOf(room.players.get(rb.idx)!.inv, 'stone')).toBe(2);
+    expect(storage.getStorage(INFO.code)).toEqual([{ item: 'stone', count: 1 }]);
+    // 서버를 껐다 켜도 창고 재고·건물은 그대로
+    const room2 = makeRoom(storage);
+    const rc = room2.join('c'.repeat(32), '친구', 2, () => {})!;
+    expect(rc.storage).toEqual([{ item: 'stone', count: 1 }]);
+    expect(BLOCKS.get(room2.world.getBlock(76, GROUND_Y + 1, 58)).id).toBe('log');
+  });
+
+  it('건물은 창고 재료로 정해진 자리에 서고, 레벨이 오르고 깃발이 늘고, 모두에게 알려진다', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox(),
+      b = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.join('b'.repeat(32), '아들', 1, b.send);
+    room.onMove(ra.idx, { x: STORE.x, y: GROUND_Y + 1, z: STORE.z - 4, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.build(ra.idx, 'castle')).toBe('UNKNOWN_BUILDING');
+    expect(room.build(ra.idx, 'storage')).toBe('ALREADY_BUILT');
+    expect(room.build(ra.idx, 'dragon_nest_2')).toBe('NO_SITE');
+    expect(room.build(ra.idx, 'forge')).toBe('NOT_ENOUGH'); // 창고가 비어 있다
+    // 대장간 비용: 조약돌 40 · 석탄 10 · 철광석 5 → 창고에 넣는다 (철광석은 하나 모자라게)
+    room.giveItems(ra.idx, 'cobblestone', 40);
+    room.giveItems(ra.idx, 'coal', 10);
+    room.giveItems(ra.idx, 'iron_ore', 4);
+    for (const [item, n] of [['cobblestone', 40], ['coal', 10], ['iron_ore', 4]] as [string, number][]) expect(room.storageMove(ra.idx, item, n, 'in')).toBeNull();
+    expect(room.build(ra.idx, 'forge')).toBe('NOT_ENOUGH'); // 철광석 1 모자람
+    room.giveItems(ra.idx, 'iron_ore', 1);
+    expect(room.storageMove(ra.idx, 'iron_ore', 1, 'in')).toBeNull();
+    const levelBefore = room.villageState().level;
+    a.clear();
+    b.clear();
+    expect(room.build(ra.idx, 'forge')).toBeNull();
+    expect(room.build(ra.idx, 'forge')).toBe('ALREADY_BUILT');
+    expect(storage.getStorage(INFO.code)).toEqual([]); // 다 썼다
+    expect(BLOCKS.get(room.world.getBlock(49, GROUND_Y + 1, 60)).id).toBe('furnace'); // 대장간 화로
+    expect(room.villageState()).toMatchObject({ built: ['storage', 'forge'], level: levelBefore + 1 });
+    // 깃발: 레벨만큼 양털
+    const wool = [...Array(6).keys()].filter((i) => BLOCKS.get(room.world.getBlock(67, GROUND_Y + 7 - i, 52)).id === 'wool').length;
+    expect(wool).toBe(room.villageState().level);
+    // 모두에게 블록 묶음 + 마을 상태
+    expect(b.bin.some((m) => m.type === MSG.BlockBatch)).toBe(true);
+    expect(b.json.find((m) => m.t === 'village')).toMatchObject({ built: ['storage', 'forge'], level: levelBefore + 1 });
+    // 지은 건물도 보호된다
+    room.onMove(ra.idx, { x: 53.5, y: GROUND_Y + 1, z: 60.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.validate(room.players.get(ra.idx)!, { seq: 1, x: 51, y: GROUND_Y + 1, z: 60, id: 'air' }, 1000)).toBe(REJECT.PROTECTED);
+    // 껐다 켜도 서 있고 같은 레벨
+    const room2 = makeRoom(storage);
+    expect(BLOCKS.get(room2.world.getBlock(49, GROUND_Y + 1, 60)).id).toBe('furnace');
+    expect(room2.villageState().level).toBe(levelBefore + 1);
+  });
+
+  it('처음 손에 넣은 블록은 마을 도감에 오르고 +5 경험치, 같은 블록은 두 번 안 오르고, 10종마다 마을 레벨 +1', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox(),
+      b = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const rb = room.join('b'.repeat(32), '아들', 1, b.send)!;
+    const y = GROUND_Y + 1;
+    room.onMove(ra.idx, { x: 64.5, y, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    a.clear();
+    const floor = BLOCKS.get(room.world.getBlock(66, GROUND_Y, 64)).id;
+    const xp0 = room.xpOf(ra.idx);
+    room.onBlockChange(ra.idx, { seq: 1, x: 66, y: GROUND_Y, z: 64, id: 'air' }, 1000);
+    expect(a.json.find((m) => m.t === 'codex')).toMatchObject({ kind: 'block', id: floor, total: 1 });
+    expect(room.xpOf(ra.idx)).toBeGreaterThanOrEqual(xp0 + 5);
+    // 같은 블록을 아들이 얻어도 두 번 오르지 않는다 (마을 공용)
+    b.clear();
+    room.onMove(rb.idx, { x: 64.5, y, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(rb.idx, { seq: 1, x: 67, y: GROUND_Y, z: 64, id: 'air' }, 1000);
+    expect(b.json.find((m) => m.t === 'codex')).toBeUndefined();
+    expect(storage.listCodex(INFO.code, 'block')).toEqual([floor]);
+    // 9종이 더 오르면 10종 → 레벨 +1
+    const before = room.villageState().level;
+    for (const id of ['dirt', 'log', 'planks', 'glass', 'glowstone', 'iron_ore', 'hay_bale', 'wool', 'farmland'].filter((i) => i !== floor)) storage.codexAdd(INFO.code, 'block', id, 'b'.repeat(32));
+    expect(room.villageState().codex).toBeGreaterThanOrEqual(9);
+    if (room.villageState().codex >= 10) expect(room.villageState().level).toBe(before + 1);
   });
 });

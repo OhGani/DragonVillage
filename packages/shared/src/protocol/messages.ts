@@ -437,7 +437,13 @@ export type ClientJson =
   /** 내리기 (M6-4) */
   | { t: 'dismount' }
   /** 타고 있는 드래곤의 스킬 (M6-5). 지금은 'beam' 만 */
-  | { t: 'skill'; id: string };
+  | { t: 'skill'; id: string }
+  /** 마을 창고 열기 (M6-6) — 창고 건물 옆에서 */
+  | { t: 'openStorage' }
+  /** 창고 ↔ 가방. dir 'in' = 가방 → 창고 */
+  | { t: 'storageMove'; item: string; count: number; dir: 'in' | 'out' }
+  /** 건물 짓기 (창고 재료로) */
+  | { t: 'build'; id: string };
 
 export type ServerJson =
   | { t: 'hello'; token: string; protocol: number }
@@ -471,6 +477,10 @@ export type ServerJson =
       nest?: NestSlotInfo[];
       /** 둥지의 드래곤들 (모두, M6-3) */
       nestDragons?: NestDragonInfo[];
+      /** 마을 창고 재고 (M6-6) */
+      storage?: { item: string; count: number }[];
+      /** 마을 상태 (M6-6) */
+      village_state?: { built: string[]; level: number; codex: number; codexIds: string[] };
     }
   | { t: 'familyLinked'; code: string }
   /** 오늘 카드가 바뀌었다 (체크·승인·1분 경과·할 일 편집) */
@@ -494,6 +504,12 @@ export type ServerJson =
   | { t: 'beam'; idx: number; dragon: string; color: string; power: number; from: { x: number; y: number; z: number }; dir: { x: number; y: number; z: number }; range: number }
   /** 쏜 사람에게: 기력 남은 값·최대·다음에 쏠 수 있는 서버 시각 (M6-5) */
   | { t: 'stamina'; value: number; max: number; readyAt: number; now: number }
+  /** 마을 창고 재고 (M6-6). 열 때·바뀔 때 마을 사람 모두에게 */
+  | { t: 'storage'; items: { item: string; count: number }[] }
+  /** 마을 상태 (M6-6): 지어진 건물·레벨·도감 종류 수. 입장할 때와 바뀔 때 모두에게 */
+  | { t: 'village'; built: string[]; level: number; codex: number }
+  /** 도감에 새로 올랐다 (처음 손에 넣은 블록). 넣은 사람에게 */
+  | { t: 'codex'; kind: 'block'; id: string; total: number }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }

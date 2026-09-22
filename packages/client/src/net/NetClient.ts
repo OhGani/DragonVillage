@@ -76,6 +76,10 @@ export interface Welcome {
   nest: NestSlotInfo[];
   /** 둥지의 드래곤 (모두, M6-3) */
   nestDragons: NestDragonInfo[];
+  /** 마을 창고 재고 (M6-6) */
+  storage: { item: string; count: number }[];
+  /** 마을 상태 (M6-6) */
+  village_state: { built: string[]; level: number; codex: number; codexIds: string[] } | null;
   /** 이번에 받은 선물 (#79) */
   gifts: GiftNotice[];
 }
@@ -141,6 +145,12 @@ export interface NetEvents {
   onBeam(m: { idx: number; dragon: string; color: string; power: number; from: { x: number; y: number; z: number }; dir: { x: number; y: number; z: number }; range: number }): void;
   /** 내 기력 (M6-5). readyAt·now 는 서버 시각 */
   onStamina(m: { value: number; max: number; readyAt: number; now: number }): void;
+  /** 마을 창고 재고 (M6-6) */
+  onStorage(items: { item: string; count: number }[]): void;
+  /** 마을 상태: 건물·레벨·도감 수 (M6-6) */
+  onVillage(m: { built: string[]; level: number; codex: number }): void;
+  /** 도감에 새로 올랐다 (M6-6) */
+  onCodex(m: { kind: 'block'; id: string; total: number }): void;
   onDismount(idx: number): void;
 }
 
@@ -335,6 +345,16 @@ export class NetClient {
   sendRide(id: number): void {
     this.sendJson({ t: 'ride', id });
   }
+  /** 마을 창고 (M6-6) */
+  sendOpenStorage(): void {
+    this.sendJson({ t: 'openStorage' });
+  }
+  sendStorageMove(item: string, count: number, dir: 'in' | 'out'): void {
+    this.sendJson({ t: 'storageMove', item, count, dir });
+  }
+  sendBuild(id: string): void {
+    this.sendJson({ t: 'build', id });
+  }
   /** 타고 있는 드래곤의 스킬 (M6-5) */
   sendSkill(id: string): void {
     this.sendJson({ t: 'skill', id });
@@ -398,6 +418,8 @@ export class NetClient {
           nest: msg.nest ?? [],
           nestDragons: msg.nestDragons ?? [],
           gifts: msg.gifts ?? [],
+          storage: msg.storage ?? [],
+          village_state: msg.village_state ?? null,
         };
         return;
       case 'familyLinked':
@@ -472,6 +494,9 @@ export class NetClient {
     else if (msg.t === 'mount') ev.onMount(msg.idx, msg.riding);
     else if (msg.t === 'beam') ev.onBeam(msg);
     else if (msg.t === 'stamina') ev.onStamina(msg);
+    else if (msg.t === 'storage') ev.onStorage(msg.items);
+    else if (msg.t === 'village') ev.onVillage(msg);
+    else if (msg.t === 'codex') ev.onCodex(msg);
     else if (msg.t === 'dismount') ev.onDismount(msg.idx);
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }

@@ -1578,6 +1578,77 @@ body {
   pointer-events: none;
 }
 
+/* ---- 마을 창고·건물 창 (M6-6) ---- */
+.storage-card {
+  max-width: min(96vw, 620px);
+  width: 100%;
+}
+.storage-title {
+  font-size: 15px;
+  font-weight: 800;
+  margin: 4px 0 8px;
+}
+.storage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 62vh;
+  overflow: auto;
+}
+.storage-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+.storage-row.built {
+  background: rgba(127, 255, 0, 0.1);
+}
+.storage-text {
+  flex: 1 1 160px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.storage-sub {
+  font-size: 12px;
+  opacity: 0.85;
+}
+.storage-acts {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.storage-acts .plain-btn.small {
+  padding: 4px 8px;
+  font-size: 12px;
+  margin: 0;
+}
+.codex-blocks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 30vh;
+  overflow: auto;
+  margin-top: 4px;
+}
+.codex-block {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 12px;
+  opacity: 0.55;
+}
+.codex-block.on {
+  opacity: 1;
+  background: rgba(127, 255, 0, 0.12);
+}
+
 /* ---- 상자 창 (#84) ---- */
 .chest-card {
   max-width: min(96vw, 560px);

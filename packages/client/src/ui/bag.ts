@@ -25,6 +25,10 @@ export interface BagDeps {
   /** 도감 탭 (M6-2): 드래곤 16종과 내가 얻은 것 */
   dragons: DragonRegistry;
   owned(): ReadonlySet<string>;
+  /** 마을 도감에 오른 블록 id (M6-6, 마을 공용) */
+  codexBlocks(): ReadonlySet<string>;
+  /** 도감 대상 블록 목록 [id, 이름] (내부 변형·공기 제외) */
+  codexCandidates(): readonly [string, string][];
   icon(id: string, size: number): HTMLCanvasElement | null;
   nameOf(id: string): string;
   onMove(from: number, to: number, count: number): void;
@@ -262,6 +266,28 @@ export class BagView {
       grid.appendChild(cell);
     }
     this.side.appendChild(grid);
+
+    // 블록 도감 (M6-6): 마을 사람 누구든 처음 손에 넣은 블록. 10종마다 마을 레벨 +1
+    const found = this.deps.codexBlocks();
+    const all = this.deps.codexCandidates();
+    const h2 = document.createElement('div');
+    h2.className = 'bag-title';
+    h2.textContent = `블록 도감 ${found.size}/${all.length} (마을 공용 · 10종마다 마을 레벨 +1)`;
+    this.side.appendChild(h2);
+    const blocks = document.createElement('div');
+    blocks.className = 'codex-blocks';
+    for (const [id, label] of all) {
+      const has = found.has(id);
+      const cell = document.createElement('div');
+      cell.className = 'codex-block' + (has ? ' on' : '');
+      const icon = this.deps.icon(id, 24);
+      if (icon) cell.appendChild(icon);
+      const n = document.createElement('span');
+      n.textContent = has ? label : '???';
+      cell.appendChild(n);
+      blocks.appendChild(cell);
+    }
+    this.side.appendChild(blocks);
   }
 
   private button(label: string, cls: string, onClick: () => void, disabled = false): HTMLButtonElement {
