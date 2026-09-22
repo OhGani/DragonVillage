@@ -807,18 +807,20 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     if (open) {
       input.paused = true;
       kbm.enabled = false;
-    } else if (started && !hud.overlayVisible && !hud.resultVisible) {
+    } else if (started && !hud.overlayVisible && !hud.resultVisible && !bag.visible && !chat.visible && !nest.visible) {
       resume();
     }
   };
   document.addEventListener('pointerlockchange', () => {
     if (isTouch || !started || kbm.lockFailed || disconnected) return;
-    if (!kbm.locked && !hud.overlayVisible && !hud.helpVisible && !hud.resultVisible && !hud.actionVisible && !bag.visible && !chat.visible) pause();
+    if (!kbm.locked && !hud.overlayVisible && !hud.helpVisible && !hud.resultVisible && !hud.actionVisible && !bag.visible && !chat.visible && !nest.visible) pause();
   });
-  // HUD 가 캔버스를 덮고 있으므로 root 에서 듣는다 (오버레이 없이 잠금이 풀린 경우 대비)
+  // HUD 가 캔버스를 덮고 있으므로 root 에서 듣는다 (오버레이 없이 잠금이 풀린 경우 대비).
+  // 창 안을 누른 것은 "게임으로 돌아가기"가 아니다 — 둥지 창이 빠져 있어서 먹이를 한 번 주면
+  // 마우스가 다시 잠겨 버튼을 더 못 눌렀다 (아빠 2026-09-22)
   root.addEventListener('click', (e) => {
-    if ((e.target as HTMLElement | null)?.closest('.action-card, .result-panel, .bag-panel, .chat-panel, .side-btns')) return;
-    if (started && !isTouch && !kbm.locked && !hud.overlayVisible && !hud.resultVisible && !bag.visible && !chat.visible) resume();
+    if ((e.target as HTMLElement | null)?.closest('.action-card, .result-panel, .bag-panel, .chat-panel, .nest-panel, .side-btns')) return;
+    if (started && !isTouch && !kbm.locked && !hud.overlayVisible && !hud.resultVisible && !bag.visible && !chat.visible && !nest.visible) resume();
   });
 
   // ---- 루프 ----
@@ -875,6 +877,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     return best;
   };
   const hasSaddle = () => inv.some((s) => s !== null && s.item === SADDLE_ITEM);
+  /** '알겠어요' 로 접어 둔 드래곤 (그 드래곤을 보는 동안만 유지) */
+  let dismissedDragon: number | null = null;
 
   /** 포탈 안에 서 있으면 카드 */
   const updatePortalCard = () => {
@@ -884,10 +888,16 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       // 내 드래곤을 보고 있으면 타기 카드 (M6-4) — 둥지 카드보다 먼저
       if (ctx.kind === 'village' && !myRiding) {
         const d = lookedDragon();
-        if (d) {
+        if (!d) dismissedDragon = null; // 다른 데를 보면 다시 뜬다
+        if (d && d.id !== dismissedDragon) {
           const name = DRAGONS.find(d.dragon)?.name ?? d.dragon;
-          if (d.stage !== 'adult') hud.showAction(`${name} (아기)`, '어른이 되면 탈 수 있어요 — 둥지 창에서 먹이를 주면 빨리 자라요', '알겠어요', () => hud.hideAction());
-          else if (!hasSaddle()) hud.showAction(`${name} 타기`, '안장이 있어야 해요 — 제작대: 가죽 5 + 철 2 (가죽은 원정 보물 상자)', '알겠어요', () => hud.hideAction());
+          // '알겠어요' 는 이 드래곤을 보는 동안만 접어 둔다 — 안 그러면 다음 프레임에 다시 떠서 눌러도 안 닫힌다 (아빠 2026-09-22)
+          const dismiss = () => {
+            dismissedDragon = d.id;
+            hud.hideAction();
+          };
+          if (d.stage !== 'adult') hud.showAction(`${name} (아기)`, '어른이 되면 탈 수 있어요 — 둥지 창에서 먹이를 주면 빨리 자라요', '알겠어요', dismiss);
+          else if (!hasSaddle()) hud.showAction(`${name} 타기`, '안장이 있어야 해요 — 제작대: 가죽 5 + 철 2 (가죽은 원정 보물 상자)', '알겠어요', dismiss);
           else hud.showAction(`🐉 ${name} 타기`, isTouch ? '▲ 위로 · ▼ 아래로 · 🐉 버튼으로 내려요' : 'Space 위로 · Shift 아래로 · 🐉 버튼으로 내려요', '타기' + KEY_HINT, () => net.sendRide(d.id));
           return;
         }
