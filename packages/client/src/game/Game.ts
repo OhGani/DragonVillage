@@ -708,6 +708,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       });
     }
   };
+  /** 가방·채팅·둥지·상자 — 창이 하나라도 열려 있으면 마우스를 잠그지 않는다. 상자가 빠져 있었다 (아빠 2026-09-23) */
+  const anyPanelOpen = () => bag.visible || chat.visible || nest.visible || chest.visible;
   const openBag = () => {
     if (!started || disconnected || hud.resultVisible) return;
     input.paused = true;
@@ -720,7 +722,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const closeBag = () => {
     if (!bag.visible) return;
     bag.hide();
-    if (started && !hud.overlayVisible && !hud.resultVisible && !chat.visible) resume();
+    if (started && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) resume();
   };
   const openChat = () => {
     if (!started || disconnected || hud.resultVisible) return;
@@ -732,16 +734,16 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const closeChest = () => {
     if (!chest.visible) return;
     chest.hide();
-    if (started && !hud.overlayVisible && !hud.resultVisible && !bag.visible && !nest.visible) resume();
+    if (started && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) resume();
   };
   const closeChat = () => {
     if (!chat.visible) return;
     chat.hide();
-    if (started && !hud.overlayVisible && !hud.resultVisible && !bag.visible) resume();
+    if (started && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) resume();
   };
   // 둥지 창 (M6-2)
   const openNest = () => {
-    if (nest.visible || bag.visible || chat.visible) return;
+    if (anyPanelOpen()) return;
     nest.setXp(xpTotal);
     nest.setInventory(inv);
     nest.show();
@@ -751,7 +753,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const closeNest = () => {
     if (!nest.visible) return;
     nest.hide();
-    if (started && !hud.overlayVisible && !hud.resultVisible && !bag.visible && !chat.visible) resume();
+    if (started && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) resume();
   };
   hud.bagBtn.addEventListener('click', () => (bag.visible ? closeBag() : openBag()));
   hud.rideBtn.addEventListener('click', () => net.sendDismount());
@@ -807,20 +809,20 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     if (open) {
       input.paused = true;
       kbm.enabled = false;
-    } else if (started && !hud.overlayVisible && !hud.resultVisible && !bag.visible && !chat.visible && !nest.visible) {
+    } else if (started && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) {
       resume();
     }
   };
   document.addEventListener('pointerlockchange', () => {
     if (isTouch || !started || kbm.lockFailed || disconnected) return;
-    if (!kbm.locked && !hud.overlayVisible && !hud.helpVisible && !hud.resultVisible && !hud.actionVisible && !bag.visible && !chat.visible && !nest.visible) pause();
+    if (!kbm.locked && !hud.overlayVisible && !hud.helpVisible && !hud.resultVisible && !hud.actionVisible && !anyPanelOpen()) pause();
   });
   // HUD 가 캔버스를 덮고 있으므로 root 에서 듣는다 (오버레이 없이 잠금이 풀린 경우 대비).
   // 창 안을 누른 것은 "게임으로 돌아가기"가 아니다 — 둥지 창이 빠져 있어서 먹이를 한 번 주면
-  // 마우스가 다시 잠겨 버튼을 더 못 눌렀다 (아빠 2026-09-22)
+  // 마우스가 다시 잠겨 버튼을 더 못 눌렀다 (아빠 2026-09-22). 상자 창은 .bag-panel 클래스를 같이 쓴다
   root.addEventListener('click', (e) => {
     if ((e.target as HTMLElement | null)?.closest('.action-card, .result-panel, .bag-panel, .chat-panel, .nest-panel, .side-btns')) return;
-    if (started && !isTouch && !kbm.locked && !hud.overlayVisible && !hud.resultVisible && !bag.visible && !chat.visible && !nest.visible) resume();
+    if (started && !isTouch && !kbm.locked && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) resume();
   });
 
   // ---- 루프 ----
