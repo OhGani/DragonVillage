@@ -114,6 +114,8 @@ import {
   nestBlocksAt,
   nestContains,
   nestSlotPos,
+  eggSlotsOpen,
+  NEST_MAX_SLOTS,
   spendLevels,
   encodeXpState,
   miningXp,
@@ -304,7 +306,7 @@ export class VillageRoom {
     }
     const egg = this.registry.numOf('dragon_egg');
     for (const row of this.storage?.listNestEggs(this.info.code) ?? []) {
-      const pos = nestSlotPos(GROUND_Y, row.slot ?? -1);
+      const pos = nestSlotPos(GROUND_Y, row.slot ?? -1, NEST_MAX_SLOTS);
       if (pos && this.world.getBlock(pos.x, pos.y, pos.z) !== egg) {
         this.world.setBlock(pos.x, pos.y, pos.z, egg);
         this.markDirtyBlock(pos.x, pos.y, pos.z);
@@ -400,8 +402,9 @@ export class VillageRoom {
     return villageLevel(this.builtIds().length + 1, this.codexCount());
   }
 
-  villageState(): { built: string[]; level: number; codex: number; codexIds: string[] } {
-    return { built: this.builtIds(), level: this.level(), codex: this.codexCount(), codexIds: this.storage?.listCodex(this.info.code, 'block') ?? [] };
+  villageState(): { built: string[]; level: number; codex: number; codexIds: string[]; eggSlots: number } {
+    const built = this.builtIds();
+    return { built, level: this.level(), codex: this.codexCount(), codexIds: this.storage?.listCodex(this.info.code, 'block') ?? [], eggSlots: eggSlotsOpen(built) };
   }
 
   /** 켤 때 한 번: 창고(처음부터)와 지어 둔 건물이 서 있는지 보고 없으면 다시 세운다. 깃대도 레벨에 맞춘다 */
@@ -457,7 +460,7 @@ export class VillageRoom {
   }
   private broadcastVillage(): void {
     const v = this.villageState();
-    this.broadcastJson({ t: 'village', built: v.built, level: v.level, codex: v.codex }, -1, 'village');
+    this.broadcastJson({ t: 'village', built: v.built, level: v.level, codex: v.codex, eggSlots: v.eggSlots }, -1, 'village');
   }
 
   /** 창고 열기: 창고 건물 옆에서. 오류: NOT_AT_STORAGE */
@@ -468,7 +471,7 @@ export class VillageRoom {
     if (!this.nearStorage(p)) return 'NOT_AT_STORAGE';
     this.sendStorage(p);
     const v = this.villageState();
-    this.sendJson(p, { t: 'village', built: v.built, level: v.level, codex: v.codex }); // 창을 열 때 마을 상태도 최신으로
+    this.sendJson(p, { t: 'village', built: v.built, level: v.level, codex: v.codex, eggSlots: v.eggSlots }); // 창을 열 때 마을 상태도 최신으로
     return null;
   }
 
@@ -899,7 +902,7 @@ export class VillageRoom {
     if (p.world !== 'village' || !nestContains(GROUND_Y, p.pos.x, p.pos.y, p.pos.z)) return 'NOT_AT_NEST';
     const dragonId = dragonOfEgg(item);
     if (!dragonId || !DRAGONS.find(dragonId) || countOf(p.inv, item) < 1) return 'NO_EGG';
-    const pos = nestSlotPos(GROUND_Y, slot);
+    const pos = nestSlotPos(GROUND_Y, slot, eggSlotsOpen(this.builtIds())); // 큰 둥지·드래곤 성이 자리를 더 연다 (#89)
     if (!pos) return 'BAD_SLOT';
     if (this.storage.listNestEggs(this.info.code).some((r) => r.slot === slot)) return 'SLOT_TAKEN';
     const changed = new Set<number>();
@@ -936,7 +939,7 @@ export class VillageRoom {
     p.xp = spent.total;
     p.send(encodeXpState({ total: p.xp }));
     this.storage.hatchDragon(id, now);
-    const pos = nestSlotPos(GROUND_Y, row.slot ?? -1);
+    const pos = nestSlotPos(GROUND_Y, row.slot ?? -1, NEST_MAX_SLOTS);
     if (pos && this.world.setBlock(pos.x, pos.y, pos.z, AIR_ID).changed) {
       this.markDirtyBlock(pos.x, pos.y, pos.z);
       this.broadcast(encodeBlockChanged({ x: pos.x, y: pos.y, z: pos.z, id: 'air', by: idx }), -1, 'village');

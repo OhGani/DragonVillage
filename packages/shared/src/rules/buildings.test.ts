@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDING_SITES, PREBUILT, buildingBlocks, flagBlocks, flagContains, isBuildingBuiltAt, missingCost, siteContains, villageLevel } from './buildings';
+import { BUILDING_SITES, NEST_FAMILY, PREBUILT, buildingBlocks, flagBlocks, flagContains, isBuildingBuiltAt, missingCost, siteContains, villageLevel } from './buildings';
 import { BLOCKS, BUILDINGS } from './data';
 import { NEST } from './dragons';
 
@@ -15,9 +15,10 @@ describe('마을 건물 (M6-6)', () => {
     const rects = BUILDING_SITES.map((s) => ({ id: s.id, x0: s.x0, z0: s.z0, x1: s.x0 + s.size[0] - 1, z1: s.z0 + s.size[1] - 1 }));
     rects.push({ id: 'nest', x0: NEST.x0, z0: NEST.z0, x1: NEST.x0 + NEST.size - 1, z1: NEST.z0 + NEST.size - 1 });
     rects.push({ id: 'house', x0: 74, z0: 42, x1: 80, z1: 48 });
+    const nestFamily = (id: string) => id === 'nest' || NEST_FAMILY.includes(id);
     for (const a of rects)
       for (const b of rects) {
-        if (a.id === b.id) continue;
+        if (a.id === b.id || (nestFamily(a.id) && nestFamily(b.id))) continue; // 둥지는 고리로 겹쳐 자란다
         const apart = a.x1 + 1 < b.x0 || b.x1 + 1 < a.x0 || a.z1 + 1 < b.z0 || b.z1 + 1 < a.z0; // 한 칸은 띄운다
         expect(apart, `${a.id} 와 ${b.id} 가 겹쳐요`).toBe(true);
       }
@@ -25,7 +26,7 @@ describe('마을 건물 (M6-6)', () => {
       const def = BUILDINGS.find(s.id)!;
       expect([s.size[0], s.size[1], s.size[2]]).toEqual([def.footprint[0], def.footprint[1], def.footprint[2]]);
       const onRoad = (s.x0 <= 65 && s.x0 + s.size[0] - 1 >= 63) || (s.z0 <= 65 && s.z0 + s.size[1] - 1 >= 63);
-      expect(onRoad, `${s.id} 가 길(x 64·z 64) 위에 있어요`).toBe(false);
+      if (!NEST_FAMILY.includes(s.id)) expect(onRoad, `${s.id} 가 길(x 64·z 64) 위에 있어요`).toBe(false); // 둥지는 남쪽 길 끝에 있어 고리가 길을 지난다(입구)
     }
   });
 
@@ -43,6 +44,10 @@ describe('마을 건물 (M6-6)', () => {
     const st = BUILDING_SITES.find((s) => s.id === 'storage')!;
     const door = buildingBlocks('storage', 40).filter((b) => b.x === st.x0 && b.z === st.z0 + 2 && (b.y === 41 || b.y === 42));
     expect(door.map((b) => b.id)).toEqual(['air', 'air']); // 광장 쪽(서쪽) 벽 가운데 아래 두 칸
+    // 큰 둥지 고리는 작은 둥지(60~66·81~87) 안을 건드리지 않고, 새 알 자리 위는 비어 있다
+    const ring = buildingBlocks('dragon_nest_2', 40);
+    expect(ring.some((b) => b.x >= 60 && b.x <= 66 && b.z >= 81 && b.z <= 87)).toBe(false);
+    for (const [x, z] of [[61, 80], [65, 80], [59, 84], [67, 84]]) expect(ring.find((b) => b.x === x && b.y === 41 && b.z === z)?.id ?? 'air').toBe('air');
   });
 
   it('마을 레벨 = 1 + 건물 + 도감/10, 깃발은 레벨만큼(최대 6)', () => {

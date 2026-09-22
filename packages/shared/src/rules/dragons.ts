@@ -204,10 +204,31 @@ export function nestBlocksAt(groundY: number, x0: number, z0: number): { x: numb
 }
 
 /** 둥지 자리 번호 → 알 블록 좌표 */
-export function nestSlotPos(groundY: number, slot: number): { x: number; y: number; z: number } | null {
-  const s = NEST.slots[slot];
+/**
+ * 큰 둥지(2단계)·드래곤 성(3단계)이 여는 알 자리 (M6-6, #89). 2단계 고리(11×11)의 안쪽 줄에 놓인다 — 가운데서 다 보인다.
+ * 자리 번호 4·5 는 큰 둥지, 6·7 은 드래곤 성이 열어 준다. 아빠 임시안 — "마을이 커지면 둥지도 커진다"(아들 답변 14)
+ */
+export const NEST_EXTRA_SLOTS: readonly { x: number; z: number; needs: string }[] = [
+  { x: 61, z: 80, needs: 'dragon_nest_2' },
+  { x: 65, z: 80, needs: 'dragon_nest_2' },
+  { x: 59, z: 84, needs: 'dragon_nest_3' },
+  { x: 67, z: 84, needs: 'dragon_nest_3' },
+];
+
+/** 지금 열려 있는 알 자리 수 (기본 4 + 지어진 둥지 단계마다 2) */
+export function eggSlotsOpen(built: readonly string[]): number {
+  return NEST.slots.length + NEST_EXTRA_SLOTS.filter((s) => built.includes(s.needs)).length;
+}
+
+/** 둥지 자리 번호 → 알 블록 좌표. open 보다 큰 번호는 아직 안 열린 자리(null) */
+export function nestSlotPos(groundY: number, slot: number, open = NEST.slots.length): { x: number; y: number; z: number } | null {
+  if (slot < 0 || slot >= open) return null;
+  const s = slot < NEST.slots.length ? NEST.slots[slot] : NEST_EXTRA_SLOTS[slot - NEST.slots.length];
   return s ? { x: s.x, y: groundY + 1, z: s.z } : null;
 }
+
+/** 모든 알 자리 수 (단계를 다 지었을 때) */
+export const NEST_MAX_SLOTS = 8;
 
 /** 드래곤 한 마리 (서버 → 클라, 내 것). stage: egg(둥지에 놓인 알) / baby / adult */
 export interface DragonInfo {

@@ -480,7 +480,7 @@ export type ServerJson =
       /** 마을 창고 재고 (M6-6) */
       storage?: { item: string; count: number }[];
       /** 마을 상태 (M6-6) */
-      village_state?: { built: string[]; level: number; codex: number; codexIds: string[] };
+      village_state?: { built: string[]; level: number; codex: number; codexIds: string[]; eggSlots: number };
     }
   | { t: 'familyLinked'; code: string }
   /** 오늘 카드가 바뀌었다 (체크·승인·1분 경과·할 일 편집) */
@@ -507,7 +507,7 @@ export type ServerJson =
   /** 마을 창고 재고 (M6-6). 열 때·바뀔 때 마을 사람 모두에게 */
   | { t: 'storage'; items: { item: string; count: number }[] }
   /** 마을 상태 (M6-6): 지어진 건물·레벨·도감 종류 수. 입장할 때와 바뀔 때 모두에게 */
-  | { t: 'village'; built: string[]; level: number; codex: number }
+  | { t: 'village'; built: string[]; level: number; codex: number; eggSlots: number }
   /** 도감에 새로 올랐다 (처음 손에 넣은 블록). 넣은 사람에게 */
   | { t: 'codex'; kind: 'block'; id: string; total: number }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */

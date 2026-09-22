@@ -199,7 +199,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   };
   let expeditionState: ExpeditionStateInfo | null = welcome.expedition;
   // 마을 상태 (M6-6): 건물·레벨·도감은 서버가 진실
-  let villageState = welcome.village_state ?? { built: [], level: 1, codex: 0, codexIds: [] };
+  let villageState = welcome.village_state ?? { built: [], level: 1, codex: 0, codexIds: [], eggSlots: 4 };
   let codexBlocks = new Set<string>(villageState.codexIds);
   const updateVillageInfo = () => {
     const exp = expeditionState ? ` · 원정 중: ${expeditionState.name} ${expeditionState.players}명` : '';
@@ -241,6 +241,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       closeNest();
     },
     onClose: () => closeNest(),
+    eggSlots: () => villageState.eggSlots,
   });
   nest.setInventory(inv);
   nest.setDragons(myDragons);
@@ -611,8 +612,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     },
     onVillage: (m) => {
       const before = villageState.level;
-      villageState = { ...villageState, built: m.built, level: m.level, codex: m.codex };
+      villageState = { ...villageState, built: m.built, level: m.level, codex: m.codex, eggSlots: m.eggSlots };
       storageView.setVillage(m.built, m.level, m.codex);
+      nest.setInventory(inv); // 알 자리 수가 바뀌었을 수 있다 — 열려 있으면 다시 그린다
       updateVillageInfo();
       if (m.level > before) hud.toast(`🏘️ 마을 레벨 ${m.level}! 광장 깃대에 깃발이 늘었어요`, 5000);
     },

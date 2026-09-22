@@ -79,7 +79,7 @@ export interface Welcome {
   /** 마을 창고 재고 (M6-6) */
   storage: { item: string; count: number }[];
   /** 마을 상태 (M6-6) */
-  village_state: { built: string[]; level: number; codex: number; codexIds: string[] } | null;
+  village_state: { built: string[]; level: number; codex: number; codexIds: string[]; eggSlots: number } | null;
   /** 이번에 받은 선물 (#79) */
   gifts: GiftNotice[];
 }

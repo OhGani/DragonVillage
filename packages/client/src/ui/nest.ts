@@ -3,7 +3,7 @@
  * 둥지의 드래곤(모두) — 내 아기 드래곤은 먹이(만들 때 쓴 재료)를 줘서 성장 시간을 줄인다.
  * 서버가 진실 — 여기서는 요청만 보내고 dragons/nest 메시지로 다시 그린다.
  */
-import { type DragonInfo, type DragonRegistry, type Inventory, NEST, type NestDragonInfo, type NestSlotInfo, SADDLE_ITEM, type XpRules, feedItems, hatchCost, isEggItem, xpProgress } from '@dragon-village/shared';
+import { type DragonInfo, type DragonRegistry, type Inventory, NEST_MAX_SLOTS, type NestDragonInfo, type NestSlotInfo, SADDLE_ITEM, type XpRules, feedItems, hatchCost, isEggItem, xpProgress } from '@dragon-village/shared';
 
 export interface NestDeps {
   dragons: DragonRegistry;
@@ -17,6 +17,8 @@ export interface NestDeps {
   onClose(): void;
   /** 지금 시각(ms) — 성장 남은 시간 표시용 */
   now?(): number;
+  /** 열려 있는 알 자리 수 (기본 4, 큰 둥지·드래곤 성이 2개씩 더 연다, #89) */
+  eggSlots(): number;
 }
 
 /** 어른까지 남은 시간 문구 */
@@ -126,7 +128,8 @@ export class NestView {
     // ---- 알 자리 4개
     const grid = document.createElement('div');
     grid.className = 'nest-slots';
-    for (let i = 0; i < NEST.slots.length; i++) {
+    const open = this.deps.eggSlots();
+    for (let i = 0; i < open; i++) {
       const cell = document.createElement('div');
       cell.className = 'nest-slot';
       const s = this.slots.find((x) => x.slot === i);
@@ -164,6 +167,12 @@ export class NestView {
         }
       }
       grid.appendChild(cell);
+    }
+    if (open < NEST_MAX_SLOTS) {
+      const more = document.createElement('div');
+      more.className = 'nest-hint';
+      more.textContent = `알 자리 ${open}개 · 창고에서 ${open < 6 ? '큰 둥지를' : '드래곤 성을'} 지으면 2개 더 열려요`;
+      grid.appendChild(more);
     }
     b.appendChild(grid);
 

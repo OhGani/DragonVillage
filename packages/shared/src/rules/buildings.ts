@@ -87,7 +87,14 @@ export const BUILDING_SITES: readonly Site[] = [
   { id: 'forge', x0: 47, z0: 58, size: [5, 5, 4] }, // 광장 서쪽, 길 북쪽
   { id: 'farm', x0: 47, z0: 72, size: [7, 7, 2] }, // 남서
   { id: 'lighthouse', x0: 76, z0: 50, size: [3, 3, 12] }, // 북동, 집터 남쪽
+  { id: 'brewing_stand', x0: 50, z0: 48, size: [3, 3, 3] }, // 북서 (강은 z 40 아래)
+  // 둥지는 겹쳐 자란다: 7×7 둥지 바깥에 11×11 고리(큰 둥지), 그 바깥에 15×15 고리(드래곤 성)
+  { id: 'dragon_nest_2', x0: 58, z0: 79, size: [11, 11, 8] },
+  { id: 'dragon_nest_3', x0: 56, z0: 77, size: [15, 15, 12] },
 ];
+
+/** 둥지 식구 — 자리가 서로 겹치는 게 정상 (고리로 자란다) */
+export const NEST_FAMILY: readonly string[] = ['dragon_nest_1', 'dragon_nest_2', 'dragon_nest_3'];
 
 export function siteOf(id: string): Site | undefined {
   return BUILDING_SITES.find((s) => s.id === id);
@@ -172,6 +179,30 @@ export function buildingBlocks(id: string, groundY: number): Placed[] {
         if (dy >= h - 2) return mid ? (dy === h ? 'glowstone' : 'air') : dy === h ? 'cobblestone' : 'glass'; // 꼭대기 유리 방 + 빛
         return mid ? 'air' : 'cobblestone';
       });
+    case 'brewing_stand':
+      return box(s, groundY, (dx, dz, dy) => {
+        if (dy === 0) return 'cobblestone';
+        if (dy === h) return corner(dx, dz) ? 'air' : 'planks'; // 작은 지붕
+        if (corner(dx, dz)) return 'log';
+        if (dy === 1 && dx === 1 && dz === 1) return 'brewing_stand';
+        return 'air';
+      });
+    case 'dragon_nest_2':
+    case 'dragon_nest_3': {
+      // 고리: 바깥 두 줄만 채우고 안쪽(작은 둥지)은 건드리지 않는다(null). 모서리에 기둥 + 발광석, 고리 바닥은 돌·조약돌
+      const ring = (dx: number, dz: number) => dx < 2 || dz < 2 || dx >= w - 2 || dz >= d - 2;
+      const pillar = (dx: number, dz: number) => (dx === 0 || dx === w - 1) && (dz === 0 || dz === d - 1);
+      const midPillar = (dx: number, dz: number) => id === 'dragon_nest_3' && ((dx === 0 || dx === w - 1) && dz === (d - 1) >> 1 || (dz === 0 || dz === d - 1) && dx === (w - 1) >> 1);
+      const floor = id === 'dragon_nest_3' ? 'stone' : 'cobblestone';
+      const top = id === 'dragon_nest_3' ? 6 : 4;
+      return box(s, groundY, (dx, dz, dy) => {
+        if (!ring(dx, dz)) return null;
+        if (dy === 0) return floor;
+        if (pillar(dx, dz) || midPillar(dx, dz)) return dy < top ? 'log' : dy === top ? 'glowstone' : null;
+        if (dy === 1 && (dx === 0 || dx === w - 1 || dz === 0 || dz === d - 1) && (dx + dz) % 3 === 0) return 'hay_bale'; // 바깥 테두리에 건초
+        return dy <= 1 ? 'air' : null; // 고리 위 한 칸만 비워 두고 위는 그대로
+      });
+    }
     default:
       return [];
   }
@@ -190,6 +221,12 @@ export function isBuildingBuiltAt(idAt: (x: number, y: number, z: number) => str
       return idAt(s.x0 + 3, groundY, s.z0 + 3) === 'water' && idAt(s.x0, groundY, s.z0) === 'planks';
     case 'lighthouse':
       return idAt(s.x0 + 1, groundY + s.size[2], s.z0 + 1) === 'glowstone';
+    case 'brewing_stand':
+      return idAt(s.x0 + 1, groundY + 1, s.z0 + 1) === 'brewing_stand' && idAt(s.x0, groundY + 1, s.z0) === 'log';
+    case 'dragon_nest_2':
+      return idAt(s.x0, groundY + 4, s.z0) === 'glowstone' && idAt(s.x0, groundY, s.z0) === 'cobblestone';
+    case 'dragon_nest_3':
+      return idAt(s.x0, groundY + 6, s.z0) === 'glowstone' && idAt(s.x0, groundY, s.z0) === 'stone';
     default:
       return false;
   }
