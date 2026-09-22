@@ -43,6 +43,8 @@ export class BagView {
   private inv: Inventory = new Array(INV_SLOTS).fill(null);
   private stations: Stations = {};
   private tab: Tab = 'bag';
+  /** 마지막으로 그린 탭. 같은 탭을 다시 그릴 때만 스크롤 자리를 되돌린다 */
+  private drawnTab: Tab | null = null;
   private selected = -1;
   private half = false;
   private confirmDrop = false;
@@ -99,6 +101,7 @@ export class BagView {
     this.tab = tab;
     this.selected = -1;
     this.confirmDrop = false;
+    this.drawnTab = null; // 새로 열 때는 맨 위부터
     this.el.hidden = false;
     this.renderAll();
   }
@@ -208,13 +211,29 @@ export class BagView {
     this.renderSide();
   }
 
+  /**
+   * 오른쪽 칸을 다시 그린다. 만들기·도감처럼 긴 목록은 **보던 자리에 그대로 있게** 스크롤을 되돌린다
+   * (아빠 2026-09-22: 만들기 버튼을 누르면 맨 위로 튀어 올라갔다).
+   * 스크롤되는 곳이 둘이다 — 폰에서는 카드 전체, 넓은 화면에서는 목록. 둘 다 챙긴다.
+   */
   private renderSide(): void {
+    const card = this.el.querySelector<HTMLElement>('.bag-card');
+    const keep = this.drawnTab === this.tab;
+    const cardTop = keep ? (card?.scrollTop ?? 0) : 0;
+    const listTop = keep ? (this.side.querySelector<HTMLElement>('.craft-list, .codex-grid')?.scrollTop ?? 0) : 0;
+
     this.side.innerHTML = '';
     this.grid.hidden = this.tab === 'codex';
     if (this.tab === 'bag') this.renderBagSide();
     else if (this.tab === 'craft') this.renderCraftSide();
     else if (this.tab === 'codex') this.renderCodex();
     else this.renderBrewSide();
+    this.drawnTab = this.tab;
+
+    // 내용이 다시 채워진 뒤에 되돌려야 한다 (빈 동안은 브라우저가 0 으로 깎는다)
+    const list = this.side.querySelector<HTMLElement>('.craft-list, .codex-grid');
+    if (list && listTop > 0) list.scrollTop = listTop;
+    if (card && cardTop > 0) card.scrollTop = cardTop;
   }
 
   /** 도감: 드래곤 16종. 얻은 것은 색, 아직이면 회색 + 재료 */
