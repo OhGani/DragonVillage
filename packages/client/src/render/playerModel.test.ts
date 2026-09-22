@@ -6,7 +6,7 @@ const css = (hex: number) => '#' + hex.toString(16).padStart(6, '0');
 describe('플레이어 인형 (#86)', () => {
   it('마인크래프트 비율 — 머리 8·몸통 12·팔다리 12칸, 다 쌓으면 몸 판정과 같은 1.8', () => {
     const v = playerVoxels(paletteFor(3));
-    expect(v.head).toHaveLength(8 * 8 * 8);
+    expect(v.head).toHaveLength(8 * 8 * 8 + 2); // 머리 한 덩어리 + 앞으로 튀어나온 코 두 칸
     expect(v.torso).toHaveLength(8 * 12 * 4);
     expect(v.arm).toHaveLength(4 * 12 * 4);
     expect(v.leg).toHaveLength(4 * 12 * 4);
@@ -40,6 +40,18 @@ describe('플레이어 인형 (#86)', () => {
     const mouthRow = FACE.findIndex((r) => r.includes('m'));
     expect(eyeRow).toBeLessThan(mouthRow); // 눈이 입보다 위
     expect(FACE[mouthRow]!.indexOf('m')).toBeLessThan(FACE[mouthRow + 1]!.indexOf('m')); // 입꼬리가 더 바깥 = 웃는 모양
+  });
+
+  it('코는 그림이 아니라 앞으로 튀어나온 칸이다 (아빠 2026-09-22)', () => {
+    const v = playerVoxels(paletteFor(3));
+    const front = Math.min(...v.head.map((q) => q.z));
+    const nose = v.head.filter((q) => q.z === front);
+    expect(nose).toHaveLength(2); // 얼굴 면(z = front + 1)보다 한 칸 더 앞
+    expect(nose.map((q) => q.x).sort((a, b) => a - b)).toEqual([-1, 0]); // 얼굴 한가운데
+    const noseRow = FACE.findIndex((r) => r.includes('n'));
+    expect(nose[0]!.y).toBe(FACE.length - 1 - noseRow); // FACE 의 n 자리와 같은 높이
+    const eyeRow = FACE.findIndex((r) => r.includes('e'));
+    expect(nose[0]!.y).toBeLessThan(FACE.length - 1 - eyeRow); // 눈보다 아래
   });
 
   it('같은 색 부분도 칸마다 조금씩 달라 밋밋하지 않다 (아빠 2026-09-22)', () => {
