@@ -137,6 +137,10 @@ export interface NetEvents {
   onChest(x: number, y: number, z: number, slots: Inventory): void;
   /** 누가 드래곤을 탔다/내렸다 (M6-4, 나 포함) */
   onMount(idx: number, riding: RidingInfo): void;
+  /** 누가 빔을 쐈다 (M6-5) */
+  onBeam(m: { idx: number; dragon: string; color: string; power: number; from: { x: number; y: number; z: number }; dir: { x: number; y: number; z: number }; range: number }): void;
+  /** 내 기력 (M6-5). readyAt·now 는 서버 시각 */
+  onStamina(m: { value: number; max: number; readyAt: number; now: number }): void;
   onDismount(idx: number): void;
 }
 
@@ -331,6 +335,10 @@ export class NetClient {
   sendRide(id: number): void {
     this.sendJson({ t: 'ride', id });
   }
+  /** 타고 있는 드래곤의 스킬 (M6-5) */
+  sendSkill(id: string): void {
+    this.sendJson({ t: 'skill', id });
+  }
   sendDismount(): void {
     this.sendJson({ t: 'dismount' });
   }
@@ -462,6 +470,8 @@ export class NetClient {
     else if (msg.t === 'nest') ev.onNest(msg.slots, msg.dragons ?? []);
     else if (msg.t === 'chest') ev.onChest(msg.x, msg.y, msg.z, msg.slots);
     else if (msg.t === 'mount') ev.onMount(msg.idx, msg.riding);
+    else if (msg.t === 'beam') ev.onBeam(msg);
+    else if (msg.t === 'stamina') ev.onStamina(msg);
     else if (msg.t === 'dismount') ev.onDismount(msg.idx);
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }

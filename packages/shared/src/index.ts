@@ -13,6 +13,7 @@ export * from './rules/family';
 export * from './rules/xp';
 export * from './rules/tools';
 export * from './rules/dragons';
+export * from './rules/beam';
 export * from './chunk/chunk';
 export * from './chunk/world';
 export * from './chunk/serialize';

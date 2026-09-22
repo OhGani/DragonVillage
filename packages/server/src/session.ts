@@ -43,6 +43,9 @@ const NEST_ERROR_KO: Record<string, string> = {
   TOO_FAR: '드래곤 가까이 가서 타요',
   ALREADY_RIDING: '이미 타고 있어요',
   NOT_RIDING: '타고 있지 않아요',
+  UNKNOWN_SKILL: '그런 스킬은 없어요',
+  COOLDOWN: '아직 식지 않았어요 — 잠깐 뒤에',
+  NO_STAMINA: '기력이 모자라요 — 조금 쉬면 차요',
   NO_CHEST: '거기엔 상자가 없어요',
   NO_STORAGE: '이 서버는 드래곤을 저장할 수 없어요',
 };
@@ -345,6 +348,13 @@ export class Session {
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
         const err = this.room.dismount(this.idx);
         if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 내릴 수 없어요');
+        return;
+      }
+      case 'skill': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (typeof msg.id !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.skill(this.idx, msg.id);
+        if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 쏠 수 없어요');
         return;
       }
       case 'feed': {

@@ -771,3 +771,61 @@ describe('가방이 모자라면 상자를 못 부순다 (아빠 2026-09-22, #84
     expect(countOf(p.inv, 'chest')).toBe(1);
   });
 });
+
+describe('드래곤 빔 (M6-5)', () => {
+  it('타고 있을 때만, 기력·쿨타임을 서버가 판정하고, 같은 세계 모두에게 연출을 보낸다', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox(),
+      b = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const rb = room.join('b'.repeat(32), '아들', 1, b.send)!;
+    const T0 = 30_000_000;
+    expect(room.skill(ra.idx, 'beam', T0)).toBe('NOT_RIDING');
+    // 철 드래곤을 어른으로 키워 탄다
+    room.giveItems(ra.idx, 'dragon_egg.iron', 1);
+    room.giveItems(ra.idx, 'saddle', 1);
+    room.onMove(ra.idx, { x: 63.5, y: GROUND_Y + 1, z: 84.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.placeEgg(ra.idx, 0, 'dragon_egg.iron', T0)).toBeNull();
+    room.giveXp(ra.idx, 200);
+    const id = room.myDragons('a'.repeat(32))[0]!.id;
+    expect(room.hatch(ra.idx, id, T0)).toBeNull();
+    room.checkGrowth(T0 + 61 * 60_000);
+    room.onMove(ra.idx, { x: 63.5, y: GROUND_Y + 1, z: 80.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.ride(ra.idx, id)).toBeNull();
+    expect(room.skill(ra.idx, 'fly', T0)).toBe('UNKNOWN_SKILL');
+
+    // 쏘기: 정면(-z)으로, 세기·색은 철 드래곤 것, 모두에게
+    a.clear();
+    b.clear();
+    const t1 = T0 + 61 * 60_000 + 1000;
+    expect(room.skill(ra.idx, 'beam', t1)).toBeNull();
+    const beam = a.json.find((m) => m.t === 'beam') as { dir: { x: number; y: number; z: number }; power: number; color: string; range: number; idx: number } | undefined;
+    expect(beam).toMatchObject({ idx: ra.idx, dragon: 'iron', range: 24 });
+    expect(beam!.dir.z).toBeCloseTo(-1);
+    expect(beam!.power).toBeGreaterThanOrEqual(1);
+    expect(beam!.color).toMatch(/^#/);
+    expect(b.json.find((m) => m.t === 'beam')).toEqual(beam); // 옆 사람도 같은 빔을 본다
+    const st = a.json.find((m) => m.t === 'stamina') as { value: number; max: number; readyAt: number } | undefined;
+    expect(st!.max).toBe(150);
+    expect(st!.value).toBeLessThan(150);
+    expect(st!.readyAt).toBeGreaterThan(t1);
+    expect(b.json.find((m) => m.t === 'stamina')).toBeUndefined(); // 기력은 쏜 사람만
+
+    // 바로 다시 → 쿨타임. 식은 뒤 → 된다. 기력을 다 쓰면 → 부족
+    expect(room.skill(ra.idx, 'beam', t1 + 100)).toBe('COOLDOWN');
+    expect(room.skill(ra.idx, 'beam', st!.readyAt)).toBeNull();
+    const p = room.players.get(ra.idx)!;
+    p.stamina = { value: 1, at: st!.readyAt };
+    p.beamReadyAt = 0;
+    expect(room.skill(ra.idx, 'beam', st!.readyAt + 1)).toBe('NO_STAMINA');
+    // 20초 쉬면 100 차서 다시 쏜다 (초당 5)
+    expect(room.skill(ra.idx, 'beam', st!.readyAt + 20_000)).toBeNull();
+    // 내리면 못 쏜다, 다시 타면 기력이 가득
+    expect(room.dismount(ra.idx)).toBeNull();
+    expect(room.skill(ra.idx, 'beam', st!.readyAt + 21_000)).toBe('NOT_RIDING');
+    expect(room.ride(ra.idx, id)).toBeNull();
+    expect(room.players.get(ra.idx)!.stamina.value).toBe(150);
+    expect(rb.idx).toBeGreaterThanOrEqual(0);
+  });
+});

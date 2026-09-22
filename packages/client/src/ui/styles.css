@@ -1515,6 +1515,69 @@ body {
   display: none;
 }
 
+/* ---- 빔 버튼 + 기력 바 (M6-5): 내리기 버튼 위에 쌓인다 ---- */
+.skill-box {
+  position: absolute;
+  left: max(10px, env(safe-area-inset-left));
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 112px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: auto;
+}
+.skill-box[hidden] {
+  display: none;
+}
+.hud.touch .skill-box {
+  left: calc(max(20px, env(safe-area-inset-left)) + 24px);
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 268px);
+}
+.sbtn.skill-btn {
+  width: auto !important;
+  height: 52px;
+  padding: 0 16px;
+  font-size: 17px !important;
+  font-weight: 800;
+  white-space: nowrap;
+  background: rgba(40, 90, 160, 0.78);
+  border-color: rgba(150, 200, 255, 0.7);
+}
+.sbtn.skill-btn:disabled {
+  opacity: 0.55;
+}
+.sbtn.skill-btn.cooling {
+  background: rgba(60, 60, 70, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+.stamina-bar {
+  position: relative;
+  width: 120px;
+  height: 10px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.stamina-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(#9fd8ff, #3aa0ff);
+  transition: width 0.12s linear;
+}
+.stamina-fill.low {
+  background: linear-gradient(#ffb0a0, #ff5a3c);
+}
+.stamina-text {
+  position: absolute;
+  inset: 0;
+  font-size: 9px;
+  line-height: 6px;
+  text-align: center;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  pointer-events: none;
+}
+
 /* ---- 상자 창 (#84) ---- */
 .chest-card {
   max-width: min(96vw, 560px);

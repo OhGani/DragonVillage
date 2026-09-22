@@ -48,6 +48,12 @@ export class Hud {
   readonly bagBtn: HTMLButtonElement;
   /** 드래곤에서 내리기 (M6-4, 탈 때만 보임) */
   readonly rideBtn: HTMLButtonElement;
+  /** 빔 버튼 (M6-5). 타고 있을 때만 */
+  readonly skillBtn: HTMLButtonElement;
+  private readonly skillBox: HTMLElement;
+  private readonly staminaFill: HTMLElement;
+  private readonly staminaText: HTMLElement;
+  private skillLabel = '✨ 빔';
   readonly familyBtn: HTMLButtonElement;
   private readonly familyText: HTMLElement;
   // 오늘 카드·승인 (M5-3)
@@ -116,6 +122,10 @@ export class Hud {
         <button class="sbtn chat-btn" aria-label="채팅">💬</button>
       </div>
       <button class="sbtn ride-btn" aria-label="드래곤에서 내리기" hidden>🐉 내리기</button>
+      <div class="skill-box" hidden>
+        <button class="sbtn skill-btn" aria-label="빔 쏘기">✨ 빔</button>
+        <div class="stamina-bar" aria-label="기력"><div class="stamina-fill"></div><div class="stamina-text"></div></div>
+      </div>
       <div class="touch-controls">
         <div class="stick-base" hidden><div class="stick-knob"></div></div>
         <button class="tbtn jump" aria-label="점프">▲</button>
@@ -219,6 +229,10 @@ export class Hud {
     this.debugBtn = q<HTMLButtonElement>('.debug');
     this.bagBtn = q<HTMLButtonElement>('.bag-btn');
     this.rideBtn = q<HTMLButtonElement>('.ride-btn');
+    this.skillBtn = q<HTMLButtonElement>('.skill-btn');
+    this.skillBox = q('.skill-box');
+    this.staminaFill = q('.stamina-fill');
+    this.staminaText = q('.stamina-text');
     this.familyBtn = q<HTMLButtonElement>('.help-family-btn');
     this.familyText = q('.help-family-text');
     this.timeChip = q<HTMLButtonElement>('.time-chip');
@@ -620,8 +634,23 @@ export class Hud {
 
   /** 가족 연결 상태 (게임 방법 창 아래). code 가 있으면 연결됨 */
   /** 타고 있으면 내리기 버튼 (M6-4) */
-  setRiding(on: boolean): void {
+  setRiding(on: boolean, beamName = '빔'): void {
     this.rideBtn.hidden = !on;
+    this.skillBox.hidden = !on;
+    this.skillLabel = `✨ ${beamName}`;
+    this.skillBtn.textContent = this.skillLabel;
+  }
+
+  /** 기력 바 + 쿨타임 (M6-5). coolLeftSec > 0 이면 버튼에 남은 초가 보이고 누를 수 없다 */
+  setStamina(value: number, max: number, need: number, coolLeftSec: number): void {
+    const ratio = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
+    this.staminaFill.style.width = `${Math.round(ratio * 100)}%`;
+    this.staminaFill.classList.toggle('low', value < need);
+    this.staminaText.textContent = `${Math.floor(value)} / ${max}`;
+    this.skillBtn.disabled = coolLeftSec > 0 || value < need;
+    this.skillBtn.classList.toggle('cooling', coolLeftSec > 0);
+    const label = coolLeftSec > 0 ? `⏳ ${Math.ceil(coolLeftSec)}` : this.skillLabel;
+    if (this.skillBtn.textContent !== label) this.skillBtn.textContent = label;
   }
 
   setFamily(code: string | null, parentOf: string | null = null): void {

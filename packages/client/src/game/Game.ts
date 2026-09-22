@@ -4,6 +4,9 @@ import {
   GROUND_Y,
   type NestDragonInfo,
   type RidingInfo,
+  beamOf,
+  staminaAt,
+  staminaMaxFor,
   SADDLE_ITEM,
   nestContains,
   COSMETIC_KO,
@@ -42,7 +45,7 @@ import {
 } from '@dragon-village/shared';
 import { BLOCKS, DRAGONS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, PHRASES, POTIONS, RECIPES, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
-import { ding, levelUp } from '../audio/sound';
+import { beam as beamSound, ding, levelUp } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
 import { InputManager } from '../input/InputManager';
 import { KeyboardMouse } from '../input/keyboard';
@@ -64,6 +67,7 @@ import { ChestView } from '../ui/chest';
 import { Hud, type HotbarSlot } from '../ui/hud';
 import { NestView } from '../ui/nest';
 import { MountView, NestDragons } from '../render/DragonMesh';
+import { BeamView } from '../render/BeamView';
 import { askInput, askPin } from '../ui/pinDialog';
 import { itemIcon } from '../ui/itemIcon';
 import { MesherPool } from '../workers/MesherPool';
@@ -152,6 +156,21 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   // 탑승 (M6-4): 내가 탄 드래곤은 서버가 mount/dismount 로 알려 준다. 세계를 바꿔도(원정) 그대로 타고 간다
   let myRiding: RidingInfo | null = null;
   const mount = new MountView(scene);
+  // 빔 (M6-5): 서버가 확정한 것만 그린다. 기력은 서버 값 사이를 회복 공식으로 채워 바가 부드럽게 찬다
+  const beams = new BeamView(scene);
+  let stamina: { value: number; max: number; at: number; readyAt: number } | null = null;
+  let serverClockOffset = 0; // 서버 now - 내 Date.now()
+  const beamNeed = () => (myRiding ? beamOf(DRAGONS.require(myRiding.dragon)).stamina : 0);
+  const refreshStamina = () => {
+    if (!stamina || !myRiding) return;
+    const now = Date.now() + serverClockOffset;
+    const value = staminaAt({ value: stamina.value, at: stamina.at }, stamina.max, now);
+    hud.setStamina(value, stamina.max, beamNeed(), Math.max(0, stamina.readyAt - now) / 1000);
+  };
+  const fireBeam = () => {
+    if (!myRiding || !started || disconnected) return;
+    net.sendSkill('beam');
+  };
 
   // ---- HUD ----
   const hud = new Hud(root, isTouch);
@@ -541,7 +560,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       myRiding = riding;
       ctx.player.riding = true;
       mount.set(riding.dragon);
-      hud.setRiding(true);
+      hud.setRiding(true, DRAGONS.find(riding.dragon)?.skills.find((s) => s.type === 'beam')?.name ?? '빔');
+      stamina = { value: staminaMaxFor('adult'), max: staminaMaxFor('adult'), at: Date.now() + serverClockOffset, readyAt: 0 };
+      refreshStamina();
       hud.hideAction();
       hud.toast(`🐉 ${DRAGONS.find(riding.dragon)?.name ?? riding.dragon}을 탔어요! ${isTouch ? '▲ 위로 · ▼ 아래로' : 'Space 위로 · Shift 아래로'} · 내리기는 🐉 버튼`, 6000);
     },
@@ -554,7 +575,17 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       ctx.player.riding = false;
       mount.set(null);
       hud.setRiding(false);
+      stamina = null;
       touch.clearHolds(); // 내리면 잠긴 ▲▼ 는 풀어 준다
+    },
+    onBeam: (m) => {
+      beams.fire(m.from, m.dir, m.color, m.power, m.range);
+      beamSound(m.power);
+    },
+    onStamina: (m) => {
+      serverClockOffset = m.now - Date.now();
+      stamina = { value: m.value, max: m.max, at: m.now, readyAt: m.readyAt };
+      refreshStamina();
     },
     onXpGained: (m) => onXp(xpTotal + m.amount, { x: m.x, y: m.y, z: m.z }, m.amount),
     onXpState: (m) => onXp(m.total, null, 0),
@@ -757,6 +788,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   };
   hud.bagBtn.addEventListener('click', () => (bag.visible ? closeBag() : openBag()));
   hud.rideBtn.addEventListener('click', () => net.sendDismount());
+  hud.skillBtn.addEventListener('click', fireBeam);
   // 오늘 카드 (M5-3): 아이면 남은 시간·할 일. 시간 제한은 걸지 않는다(표시만, 아빠 2026-09-19)
   hud.setToday(welcome.today);
   hud.onCheckTodo = (id) => net.sendCheckTodo(id);
@@ -785,6 +817,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     if (e.code === 'KeyE') {
       if (bag.visible) closeBag();
       else if (!chat.visible && !hud.overlayVisible && !hud.helpVisible && !hud.resultVisible) openBag();
+      e.preventDefault();
+    } else if (e.code === 'KeyF' && myRiding && !anyPanelOpen() && !hud.overlayVisible) {
+      fireBeam(); // PC: F 로 빔 (M6-5)
       e.preventDefault();
     } else if (e.code === 'KeyT') {
       if (chat.visible) closeChat();
@@ -992,6 +1027,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     remote.update(dt, ctx.light, skyLevel); // 다른 사람도 주변 빛을 받는다 (#86)
     nestDragons.update(dt);
     mount.update(player, dt);
+    beams.update();
+    if (stamina) refreshStamina();
 
     // 이 프레임에 바뀐 블록들의 빛을 한 번에 다시 계산 → 빛이 바뀐 청크도 다시 메싱
     chunks.markDirtyAll(light.flush());

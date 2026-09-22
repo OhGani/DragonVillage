@@ -53,3 +53,24 @@ export function levelUp(): void {
   const t = c.currentTime;
   for (const [i, f] of [523.25, 659.25, 783.99, 1046.5].entries()) tone(f, t + i * 0.09, 0.22, 0.1, 'triangle');
 }
+
+/** 드래곤 빔 (M6-5): 낮게 울리다 쓸려 올라가는 소리. 세기(1~5)가 클수록 굵고 길다 */
+export function beam(power = 1): void {
+  const c = audio();
+  if (!c) return;
+  const t = c.currentTime;
+  const p = Math.max(1, Math.min(5, power));
+  const o = c.createOscillator();
+  const g = c.createGain();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(90 + 20 * p, t);
+  o.frequency.exponentialRampToValueAtTime(400 + 160 * p, t + 0.25);
+  o.frequency.exponentialRampToValueAtTime(140 + 30 * p, t + 0.9 + 0.1 * p);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.05 + 0.015 * p, t + 0.05);
+  g.gain.exponentialRampToValueAtTime(0.0005, t + 1.0 + 0.1 * p);
+  o.connect(g).connect(c.destination);
+  o.start(t);
+  o.stop(t + 1.2 + 0.1 * p);
+  tone(1600 + 200 * p, t, 0.12, 0.03); // 시작 순간의 반짝
+}

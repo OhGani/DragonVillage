@@ -33,7 +33,21 @@ const DragonFile = z
             recipe: z.array(z.object({ material: z.string().min(1), count: z.number().int().min(1, '1 이상이어야 해요') }).loose()).min(1, '재료가 하나는 있어야 해요'),
             color: z.string().nullable().optional(),
             model: z.string().optional(),
-            skills: z.array(z.object({ id: z.string(), name: z.string(), type: z.string() }).loose()).optional(),
+            skills: z
+              .array(
+                z
+                  .object({
+                    id: z.string(),
+                    name: z.string(),
+                    type: z.string(),
+                    color: z.string().optional(),
+                    powerLevel: z.number().optional(),
+                    stamina: z.number().optional(),
+                    cooldownSec: z.number().optional(),
+                  })
+                  .loose(),
+              )
+              .optional(),
           })
           .loose(),
       )
@@ -49,7 +63,19 @@ export interface DragonDef {
   /** 없으면 회색 */
   readonly color: string;
   readonly model: string | null;
-  readonly skills: readonly { id: string; name: string; type: string }[];
+  readonly skills: readonly SkillDef[];
+}
+
+/** 스킬 한 개 (아들 설계). 빔(type 'beam')은 color·powerLevel 로 생김새를, stamina·cooldownSec 로 비용을 정한다 (M6-5) */
+export interface SkillDef {
+  readonly id: string;
+  readonly name: string;
+  readonly type: string;
+  readonly color?: string;
+  /** 세기 1(약한) ~ 5(가장 강력한) */
+  readonly powerLevel?: number;
+  readonly stamina?: number;
+  readonly cooldownSec?: number;
 }
 
 export interface DragonRules {
@@ -91,7 +117,7 @@ export function parseDragons(raw: unknown, fileName = 'data/dragons.json'): Drag
     seen.add(d.id);
     if (tiers.has(d.tier)) problems.push(`티어 ${d.tier} 이 두 드래곤에 있어요 (${d.id})`);
     tiers.add(d.tier);
-    return { id: d.id, name: d.name, tier: d.tier, recipe: d.recipe.map((r) => ({ material: r.material, count: r.count })), color: d.color ?? '#9a9a9a', model: d.model ?? null, skills: (d.skills ?? []).map((s) => ({ id: s.id, name: s.name, type: s.type })) };
+    return { id: d.id, name: d.name, tier: d.tier, recipe: d.recipe.map((r) => ({ material: r.material, count: r.count })), color: d.color ?? '#9a9a9a', model: d.model ?? null, skills: (d.skills ?? []).map((s) => ({ id: s.id, name: s.name, type: s.type, color: s.color, powerLevel: s.powerLevel, stamina: s.stamina, cooldownSec: s.cooldownSec })) };
   });
   if (problems.length) throw new DataError(fileName, problems);
   return new DragonRegistry(list, { baseGrowMinutes: result.data.rules.growth.baseGrowMinutes, feedShortcutMinutes: result.data.rules.growth.feedShortcutMinutes });

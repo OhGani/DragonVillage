@@ -72,7 +72,13 @@ import {
   type DragonInfo,
   type NestDragonInfo,
   type BlockDef,
+  BEAM_RANGE,
   CHEST_SLOTS,
+  type Stamina,
+  beamOf,
+  lookDirOf,
+  staminaMaxFor,
+  tryFire,
   type GiftDef,
   chestPrimary,
   emptyChest,
@@ -151,6 +157,10 @@ export interface RoomPlayer {
   xp: number;
   /** 타고 있는 드래곤 (M6-4). 접속 동안만 — 끊기면 둥지로 돌아간다 */
   riding: RidingInfo | null;
+  /** 탄 드래곤의 기력 (M6-5). 탈 때 가득 찬다. 사이는 회복 공식으로 채운다 */
+  stamina: Stamina;
+  /** 다음에 빔을 쏠 수 있는 시각 */
+  beamReadyAt: number;
 }
 
 export interface JoinResult {
@@ -622,6 +632,8 @@ export class VillageRoom {
     const perch = perchOf(Math.max(0, i));
     if (Math.hypot(p.pos.x - (perch.x + 0.5), p.pos.z - (perch.z + 0.5)) > RIDE_RANGE) return 'TOO_FAR';
     p.riding = { id, dragon: row.dragon };
+    p.stamina = { value: staminaMaxFor('adult'), at: Date.now() }; // 탈 때 기력 가득 (M6-5)
+    p.beamReadyAt = 0;
     this.broadcastJson({ t: 'mount', idx, riding: p.riding }, -1, p.world);
     this.broadcastNest();
     this.log(`마을 ${this.info.code}: ${p.nick} ${DRAGONS.require(row.dragon).name} 탑승`);
@@ -636,6 +648,34 @@ export class VillageRoom {
     p.riding = null;
     this.broadcastJson({ t: 'dismount', idx }, -1, p.world);
     this.broadcastNest();
+    return null;
+  }
+
+  /**
+   * 드래곤 스킬 (M6-5). 지금은 빔 하나: 타고 있어야 하고, 기력·쿨타임을 서버가 판정한다.
+   * 통과하면 같은 세계 모두에게 beam(연출), 쏜 사람에게 stamina. 피해·블록 변경은 없다(M7).
+   * 오류: NOT_RIDING · UNKNOWN_SKILL · COOLDOWN · NO_STAMINA
+   */
+  skill(idx: number, id: string, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (!p.riding) return 'NOT_RIDING';
+    if (id !== 'beam') return 'UNKNOWN_SKILL';
+    const def = DRAGONS.require(p.riding.dragon);
+    const beam = beamOf(def);
+    const max = staminaMaxFor('adult');
+    const r = tryFire(p.stamina, max, p.beamReadyAt, beam, now);
+    if (!r.ok) {
+      this.sendJson(p, { t: 'stamina', value: r.stamina, max, readyAt: p.beamReadyAt, now });
+      return r.reason;
+    }
+    p.stamina = r.stamina;
+    p.beamReadyAt = r.readyAt;
+    const dir = lookDirOf(p.pos.yaw, p.pos.pitch);
+    // 드래곤 입 근처: 내 눈보다 아래(안장 위에 앉아 있으니)·앞 1.2칸. 1인칭에서 빔이 아래에서 조준점으로 모여 들어 총알처럼 보인다
+    const from = { x: p.pos.x + dir.x * 1.2, y: p.pos.y + EYE - 0.8 + dir.y * 1.2, z: p.pos.z + dir.z * 1.2 };
+    this.broadcastJson({ t: 'beam', idx, dragon: def.id, color: beam.color, power: beam.power, from, dir, range: BEAM_RANGE }, -1, p.world);
+    this.sendJson(p, { t: 'stamina', value: r.stamina.value, max, readyAt: r.readyAt, now });
     return null;
   }
 
@@ -812,7 +852,7 @@ export class VillageRoom {
         gifts.push({ id: g.id, name: g.name, message: g.message });
       }
     }
-    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null };
+    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0 };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     const me = this.toInfo(player);

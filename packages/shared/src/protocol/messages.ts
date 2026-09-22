@@ -435,7 +435,9 @@ export type ClientJson =
   /** 타기 (M6-4): 내 어른 드래곤, 안장 필요, 드래곤 가까이에서 */
   | { t: 'ride'; id: number }
   /** 내리기 (M6-4) */
-  | { t: 'dismount' };
+  | { t: 'dismount' }
+  /** 타고 있는 드래곤의 스킬 (M6-5). 지금은 'beam' 만 */
+  | { t: 'skill'; id: string };
 
 export type ServerJson =
   | { t: 'hello'; token: string; protocol: number }
@@ -488,6 +490,10 @@ export type ServerJson =
   /** 누가 드래곤을 탔다/내렸다 (같은 세계 모두, 본인 포함) (M6-4) */
   | { t: 'mount'; idx: number; riding: RidingInfo }
   | { t: 'dismount'; idx: number }
+  /** 누가 빔을 쐈다 (같은 세계 모두, 본인 포함) (M6-5). from 은 드래곤 입 근처, dir 은 단위 벡터 */
+  | { t: 'beam'; idx: number; dragon: string; color: string; power: number; from: { x: number; y: number; z: number }; dir: { x: number; y: number; z: number }; range: number }
+  /** 쏜 사람에게: 기력 남은 값·최대·다음에 쏠 수 있는 서버 시각 (M6-5) */
+  | { t: 'stamina'; value: number; max: number; readyAt: number; now: number }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }
