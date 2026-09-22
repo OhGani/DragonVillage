@@ -977,7 +977,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       moveAcc = 0;
       sendMove();
     }
-    remote.update(dt);
+    remote.update(dt, ctx.light, skyLevel); // 다른 사람도 주변 빛을 받는다 (#86)
     nestDragons.update(dt);
     mount.update(player, dt);
 

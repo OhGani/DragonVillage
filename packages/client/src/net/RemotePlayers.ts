@@ -3,7 +3,7 @@
  * 서버 위치(20Hz)를 받아 부드럽게 따라간다 (지수 보간, 약 100ms 지연).
  * 인형 생김새는 `render/playerModel.ts` — 얼굴·머리카락·손·신발이 있고 색 16가지마다 다른 사람이다 (#86).
  */
-import { FLAG_RIDING, FLAG_SNEAK, type PlayerInfo, type PlayerStateEntry, RIDE_SEAT_Y, type RidingInfo } from '@dragon-village/shared';
+import { FLAG_RIDING, FLAG_SNEAK, type PlayerInfo, type PlayerStateEntry, RIDE_SEAT_Y, type RidingInfo, blockOf, skyOf } from '@dragon-village/shared';
 import { dragonMesh } from '../render/DragonMesh';
 import { PART_AT, PLAYER_SHADES, VOXEL, paletteFor, playerVoxels } from '../render/playerModel';
 import { type Voxel, buildVoxelGeometry } from '../render/voxelGeometry';
@@ -26,6 +26,26 @@ interface Figure {
   bubble: { sprite: THREE.Sprite; until: number } | null;
   /** 타고 있는 드래곤 (M6-4) */
   mount: THREE.Mesh | null;
+  /** 여섯 부위가 같이 쓰는 재질. 주변 빛을 여기 색으로 준다 (#86) */
+  material: THREE.MeshBasicMaterial;
+  /** 지금 밝기 (빛이 뚝뚝 끊기지 않게 부드럽게 따라간다) */
+  lum: number;
+}
+
+/** 동굴에서도 아주 조금은 보이게 (블록 셰이더와 같은 값) */
+const MIN_LUM = 0.05;
+/** 횃불빛이 스카이라이트보다 셀 때 섞는 따뜻한 색 (블록 셰이더와 같다) */
+const WARM = new THREE.Color(1.0, 0.86, 0.68);
+/** 계산에 돌려 쓰는 색 (프레임마다 새로 만들지 않게) */
+const TINT = new THREE.Color();
+
+/** 칸 하나의 빛 → 밝기·색. 블록 셰이더(ChunkMaterial)와 같은 곡선이라 사람과 세계가 따로 놀지 않는다 */
+function lightColor(packed: number, skyLight: number, out: THREE.Color): number {
+  const sky = (skyOf(packed) / 15) * skyLight;
+  const blk = blockOf(packed) / 15;
+  const lum = MIN_LUM + (1 - MIN_LUM) * Math.pow(Math.max(sky, blk), 1.5);
+  out.set(0xffffff).lerp(WARM, Math.max(0, Math.min(1, blk - sky)));
+  return lum;
 }
 
 /** 인형 키 (복셀 32칸 = 몸 판정과 같은 1.8). 이름표·말풍선 높이의 기준 */
@@ -35,10 +55,10 @@ const FIGURE_H = 32 * VOXEL;
  * 부위 복셀 → 메시. buildVoxelGeometry 는 드래곤(홀수 폭, x 대칭)에 맞춰 반 칸 옮기므로,
  * 짝수 폭인 사람 부위는 그만큼 되돌려야 가운데가 맞는다.
  */
-function partMesh(voxels: readonly Voxel[]): THREE.Mesh {
+function partMesh(voxels: readonly Voxel[], material: THREE.Material): THREE.Mesh {
   const geom = buildVoxelGeometry(voxels, VOXEL, PLAYER_SHADES);
   geom.translate(VOXEL / 2, 0, VOXEL / 2);
-  return new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ vertexColors: true }));
+  return new THREE.Mesh(geom, material);
 }
 
 export function nameSprite(text: string, bg = 'rgba(0,0,0,0.45)', scale = 0.55): THREE.Sprite {
@@ -76,6 +96,7 @@ export class RemotePlayers {
   upsert(info: PlayerInfo): void {
     this.remove(info.idx);
     const v = playerVoxels(paletteFor(info.color));
+    const material = new THREE.MeshBasicMaterial({ vertexColors: true });
     const group = new THREE.Group();
     const body = new THREE.Group();
     // 팔·다리는 붙이는 자리가 곧 회전축(어깨·엉덩이)이라 걸을 때 제대로 흔들린다
@@ -83,12 +104,12 @@ export class RemotePlayers {
       m.position.set(spot[0] * VOXEL, spot[1] * VOXEL, 0);
       return m;
     };
-    const torso = at(partMesh(v.torso), PART_AT.torso);
-    const head = at(partMesh(v.head), PART_AT.head);
-    const legL = at(partMesh(v.leg), PART_AT.legL);
-    const legR = at(partMesh(v.leg), PART_AT.legR);
-    const armL = at(partMesh(v.arm), PART_AT.armL);
-    const armR = at(partMesh(v.arm), PART_AT.armR);
+    const torso = at(partMesh(v.torso, material), PART_AT.torso);
+    const head = at(partMesh(v.head, material), PART_AT.head);
+    const legL = at(partMesh(v.leg, material), PART_AT.legL);
+    const legR = at(partMesh(v.leg, material), PART_AT.legR);
+    const armL = at(partMesh(v.arm, material), PART_AT.armL);
+    const armR = at(partMesh(v.arm, material), PART_AT.armR);
     body.add(torso, head, legL, legR, armL, armR);
     group.add(body);
     const label = nameSprite(info.nick);
@@ -113,6 +134,8 @@ export class RemotePlayers {
       lastMove: 0,
       bubble: null,
       mount: null,
+      material,
+      lum: 1,
     });
     if (info.riding) this.setMount(info.idx, info.riding);
   }
@@ -127,6 +150,7 @@ export class RemotePlayers {
     }
     if (riding) {
       const m = dragonMesh(riding.dragon, 'adult');
+      m.material = f.material; // 탄 드래곤도 같은 빛을 받는다
       m.position.y = -RIDE_SEAT_Y;
       m.rotation.y = Math.PI;
       f.body.add(m);
@@ -160,10 +184,10 @@ export class RemotePlayers {
     this.clearBubble(f);
     this.setMount(idx, null); // 공유 지오메트리는 dispose 하지 않는다
     this.group.remove(f.group);
+    f.material.dispose(); // 여섯 부위가 같이 쓰는 재질은 여기서 한 번만
     f.group.traverse((o) => {
       if (o instanceof THREE.Mesh) {
         o.geometry.dispose();
-        (o.material as THREE.Material).dispose();
       }
       if (o instanceof THREE.Sprite) {
         o.material.map?.dispose();
@@ -197,7 +221,11 @@ export class RemotePlayers {
     }
   }
 
-  update(dt: number): void {
+  /**
+   * light 를 주면 인형이 서 있는 칸의 빛을 받아 밝아지고 어두워진다 (#86).
+   * 동굴에서는 어둡고 횃불 옆에서는 따뜻해진다 — 블록과 같은 곡선을 쓴다. 안 주면 늘 밝다
+   */
+  update(dt: number, light?: { get(x: number, y: number, z: number): number }, skyLight = 1): void {
     const k = 1 - Math.exp(-dt * 14); // 약 70ms 시간 상수
     for (const f of this.figures.values()) {
       const c = f.cur,
@@ -224,6 +252,12 @@ export class RemotePlayers {
       const sneak = (t.flags & FLAG_SNEAK) !== 0;
       f.body.scale.y = sneak ? 0.85 : 1;
       f.label.position.y = (sneak ? FIGURE_H * 0.85 : FIGURE_H) + 0.3;
+      if (light) {
+        // 가슴 높이 칸의 빛. 한 칸 넘어갈 때 뚝 끊기지 않게 부드럽게 따라간다
+        const lum = lightColor(light.get(Math.floor(c.x), Math.floor(c.y + 1), Math.floor(c.z)), skyLight, TINT);
+        f.lum += (lum - f.lum) * k;
+        f.material.color.copy(TINT).multiplyScalar(f.lum);
+      }
       if (f.bubble && performance.now() > f.bubble.until) this.clearBubble(f);
     }
   }
