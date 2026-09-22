@@ -33,8 +33,11 @@ export function exposedFaceCount(voxels: readonly Voxel[]): number {
 /**
  * scale = 복셀 한 칸의 크기(블록 단위). x 는 가운데 정렬(모델이 x 대칭), y 0 = 바닥, z 는 그대로.
  * 꼭짓점 색(color) 속성이 있으니 MeshBasicMaterial({ vertexColors: true }) 로 그린다.
+ *
+ * shades = 면별 밝기를 직접 정한다(+X −X +Y −Y +Z −Z). 없으면 드래곤용 기본값.
+ * 사람 인형은 앞뒤·옆 차이를 더 크게 줘서 입체로 보이게 한다 (#86).
  */
-export function buildVoxelGeometry(voxels: readonly Voxel[], scale: number): THREE.BufferGeometry {
+export function buildVoxelGeometry(voxels: readonly Voxel[], scale: number, shades?: readonly number[]): THREE.BufferGeometry {
   const occ = new Set(voxels.map((v) => `${v.x},${v.y},${v.z}`));
   const pos: number[] = [];
   const col: number[] = [];
@@ -42,12 +45,14 @@ export function buildVoxelGeometry(voxels: readonly Voxel[], scale: number): THR
   const color = new THREE.Color();
   for (const v of voxels) {
     color.set(v.c);
-    for (const f of FACES) {
+    for (let fi = 0; fi < FACES.length; fi++) {
+      const f = FACES[fi]!;
       if (occ.has(`${v.x + f.n[0]},${v.y + f.n[1]},${v.z + f.n[2]}`)) continue;
+      const sh = shades?.[fi] ?? f.shade;
       const base = pos.length / 3;
       for (const [cx, cy, cz] of f.corners) {
         pos.push((v.x + cx) * scale, (v.y + cy) * scale, (v.z + cz) * scale);
-        col.push(color.r * f.shade, color.g * f.shade, color.b * f.shade);
+        col.push(color.r * sh, color.g * sh, color.b * sh);
       }
       idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
     }

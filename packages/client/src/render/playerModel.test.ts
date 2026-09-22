@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EYE_DARK, EYE_WHITE, PART_AT, VOXEL, frontPixels, paletteFor, playerVoxels } from './playerModel';
+import { FACE, PART_AT, PLAYER_SHADES, VOXEL, frontPixels, paletteFor, playerVoxels } from './playerModel';
 
 const css = (hex: number) => '#' + hex.toString(16).padStart(6, '0');
 
@@ -27,14 +27,46 @@ describe('플레이어 인형 (#86)', () => {
     for (const p of px) expect(at.get(`${-1 - p.x},${p.y}`)).toBe(p.c); // 거울처럼 대칭
   });
 
-  it('얼굴이 있다 — 눈 두 쌍과 웃는 입', () => {
-    const px = frontPixels(paletteFor(0));
-    expect(px.filter((p) => p.c === css(EYE_WHITE))).toHaveLength(2);
-    expect(px.filter((p) => p.c === css(EYE_DARK))).toHaveLength(2);
-    // 입 네 칸이 ∪ 모양: 바깥 두 칸이 안쪽 두 칸보다 한 칸 높다
-    const eyeY = px.find((p) => p.c === css(EYE_DARK))!.y;
-    const mouth = px.filter((p) => p.y < eyeY && p.y > eyeY - 4 && p.c !== px.find((q) => q.x === 0 && q.y === eyeY)!.c);
-    expect(mouth.length).toBeGreaterThanOrEqual(4);
+  it('얼굴이 있다 — 앞머리·눈 한 쌍·웃는 입, 좌우 대칭', () => {
+    expect(FACE).toHaveLength(8);
+    for (const row of FACE) expect(row).toHaveLength(8);
+    for (const row of FACE) expect([...row].reverse().join('')).toBe(row); // 거울 대칭
+    const all = FACE.join('');
+    expect([...all].filter((c) => c === 'w')).toHaveLength(2); // 흰자 둘
+    expect([...all].filter((c) => c === 'e')).toHaveLength(2); // 눈동자 둘
+    expect([...all].filter((c) => c === 'm')).toHaveLength(4); // ∪ 모양 입
+    expect(FACE[0]).toBe('hhhhhhhh'); // 맨 위는 머리카락
+    const eyeRow = FACE.findIndex((r) => r.includes('e'));
+    const mouthRow = FACE.findIndex((r) => r.includes('m'));
+    expect(eyeRow).toBeLessThan(mouthRow); // 눈이 입보다 위
+    expect(FACE[mouthRow]!.indexOf('m')).toBeLessThan(FACE[mouthRow + 1]!.indexOf('m')); // 입꼬리가 더 바깥 = 웃는 모양
+  });
+
+  it('같은 색 부분도 칸마다 조금씩 달라 밋밋하지 않다 (아빠 2026-09-22)', () => {
+    const pal = paletteFor(3);
+    const shirt = frontPixels(pal).filter((p) => p.y >= 13 && p.y <= 23 && p.x >= -4 && p.x <= 3);
+    expect(shirt.length).toBeGreaterThan(50);
+    expect(new Set(shirt.map((p) => p.c)).size).toBeGreaterThan(8); // 한 가지 색 덩어리가 아니다
+    expect(shirt.filter((p) => p.c === css(pal.shirt)).length).toBeLessThan(shirt.length / 4); // 원색 그대로인 칸은 드물다
+    // 가운데 줄만 보면 위가 밝고 아래가 어둡다 (바깥 줄은 겨드랑이 그늘이 따로 있다)
+    const lum = (c: string) => {
+      const n = parseInt(c.slice(1), 16);
+      return ((n >> 16) & 255) + ((n >> 8) & 255) + (n & 255);
+    };
+    const mid = shirt.filter((p) => p.x >= -2 && p.x <= 1);
+    const top = mid.filter((p) => p.y >= 21).map((p) => lum(p.c));
+    const bottom = mid.filter((p) => p.y <= 15).map((p) => lum(p.c));
+    const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+    expect(avg(top)).toBeGreaterThan(avg(bottom));
+  });
+
+  it('면마다 밝기가 달라 옆면이 앞면보다 어둡다', () => {
+    const [px, nx, py, ny, pz, nz] = PLAYER_SHADES as number[];
+    expect(py).toBeGreaterThan(nz!); // 윗면이 가장 밝다
+    expect(nz!).toBeGreaterThan(pz!); // 앞이 뒤보다 밝다
+    expect(nz! - px!).toBeGreaterThan(0.15); // 앞과 옆의 차이가 뚜렷해야 입체로 보인다
+    expect(px!).toBeGreaterThan(nx!);
+    expect(ny!).toBeLessThan(nx!); // 바닥면이 가장 어둡다
   });
 
   it('색 16가지가 저마다 다른 사람 — 셔츠는 고른 색, 피부·머리는 여러 가지', () => {

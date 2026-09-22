@@ -5,7 +5,7 @@
  */
 import { FLAG_RIDING, FLAG_SNEAK, type PlayerInfo, type PlayerStateEntry, RIDE_SEAT_Y, type RidingInfo } from '@dragon-village/shared';
 import { dragonMesh } from '../render/DragonMesh';
-import { PART_AT, VOXEL, paletteFor, playerVoxels } from '../render/playerModel';
+import { PART_AT, PLAYER_SHADES, VOXEL, paletteFor, playerVoxels } from '../render/playerModel';
 import { type Voxel, buildVoxelGeometry } from '../render/voxelGeometry';
 import * as THREE from 'three';
 
@@ -36,7 +36,7 @@ const FIGURE_H = 32 * VOXEL;
  * 짝수 폭인 사람 부위는 그만큼 되돌려야 가운데가 맞는다.
  */
 function partMesh(voxels: readonly Voxel[]): THREE.Mesh {
-  const geom = buildVoxelGeometry(voxels, VOXEL);
+  const geom = buildVoxelGeometry(voxels, VOXEL, PLAYER_SHADES);
   geom.translate(VOXEL / 2, 0, VOXEL / 2);
   return new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ vertexColors: true }));
 }

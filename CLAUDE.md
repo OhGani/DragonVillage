@@ -84,7 +84,7 @@ docs/
 - 개발 콘솔에서 `window.__dv` 로 월드·플레이어·청크 상태를 볼 수 있다 (dev 빌드만). `__dv.tick(dt)` 는 rAF 없이 한 프레임을 돌린다(자동 테스트용).
 - **상자(2026-09-22, #84·#85)**: 탭하면 열리는 27칸 상자, 옆에 놓으면 54칸 큰 상자(`chest@n/e/s/w`). 속은 `chests` 표에 저장, 부수면 내용물이 부순 사람 가방으로 — **가방에 자리가 없으면 아예 못 부순다**(#85). `shared/rules/chest.ts`.
 - **드래곤 알 입체 모양(2026-09-22, #85)**: `blocks.json` 의 `shape: "egg"` → 메셔 `emitEggs()` 가 상자 여섯 층으로 그린다(횃불 #82 와 같은 방식).
-- **플레이어 캐릭터(2026-09-22, #86)**: `client/render/playerModel.ts` — 마인크래프트식 32칸 복셀 인형(얼굴·머리카락·손·신발), 색 16가지마다 다른 사람. 얼굴은 `FACE` 글자 그림, 색은 `CHARACTERS` 표. 로비에 앞모습 미리보기. **모자·망토 꾸미기는 아직 없음**.
+- **플레이어 캐릭터(2026-09-22, #86)**: `client/render/playerModel.ts` — 마인크래프트식 32칸 복셀 인형(얼굴·머리카락·손·신발), 색 16가지마다 다른 사람. 얼굴은 `FACE` 글자 그림, 색은 `CHARACTERS` 표. 면 밝기 `PLAYER_SHADES` + 칸별 얼룩·모서리 그늘로 입체감. 로비에 앞모습 미리보기. **모자·망토 꾸미기는 아직 없음**.
 - 아들 1차 기획 답변 반영 완료: 드래곤 16종·재료·티어(`data/dragons.json`), 원정지 6곳(`data/expeditions.json`), 레시피(`data/recipes.json`), 채팅 문구(`data/phrases.json`), 시간 규칙(`data/family-rules.json`). 상세는 `docs/QUESTIONS-FOR-SON.md`.
 - 경험치 시스템 도입 확정(마인크래프트 방식, `docs/XP-SYSTEM.md`, `data/xp.json`).
 - 보스·마을 방어전 설계 반영(`docs/BOSSES.md`, `data/bosses.json`). v1은 거미 왕·우민 방어전·엔더 드래곤만. `release` 필드가 v1이 아닌 것은 만들지 않는다.

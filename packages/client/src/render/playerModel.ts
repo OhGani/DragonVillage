@@ -14,13 +14,13 @@ import type { Voxel } from './voxelGeometry';
 /** 복셀 한 칸의 크기 (블록). 32칸 = 1.8 = 몸 판정 키 */
 export const VOXEL = 1.8 / 32;
 
-/** 얼굴 앞면 8×8 (위 → 아래). h 머리카락 · s 피부 · w 흰자 · e 눈동자 · m 입 */
-const FACE: readonly string[] = [
+/** 얼굴 앞면 8×8 (위 → 아래). h 머리카락 · s 피부 · n 코 · w 흰자 · e 눈동자 · m 입 */
+export const FACE: readonly string[] = [
   'hhhhhhhh',
   'hhhhhhhh',
   'hhhhhhhh',
   'swessews',
-  'ssssssss',
+  'sssnnsss',
   'ssmssmss',
   'sssmmsss',
   'ssssssss',
@@ -58,6 +58,47 @@ const CHARACTERS: readonly { skin: number; hair: number; pants: number; shoes: n
   { skin: 0xf7d9b8, hair: 0xdedede, pants: 0x2a2c32, shoes: 0x17181c }, // 검정
 ];
 
+/**
+ * 사람 인형의 면별 밝기 (+X −X +Y −Y +Z −Z). 조명이 없는 씬이라 이 차이가 곧 입체감이다.
+ * 앞(−Z)을 가장 밝게, 옆을 꽤 어둡게 둬서 팔·다리가 몸통에서 떨어져 보인다 (아빠 "너무 밋밋해", #86)
+ */
+export const PLAYER_SHADES: readonly number[] = [0.76, 0.68, 1.0, 0.45, 0.78, 0.96];
+
+/** 부위 상자의 바깥 테두리 (칸별 명암을 계산할 때 쓴다) */
+interface Bounds {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  z0: number;
+  z1: number;
+}
+
+/**
+ * 칸마다 아주 조금씩 다른 밝기 — 마인크래프트 스킨의 얼룩 같은 것. 자리로만 정해져 늘 같고(무작위 없음),
+ * 왼쪽·오른쪽이 거울처럼 같은 값이라 얼굴과 몸이 비뚤어 보이지 않는다.
+ */
+function grain(x: number, y: number, z: number): number {
+  const ax = x < 0 ? -1 - x : x;
+  let h = (Math.imul(ax, 374761393) + Math.imul(y, 668265263) + Math.imul(z, 1274126177)) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+  return 0.92 + (((h >>> 8) & 255) / 255) * 0.16;
+}
+
+/**
+ * 상자 안에서의 자리에 따른 명암: 모서리·꼭짓점은 깎인 듯 어둡게, 아래로 갈수록 살짝 그늘지게.
+ * 같은 색 덩어리가 평평해 보이지 않게 하는 두 번째 장치다.
+ */
+function boxShade(x: number, y: number, z: number, b: Bounds): number {
+  let edges = 0;
+  if (x === b.x0 || x === b.x1) edges++;
+  if (y === b.y0 || y === b.y1) edges++;
+  if (z === b.z0 || z === b.z1) edges++;
+  const bevel = edges >= 3 ? 0.82 : edges === 2 ? 0.9 : 1;
+  const t = (y - b.y0) / Math.max(1, b.y1 - b.y0);
+  return bevel * (0.88 + t * 0.14);
+}
+
 export const EYE_WHITE = 0xf4f4f4;
 export const EYE_DARK = 0x2b2a33;
 
@@ -81,6 +122,8 @@ function faceColor(ch: string, p: SkinPalette): number {
   switch (ch) {
     case 'h':
       return p.hair;
+    case 'n':
+      return shade(p.skin, 0.94);
     case 'w':
       return EYE_WHITE;
     case 'e':
@@ -92,38 +135,96 @@ function faceColor(ch: string, p: SkinPalette): number {
   }
 }
 
-/** 상자 하나를 복셀로 채운다. color(x, y, z) 가 칸마다 색을 정한다 */
-function fill(x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, color: (x: number, y: number, z: number) => number): Voxel[] {
+/**
+ * 상자 하나를 복셀로 채운다. color(x, y, z) 가 칸마다 색을 정하고, 그 위에 얼룩·모서리 명암을 얹는다.
+ * extra(x, y, z) 는 부위별 그늘(어깨 밑·다리 위처럼 가려지는 곳)을 더 어둡게 할 때 쓴다.
+ */
+function fill(
+  x0: number,
+  x1: number,
+  y0: number,
+  y1: number,
+  z0: number,
+  z1: number,
+  color: (x: number, y: number, z: number) => number,
+  extra?: (x: number, y: number, z: number) => number,
+  /** 얼룩 세기 0~1 (얼굴처럼 깨끗해야 하는 곳은 0). 없으면 1 */
+  grainAt?: (x: number, y: number, z: number) => number,
+): Voxel[] {
+  const b: Bounds = { x0, x1, y0, y1, z0, z1 };
   const out: Voxel[] = [];
-  for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) out.push({ x, y, z, c: css(color(x, y, z)) });
+  for (let y = y0; y <= y1; y++)
+    for (let z = z0; z <= z1; z++)
+      for (let x = x0; x <= x1; x++) {
+        const g = 1 + (grain(x, y, z) - 1) * (grainAt ? grainAt(x, y, z) : 1);
+        const k = g * boxShade(x, y, z, b) * (extra ? extra(x, y, z) : 1);
+        out.push({ x, y, z, c: css(shade(color(x, y, z), k)) });
+      }
   return out;
 }
 
-/** 머리 8×8×8: 위 세 칸과 뒤 두 칸은 머리카락, 앞면은 얼굴 그림 */
+/** 머리 8×8×8: 위 세 칸과 뒤 두 칸은 머리카락, 앞면은 얼굴 그림(얼룩 없이 깨끗하게) */
 function headVoxels(p: SkinPalette): Voxel[] {
-  return fill(-4, 3, 0, 7, -4, 3, (x, y, z) => {
-    if (z === -4) return faceColor(FACE[7 - y]![x + 4]!, p);
-    return y >= 5 || z >= 2 ? p.hair : p.skin;
-  });
+  return fill(
+    -4,
+    3,
+    0,
+    7,
+    -4,
+    3,
+    (x, y, z) => {
+      if (z === -4) return faceColor(FACE[7 - y]![x + 4]!, p);
+      return y >= 5 || z >= 2 ? p.hair : p.skin;
+    },
+    undefined,
+    (_x, _y, z) => (z === -4 ? 0 : 1),
+  );
 }
 
-/** 몸통 8×12×4: 셔츠, 맨 아랫줄은 허리(바지색), 앞 가운데 위는 목(깃) */
+/** 몸통 8×12×4: 셔츠, 맨 아랫줄은 허리(바지색), 앞 가운데 위는 목(깃). 팔 옆은 겨드랑이 그늘 */
 function torsoVoxels(p: SkinPalette): Voxel[] {
-  return fill(-4, 3, 0, 11, -2, 1, (x, y, z) => {
-    if (y === 0) return p.pants;
-    if (z === -2 && y === 11 && (x === -1 || x === 0)) return p.skin;
-    return p.shirt;
-  });
+  return fill(
+    -4,
+    3,
+    0,
+    11,
+    -2,
+    1,
+    (x, y, z) => {
+      if (y === 0) return p.pants;
+      if (z === -2 && y === 11 && (x === -1 || x === 0)) return p.skin;
+      return p.shirt;
+    },
+    (x, y) => (y >= 8 && (x <= -3 || x >= 2) ? 0.9 : 1),
+  );
 }
 
-/** 팔 4×12×4: 어깨가 회전축(y 0)이라 아래로 자란다. 끝 세 칸은 손 */
+/** 팔 4×12×4: 어깨가 회전축(y 0)이라 아래로 자란다. 끝 세 칸은 손. 어깨 쪽은 그늘 */
 function armVoxels(p: SkinPalette): Voxel[] {
-  return fill(-2, 1, -12, -1, -2, 1, (_x, y) => (y <= -10 ? p.skin : p.shirt));
+  return fill(
+    -2,
+    1,
+    -12,
+    -1,
+    -2,
+    1,
+    (_x, y) => (y <= -10 ? p.skin : p.shirt),
+    (_x, y) => (y >= -2 ? 0.92 : 1),
+  );
 }
 
-/** 다리 4×12×4: 끝 세 칸은 신발 */
+/** 다리 4×12×4: 끝 세 칸은 신발. 몸통 밑이라 위쪽은 그늘 */
 function legVoxels(p: SkinPalette): Voxel[] {
-  return fill(-2, 1, -12, -1, -2, 1, (_x, y) => (y <= -10 ? p.shoes : p.pants));
+  return fill(
+    -2,
+    1,
+    -12,
+    -1,
+    -2,
+    1,
+    (_x, y) => (y <= -10 ? p.shoes : p.pants),
+    (_x, y) => (y >= -2 ? 0.88 : 1),
+  );
 }
 
 /** 부위별 복셀 (부위마다 제 축 기준) */
