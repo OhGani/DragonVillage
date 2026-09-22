@@ -301,6 +301,7 @@
       "tool": null,
       "lightEmit": 4,
       "transparent": true,
+      "shape": "egg",
       "texture": "dragon_egg",
       "_note": "둥지 자리에 놓인 알 (M6-2). hardness 가 없어 못 부순다. 부화하면 사라진다. 아이템은 dragon_egg.<드래곤 id>(제작대에서 재료로 만든다)"
     },

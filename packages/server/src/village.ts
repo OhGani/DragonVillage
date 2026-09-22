@@ -39,6 +39,7 @@ import {
   DOOR_DIR,
   doorHinge,
   facingFromYaw,
+  fits,
   give,
   isPotionItem,
   itemForPlacing,
@@ -48,6 +49,7 @@ import {
   take,
   takeFromSlot,
   type PlayerInfo,
+  type Slot,
   type PlayerMoveMsg,
   type PlayerStateEntry,
   REJECT,
@@ -390,6 +392,24 @@ export class VillageRoom {
       this.storage.deleteChest(this.info.code, cell.x, cell.y, cell.z);
     }
     if (moved > 0) this.log(`마을 ${this.info.code}: 큰 상자로 합칠 때 안 보이던 물건 ${moved}칸을 되살렸어요`);
+  }
+
+  /**
+   * 이 상자를 부수면 가방에 들어올 것들 (상자 자체 + 속에 든 것, 아직 안 연 원정 보물도 미리 센다).
+   * 검사용이라 저장하지도 경험치를 주지도 않는다 (#84, 아빠 2026-09-22)
+   */
+  private chestTakeaway(p: RoomPlayer, x: number, y: number, z: number, prev: BlockDef): Slot[] {
+    const { home, paired } = this.chestHome(this.worldOf(p), x, y, z);
+    const stored = this.storedChest(p, home);
+    const out: Slot[] = [];
+    if (stored) {
+      for (const s of resizeChest(stored, paired).chest) if (s) out.push({ ...s });
+    } else if (p.world === 'expedition' && this.expedition?.isTreasure(home.x, home.y, home.z)) {
+      for (const [item, n] of Object.entries(this.expeditions.rules.treasureChestGives)) out.push({ item, count: n });
+    }
+    const base = prev.chest ? this.registry.get(prev.chest.base) : prev;
+    if (base.drops) out.push({ item: base.drops, count: 1 });
+    return out;
   }
 
   /** 저장된 상자 속 (없으면 null). 새로 만들지 않는다 */
@@ -896,6 +916,8 @@ export class VillageRoom {
         return null;
       }
       if (cur.hardness === null) return REJECT.UNBREAKABLE;
+      // 상자는 속에 든 것까지 다 받을 자리가 있어야 부순다 (#84, 아빠 2026-09-22 — 넘치는 물건이 사라지던 것)
+      if (cur.chest && !fits(p.inv, this.chestTakeaway(p, x, y, z, cur))) return REJECT.BAG_FULL;
       // 곡괭이 등급 (아들 2026-09-20): 손에 든 칸의 곡괭이로 이 블록을 캘 수 있나. 맨손은 toolTier 0 만
       const held = req.slot !== undefined && req.slot >= 0 && req.slot < p.inv.length ? (p.inv[req.slot]?.item ?? null) : null;
       if (!canBreakWith(cur, toolOf(TOOLS, held))) return REJECT.TOOL;

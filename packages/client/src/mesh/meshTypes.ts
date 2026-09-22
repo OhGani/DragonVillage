@@ -23,6 +23,8 @@ export interface MeshBlockInfo {
   panel: readonly [number, number] | null;
   /** 횃불(#82): −1 바닥에 세움, 0~3 그 방향 벽에 붙임(기울어짐). 횃불이 아니면 null */
   torch: number | null;
+  /** 드래곤 알(#85): 위로 갈수록 좁아지는 상자 여섯 층으로 그린다 */
+  egg: boolean;
 }
 
 export interface MeshBuffers {

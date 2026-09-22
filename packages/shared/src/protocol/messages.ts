@@ -72,6 +72,8 @@ export const REJECT = {
   UNBREAKABLE: 8,
   /** 가방에 그 아이템(또는 양동이)이 없다 (M4) */
   NO_ITEM: 9,
+  /** 상자 속까지 받을 자리가 가방에 없다 (#84 — 넘치면 사라지니까 아예 못 부순다) */
+  BAG_FULL: 10,
 } as const;
 /** 초5가 읽을 거절 이유 */
 export const REJECT_KO: readonly string[] = [
@@ -85,6 +87,7 @@ export const REJECT_KO: readonly string[] = [
   '누가 서 있어요',
   '부술 수 없는 블록이에요',
   '가방에 그게 없어요',
+  '가방이 가득 찼어요. 자리를 비우고 부수세요',
 ];
 
 export interface PlayerMoveMsg {

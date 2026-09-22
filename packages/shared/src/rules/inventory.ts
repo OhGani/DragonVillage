@@ -111,6 +111,13 @@ export function move(inv: Inventory, from: number, to: number, count: number, ch
   return true;
 }
 
+/** 이 물건들을 지금 가방에 다 넣을 수 있나 (넣어 보지는 않는다) */
+export function fits(inv: Inventory, items: readonly Slot[]): boolean {
+  const copy = cloneInventory(inv);
+  for (const s of items) if (give(copy, s.item, s.count) > 0) return false;
+  return true;
+}
+
 /** 재료 목록이 전부 있나 */
 export function hasAll(inv: Inventory, needs: Readonly<Record<string, number>>): boolean {
   for (const [item, n] of Object.entries(needs)) if (countOf(inv, item) < n) return false;

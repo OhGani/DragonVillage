@@ -82,7 +82,8 @@ docs/
 - 2026-09-13 피드백 반영: 한 칸 턱 자동 오르기(`tryStepUp`), 물·용암 흐름(`shared/fluid`, 마인크래프트 규칙, 결정 #47), 핫바 10칸(9 물·0 용암, 들고 있으면 양동이처럼 원천 떠냄), 시작 화면 '게임 방법' 창, 손 블록 화면 모서리 고정, 전체화면 켜기/끄기 토글 + 웹 앱 매니페스트(아이폰은 홈 화면 추가로 전체화면).
 - M0 남은 것: 폰 실기기(아이폰·갤럭시) fps 측정, 아들 5분 플레이테스트 → `docs/PLAYTEST-LOG.md`. 아빠 피드백은 받는 대로 반영 중.
 - 개발 콘솔에서 `window.__dv` 로 월드·플레이어·청크 상태를 볼 수 있다 (dev 빌드만). `__dv.tick(dt)` 는 rAF 없이 한 프레임을 돌린다(자동 테스트용).
-- **상자(2026-09-22, #84)**: 탭하면 열리는 27칸 상자, 옆에 놓으면 54칸 큰 상자(`chest@n/e/s/w`). 속은 `chests` 표에 저장, 부수면 내용물이 부순 사람 가방으로. `shared/rules/chest.ts`.
+- **상자(2026-09-22, #84·#85)**: 탭하면 열리는 27칸 상자, 옆에 놓으면 54칸 큰 상자(`chest@n/e/s/w`). 속은 `chests` 표에 저장, 부수면 내용물이 부순 사람 가방으로 — **가방에 자리가 없으면 아예 못 부순다**(#85). `shared/rules/chest.ts`.
+- **드래곤 알 입체 모양(2026-09-22, #85)**: `blocks.json` 의 `shape: "egg"` → 메셔 `emitEggs()` 가 상자 여섯 층으로 그린다(횃불 #82 와 같은 방식).
 - 아들 1차 기획 답변 반영 완료: 드래곤 16종·재료·티어(`data/dragons.json`), 원정지 6곳(`data/expeditions.json`), 레시피(`data/recipes.json`), 채팅 문구(`data/phrases.json`), 시간 규칙(`data/family-rules.json`). 상세는 `docs/QUESTIONS-FOR-SON.md`.
 - 경험치 시스템 도입 확정(마인크래프트 방식, `docs/XP-SYSTEM.md`, `data/xp.json`).
 - 보스·마을 방어전 설계 반영(`docs/BOSSES.md`, `data/bosses.json`). v1은 거미 왕·우민 방어전·엔더 드래곤만. `release` 필드가 v1이 아닌 것은 만들지 않는다.

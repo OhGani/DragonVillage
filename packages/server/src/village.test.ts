@@ -735,3 +735,39 @@ describe('상자에 넣어 둔 것이 합칠 때 안 사라진다 (아빠 2026-0
     expect(run(-1)).toEqual([{ item: 'coal', count: 7 }]);
   });
 });
+
+describe('가방이 모자라면 상자를 못 부순다 (아빠 2026-09-22, #84)', () => {
+  it('속에 든 것이 다 안 들어가면 거절하고, 자리를 비우면 부술 수 있다', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const y = GROUND_Y + 1;
+    room.giveItems(ra.idx, 'chest', 1);
+    room.giveItems(ra.idx, 'coal', 10);
+    room.onMove(ra.idx, { x: 64.5, y, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 1, x: 66, y, z: 64, id: 'chest' }, 1000);
+    expect(room.openChest(ra.idx, 66, y, 64, 1000)).toBeNull();
+    const p = room.players.get(ra.idx)!;
+    const coalSlot = p.inv.findIndex((s) => s?.item === 'coal');
+    expect(room.chestMove(ra.idx, 66, y, 64, 27 + coalSlot, 0, 10, 1000)).toBeNull();
+
+    // 가방을 딴 것으로 가득 채우고 부수려 하면 거절 — 석탄도 상자도 그대로 있어야 한다
+    for (let i = 0; i < p.inv.length; i++) p.inv[i] = { item: 'stone', count: 64 };
+    a.clear();
+    room.onBlockChange(ra.idx, { seq: 2, x: 66, y, z: 64, id: 'air' }, 1000);
+    expect(a.bin.find((m) => m.type === MSG.BlockChangeRejected)).toMatchObject({ msg: { seq: 2, reason: REJECT.BAG_FULL } });
+    expect(BLOCKS.get(room.world.getBlock(66, y, 64)).id).toBe('chest');
+    a.clear();
+    expect(room.openChest(ra.idx, 66, y, 64, 1000)).toBeNull();
+    expect((a.json.filter((m) => m.t === 'chest').at(-1) as { slots: (null | { item: string; count: number })[] }).slots[0]).toEqual({ item: 'coal', count: 10 });
+
+    // 두 칸(석탄 한 묶음 + 상자 하나)을 비우면 부술 수 있다
+    p.inv[0] = null;
+    p.inv[1] = null;
+    room.onBlockChange(ra.idx, { seq: 3, x: 66, y, z: 64, id: 'air' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(66, y, 64)).id).toBe('air');
+    expect(countOf(p.inv, 'coal')).toBe(10);
+    expect(countOf(p.inv, 'chest')).toBe(1);
+  });
+});

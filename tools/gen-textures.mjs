@@ -571,20 +571,12 @@ const TEX = {
       c.set((x + 1) % S, y, 60, 40, 34);
     }
   },
-  // 드래곤 알 (M6-2): 진한 보라 바탕에 분홍·검정 점, 아래쪽 어둡게
+  // 드래곤 알 껍질 (#85): 알 모양은 메시가 만드니 껍질 무늬만 16×16 에 가득 채운다
   dragon_egg: (c) => {
-    c.clear();
-    for (let y = 1; y < S; y++) {
-      const t = (y - 1) / 14; // 0 위 … 1 아래
-      const half = Math.round(3 + 4.5 * Math.sin(Math.PI * Math.min(1, t * 1.15)));
-      for (let x = 8 - half; x < 8 + half; x++) {
-        const shade = 1 - t * 0.35 + (x < 8 - half + 2 ? 0.12 : 0);
-        c.set(x, y, 60 * shade, 20 * shade, 80 * shade);
-      }
-    }
-    for (const [x, y] of [[6, 4], [9, 6], [5, 9], [10, 10], [7, 12], [8, 7]]) c.set(x, y, 214, 88, 190);
-    for (const [x, y] of [[8, 3], [6, 7], [10, 12], [7, 10]]) c.set(x, y, 20, 8, 30);
-    c.set(7, 2, 120, 60, 150);
+    c.noise([58, 22, 78], 10).blotch(0.14);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) c.mul(x, y, 1.14 - y * 0.03); // 위가 밝다
+    for (const [x, y] of [[3, 2], [9, 1], [6, 5], [12, 6], [2, 9], [8, 10], [13, 12], [5, 13], [10, 14]]) c.set(x, y, 214, 88, 190);
+    for (const [x, y] of [[7, 3], [11, 8], [4, 7], [1, 13], [14, 3], [8, 15]]) c.set(x, y, 20, 8, 30);
   },
   spawner: (c) => {
     c.noise([46, 46, 56], 8);

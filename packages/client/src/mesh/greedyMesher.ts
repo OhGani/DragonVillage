@@ -27,6 +27,19 @@ const TORCH_WALL_OFF = 7 / 16;
 /** 벽 횃불이 붙는 높이 */
 const TORCH_WALL_Y = 3 / 16;
 
+/**
+ * 드래곤 알 (결정 #85): 마인크래프트 알처럼 위로 갈수록 좁아지는 상자 여섯 층.
+ * [가장자리 여백, 아랫면 높이, 윗면 높이] — 모두 16 분의 몇
+ */
+const EGG_BOXES: readonly (readonly [inset: number, y0: number, y1: number])[] = [
+  [3, 0, 1],
+  [2, 1, 8],
+  [3, 8, 12],
+  [4, 12, 14],
+  [5, 14, 15],
+  [6, 15, 16],
+];
+
 /** 면별 텍스처 u(오른쪽)·v(위) 방향. 밖에서 볼 때 그림이 똑바로 서도록 */
 const FACE_U: readonly (readonly [number, number, number])[] = [
   [0, 0, -1], // +X 에서 보면 오른쪽이 -Z
@@ -380,6 +393,29 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
         }
   };
 
+  /**
+   * 알 전용 패스 (#85): 상자 여섯 층. 층끼리 맞닿는 면은 넓은 쪽만 그린다(같은 자리에 두 면이 겹쳐 깜빡이지 않게).
+   */
+  const emitEggs = () => {
+    for (let y = 0; y < N; y++)
+      for (let z = 0; z < N; z++)
+        for (let x = 0; x < N; x++) {
+          const bi = info[padded[paddedIndex(x, y, z)]];
+          if (bi === undefined || !bi.egg) continue;
+          const lt = lightOfCell(x, y, z);
+          for (let k = 0; k < EGG_BOXES.length; k++) {
+            const [inset, y0, y1] = EGG_BOXES[k]!;
+            const below = EGG_BOXES[k - 1],
+              above = EGG_BOXES[k + 1];
+            const mn = [x + inset / 16, y + y0 / 16, z + inset / 16];
+            const mx = [x + 1 - inset / 16, y + y1 / 16, z + 1 - inset / 16];
+            for (const f of [0, 1, 4, 5]) boxFace(opaque, f, mn, mx, bi.tex[f], lt);
+            if (!above || above[0] > inset) boxFace(opaque, 2, mn, mx, bi.tex[2], lt);
+            if (!below || below[0] > inset) boxFace(opaque, 3, mn, mx, bi.tex[3], lt);
+          }
+        }
+  };
+
   /** 액체 전용 패스: 블록마다 높이가 다르므로 greedy 없이 낱개로 */
   const emitFluids = () => {
     for (let y = 0; y < N; y++)
@@ -481,7 +517,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
             kb = 0,
             kfl = 0,
             kbl = 0;
-          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null) {
+          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg) {
             p[d] = i + 1;
             const idF = padded[paddedIndex(p[0], p[1], p[2])];
             p[d] = i;
@@ -527,6 +563,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
   emitFluids();
   emitPanels();
   emitTorches();
+  emitEggs();
 
   return { opaque: opaque.build(), translucent: trans.build() };
 }

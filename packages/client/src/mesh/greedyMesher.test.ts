@@ -13,6 +13,7 @@ const registry = parseBlocks({
     { id: 'water', name: '물', solid: false, transparent: true, fluid: 'water', texture: 'water' },
     { id: 'oak_door', name: '문', hardness: 3, transparent: true, textureTop: 'door_top', textureSide: 'door_bottom', textureBottom: 'door_bottom', shape: 'door' },
     { id: 'torch', name: '횃불', hardness: 0, solid: false, transparent: true, lightEmit: 14, shape: 'torch', texture: 'torch' },
+    { id: 'dragon_egg', name: '드래곤 알', transparent: true, lightEmit: 4, shape: 'egg', texture: 'dragon_egg' },
   ],
 });
 const texIndex = new Map([
@@ -26,6 +27,7 @@ const texIndex = new Map([
   ['door_top', 7],
   ['door_bottom', 8],
   ['torch', 9],
+  ['dragon_egg', 10],
 ]);
 const info = buildMeshBlockInfo(registry, texIndex);
 const STONE = registry.numOf('stone');
@@ -36,6 +38,7 @@ const DOOR_N = registry.doorVariant(registry.numOf('oak_door'), 0, false, false)
 const DOOR_N_OPEN_UP = registry.doorVariant(registry.numOf('oak_door'), 0, true, true);
 const TORCH = registry.numOf('torch');
 const TORCH_WALL_N = registry.torchVariant(TORCH, 0);
+const EGG = registry.numOf('dragon_egg');
 
 function padded(fill: (x: number, y: number, z: number) => number): Uint16Array {
   const arr = new Uint16Array(PADDED_VOLUME);
@@ -387,5 +390,51 @@ describe('횃불 (#82)', () => {
       maxX = Math.max(maxX, m.positions[i * 3]!);
     }
     expect(maxX - minX).toBeCloseTo(2 / 16);
+  });
+});
+
+describe('드래곤 알 (#85)', () => {
+  /** 한 칸만 알, 나머지는 공기 */
+  const oneEgg = () => greedyMesh(padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? EGG : 0)), info).opaque!;
+  const span = (m: MeshBuffers, axis: number, pick: (y: number) => boolean) => {
+    let lo = Infinity,
+      hi = -Infinity;
+    for (let i = 0; i < m.vertexCount; i++) {
+      if (!pick(m.positions[i * 3 + 1]!)) continue;
+      const v = m.positions[i * 3 + axis]!;
+      lo = Math.min(lo, v);
+      hi = Math.max(hi, v);
+    }
+    return [lo, hi];
+  };
+
+  it('네모가 아니라 위로 갈수록 좁아지는 상자 여섯 층', () => {
+    const m = oneEgg();
+    expect(m.indexCount / 6).toBe(31); // 옆면 24 + 층끼리 안 가려지는 위·아래 7
+    const [minY, maxY] = span(m, 1, () => true);
+    expect(minY).toBeCloseTo(5); // 바닥에 딱 붙고
+    expect(maxY).toBeCloseTo(6); // 한 칸을 꽉 채운다
+    const [minX, maxX] = span(m, 0, () => true);
+    expect(minX).toBeCloseTo(5 + 2 / 16); // 가장 배부른 곳은 2/16 ~ 14/16
+    expect(maxX).toBeCloseTo(5 + 14 / 16);
+    const [topLo, topHi] = span(m, 0, (y) => y > 6 - 0.001); // 꼭대기는 6/16 ~ 10/16
+    expect(topLo).toBeCloseTo(5 + 6 / 16);
+    expect(topHi).toBeCloseTo(5 + 10 / 16);
+  });
+
+  it('알은 greedy 면(네모 덩어리)으로 그려지지 않는다', () => {
+    const m = greedyMesh(padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? EGG : 0)), info).opaque!;
+    // 꽉 찬 블록이면 옆면 하나가 1×1 이라 어느 면이든 x 폭 1 짜리가 나온다
+    let widest = 0;
+    for (let q = 0; q < m.vertexCount; q += 4) {
+      let lo = Infinity,
+        hi = -Infinity;
+      for (let i = q; i < q + 4; i++) {
+        lo = Math.min(lo, m.positions[i * 3]!);
+        hi = Math.max(hi, m.positions[i * 3]!);
+      }
+      widest = Math.max(widest, hi - lo);
+    }
+    expect(widest).toBeCloseTo(12 / 16);
   });
 });
