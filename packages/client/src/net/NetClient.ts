@@ -133,6 +133,8 @@ export interface NetEvents {
   onDragons(list: DragonInfo[]): void;
   /** 둥지 자리·드래곤 (M6-2·3) */
   onNest(slots: NestSlotInfo[], dragons: NestDragonInfo[]): void;
+  /** 상자 속 (#84) */
+  onChest(x: number, y: number, z: number, slots: Inventory): void;
   /** 누가 드래곤을 탔다/내렸다 (M6-4, 나 포함) */
   onMount(idx: number, riding: RidingInfo): void;
   onDismount(idx: number): void;
@@ -317,6 +319,14 @@ export class NetClient {
   sendFeed(id: number, item: string): void {
     this.sendJson({ t: 'feed', id, item });
   }
+  /** 상자 열기 (#84) */
+  sendOpenChest(x: number, y: number, z: number): void {
+    this.sendJson({ t: 'openChest', x, y, z });
+  }
+  /** 상자 ↔ 가방 옮기기 (#84) */
+  sendChestMove(x: number, y: number, z: number, from: number, to: number, count: number): void {
+    this.sendJson({ t: 'chestMove', x, y, z, from, to, count });
+  }
   /** 드래곤 타기 (M6-4) */
   sendRide(id: number): void {
     this.sendJson({ t: 'ride', id });
@@ -450,6 +460,7 @@ export class NetClient {
     else if (msg.t === 'timeUp') ev.onTimeUp(msg.reason, msg.message);
     else if (msg.t === 'dragons') ev.onDragons(msg.list);
     else if (msg.t === 'nest') ev.onNest(msg.slots, msg.dragons ?? []);
+    else if (msg.t === 'chest') ev.onChest(msg.x, msg.y, msg.z, msg.slots);
     else if (msg.t === 'mount') ev.onMount(msg.idx, msg.riding);
     else if (msg.t === 'dismount') ev.onDismount(msg.idx);
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });

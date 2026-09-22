@@ -2,7 +2,7 @@
  * SQLite 저장 (better-sqlite3). 마을·바뀐 청크·플레이어. ARCHITECTURE.md '저장' 절의 M2 부분.
  * 청크 blob 은 shared/chunk/serialize 의 형식(문자열 팔레트 + RLE) 그대로.
  */
-import { type Inventory, type TodoStatus, isValidInventory } from '@dragon-village/shared';
+import { type Inventory, type TodoStatus, isValidChest, isValidInventory } from '@dragon-village/shared';
 import Database from 'better-sqlite3';
 import { copyFileSync } from 'node:fs';
 
@@ -158,6 +158,9 @@ CREATE TABLE IF NOT EXISTS dragons(
   id INTEGER PRIMARY KEY AUTOINCREMENT, village TEXT NOT NULL, token TEXT NOT NULL, dragon TEXT NOT NULL, stage TEXT NOT NULL,
   slot INTEGER, placed_at INTEGER NOT NULL, hatched_at INTEGER, fed INTEGER NOT NULL DEFAULT 0, resting_until INTEGER);
 CREATE INDEX IF NOT EXISTS dragons_owner ON dragons(village, token);
+CREATE TABLE IF NOT EXISTS chests(
+  village TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL, json TEXT NOT NULL, updated_at INTEGER NOT NULL,
+  PRIMARY KEY(village, x, y, z));
 CREATE TABLE IF NOT EXISTS gifts_given(
   token TEXT NOT NULL, gift TEXT NOT NULL, given_at INTEGER NOT NULL, PRIMARY KEY(token, gift));
 CREATE TABLE IF NOT EXISTS time_adjustments(
@@ -248,6 +251,9 @@ export class Storage {
       feedDragon: this.db.prepare('UPDATE dragons SET fed = ? WHERE id = ?'),
       growDragon: this.db.prepare("UPDATE dragons SET stage = 'adult' WHERE id = ?"),
       addXpOffline: this.db.prepare('UPDATE players SET xp_total = xp_total + ? WHERE token = ?'),
+      getChest: this.db.prepare('SELECT json FROM chests WHERE village = ? AND x = ? AND y = ? AND z = ?'),
+      saveChest: this.db.prepare('INSERT INTO chests(village, x, y, z, json, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(village, x, y, z) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at'),
+      deleteChest: this.db.prepare('DELETE FROM chests WHERE village = ? AND x = ? AND y = ? AND z = ?'),
       giftsOf: this.db.prepare('SELECT gift FROM gifts_given WHERE token = ?'),
       markGift: this.db.prepare('INSERT OR IGNORE INTO gifts_given(token, gift, given_at) VALUES (?, ?, ?)'),
       getSettlement: this.db.prepare('SELECT child, week_start AS weekStart, rate, bonus_cap AS bonusCap, approved, expected, settled_at AS settledAt FROM week_settlements WHERE child = ? AND week_start = ?'),
@@ -481,6 +487,25 @@ export class Storage {
   growDragon(id: number): void {
     this.stmts.growDragon.run(id);
   }
+  // ---- 상자 (#84)
+  /** 그 자리 상자 속. 없으면 null */
+  getChest(village: string, x: number, y: number, z: number): Inventory | null {
+    const row = this.stmts.getChest.get(village, x, y, z) as { json: string } | undefined;
+    if (!row) return null;
+    try {
+      const v: unknown = JSON.parse(row.json);
+      return isValidChest(v) ? v : null;
+    } catch {
+      return null;
+    }
+  }
+  saveChest(village: string, x: number, y: number, z: number, chest: Inventory, now = Date.now()): void {
+    this.stmts.saveChest.run(village, x, y, z, JSON.stringify(chest), now);
+  }
+  deleteChest(village: string, x: number, y: number, z: number): void {
+    this.stmts.deleteChest.run(village, x, y, z);
+  }
+
   // ---- 선물 (#79)
   /** 이 사람이 이미 받은 선물 id 들 */
   giftsGiven(token: string): Set<string> {

@@ -60,6 +60,7 @@ import { Sky } from '../render/Sky';
 import { loadTextureAtlas } from '../render/textures';
 import { BagView, type Stations } from '../ui/bag';
 import { ChatView } from '../ui/chat';
+import { ChestView } from '../ui/chest';
 import { Hud, type HotbarSlot } from '../ui/hud';
 import { NestView } from '../ui/nest';
 import { MountView, NestDragons } from '../render/DragonMesh';
@@ -217,6 +218,16 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   nest.setDragons(myDragons);
   nest.setNest(nestSlots, welcome.nestDragons);
   nest.setXp(welcome.xp);
+  // 상자 (#84): 서버가 진실. 탭하면 열리고, 옮기기는 요청만 보낸다
+  const chest = new ChestView(root, {
+    icon: iconOf,
+    nameOf,
+    onMove: (from, to, count) => {
+      const at = chest.position;
+      if (at) net.sendChestMove(at.x, at.y, at.z, from, to, count);
+    },
+    onClose: () => closeChest(),
+  });
   const chat = new ChatView(
     root,
     PHRASES,
@@ -314,6 +325,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         sendBlock(x, y, z, AIR_ID, prev);
       },
       onHint: (text) => hud.toast(text, 2000),
+      onOpenChest: (bx, by, bz) => {
+        if (bag.visible || nest.visible || chat.visible) return;
+        net.sendOpenChest(bx, by, bz);
+      },
     });
     const portalPos = gen.layout.portal;
     const portal = new PortalView(scene, portalPos, kind === 'expedition' ? 0x3fbcfc : 0x8a3ffc);
@@ -511,6 +526,13 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       nest.setNest(slots, dragons);
       nestDragons.sync(dragons);
     },
+    onChest: (cx, cy, cz, slots) => {
+      chest.setInventory(inv);
+      chest.setChest(cx, cy, cz, slots);
+      input.paused = true;
+      kbm.enabled = false;
+      if (kbm.locked) document.exitPointerLock();
+    },
     onMount: (idx, riding) => {
       if (idx !== myIdx) {
         remote.setMount(idx, riding);
@@ -572,6 +594,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       refreshHotbar();
       bag.setInventory(inv);
       nest.setInventory(inv);
+      chest.setInventory(inv);
     },
     onEmote: (m) => {
       const text = PHRASES.text(m.kind, m.id);
@@ -705,6 +728,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     kbm.enabled = false;
     if (kbm.locked) document.exitPointerLock();
     chat.show();
+  };
+  const closeChest = () => {
+    if (!chest.visible) return;
+    chest.hide();
+    if (started && !hud.overlayVisible && !hud.resultVisible && !bag.visible && !nest.visible) resume();
   };
   const closeChat = () => {
     if (!chat.visible) return;

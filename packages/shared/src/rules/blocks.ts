@@ -139,6 +139,14 @@ export interface BlockDef {
   readonly door: DoorInfo | null;
   /** 횃불이면 어디에 붙었는지 (결정 #82). 횃불 아니면 null */
   readonly torch: TorchInfo | null;
+  /** 상자면 짝이 어느 쪽인지 (결정 #84). 상자 아니면 null */
+  readonly chest: ChestInfo | null;
+}
+
+/** 상자 (결정 #84). pair −1 = 혼자(27칸), 0~3 = 그 방향 상자와 합쳐진 큰 상자(둘이 54칸) */
+export interface ChestInfo {
+  readonly base: number;
+  readonly pair: number;
 }
 
 /** 횃불 (결정 #82). wall −1 = 바닥에 세움, 0~3 = 그 방향 벽에 붙임(DOOR_FACING 과 같은 방향) */
@@ -197,10 +205,16 @@ export class BlockRegistry {
   /** 문 번호 → [facing*4 + upper*2 + open] 변형 번호 */
   private readonly doors = new Map<number, number[]>();
   private readonly torches = new Map<number, number[]>();
+  private readonly chests = new Map<number, number[]>();
 
   constructor(readonly defs: readonly BlockDef[]) {
     for (const d of defs) {
       this.byId.set(d.id, d);
+      if (d.chest && d.chest.pair >= 0) {
+        let c = this.chests.get(d.chest.base);
+        if (!c) this.chests.set(d.chest.base, (c = []));
+        c[d.chest.pair] = d.num;
+      }
       if (d.torch && d.torch.wall >= 0) {
         let t = this.torches.get(d.torch.base);
         if (!t) this.torches.set(d.torch.base, (t = []));
@@ -245,6 +259,16 @@ export class BlockRegistry {
   }
 
   /** 문 변형: 문 번호(JSON 것) + 방향 + 위/아래 + 열림 → 블록 번호 */
+  /** 짝이 있는 상자 변형 (pair 0~3). 없으면 혼자 상자 그대로 */
+  chestVariant(base: number, pair: number): number {
+    return pair < 0 ? base : (this.chests.get(base)?.[pair] ?? base);
+  }
+
+  /** 상자(혼자든 큰 상자든)인가 */
+  isChest(num: number): boolean {
+    return this.get(num).chest !== null;
+  }
+
   /** 벽에 붙은 횃불 변형 (wall 0~3). 없으면 바닥 횃불 그대로 */
   torchVariant(base: number, wall: number): number {
     return this.torches.get(base)?.[wall] ?? base;
@@ -411,6 +435,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       internal: false,
       door: null,
       torch: null,
+      chest: null,
     };
   });
 
@@ -475,6 +500,22 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
             door: { base: src.num, facing, upper, open, hinge },
           });
         }
+  }
+
+  // 상자(shape 'chest'): 혼자 상자(JSON 그대로) + 짝이 있는 큰 상자 변형 4개 (결정 #84).
+  // 변형은 핫바에 안 보이고 부수면 상자 아이템 하나. 혼자 상자 id 는 그대로라 이미 놓인 상자가 살아 있다
+  for (const src of [...defs]) {
+    if (src.shape !== 'chest' || !src.textures) continue;
+    Object.assign(src, { chest: { base: src.num, pair: -1 } });
+    for (let pair = 0; pair < 4; pair++) {
+      defs.push({
+        ...src,
+        num: defs.length,
+        id: `${src.id}@${DOOR_FACING[pair]}`,
+        internal: true,
+        chest: { base: src.num, pair },
+      });
+    }
   }
 
   // 횃불(shape 'torch'): 바닥 횃불(JSON 그대로) + 벽에 붙은 변형 4개. 벽 변형은 핫바에 안 보이고 부수면 횃불 아이템 하나 (결정 #82)

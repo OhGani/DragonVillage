@@ -123,7 +123,7 @@ export class TouchControls implements InputSource {
     let handled = false;
     for (const t of Array.from(e.changedTouches)) {
       // 핫바·버튼·오버레이 위에서 시작한 터치는 조작이 아니다 (preventDefault 하면 버튼 click 이 안 나온다)
-      if ((t.target as Element | null)?.closest?.('.hotbar, .tbtn, .sbtn, .topbar, .overlay, .help-panel, .action-card, .result-panel, .bag-panel, .chat-panel, .side-btns, .time-chip, .today-panel, .approval-card, .nest-panel')) continue;
+      if ((t.target as Element | null)?.closest?.('.hotbar, .tbtn, .sbtn, .topbar, .overlay, .help-panel, .action-card, .result-panel, .bag-panel, .chat-panel, .side-btns, .time-chip, .today-panel, .approval-card, .nest-panel, .chest-panel')) continue;
       handled = true;
       if (this.stick === null && this.onStickArea(t.clientX, t.clientY)) {
         const { cx, cy } = this.stickCenter();

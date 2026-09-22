@@ -36,6 +36,7 @@ import {
   craft,
   dropOf,
   emptyInventory,
+  DOOR_DIR,
   doorHinge,
   facingFromYaw,
   give,
@@ -68,7 +69,12 @@ import {
   toolOf,
   type DragonInfo,
   type NestDragonInfo,
+  type BlockDef,
   type GiftDef,
+  chestPrimary,
+  emptyChest,
+  moveBetween,
+  resizeChest,
   type GiftNotice,
   type NestSlotInfo,
   RIDE_RANGE,
@@ -299,6 +305,154 @@ export class VillageRoom {
       fed: r.fed,
       growAt: r.stage === 'baby' && r.hatchedAt !== null ? growAtOf(DRAGONS.rules, r.hatchedAt, r.fed) : null,
     }));
+  }
+
+  // ---------------------------------------------------------------- 상자 (#84)
+
+  /** 원정지 상자 속 (섬과 함께 사라진다). 마을 상자는 저장소에 남는다 */
+  private readonly expeditionChests = new Map<string, Inventory>();
+
+  /** 이 자리 상자의 짝 칸 (큰 상자면), 아니면 null */
+  private chestPartner(world: VoxelWorld, x: number, y: number, z: number): { x: number; y: number; z: number } | null {
+    const def = this.registry.get(world.getBlock(x, y, z));
+    if (!def.chest || def.chest.pair < 0) return null;
+    const [dx, dz] = DOOR_DIR[def.chest.pair]!;
+    const nx = x + dx,
+      nz = z + dz;
+    if (!world.inBounds(nx, y, nz)) return null;
+    const other = this.registry.get(world.getBlock(nx, y, nz));
+    return other.chest && other.chest.pair >= 0 ? { x: nx, y, z: nz } : null;
+  }
+
+  /** 상자 대표 칸(큰 상자는 x·z 가 작은 쪽)과 칸 수 */
+  private chestHome(world: VoxelWorld, x: number, y: number, z: number): { home: { x: number; y: number; z: number }; paired: boolean } {
+    const partner = this.chestPartner(world, x, y, z);
+    return partner ? { home: chestPrimary({ x, y, z }, partner), paired: true } : { home: { x, y, z }, paired: false };
+  }
+
+  private chestKey(h: { x: number; y: number; z: number }): string {
+    return `${h.x},${h.y},${h.z}`;
+  }
+
+  /** 상자 속 읽기 (없으면 빈 상자). 원정 보물은 처음 열 때 채운다 */
+  private readChest(p: RoomPlayer, home: { x: number; y: number; z: number }, paired: boolean, now = Date.now()): Inventory {
+    if (p.world === 'expedition') {
+      let c = this.expeditionChests.get(this.chestKey(home));
+      if (!c) {
+        c = emptyChest(paired);
+        // 보물 상자는 처음 열 때 안에 물건이 들어 있다 (#84 — 전에는 부숴야 나왔다)
+        if (this.expedition?.isTreasure(home.x, home.y, home.z)) {
+          for (const [item, n] of Object.entries(this.expeditions.rules.treasureChestGives)) give(c, item, n);
+          this.addXp(p, XP.ours.treasureChestOpen, XP_SOURCE.treasure, home.x + 0.5, home.y + 0.5, home.z + 0.5, now);
+        }
+        this.expeditionChests.set(this.chestKey(home), c);
+      }
+      return resizeChest(c, paired).chest;
+    }
+    const saved = this.storage?.getChest(this.info.code, home.x, home.y, home.z) ?? null;
+    return resizeChest(saved ?? emptyChest(paired), paired).chest;
+  }
+
+  private writeChest(p: RoomPlayer, home: { x: number; y: number; z: number }, chest: Inventory, now = Date.now()): void {
+    if (p.world === 'expedition') this.expeditionChests.set(this.chestKey(home), chest);
+    else this.storage?.saveChest(this.info.code, home.x, home.y, home.z, chest, now);
+  }
+
+  /** 상자 열기: 그 자리에 상자가 있고 닿는 거리면 속을 보낸다 */
+  openChest(idx: number, x: number, y: number, z: number, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    const world = this.worldOf(p);
+    if (!world.inBounds(x, y, z) || !this.registry.isChest(world.getBlock(x, y, z))) return 'NO_CHEST';
+    if (Math.hypot(p.pos.x - (x + 0.5), p.pos.y + EYE - (y + 0.5), p.pos.z - (z + 0.5)) > REACH) return 'TOO_FAR';
+    const { home, paired } = this.chestHome(world, x, y, z);
+    const chest = this.readChest(p, home, paired, now);
+    this.writeChest(p, home, chest, now); // 처음 연 보물은 여기서 저장된다
+    this.sendJson(p, { t: 'chest', x: home.x, y: home.y, z: home.z, slots: chest });
+    return null;
+  }
+
+  /** 상자 ↔ 가방 옮기기 */
+  chestMove(idx: number, x: number, y: number, z: number, from: number, to: number, count: number, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    const world = this.worldOf(p);
+    if (!world.inBounds(x, y, z) || !this.registry.isChest(world.getBlock(x, y, z))) return 'NO_CHEST';
+    if (Math.hypot(p.pos.x - (x + 0.5), p.pos.y + EYE - (y + 0.5), p.pos.z - (z + 0.5)) > REACH) return 'TOO_FAR';
+    const { home, paired } = this.chestHome(world, x, y, z);
+    const chest = this.readChest(p, home, paired, now);
+    const res = moveBetween(chest, p.inv, from, to, count);
+    if (res) {
+      this.writeChest(p, home, res.chest, now);
+      p.inv.splice(0, p.inv.length, ...res.bag);
+      this.storage?.saveInventory(p.token, this.info.code, p.inv, now);
+      this.sendInv(p, new Set(p.inv.map((_, i) => i)));
+    }
+    const out = res ? res.chest : chest;
+    this.sendJson(p, { t: 'chest', x: home.x, y: home.y, z: home.z, slots: out });
+    return null;
+  }
+
+  /**
+   * 상자를 부술 때: 안에 있던 것을 부순 사람 가방으로, 짝은 혼자 상자로 되돌린다.
+   * 블록은 이미 지워진 뒤라 부서진 블록 정의(prev)로 짝을 찾는다
+   */
+  private breakChest(p: RoomPlayer, x: number, y: number, z: number, prev: BlockDef, changed: Set<number>, now: number): void {
+    const world = this.worldOf(p);
+    let partner: { x: number; y: number; z: number } | null = null;
+    if (prev.chest && prev.chest.pair >= 0) {
+      const [dx, dz] = DOOR_DIR[prev.chest.pair]!;
+      const nx = x + dx,
+        nz = z + dz;
+      if (world.inBounds(nx, y, nz)) {
+        const other = this.registry.get(world.getBlock(nx, y, nz)).chest;
+        if (other && other.pair >= 0) partner = { x: nx, y, z: nz };
+      }
+    }
+    const paired = partner !== null;
+    const home = partner ? chestPrimary({ x, y, z }, partner) : { x, y, z };
+    const chest = this.readChest(p, home, paired, now);
+    for (const s of chest) if (s) this.giveTo(p, s.item, s.count, changed);
+    if (p.world === 'expedition') this.expeditionChests.delete(this.chestKey(home));
+    else this.storage?.deleteChest(this.info.code, home.x, home.y, home.z);
+    if (partner) {
+      // 남은 반쪽은 다시 혼자 상자 (27칸, 비어 있다)
+      const lone = this.registry.get(world.getBlock(partner.x, partner.y, partner.z)).chest?.base ?? AIR_ID;
+      if (world.setBlock(partner.x, partner.y, partner.z, lone).changed) {
+        this.markDirtyBlock(partner.x, partner.y, partner.z);
+        this.broadcast(encodeBlockChanged({ x: partner.x, y: partner.y, z: partner.z, id: this.registry.get(lone).id, by: -1 }), -1, p.world);
+      }
+    }
+  }
+
+  /**
+   * 상자를 놓을 때 옆에 혼자 있는 상자가 있으면 큰 상자로 합친다 (#84).
+   * 두 상자 위 칸이 둘 다 뚫려 있어야 하고, 이미 합쳐진 상자에는 못 붙인다. 합쳤으면 true
+   */
+  private tryPairChest(p: RoomPlayer, x: number, y: number, z: number): boolean {
+    const world = this.worldOf(p);
+    const openAbove = (bx: number, by: number, bz: number) => !world.inBounds(bx, by + 1, bz) || !this.registry.isOpaque(world.getBlock(bx, by + 1, bz));
+    if (!openAbove(x, y, z)) return false;
+    for (let dir = 0; dir < 4; dir++) {
+      const [dx, dz] = DOOR_DIR[dir]!;
+      const nx = x + dx,
+        nz = z + dz;
+      if (!world.inBounds(nx, y, nz)) continue;
+      const other = this.registry.get(world.getBlock(nx, y, nz));
+      if (!other.chest || other.chest.pair >= 0) continue; // 상자가 아니거나 이미 큰 상자
+      if (!openAbove(nx, y, nz)) continue;
+      const back = (dir + 2) % 4;
+      const mine = this.registry.chestVariant(other.chest.base, dir);
+      const theirs = this.registry.chestVariant(other.chest.base, back);
+      if (world.setBlock(x, y, z, mine).changed) this.markDirtyBlock(x, y, z);
+      if (world.setBlock(nx, y, nz, theirs).changed) {
+        this.markDirtyBlock(nx, y, nz);
+        this.broadcast(encodeBlockChanged({ x: nx, y, z: nz, id: this.registry.get(theirs).id, by: -1 }), -1, p.world);
+      }
+      this.broadcast(encodeBlockChanged({ x, y, z, id: this.registry.get(mine).id, by: -1 }), -1, p.world);
+      return true;
+    }
+    return false;
   }
 
   /** 지금 누가 타고 있는 드래곤 id 들 — 둥지에서 빠진다 */
@@ -766,11 +920,8 @@ export class VillageRoom {
       // 경험치 (M6-1): 광석은 xp.json 값(자리·시드 결정론), 원정 보물 상자는 열기 = 부수기
       const mined = miningXp(XP, prev.id, req.x, req.y, req.z, seed);
       if (mined > 0) this.addXp(p, mined, XP_SOURCE.mining, req.x + 0.5, req.y + 0.5, req.z + 0.5);
-      if (prev.id === 'chest' && p.world === 'expedition' && this.expedition?.isTreasure(req.x, req.y, req.z)) {
-        this.addXp(p, XP.ours.treasureChestOpen, XP_SOURCE.treasure, req.x + 0.5, req.y + 0.5, req.z + 0.5);
-        // 상자 속 물건 (M6-4 임시: 가죽 — expeditions.json treasureChestGives)
-        for (const [item, n] of Object.entries(this.expeditions.rules.treasureChestGives)) this.giveTo(p, item, n, changed);
-      }
+      // 상자를 부수면 안에 있던 것이 내 가방으로 (#84). 아직 안 연 원정 보물은 여기서 채워져 그대로 들어온다
+      if (prev.chest) this.breakChest(p, req.x, req.y, req.z, prev, changed, now);
     } else {
       const item = itemForPlacing(req.id, this.registry);
       if (item) {
@@ -780,6 +931,8 @@ export class VillageRoom {
     }
     this.sendInv(p, changed);
     this.broadcast(encodeBlockChanged({ x: req.x, y: req.y, z: req.z, id: req.id, by: idx }), -1, p.world);
+    // 상자를 놓았으면 옆에 혼자 있는 상자와 큰 상자로 합쳐 본다 (#84)
+    if (num !== AIR_ID && this.registry.get(num).chest?.pair === -1) this.tryPairChest(p, req.x, req.y, req.z);
   }
 
   // ---------------------------------------------------------------- 가방·제작·양조·채팅 (M4)

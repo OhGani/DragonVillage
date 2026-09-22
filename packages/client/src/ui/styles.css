@@ -1507,3 +1507,35 @@ body {
 .sbtn.ride-btn[hidden] {
   display: none;
 }
+
+/* ---- 상자 창 (#84) ---- */
+.chest-card {
+  max-width: min(96vw, 560px);
+}
+.chest-title {
+  font-size: 17px;
+  font-weight: 700;
+  flex: 1;
+}
+.chest-half.on {
+  background: rgba(255, 255, 255, 0.28);
+}
+.chest-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  overflow-y: auto;
+  max-height: 72vh;
+}
+.chest-grid,
+.chest-bag {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 3px;
+}
+.chest-label {
+  font-size: 13px;
+  opacity: 0.8;
+  margin-top: 2px;
+}

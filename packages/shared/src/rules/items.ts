@@ -113,6 +113,7 @@ export function itemForPlacing(blockId: string, registry: BlockRegistry): string
   if (d.fluid) return d.fluidVolume === FLUID_FULL ? (d.fluid === 'water' ? WATER_BUCKET : LAVA_BUCKET) : null;
   if (d.door) return d.door.upper || d.door.open ? null : registry.get(d.door.base).id; // 문은 아래·닫힘 변형을 놓을 때 문 아이템 하나
   if (d.torch) return registry.get(d.torch.base).id; // 벽에 붙인 횃불도 횃불 아이템 하나 (#82)
+  if (d.chest) return registry.get(d.chest.base).id; // 큰 상자 반쪽도 상자 아이템 하나 (#84)
   return d.internal ? null : d.id;
 }
 

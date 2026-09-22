@@ -43,6 +43,7 @@ const NEST_ERROR_KO: Record<string, string> = {
   TOO_FAR: '드래곤 가까이 가서 타요',
   ALREADY_RIDING: '이미 타고 있어요',
   NOT_RIDING: '타고 있지 않아요',
+  NO_CHEST: '거기엔 상자가 없어요',
   NO_STORAGE: '이 서버는 드래곤을 저장할 수 없어요',
 };
 /** 할 일 체크 거절 이유 (M5-3) */
@@ -317,6 +318,20 @@ export class Session {
         }
         if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 부화할 수 없어요');
         this.log(`세션 ${this.remote}: '${this.nick}' 부화`);
+        return;
+      }
+      case 'openChest': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.x) || !Number.isInteger(msg.y) || !Number.isInteger(msg.z)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.openChest(this.idx, msg.x, msg.y, msg.z);
+        if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 열 수 없어요');
+        return;
+      }
+      case 'chestMove': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.x) || !Number.isInteger(msg.y) || !Number.isInteger(msg.z) || !Number.isInteger(msg.from) || !Number.isInteger(msg.to) || !Number.isInteger(msg.count)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.chestMove(this.idx, msg.x, msg.y, msg.z, msg.from, msg.to, msg.count);
+        if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 옮길 수 없어요');
         return;
       }
       case 'ride': {

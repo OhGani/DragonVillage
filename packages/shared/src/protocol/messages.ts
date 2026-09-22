@@ -425,6 +425,10 @@ export type ClientJson =
   | { t: 'hatch'; id: number }
   /** 먹이 주기 (M6-3): 내 아기 드래곤에게 만들 때 쓴 재료 1개 */
   | { t: 'feed'; id: number; item: string }
+  /** 상자 열기 (M6, #84): 그 자리의 상자 속을 보여 달라 */
+  | { t: 'openChest'; x: number; y: number; z: number }
+  /** 상자 ↔ 가방 옮기기 (#84): from·to 는 0~상자칸−1 상자, 그다음 가방 */
+  | { t: 'chestMove'; x: number; y: number; z: number; from: number; to: number; count: number }
   /** 타기 (M6-4): 내 어른 드래곤, 안장 필요, 드래곤 가까이에서 */
   | { t: 'ride'; id: number }
   /** 내리기 (M6-4) */
@@ -476,6 +480,8 @@ export type ServerJson =
   | { t: 'dragons'; list: DragonInfo[] }
   /** 둥지 자리가 바뀌었다 (마을 사람 모두) */
   | { t: 'nest'; slots: NestSlotInfo[]; dragons: NestDragonInfo[] }
+  /** 상자 속 (#84). x·y·z 는 큰 상자면 대표 칸. slots 27칸 또는 54칸 */
+  | { t: 'chest'; x: number; y: number; z: number; slots: ({ item: string; count: number } | null)[] }
   /** 누가 드래곤을 탔다/내렸다 (같은 세계 모두, 본인 포함) (M6-4) */
   | { t: 'mount'; idx: number; riding: RidingInfo }
   | { t: 'dismount'; idx: number }

@@ -588,3 +588,109 @@ describe('아빠 선물 (#79)', () => {
     expect(room2.join('a'.repeat(32), '아빠', 0, () => {})!.gifts).toEqual([]);
   });
 });
+
+describe('상자 (#84)', () => {
+  const json = (box: ReturnType<typeof inbox>) => box.json.filter((m) => m.t === 'chest').at(-1) as { x: number; y: number; z: number; slots: (null | { item: string; count: number })[] } | undefined;
+
+  it('탭하면 열리고, 넣은 것은 서버가 기억하고, 부수면 내 가방으로 돌아온다', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.giveItems(ra.idx, 'chest', 2);
+    room.giveItems(ra.idx, 'coal', 10);
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 1, x: 66, y: GROUND_Y + 1, z: 64, id: 'chest' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 64)).id).toBe('chest');
+
+    a.clear();
+    expect(room.openChest(ra.idx, 66, GROUND_Y + 1, 64, 1000)).toBeNull();
+    const opened = json(a)!;
+    expect(opened).toMatchObject({ x: 66, y: GROUND_Y + 1, z: 64 });
+    expect(opened.slots).toHaveLength(27); // 혼자 있는 상자는 27칸
+
+    // 가방의 석탄(칸 번호 27 + 가방칸)을 상자 0번 칸으로
+    const coalSlot = room.players.get(ra.idx)!.inv.findIndex((s) => s?.item === 'coal');
+    a.clear();
+    expect(room.chestMove(ra.idx, 66, GROUND_Y + 1, 64, 27 + coalSlot, 0, 10, 1000)).toBeNull();
+    expect(json(a)!.slots[0]).toEqual({ item: 'coal', count: 10 });
+    expect(countOf(room.players.get(ra.idx)!.inv, 'coal')).toBe(0);
+
+    // 서버를 껐다 켜도 그대로 (바뀐 칸을 저장한 뒤 새 룸으로)
+    room.flush(1500);
+    const room2 = makeRoom(storage);
+    const b = inbox();
+    const rb = room2.join('a'.repeat(32), '아빠', 0, b.send)!;
+    room2.onMove(rb.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room2.openChest(rb.idx, 66, GROUND_Y + 1, 64, 2000)).toBeNull();
+    expect(json(b)!.slots[0]).toEqual({ item: 'coal', count: 10 });
+
+    // 부수면 안에 있던 것이 내 가방으로 (상자 아이템도 같이)
+    room2.onBlockChange(rb.idx, { seq: 2, x: 66, y: GROUND_Y + 1, z: 64, id: 'air' }, 2000);
+    expect(countOf(room2.players.get(rb.idx)!.inv, 'coal')).toBe(10);
+    expect(countOf(room2.players.get(rb.idx)!.inv, 'chest')).toBe(2);
+    expect(room2.openChest(rb.idx, 66, GROUND_Y + 1, 64, 2000)).toBe('NO_CHEST');
+  });
+
+  it('상자 옆에 상자를 놓으면 큰 상자 54칸, 위가 막혀 있거나 이미 큰 상자면 안 합쳐진다', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.giveItems(ra.idx, 'chest', 8);
+    room.giveItems(ra.idx, 'stone', 8);
+    const y = GROUND_Y + 1;
+    room.onMove(ra.idx, { x: 64.5, y, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    // 1) 두 개를 나란히 → 큰 상자
+    room.onBlockChange(ra.idx, { seq: 1, x: 66, y, z: 64, id: 'chest' }, 1000);
+    room.onBlockChange(ra.idx, { seq: 2, x: 67, y, z: 64, id: 'chest' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(66, y, 64)).id).toBe('chest@e'); // 동(+x)쪽 짝
+    expect(BLOCKS.get(room.world.getBlock(67, y, 64)).id).toBe('chest@w');
+    a.clear();
+    expect(room.openChest(ra.idx, 67, y, 64, 1000)).toBeNull();
+    const big = json(a)!;
+    expect(big.slots).toHaveLength(54);
+    expect(big).toMatchObject({ x: 66, z: 64 }); // 대표 칸은 x 가 작은 쪽
+
+    // 2) 세 번째는 안 합쳐진다 (최대 2개)
+    room.onBlockChange(ra.idx, { seq: 3, x: 68, y, z: 64, id: 'chest' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(68, y, 64)).id).toBe('chest');
+    expect(BLOCKS.get(room.world.getBlock(67, y, 64)).id).toBe('chest@w'); // 그대로
+
+    // 3) 위가 막힌 상자와는 안 합쳐진다
+    room.onMove(ra.idx, { x: 70.5, y, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 4, x: 71, y, z: 64, id: 'chest' }, 1000);
+    room.onBlockChange(ra.idx, { seq: 5, x: 71, y: y + 1, z: 64, id: 'stone' }, 1000);
+    room.onBlockChange(ra.idx, { seq: 6, x: 72, y, z: 64, id: 'chest' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(71, y, 64)).id).toBe('chest');
+    expect(BLOCKS.get(room.world.getBlock(72, y, 64)).id).toBe('chest');
+
+    // 4) 큰 상자 한쪽을 부수면 남은 쪽은 다시 혼자 상자
+    room.onMove(ra.idx, { x: 66.5, y, z: 65.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 7, x: 66, y, z: 64, id: 'air' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(67, y, 64)).id).toBe('chest');
+    a.clear();
+    expect(room.openChest(ra.idx, 67, y, 64, 1000)).toBeNull();
+    expect(json(a)!.slots).toHaveLength(27);
+  });
+
+  it('원정 보물 상자는 열면 안에 물건이 들어 있다 (부수지 않아도)', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    expect(room.startExpedition(ra.idx, 'grass_island', 1000)).toBeNull();
+    const t = room.expedition!.treasures[0]!;
+    room.onMove(ra.idx, { x: t.x + 0.5, y: t.y, z: t.z + 1.5, yaw: 0, pitch: 0, flags: 0 });
+    a.clear();
+    expect(room.openChest(ra.idx, t.x, t.y, t.z, 2000)).toBeNull();
+    const slots = json(a)!.slots.filter(Boolean);
+    expect(slots).toEqual([{ item: 'leather', count: 2 }]);
+    expect(a.bin.find((m) => m.type === MSG.XpGained)).toMatchObject({ msg: { amount: 5, source: 2 } });
+    // 두 번 열어도 또 생기지는 않는다
+    a.clear();
+    expect(room.openChest(ra.idx, t.x, t.y, t.z, 2000)).toBeNull();
+    expect(json(a)!.slots.filter(Boolean)).toHaveLength(1);
+    expect(a.bin.find((m) => m.type === MSG.XpGained)).toBeUndefined();
+  });
+});

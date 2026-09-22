@@ -31,6 +31,8 @@ export interface InteractionEvents {
   onBroken?(x: number, y: number, z: number, prev: number): void;
   /** 못 캐는 이유 등 짧은 안내 (토스트) */
   onHint?(text: string): void;
+  /** 상자를 탭했다 (#84) — 놓기 대신 연다 */
+  onOpenChest?(x: number, y: number, z: number): void;
 }
 
 /** 조준·부수기·놓기. 서버가 생기면(M2) setBlock 이 요청으로 바뀌고 나머지는 그대로. */
@@ -196,6 +198,12 @@ export class Interaction {
     const tdef = this.registry.get(t.id);
     if (tdef.door) {
       this.toggleDoor(t, tdef);
+      return;
+    }
+    // 상자를 탭하면 놓는 대신 연다 (빈손도 됨, #84)
+    if (tdef.chest) {
+      this.events.onOpenChest?.(t.x, t.y, t.z);
+      this.events.onSwing();
       return;
     }
     if (this.selectedBlock <= 0) return;
