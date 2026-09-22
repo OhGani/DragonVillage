@@ -252,6 +252,7 @@ export class Storage {
       growDragon: this.db.prepare("UPDATE dragons SET stage = 'adult' WHERE id = ?"),
       addXpOffline: this.db.prepare('UPDATE players SET xp_total = xp_total + ? WHERE token = ?'),
       getChest: this.db.prepare('SELECT json FROM chests WHERE village = ? AND x = ? AND y = ? AND z = ?'),
+      listChests: this.db.prepare('SELECT x, y, z FROM chests WHERE village = ?'),
       saveChest: this.db.prepare('INSERT INTO chests(village, x, y, z, json, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(village, x, y, z) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at'),
       deleteChest: this.db.prepare('DELETE FROM chests WHERE village = ? AND x = ? AND y = ? AND z = ?'),
       giftsOf: this.db.prepare('SELECT gift FROM gifts_given WHERE token = ?'),
@@ -498,6 +499,10 @@ export class Storage {
     } catch {
       return null;
     }
+  }
+  /** 이 마을에 기록이 있는 상자 자리들 */
+  listChestCells(village: string): { x: number; y: number; z: number }[] {
+    return this.stmts.listChests.all(village) as { x: number; y: number; z: number }[];
   }
   saveChest(village: string, x: number, y: number, z: number, chest: Inventory, now = Date.now()): void {
     this.stmts.saveChest.run(village, x, y, z, JSON.stringify(chest), now);

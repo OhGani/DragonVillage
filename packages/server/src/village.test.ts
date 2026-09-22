@@ -694,3 +694,44 @@ describe('상자 (#84)', () => {
     expect(a.bin.find((m) => m.type === MSG.XpGained)).toBeUndefined();
   });
 });
+
+describe('상자에 넣어 둔 것이 합칠 때 안 사라진다 (아빠 2026-09-22, #84)', () => {
+  const lastChest = (box: ReturnType<typeof inbox>) => box.json.filter((m) => m.t === 'chest').at(-1) as { x: number; z: number; slots: (null | { item: string; count: number })[] } | undefined;
+
+  /** dx = 새 상자를 먼저 놓은 상자의 어느 쪽에 놓는가 (−1 서쪽 = 새 상자가 대표 칸이 된다) */
+  const run = (dx: number) => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.giveItems(ra.idx, 'chest', 4);
+    room.giveItems(ra.idx, 'coal', 7);
+    const y = GROUND_Y + 1;
+    const x0 = 70;
+    room.onMove(ra.idx, { x: x0 + 0.5, y, z: 65.5, yaw: 0, pitch: 0, flags: 0 });
+    // 1) 상자 하나 놓고 석탄을 넣는다
+    room.onBlockChange(ra.idx, { seq: 1, x: x0, y, z: 64, id: 'chest' }, 1000);
+    expect(room.openChest(ra.idx, x0, y, 64, 1000)).toBeNull();
+    const coalSlot = room.players.get(ra.idx)!.inv.findIndex((s) => s?.item === 'coal');
+    expect(room.chestMove(ra.idx, x0, y, 64, 27 + coalSlot, 3, 7, 1000)).toBeNull();
+    expect(countOf(room.players.get(ra.idx)!.inv, 'coal')).toBe(0);
+    // 2) 옆에 상자를 붙여 큰 상자로
+    room.onMove(ra.idx, { x: x0 + dx + 0.5, y, z: 65.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 2, x: x0 + dx, y, z: 64, id: 'chest' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(x0, y, 64)).chest!.pair).toBeGreaterThanOrEqual(0);
+    // 3) 큰 상자를 열면 석탄이 그대로 있어야 한다
+    a.clear();
+    expect(room.openChest(ra.idx, x0 + dx, y, 64, 1000)).toBeNull();
+    const slots = lastChest(a)!.slots;
+    expect(slots).toHaveLength(54);
+    return slots.filter(Boolean);
+  };
+
+  it('새 상자를 동쪽에 붙여도 (먼저 놓은 상자가 대표 칸)', () => {
+    expect(run(1)).toEqual([{ item: 'coal', count: 7 }]);
+  });
+
+  it('새 상자를 서쪽에 붙여도 (새 상자가 대표 칸) — 이게 사라지던 경우', () => {
+    expect(run(-1)).toEqual([{ item: 'coal', count: 7 }]);
+  });
+});

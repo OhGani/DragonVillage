@@ -70,6 +70,7 @@ import {
   type DragonInfo,
   type NestDragonInfo,
   type BlockDef,
+  CHEST_SLOTS,
   type GiftDef,
   chestPrimary,
   emptyChest,
@@ -234,6 +235,7 @@ export class VillageRoom {
     const pristine = this.snapshotOldNestSites(); // 저장을 덮기 전, 생성 지형 그대로
     this.load();
     this.ensureNest(pristine);
+    this.repairChests();
   }
 
   /** 옛 둥지 자리들의 생성 지형 (되돌릴 때 쓴다) */
@@ -353,6 +355,54 @@ export class VillageRoom {
     return resizeChest(saved ?? emptyChest(paired), paired).chest;
   }
 
+  /**
+   * 켤 때 한 번: 큰 상자의 "대표가 아닌" 칸에 남아 있는 기록을 대표 칸으로 옮긴다 (아빠 2026-09-22).
+   * 전에는 물건이 든 상자 옆에 새 상자를 붙이면, 새 상자가 대표 칸일 때 먼저 넣어 둔 것이 안 보였다.
+   */
+  private repairChests(): void {
+    if (!this.storage) return;
+    let moved = 0;
+    for (const cell of this.storage.listChestCells(this.info.code)) {
+      const def = this.registry.get(this.world.getBlock(cell.x, cell.y, cell.z));
+      if (!def.chest || def.chest.pair < 0) continue;
+      const [dx, dz] = DOOR_DIR[def.chest.pair]!;
+      const partner = { x: cell.x + dx, y: cell.y, z: cell.z + dz };
+      if (!this.world.inBounds(partner.x, partner.y, partner.z)) continue;
+      const other = this.registry.get(this.world.getBlock(partner.x, partner.y, partner.z)).chest;
+      if (!other || other.pair < 0) continue;
+      const home = chestPrimary(cell, partner);
+      if (home.x === cell.x && home.z === cell.z) continue; // 이미 대표 칸
+      const mine = this.storage.getChest(this.info.code, cell.x, cell.y, cell.z);
+      if (!mine || mine.every((s) => s === null)) {
+        this.storage.deleteChest(this.info.code, cell.x, cell.y, cell.z);
+        continue;
+      }
+      const merged: Inventory = this.storage.getChest(this.info.code, home.x, home.y, home.z) ?? emptyChest(true);
+      const full: Inventory = resizeChest(merged, true).chest;
+      for (const s of mine) {
+        if (!s) continue;
+        const free = full.findIndex((t: Inventory[number]) => t === null);
+        if (free < 0) break;
+        full[free] = s;
+        moved++;
+      }
+      this.storage.saveChest(this.info.code, home.x, home.y, home.z, full);
+      this.storage.deleteChest(this.info.code, cell.x, cell.y, cell.z);
+    }
+    if (moved > 0) this.log(`마을 ${this.info.code}: 큰 상자로 합칠 때 안 보이던 물건 ${moved}칸을 되살렸어요`);
+  }
+
+  /** 저장된 상자 속 (없으면 null). 새로 만들지 않는다 */
+  private storedChest(p: RoomPlayer, c: { x: number; y: number; z: number }): Inventory | null {
+    if (p.world === 'expedition') return this.expeditionChests.get(this.chestKey(c)) ?? null;
+    return this.storage?.getChest(this.info.code, c.x, c.y, c.z) ?? null;
+  }
+
+  private deleteStoredChest(p: RoomPlayer, c: { x: number; y: number; z: number }): void {
+    if (p.world === 'expedition') this.expeditionChests.delete(this.chestKey(c));
+    else this.storage?.deleteChest(this.info.code, c.x, c.y, c.z);
+  }
+
   private writeChest(p: RoomPlayer, home: { x: number; y: number; z: number }, chest: Inventory, now = Date.now()): void {
     if (p.world === 'expedition') this.expeditionChests.set(this.chestKey(home), chest);
     else this.storage?.saveChest(this.info.code, home.x, home.y, home.z, chest, now);
@@ -444,6 +494,23 @@ export class VillageRoom {
       const back = (dir + 2) % 4;
       const mine = this.registry.chestVariant(other.chest.base, dir);
       const theirs = this.registry.chestVariant(other.chest.base, back);
+      // 둘 중 하나에 이미 물건이 있으면 큰 상자(54칸) 하나로 모아 대표 칸에 옮긴다.
+      // 안 그러면 대표 칸이 새 상자 쪽일 때 먼저 넣어 둔 것이 묻힌다 (아빠 2026-09-22)
+      const home = chestPrimary({ x, y, z }, { x: nx, y, z: nz });
+      const away = home.x === x && home.z === z ? { x: nx, y, z: nz } : { x, y, z };
+      const front = this.storedChest(p, home);
+      const rear = this.storedChest(p, away);
+      if (front || rear) {
+        const merged = emptyChest(true);
+        (front ?? []).slice(0, CHEST_SLOTS).forEach((s, i) => {
+          if (s) merged[i] = s;
+        });
+        (rear ?? []).slice(0, CHEST_SLOTS).forEach((s, i) => {
+          if (s) merged[CHEST_SLOTS + i] = s;
+        });
+        this.deleteStoredChest(p, away);
+        this.writeChest(p, home, merged);
+      }
       if (world.setBlock(x, y, z, mine).changed) this.markDirtyBlock(x, y, z);
       if (world.setBlock(nx, y, nz, theirs).changed) {
         this.markDirtyBlock(nx, y, nz);
