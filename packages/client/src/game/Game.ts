@@ -1056,7 +1056,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
           };
           if (d.stage !== 'adult') hud.showAction(`${name} (아기)`, '어른이 되면 탈 수 있어요 — 둥지 창에서 먹이를 주면 빨리 자라요', '알겠어요', dismiss);
           else if (!hasSaddle()) hud.showAction(`${name} 타기`, '안장이 있어야 해요 — 제작대: 가죽 5 + 철 2 (가죽은 원정 보물 상자)', '알겠어요', dismiss);
-          else hud.showAction(`🐉 ${name} 타기`, isTouch ? '▲ 위로 · ▼ 아래로 · 🐉 버튼으로 내려요' : 'Space 위로 · Shift 아래로 · 🐉 버튼으로 내려요', '타기' + KEY_HINT, () => net.sendRide(d.id));
+          else hud.showAction(`🐉 ${name} 타기`, isTouch ? '앞으로 밀면 보는 쪽으로 날아요 · ▲ 위로 · ▼ 아래로 · 🐉 버튼으로 내려요' : 'W 로 보는 쪽으로 날아요 · Space 위로 · Shift 아래로 · 🐉 버튼으로 내려요', '타기' + KEY_HINT, () => net.sendRide(d.id));
           return;
         }
       }

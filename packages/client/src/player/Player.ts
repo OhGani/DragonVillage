@@ -24,6 +24,9 @@ const JUMP_V = 9.0; // ≈ 1.27 블록
 /** 드래곤 탑승 (M6-4): 나는 속도·오르내리는 속도 (블록/초) */
 const RIDE_SPEED = 9;
 const RIDE_CLIMB = 6;
+/** 날 때 시선 위아래를 따라가는 정도: 이 각도(라디안)까지는 수평, 그 뒤로 서서히 (#97) */
+const RIDE_PITCH_DEAD = 0.15;
+const RIDE_PITCH_FULL = 0.75;
 const STEP = 1 / 60;
 /** 앞으로 걸을 때 자동으로 올라가는 턱 높이 (블록). 웅크리기에선 끔 */
 const AUTO_STEP = 1.0;
@@ -129,13 +132,20 @@ export class Player {
     const speed = this.riding ? RIDE_SPEED : this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK;
     const accel = this.riding ? 8 : this.inWater ? 6 : this.onGround ? 18 : 3.5;
     const k = Math.min(1, accel * h);
-    vel.x += (wx * speed - vel.x) * k;
-    vel.z += (wz * speed - vel.z) * k;
+    // 날 때 앞·뒤로 밀면 보는 쪽(위아래)으로 난다 (#97). 살짝 내려보는 건 수평으로 치고, 많이 기울일수록 가파르게
+    let pitchT = 0;
+    if (this.riding && input.moveZ !== 0) {
+      pitchT = Math.max(0, Math.min(1, (Math.abs(this.pitch) - RIDE_PITCH_DEAD) / (RIDE_PITCH_FULL - RIDE_PITCH_DEAD))) * Math.sign(this.pitch);
+    }
+    const flat = 1 - Math.abs(pitchT) * 0.6; // 가파르게 오르내릴 땐 앞으로는 조금 덜
+    vel.x += (wx * speed * flat - vel.x) * k;
+    vel.z += (wz * speed * flat - vel.z) * k;
 
     // 수직
     if (this.riding) {
-      // 날기: ▲ 위로, ▼ 아래로, 아니면 멈춤 (중력 없음)
-      const target = input.jump ? RIDE_CLIMB : input.sneak ? -RIDE_CLIMB : 0;
+      // 날기: 시선 위아래 × 앞으로 밀기 + ▲ 위로 / ▼ 아래로. 아무것도 없으면 멈춤 (중력 없음)
+      const look = pitchT * Math.sign(input.moveZ) * RIDE_SPEED * 0.8;
+      const target = look + (input.jump ? RIDE_CLIMB : input.sneak ? -RIDE_CLIMB : 0);
       vel.y += (target - vel.y) * Math.min(1, 8 * h);
     } else if (this.inWater) {
       // 얕은 물(발 위 한 칸이 물이 아님)에서 바닥을 딛고 있으면 진짜 점프 — 밭 물길에서 뛰어나올 수 있다
