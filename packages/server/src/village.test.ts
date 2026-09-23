@@ -949,3 +949,28 @@ describe('마을 창고·건물·도감 (M6-6)', () => {
     if (room.villageState().codex >= 10) expect(room.villageState().level).toBe(before + 1);
   });
 });
+
+describe('원정 보물 상자에서 꺼낸 것도 정산에 들어간다 (아빠 2026-09-23)', () => {
+  it('상자 창으로 가죽을 꺼내면 모은 것에 잡히고, 다시 넣으면 빠진다', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 44.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.startExpedition(ra.idx, 'grass_island', 1000)).toBeNull();
+    const t = room.expedition!.treasures[0]!;
+    room.onMove(ra.idx, { x: t.x + 0.5, y: t.y, z: t.z + 1.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.openChest(ra.idx, t.x, t.y, t.z, 2000)).toBeNull();
+    expect(room.gainedOf(ra.idx)).toEqual([]); // 열기만 하면 아직 내 것이 아니다
+    // 상자 0번 칸(가죽 2) → 내 가방 첫 칸(이어 붙인 번호 27)
+    expect(room.chestMove(ra.idx, t.x, t.y, t.z, 0, 27, 2, 2000)).toBeNull();
+    expect(countOf(room.players.get(ra.idx)!.inv, 'leather')).toBe(2);
+    expect(room.gainedOf(ra.idx)).toEqual([{ id: 'leather', count: 2 }]);
+    // 하나를 다시 상자에 넣으면 모은 것도 하나 줄어든다
+    expect(room.chestMove(ra.idx, t.x, t.y, t.z, 27, 1, 1, 2000)).toBeNull();
+    expect(room.gainedOf(ra.idx)).toEqual([{ id: 'leather', count: 1 }]);
+    // 마을로 돌아오면 결과에 가죽이 보인다
+    a.clear();
+    expect(room.returnHome(ra.idx, 3000)).toBeNull();
+    expect(a.json.find((m) => m.t === 'expeditionResult')).toMatchObject({ items: [{ id: 'leather', count: 1 }] });
+  });
+});

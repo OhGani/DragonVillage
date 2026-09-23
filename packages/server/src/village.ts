@@ -642,8 +642,23 @@ export class VillageRoom {
     if (Math.hypot(p.pos.x - (x + 0.5), p.pos.y + EYE - (y + 0.5), p.pos.z - (z + 0.5)) > REACH) return 'TOO_FAR';
     const { home, paired } = this.chestHome(world, x, y, z);
     const chest = this.readChest(p, home, paired, now);
+    // 원정 중엔 상자에서 꺼낸 것도 "모은 것"에 들어간다 (정산·늦은 귀환 절반) — 보물 상자 가죽이 결과에 안 보이던 것 (아빠 2026-09-23).
+    // moveBetween 은 칸 객체를 공유하므로 옮기기 전에 세어 둔다
+    const before = new Map<string, number>();
+    if (p.world === 'expedition') for (const q of p.inv) if (q) before.set(q.item, (before.get(q.item) ?? 0) + q.count);
     const res = moveBetween(chest, p.inv, from, to, count);
     if (res) {
+      if (p.world === 'expedition') {
+        const after = new Map<string, number>();
+        for (const q of res.bag) if (q) after.set(q.item, (after.get(q.item) ?? 0) + q.count);
+        for (const item of new Set([...before.keys(), ...after.keys()])) {
+          const delta = (after.get(item) ?? 0) - (before.get(item) ?? 0);
+          if (delta === 0) continue;
+          const n = Math.max(0, (p.gained.get(item) ?? 0) + delta);
+          if (n === 0) p.gained.delete(item);
+          else p.gained.set(item, n);
+        }
+      }
       this.writeChest(p, home, res.chest, now);
       p.inv.splice(0, p.inv.length, ...res.bag);
       this.storage?.saveInventory(p.token, this.info.code, p.inv, now);
