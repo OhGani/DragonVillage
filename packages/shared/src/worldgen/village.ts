@@ -1,7 +1,11 @@
 /**
- * 마을 터 생성기 — 드래곤 빌리지 (128×128×128 = 8×8×8 청크, 결정 #59).
+ * 마을 터 생성기 — 드래곤 빌리지 (256×128×256 = 16×8×16 청크, 결정 #59 → #100 확장).
  *
  * 시드 하나로 언제나 같은 세계가 나온다 (클라·서버 동일, 스냅샷 테스트). 난수는 mulberry32/hash3 만.
+ *
+ * **확장(2026-09-24, #100)**: 원래 128×128 이던 세계를 동·남으로 256×256 까지 넓혔다. 마을 가운데는 그대로 (64,64) — 모든 배치가
+ * CENTER 기준이라 **옛 128×128 땅은 블록 하나도 안 바뀐다**(지문 테스트로 보장, VILLAGE_GEN_VERSION 은 그대로 1 → 저장·지은 것 유지).
+ * 새 땅(가운데서 100칸 너머)은 언덕이 낮아져 들판이 되고 나무가 드물다 — 나중에 주민 마을이 들어설 자리.
  *
  * 배치 (마인크래프트 방위: -Z 북, +X 동). 광장 높이 GROUND_Y = 40, 그 아래 40칸은 돌·광물·동굴, 위 88칸은 지을 자리.
  *   - 광장: 가운데(64,64) 반지름 14 평지, 조약돌 원 + 한가운데 돌(스폰). 조약돌 길이 동서남북으로 뻗는다.
@@ -20,7 +24,9 @@ import { VoxelWorld, type WorldBounds } from '../chunk/world';
 import { hash3, mulberry32 } from '../math/prng';
 import { AIR_ID, type BlockRegistry } from '../rules/blocks';
 
-export const VILLAGE_BOUNDS: WorldBounds = { sizeCX: 8, sizeCY: 8, sizeCZ: 8 };
+export const VILLAGE_BOUNDS: WorldBounds = { sizeCX: 16, sizeCY: 8, sizeCZ: 16 };
+/** 확장 전 크기 (옛 땅이 그대로인지 검사할 때) */
+export const VILLAGE_OLD_SIZE_CHUNKS = 8;
 /** 저장 키. 생성기가 바뀌어 옛 저장과 맞지 않으면 GEN_VERSION 을 올린다 (저장 폐기 + 안내) */
 export const VILLAGE_WORLD_ID = 'village';
 export const VILLAGE_GEN_VERSION = 1;
@@ -32,9 +38,14 @@ export const GROUND_Y = 40;
 /** 강·밭 물길 수면 */
 export const WATER_Y = GROUND_Y - 1;
 
-const SIZE = VILLAGE_BOUNDS.sizeCX * CHUNK_SIZE; // 128
+const SIZE = VILLAGE_BOUNDS.sizeCX * CHUNK_SIZE; // 256
 const HEIGHT = VILLAGE_BOUNDS.sizeCY * CHUNK_SIZE; // 128
-const CENTER = SIZE / 2; // 64
+/** 마을 가운데. 세계를 넓혀도 64 에 고정 — 옛 땅이 안 바뀌게 (#100) */
+const CENTER = 64;
+/** 확장 전 세계 한 변 (옛 땅 경계) */
+const OLD_SIZE = VILLAGE_OLD_SIZE_CHUNKS * CHUNK_SIZE; // 128
+/** 이 거리 너머는 새 땅: 언덕이 잦아들고 나무가 드물다 (옛 128 땅의 가장 먼 모서리가 89 라 그 안쪽은 안 건드린다) */
+const FAR_LAND_R = 100;
 const PLAZA_R = 14;
 
 export interface SpawnPoint {
@@ -145,7 +156,7 @@ export function generateVillage(registry: BlockRegistry, seed = DEFAULT_VILLAGE_
       dz = z - CENTER;
     const dist = Math.hypot(dx, dz);
     const gentle = 2.2 * gentleA(x / 41, z / 41) + 0.9 * gentleB(x / 14, z / 14);
-    const edge = smoothstep(44, 62, dist);
+    const edge = smoothstep(44, 62, dist) * (1 - 0.8 * smoothstep(FAR_LAND_R, FAR_LAND_R + 30, dist)); // 새 땅에선 언덕이 낮아진다
     const hill = edge * (7 + 2.5 * (hillN(x / 26, z / 26) + 1));
     let h = GROUND_Y + gentle + hill;
     // 광장은 완전 평지, 바깥으로 갈수록 자연 지형
@@ -379,7 +390,9 @@ export function generateVillage(registry: BlockRegistry, seed = DEFAULT_VILLAGE_
       if (Math.abs(z - riverCenter(x)) < riverHalf(x) + 5) continue;
       if (Math.hypot(x - CAVE.x, z - CAVE.z) < 5) continue;
       if (Math.abs(x - CENTER) <= 1 || Math.abs(z - CENTER) <= 1) continue; // 길
-      const p = 0.012 + 0.1 * smoothstep(40, 60, dist);
+      // 옛 세계 끝(128) 둘레 4칸 띠엔 나무를 안 심는다 (#100): 예전엔 끝 두 칸에 나무가 없었고, 새 땅 나무의 잎이 옛 땅으로 넘어오면 안 된다
+      if ((x >= OLD_SIZE - 2 && x < OLD_SIZE + 2) || (z >= OLD_SIZE - 2 && z < OLD_SIZE + 2)) continue;
+      const p = (0.012 + 0.1 * smoothstep(40, 60, dist)) * (1 - 0.85 * smoothstep(FAR_LAND_R, FAR_LAND_R + 30, dist)); // 새 땅은 드문 나무
       if (hash3(x, 1, z, seed) >= p || nearTrunk(x, z)) continue;
       trunks.add(x * SIZE + z);
       treeAt(x, z);

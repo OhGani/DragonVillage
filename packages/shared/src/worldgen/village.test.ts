@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { AIR_ID } from '../rules/blocks';
 import { BLOCKS } from '../rules/data';
 import { fingerprint } from './fingerprint';
-import { DEFAULT_VILLAGE_SEED, GROUND_Y, VILLAGE_BOUNDS, WATER_Y, generateVillage } from './village';
+import { CHUNK_VOLUME } from '../chunk/chunk';
+import { VoxelWorld } from '../chunk/world';
+import { DEFAULT_VILLAGE_SEED, GROUND_Y, VILLAGE_BOUNDS, VILLAGE_OLD_SIZE_CHUNKS, WATER_Y, generateVillage } from './village';
 
 /** 생성기를 바꾸면 갱신. (chunks 수, 지문) */
-const SNAPSHOT = '240:ccbdf4e1:743090';
+const SNAPSHOT = '1000:14e17dbc:2952161';
+/** 확장 전(128×128) 세계의 지문 — 옛 땅은 이 값과 영원히 같아야 한다 (#100). 바뀌면 지은 것이 깨진다 */
+const OLD_SNAPSHOT = '240:ccbdf4e1:743090';
 
 const gen = generateVillage(BLOCKS, DEFAULT_VILLAGE_SEED);
 const { world, spawn, layout } = gen;
@@ -28,14 +32,45 @@ describe('generateVillage 결정론', () => {
     expect(`${world.chunkCount}:${fingerprint(world, BLOCKS)}`).toBe(SNAPSHOT);
   });
 
-  it('세계 크기 8×8×8 청크, 위쪽 빈 청크는 만들지 않는다', () => {
+  it('세계 크기 16×8×16 청크, 위쪽 빈 청크는 만들지 않는다', () => {
     expect(world.bounds).toEqual(VILLAGE_BOUNDS);
-    expect(world.sizeX).toBe(128);
+    expect(world.sizeX).toBe(256);
     expect(world.sizeY).toBe(128);
     let maxCy = 0;
     world.forEachChunk((c) => (maxCy = Math.max(maxCy, c.cy)));
     expect(maxCy).toBeLessThanOrEqual(4); // 언덕 ~52 + 나무 ~8 → cy 3 까지, 여유 1
-    expect(world.chunkCount).toBeLessThan(8 * 8 * 5);
+    expect(world.chunkCount).toBeLessThan(16 * 16 * 5);
+  });
+
+  it('확장해도 옛 128×128 땅은 블록 하나도 안 바뀐다 (#100 — 지은 것·저장 유지)', () => {
+    const n = VILLAGE_OLD_SIZE_CHUNKS;
+    const old = new VoxelWorld({ sizeCX: n, sizeCY: VILLAGE_BOUNDS.sizeCY, sizeCZ: n });
+    const ids = new Uint16Array(CHUNK_VOLUME);
+    world.forEachChunk((c) => {
+      if (c.cx >= n || c.cz >= n) return;
+      for (let i = 0; i < CHUNK_VOLUME; i++) ids[i] = c.palette[c.data[i]!]!;
+      old.getOrCreateChunk(c.cx, c.cy, c.cz).loadBlockIds(ids);
+    });
+    expect(`${old.chunkCount}:${fingerprint(old, BLOCKS)}`).toBe(OLD_SNAPSHOT);
+  });
+
+  it('새 땅(가운데서 100칸 너머)은 들판이고 나무가 드물다', () => {
+    let hSum = 0,
+      cnt = 0,
+      trunks = 0;
+    for (let x = 180; x < 250; x++)
+      for (let z = 180; z < 250; z++) {
+        const t = topOf(x, z);
+        const name = BLOCKS.get(world.getBlock(x, t, z)).id;
+        if (name === 'log' || name === 'leaves') {
+          if (BLOCKS.get(world.getBlock(x, GROUND_Y + 1, z)).id === 'log' || BLOCKS.get(world.getBlock(x, GROUND_Y + 3, z)).id === 'log') trunks++;
+          continue;
+        }
+        hSum += t;
+        cnt++;
+      }
+    expect(hSum / cnt).toBeLessThan(GROUND_Y + 5); // 언덕(+7~12)이 잦아든다
+    expect(trunks / (70 * 70)).toBeLessThan(0.03); // 숲(0.1)보다 훨씬 드물다
   });
 });
 
