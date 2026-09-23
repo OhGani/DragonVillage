@@ -134,8 +134,9 @@ import {
   generateVillage,
   expeditionUnlocked,
   hasGenerator,
+  itemName,
 } from '@dragon-village/shared';
-import { BUILDINGS, DRAGONS, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP } from '@dragon-village/shared/data';
+import { BUILDINGS, DRAGONS, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP, ITEM_NAMES } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import { MobSystem } from './mobs';
@@ -1196,6 +1197,23 @@ export class VillageRoom {
         for (const d of drops) this.giveTo(p, d.item, d.count, changed);
         this.sendInv(p, changed);
         if (xp > 0) this.addXp(p, xp, XP_SOURCE.mob, at.x, at.y, at.z, now);
+      },
+      bossWake: (kind) => {
+        const name = MOBS.get(kind).name;
+        this.log(`마을 ${this.info.code}: ${name} 깨어남`);
+        this.broadcastJson({ t: 'error', code: 'BOSS_WAKE', message: `🕷️ ${name}이 나타났다! 함께 잡아요` }, -1, 'expedition');
+      },
+      bossDefeated: (kind, drops, xp, at, byIdx, now) => {
+        // 협동 보스 (M7-4): 드롭은 마을 창고로(가방에 안 들어가는 큰 묶음), 경험치는 원정에 있는 모두에게 각각
+        const name = MOBS.get(kind).name;
+        const by = this.players.get(byIdx);
+        for (const d of drops) this.storage?.storageAdd(this.info.code, d.item, d.count);
+        for (const p of this.playersIn('expedition')) if (xp > 0) this.addXp(p, xp, XP_SOURCE.boss, at.x, at.y, at.z, now);
+        const loot = drops.map((d) => `${itemName(d.item, this.registry, ITEM_NAMES)} ${d.count}`).join(' · ');
+        this.log(`마을 ${this.info.code}: ${name} 처치 (${by?.nick ?? '?'} 마무리) — 창고에 ${loot}`);
+        this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 ${name}을 잡았다! 전리품은 마을 창고에: ${loot}` }, -1, 'expedition');
+        this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 원정대가 ${name}을 잡았어요! 창고에 ${loot}` }, -1, 'village');
+        this.broadcastStorage();
       },
     });
   }

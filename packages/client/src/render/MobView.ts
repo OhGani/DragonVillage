@@ -4,6 +4,7 @@
  * 거미(M7-3)는 머리(붉은 눈 여덟)·가슴·큰 배 + 다리 여덟(따로 메시, 걷는 대로 흔든다). 넓고 낮다(mobSize).
  * 맞으면 붉게 깜빡, 크리퍼가 부풀 때 하얘지며 커진다, 죽거나 터지면 조각이 흩어진다.
  * 머리 위 체력 바(빨강, 숫자)와 맞을 때 떠오르는 피해 숫자 — 맞았다는 게 한눈에 보이게 (#94).
+ * 거미 왕(M7-4)은 같은 거미 복셀을 2.2배로, 자줏빛 몸에 금 왕관. 잠들었을 땐 낮게 웅크리고, 소환할 땐 몸을 든다.
  */
 import { MOB_KIND_OF, MOB_STATE, type MobEntry, mobSize } from '@dragon-village/shared';
 import { MOBS } from '@dragon-village/shared/data';
@@ -14,6 +15,9 @@ import { type Voxel, buildVoxelGeometry } from './voxelGeometry';
 const ZOMBIE: SkinPalette = { shirt: 0x2f6a7a, skin: 0x5d8b4a, hair: 0x2c3e2b, pants: 0x3a3560, shoes: 0x25211f };
 const CREEPER_GREEN = 0x4caf50;
 const SPIDER_DARK = 0x2a2320;
+const KING_DARK = 0x3a2344;
+const KING_BELLY = 0x4a2a4e;
+const GOLD = 0xffd54f;
 
 function css(hex: number): string {
   return '#' + hex.toString(16).padStart(6, '0');
@@ -52,8 +56,10 @@ function creeperVoxels(): Voxel[] {
   return out;
 }
 
-/** 거미 몸통 복셀: 머리 8×8×6 (앞면 z=-11 에 붉은 눈 여덟), 가슴 6×6×6, 배 10×8×12. 앞이 −z, 바닥 y 0 은 다리 끝 */
-function spiderBodyVoxels(): Voxel[] {
+/** 거미 몸통 복셀: 머리 8×8×6 (앞면 z=-11 에 붉은 눈 여덟), 가슴 6×6×6, 배 10×8×12. 앞이 −z, 바닥 y 0 은 다리 끝. king 이면 자줏빛 + 금 왕관 */
+function spiderBodyVoxels(king = false): Voxel[] {
+  const dark = king ? KING_DARK : SPIDER_DARK;
+  const belly = king ? KING_BELLY : 0x3a2f2a;
   const out: Voxel[] = [];
   const mottle = (x: number, y: number, z: number, base: number) => {
     const h = (x * 73856093) ^ (y * 19349663) ^ (z * 83492791);
@@ -67,15 +73,26 @@ function spiderBodyVoxels(): Voxel[] {
     for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) out.push({ x, y, z, c: css(color(x, y, z)) });
   };
   // 배 (뒤, 크다)
-  add(-5, 4, 5, 12, 1, 12, (x, y, z) => mottle(x, y, z, 0x3a2f2a));
+  add(-5, 4, 5, 12, 1, 12, (x, y, z) => mottle(x, y, z, belly));
   // 가슴
-  add(-3, 2, 6, 11, -5, 0, (x, y, z) => mottle(x, y, z, SPIDER_DARK));
+  add(-3, 2, 6, 11, -5, 0, (x, y, z) => mottle(x, y, z, dark));
   // 머리 + 눈
   const EYES = ['        ', ' r    r ', 'r r  r r', ' r    r ', '  r  r  ', '        ', '        ', '        '];
   add(-4, 3, 5, 12, -11, -6, (x, y, z) => {
-    if (z === -11 && EYES[12 - y]![x + 4] === 'r') return 0xd02020;
-    return mottle(x, y, z, SPIDER_DARK);
+    if (z === -11 && EYES[12 - y]![x + 4] === 'r') return king ? 0xff3030 : 0xd02020;
+    return mottle(x, y, z, dark);
   });
+  if (king) {
+    // 왕관: 머리 위 테(13) + 뿔 다섯(14), 앞 가운데 붉은 보석
+    const CROWN = ['x x x x ', 'xxxxxxxx'];
+    for (let z = -11; z <= -6; z++)
+      for (let x = -4; x <= 3; x++) {
+        const edge = z === -11 || z === -6 || x === -4 || x === 3;
+        if (!edge) continue;
+        out.push({ x, y: 13, z, c: css(GOLD) });
+        if (CROWN[0]![x + 4] === 'x' && (z === -11 || z === -6)) out.push({ x, y: 14, z, c: css(z === -11 && (x === -1 || x === 0) ? 0xe53935 : GOLD) });
+      }
+  }
   return out;
 }
 
@@ -147,6 +164,10 @@ interface Figure {
   bar: { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture };
   maxHp: number;
   shownHp: number;
+  /** 몸 크기 배율 (거미 왕 2.2) */
+  baseScale: number;
+  /** 소환 연출 남은 시간 */
+  summonT: number;
 }
 
 /** 떠오르는 피해 숫자 */
@@ -200,8 +221,8 @@ export class MobView {
       armR = at(partMesh(v.arm, material), [6, 24]);
       armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.15; // 좀비 팔은 앞으로
       body.add(torso, head, legL, legR, armL, armR);
-    } else if (MOB_KIND_OF[m.kind] === 'spider') {
-      body.add(partMesh(spiderBodyVoxels(), material));
+    } else if (MOB_KIND_OF[m.kind] === 'spider' || MOB_KIND_OF[m.kind] === 'spider_king') {
+      body.add(partMesh(spiderBodyVoxels(MOB_KIND_OF[m.kind] === 'spider_king'), material));
       const legGeom = buildVoxelGeometry(spiderLegVoxels(), VOXEL, PLAYER_SHADES);
       legGeom.translate(0, -VOXEL, -VOXEL); // 붙는 쪽 끝이 원점
       for (let i = 0; i < 8; i++) {
@@ -222,12 +243,15 @@ export class MobView {
     // 체력 바: 머리 위, 몸과 따로(돌지도 커지지도 않는다)
     const kindName = MOB_KIND_OF[m.kind] ?? 'zombie';
     const maxHp = MOBS.get(kindName).hp;
-    const bar = canvasSprite(128, 28, 1.1, 0.24);
-    bar.sprite.position.set(0, mobSize(m.kind).h + 0.35, 0);
+    const king = MOB_KIND_OF[m.kind] === 'spider_king';
+    const baseScale = king ? 2.2 : 1;
+    body.scale.setScalar(baseScale);
+    const bar = canvasSprite(128, 28, king ? 2.2 : 1.1, king ? 0.4 : 0.24);
+    bar.sprite.position.set(0, mobSize(m.kind).h + (king ? 0.7 : 0.35), 0);
     drawHpBar(bar.ctx, bar.tex, m.hp, maxHp);
     group.add(bar.sprite);
     this.group.add(group);
-    return { group, body, material, kind: m.kind, cur: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, target: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, state: m.state, hp: m.hp, flashUntil: 0, fuseT: 0, armL, armR, legL, legR, spiderLegs, walk: 0, bar, maxHp, shownHp: m.hp };
+    return { group, body, material, kind: m.kind, cur: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, target: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, state: m.state, hp: m.hp, flashUntil: 0, fuseT: 0, armL, armR, legL, legR, spiderLegs, walk: 0, bar, maxHp, shownHp: m.hp, baseScale, summonT: 0 };
   }
 
   /** 서버 상태 묶음 (20Hz). 목록에 없는 몹은 지운다 */
@@ -267,9 +291,14 @@ export class MobView {
         }
       }
       if (dmg) this.pop(x, y + mobSize(f?.kind ?? 0).h + 0.7, z, dmg, now);
+    } else if (ev === 'wake' && f) {
+      f.flashUntil = now + 400;
+    } else if (ev === 'summon' && f) {
+      f.summonT = 0.8;
+      this.burst(x, y + 0.6, z, 0xb388ff, 16, now);
     } else if (ev === 'die' || ev === 'explode') {
-      const color = ev === 'explode' ? 0xffd27a : !f ? 0xffffff : f.kind === 0 ? 0x5d8b4a : f.kind === 2 ? SPIDER_DARK : CREEPER_GREEN;
-      this.burst(x, y + mobSize(f?.kind ?? 0).h * 0.5, z, color, ev === 'explode' ? 28 : 12, now);
+      const color = ev === 'explode' ? 0xffd27a : !f ? 0xffffff : f.kind === 0 ? 0x5d8b4a : f.kind === 2 ? SPIDER_DARK : f.kind === 3 ? GOLD : CREEPER_GREEN;
+      this.burst(x, y + mobSize(f?.kind ?? 0).h * 0.5, z, color, ev === 'explode' ? 28 : f?.kind === 3 ? 40 : 12, now);
       this.remove(id);
     }
   }
@@ -398,7 +427,13 @@ export class MobView {
         f.material.color.setRGB(1 + f.fuseT, 1 + f.fuseT, 1 + f.fuseT);
       } else {
         f.fuseT = 0;
-        f.body.scale.set(1, 1, 1);
+        let s = f.baseScale;
+        if (f.state === MOB_STATE.sleep) s *= 0.85; // 잠든 보스는 웅크린다
+        if (f.summonT > 0) {
+          f.summonT = Math.max(0, f.summonT - dt);
+          s *= 1 + 0.12 * Math.sin((f.summonT / 0.8) * Math.PI); // 소환: 몸을 한 번 든다
+        }
+        f.body.scale.set(s, s, s);
         f.material.color.setRGB(1, 1, 1);
       }
       if (now < f.flashUntil) f.material.color.setRGB(2.2, 0.6, 0.6);

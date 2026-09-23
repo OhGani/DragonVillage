@@ -10,6 +10,7 @@ import {
   countOf,
   decodeServerBinary,
   type ServerBinary,
+  MOB_STATE,
 } from '@dragon-village/shared';
 import { BLOCKS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
@@ -1199,6 +1200,82 @@ describe('손에 든 것 보이기 (#96)', () => {
     room.setHeld(ra.idx, 'stone');
     const rc = room.join('c'.repeat(32), '친구', 2, c.send)!;
     expect(rc.players.find((p) => p.idx === ra.idx)!.held).toBe('stone'); // 입장 목록에 실린다
+  });
+});
+
+describe('거미 왕 (M7-4)', () => {
+  const T0 = 60_000_000;
+  it('굴이 있는 동굴엔 보스가 잠들어 있고, 24칸 안에 가면 깨어나 8초마다 거미 둘을 부른다. 잡으면 전리품은 창고로, 경험치 80 은 모두에게', () => {
+    const storage = new Storage(':memory:');
+    storage.addBuilding('123456', 'portal_2', T0);
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 1, starterKit: null, gifts: [] }); // 시드 1: 굴 (65, 39, 54)
+    const a = inbox(),
+      b = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const rb = room.join('b'.repeat(32), '아들', 1, b.send)!;
+    for (const r of [ra, rb]) room.onMove(r.idx, { x: 64.5, y: GROUND_Y + 1, z: 44.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    expect(room.startExpedition(ra.idx, 'cave', T0)).toBeNull();
+    expect(room.startExpedition(rb.idx, 'cave', T0)).toBeNull();
+    const e = room.expedition!;
+    expect(e.den).toEqual({ x: 65, y: 39, z: 54 });
+    room.tick(T0);
+    const sys = room.mobSys!;
+    const boss = sys.boss!;
+    expect(boss.kind).toBe('spider_king');
+    expect(boss.hp).toBe(200);
+    expect(boss.state).toBe(MOB_STATE.sleep);
+    expect(Math.hypot(boss.x - 65.5, boss.z - 54.5)).toBeLessThan(0.01);
+    // 멀리(스폰, 약 52칸) 있으면 계속 잔다
+    for (let t = T0; t < T0 + 5000; t += 500) room.tick(t);
+    expect(sys.bossAwake).toBe(false);
+    expect(boss.state).toBe(MOB_STATE.sleep);
+    // 아빠가 굴 앞(20칸)으로 → 깨어남 + 알림, 8초 뒤 거미 둘 소환
+    const pa = room.players.get(ra.idx)!;
+    room.onMove(ra.idx, { x: boss.x + 20, y: boss.y, z: boss.z, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0 + 5100);
+    a.clear();
+    b.clear();
+    room.tick(T0 + 5200);
+    expect(sys.bossAwake).toBe(true);
+    expect(a.json.find((m) => m.t === 'mob' && m.ev === 'wake')).toMatchObject({ mob: 'spider_king' });
+    expect(b.json.find((m) => m.t === 'error' && m.code === 'BOSS_WAKE')).toBeDefined();
+    const before = sys.mobs.size;
+    for (let t = T0 + 5300; t <= T0 + 13_500; t += 100) room.tick(t);
+    expect(sys.minions.size).toBe(2);
+    expect(sys.mobs.size).toBeGreaterThanOrEqual(before + 2);
+    for (const id of sys.minions) {
+      const m = sys.mobs.get(id)!;
+      expect(m.kind).toBe('spider');
+      expect(Math.hypot(m.x - boss.x, m.z - boss.z)).toBeLessThan(5);
+    }
+    expect(a.json.some((m) => m.t === 'mob' && m.ev === 'summon')).toBe(true);
+    // 보스는 밀리지 않는다: 바로 앞에서 때려도 자리 그대로
+    room.onMove(ra.idx, { x: boss.x + 2, y: boss.y, z: boss.z, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0 + 13_600);
+    const bx = boss.x;
+    expect(room.hitMob(ra.idx, boss.id, undefined, T0 + 13_700)).toBeNull();
+    expect(boss.hp).toBe(199);
+    expect(boss.x).toBe(bx);
+    // 빔으로 마무리 (세기 5 → 20 씩). 모두 경험치 80, 창고에 전리품
+    const xa = room.xpOf(ra.idx),
+      xb = room.xpOf(rb.idx);
+    a.clear();
+    let t = T0 + 14_000;
+    const eye = { x: boss.x, y: boss.y + 1.6, z: boss.z + 10 };
+    while (sys.boss && t < T0 + 40_000) {
+      sys.beam(eye, { x: 0, y: -0.05, z: -1 }, 24, 5, ra.idx, t);
+      t += 1500;
+    }
+    expect(sys.boss).toBeNull();
+    expect(sys.mobs.has(boss.id)).toBe(false);
+    expect(room.xpOf(ra.idx)).toBeGreaterThanOrEqual(xa + 80); // 빔이 부하 거미도 맞혀 +5 씩 더 받을 수 있다
+    expect(room.xpOf(rb.idx)).toBe(xb + 80); // 멀리 있던 아들도 똑같이 80
+    const stock = new Map(storage.getStorage('123456').map((r) => [r.item, r.count]));
+    expect(stock.get('string')).toBe(64);
+    expect(stock.get('clock')).toBe(5);
+    expect(stock.get('tnt')).toBe(64);
+    expect(stock.get('flint_and_steel')).toBe(1);
+    expect(a.json.some((m) => m.t === 'mob' && m.ev === 'die' && m.mob === 'spider_king')).toBe(true);
+    expect(a.json.find((m) => m.t === 'error' && m.code === 'BOSS_DOWN')).toBeDefined();
+    expect(pa.hp).toBeGreaterThan(0);
   });
 });
 

@@ -93,6 +93,16 @@ export function hit(): void {
   tone(250, t + 0.01, 0.08, 0.08, 'triangle');
 }
 
+/** 보스가 깨어나거나 부하를 부른다 (M7-4): 낮게 으르렁 */
+export function roar(): void {
+  const c = audio();
+  if (!c) return;
+  const t = c.currentTime;
+  tone(70, t, 0.45, 0.18, 'sawtooth');
+  tone(95, t + 0.08, 0.4, 0.12, 'square');
+  tone(55, t + 0.2, 0.5, 0.14, 'triangle');
+}
+
 /** 크리퍼 폭발 (M7-2): 낮은 '쿵' + 잡음 */
 export function explosion(): void {
   const c = audio();

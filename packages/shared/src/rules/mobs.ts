@@ -6,16 +6,29 @@
  *   **블록은 안 부순다**(마을 보호 원칙과 같음), 플레이어·드래곤끼리는 절대 안 맞는다(아군 피해 없음).
  * - 때리기: 맨손 1, 도구는 등급이 높을수록. 죽으면 `mobs.json` 드롭 + `xp.json` 경험치. 드래곤 빔은 4×세기.
  * - 거미(M7-3): 빠르고(3.4칸/초) 낮다. 물면 2 + 독 3초(초당 1). 벽 타기는 없다. 어느 원정지에 어떤 몹이 나오는지는 `expeditions.json nightMobs`.
+ * - 거미 왕(M7-4, `bosses.json spider_king`): 동굴 거미 굴에서 잠자다 사람이 24칸 안에 오면 깨어난다. hp 200, 물면 4 + 독 4초, 8초마다 거미 둘 소환(최대 6).
+ *   밀려나지 않는다. 죽으면 드롭은 **마을 창고**로, 경험치 80 은 원정에 있는 모두에게 (협동). 왕관은 아들 확인 뒤.
  * - 수치는 아빠 임시값 — `mobs.json` 에 hp/damage 가 생기면 그걸 읽는다.
  */
 import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
 import { hash3 } from '../math/prng';
 
-export type MobKind = 'zombie' | 'creeper' | 'spider';
-export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider'];
-export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2 };
-export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider'];
+export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king';
+export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king'];
+export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3 };
+export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king'];
+
+/** 보스 (M7-4). 보스는 밤 스폰 목록에 안 들어가고, 원정지 구조물(거미 굴)에 하나만 */
+export const BOSS_KIND: MobKind = 'spider_king';
+export function isBoss(kind: MobKind): boolean {
+  return kind === BOSS_KIND;
+}
+/** 보스가 깨어나는 거리(칸) · 소환 주기 · 소환 수 · 살아 있는 부하 최대 */
+export const BOSS_AGGRO_RANGE = 24;
+export const BOSS_SUMMON_EVERY_MS = 8000;
+export const BOSS_SUMMON_COUNT = 2;
+export const BOSS_MINIONS_MAX = 6;
 
 export function isMobKind(s: string): s is MobKind {
   return (MOB_KINDS as readonly string[]).includes(s);
@@ -53,6 +66,7 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name'>> = {
   zombie: { id: 'zombie', hp: 20, damage: 3, speed: 2.3, reach: 1.6, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   creeper: { id: 'creeper', hp: 20, damage: 7, speed: 2.6, reach: 3.0, attackEveryMs: 0, fuseMs: 1500, explodeRadius: 3.5, poisonMs: 0 },
   spider: { id: 'spider', hp: 16, damage: 2, speed: 3.4, reach: 1.9, attackEveryMs: 1000, fuseMs: 0, explodeRadius: 0, poisonMs: 3000 },
+  spider_king: { id: 'spider_king', hp: 200, damage: 4, speed: 2.4, reach: 2.8, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 4000 },
 };
 
 const MobFile = z
@@ -72,6 +86,25 @@ const MobFile = z
   })
   .loose();
 
+/** bosses.json 에서 읽는 것 (midBosses 의 id·name·hp·drops·xp) */
+const BossFile = z
+  .object({
+    midBosses: z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            name: z.string(),
+            hp: z.number().optional(),
+            xp: z.number().optional(),
+            drops: z.array(z.object({ material: z.string(), count: z.number().int().min(1), chance: z.number().min(0).max(1) }).loose()).optional(),
+          })
+          .loose(),
+      )
+      .optional(),
+  })
+  .loose();
+
 export class MobRegistry {
   constructor(readonly defs: Readonly<Record<MobKind, MobDef>>) {}
   get(kind: MobKind): MobDef {
@@ -79,14 +112,34 @@ export class MobRegistry {
   }
 }
 
-/** mobs.json 에서 좀비·크리퍼의 이름·드롭·경험치를 읽고 나머지 수치는 기본값 (없는 몹은 기본값만) */
-export function parseMobs(raw: unknown, xpByMob: ReadonlyMap<string, readonly [number, number]> | null = null, fileName = 'data/mobs.json'): MobRegistry {
+/**
+ * mobs.json 에서 좀비·크리퍼·거미의 이름·드롭·경험치를 읽고 나머지 수치는 기본값 (없는 몹은 기본값만).
+ * 보스(거미 왕)는 bosses.json(bossesRaw) 의 midBosses 에서 이름·hp·드롭·경험치를 읽는다.
+ */
+export function parseMobs(raw: unknown, xpByMob: ReadonlyMap<string, readonly [number, number]> | null = null, fileName = 'data/mobs.json', bossesRaw: unknown = null): MobRegistry {
   const result = MobFile.safeParse(raw);
   if (!result.success) throw new DataError(fileName, result.error.issues.map((i) => `${i.path.map(String).join('.')}: ${koreanizeMessage(i.message)}`));
+  let bosses: z.infer<typeof BossFile>['midBosses'] = [];
+  if (bossesRaw !== null) {
+    const b = BossFile.safeParse(bossesRaw);
+    if (!b.success) throw new DataError('data/bosses.json', b.error.issues.map((i) => `${i.path.map(String).join('.')}: ${koreanizeMessage(i.message)}`));
+    bosses = b.data.midBosses ?? [];
+  }
   const defs = {} as Record<MobKind, MobDef>;
   for (const kind of MOB_KINDS) {
-    const src = result.data.hostile.find((h) => h.id === kind);
     const base = BASE[kind];
+    if (isBoss(kind)) {
+      const src = bosses.find((x) => x.id === kind);
+      defs[kind] = {
+        ...base,
+        name: src?.name ?? '거미 왕',
+        hp: src?.hp ?? base.hp,
+        drops: (src?.drops ?? []).map((d) => ({ item: d.material, min: d.count, max: d.count, chance: d.chance })),
+        xp: src?.xp ?? 80,
+      };
+      continue;
+    }
+    const src = result.data.hostile.find((h) => h.id === kind);
     const drops: MobDrop[] = (src?.drops ?? []).map(([item, [min, max], chance]) => ({ item, min, max, chance }));
     const xpRange = xpByMob?.get(kind);
     defs[kind] = {
@@ -107,7 +160,7 @@ export const SPAWN_MAX = 24;
 export const SPAWN_EVERY_MS = 4000;
 /** 몹 몸 판정 (넓이·높이) — 좀비·크리퍼. 거미는 넓고 낮다 */
 export const MOB_SIZE = { w: 0.6, h: 1.9 } as const;
-export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = { zombie: MOB_SIZE, creeper: MOB_SIZE, spider: { w: 1.4, h: 0.9 } };
+export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = { zombie: MOB_SIZE, creeper: MOB_SIZE, spider: { w: 1.4, h: 0.9 }, spider_king: { w: 2.8, h: 1.7 } };
 export function mobSize(kind: MobKind | number): { w: number; h: number } {
   return MOB_SIZES[typeof kind === 'number' ? (MOB_KIND_OF[kind] ?? 'zombie') : kind];
 }
@@ -115,9 +168,9 @@ export function mobSize(kind: MobKind | number): { w: number; h: number } {
 export const POISON_EVERY_MS = 1000;
 export const POISON_DAMAGE = 1;
 
-/** 이 원정지에 나오는 몹 — expeditions.json nightMobs 중 아는 것만. 하나도 없으면 좀비·크리퍼 */
+/** 이 원정지에 나오는 몹 — expeditions.json nightMobs 중 아는 것만(보스 제외). 하나도 없으면 좀비·크리퍼 */
 export function spawnKinds(nightMobs: readonly string[] | undefined): MobKind[] {
-  const kinds = (nightMobs ?? []).filter(isMobKind);
+  const kinds = (nightMobs ?? []).filter(isMobKind).filter((k) => !isBoss(k));
   return kinds.length ? [...new Set(kinds)] : ['zombie', 'creeper'];
 }
 
@@ -131,7 +184,7 @@ export function pickKind(kinds: readonly MobKind[], turn: number): MobKind {
 export const HIT_REACH = 3.5;
 export const HIT_COOLDOWN_MS = 450;
 
-export const MOB_STATE = { walk: 0, attack: 1, fuse: 2 } as const;
+export const MOB_STATE = { walk: 0, attack: 1, fuse: 2, sleep: 3, summon: 4 } as const;
 
 export interface MobState {
   id: number;

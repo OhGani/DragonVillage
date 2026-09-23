@@ -1831,3 +1831,49 @@ body {
   opacity: 0.8;
   margin-top: 2px;
 }
+
+/* ---------- 보스 체력 바 (M7-4) ---------- */
+.boss-bar {
+  position: absolute;
+  left: 50%;
+  top: 56px;
+  transform: translateX(-50%);
+  width: min(420px, 80vw);
+  padding: 6px 12px 8px;
+  background: rgba(20, 0, 30, 0.6);
+  border: 2px solid rgba(255, 120, 200, 0.5);
+  border-radius: 10px;
+  color: #fff;
+  text-align: center;
+  pointer-events: none;
+}
+.boss-bar[hidden] {
+  display: none;
+}
+.boss-name {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.boss-track {
+  height: 14px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.boss-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(#ff5c8a, #c2185b);
+  transition: width 0.15s;
+}
+.boss-text {
+  font-size: 13px;
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.hud.touch .boss-bar {
+  top: 50px;
+  width: min(360px, 70vw);
+}

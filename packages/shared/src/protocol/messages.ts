@@ -544,7 +544,8 @@ export type ServerJson =
   /** 구슬 하나가 회수됐다 */
   | { t: 'orbGone'; id: number; by: number }
   /** 몹 사건 (M7-2): 생김·맞음·죽음·폭발 */
-  | { t: 'mob'; ev: 'spawn' | 'hit' | 'die' | 'explode'; id: number; mob: string; x: number; y: number; z: number; dmg?: number }
+  /** 몹 사건. wake·summon 은 보스(M7-4) */
+  | { t: 'mob'; ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon'; id: number; mob: string; x: number; y: number; z: number; dmg?: number }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }

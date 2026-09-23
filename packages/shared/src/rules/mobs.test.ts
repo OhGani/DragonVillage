@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MOBS } from './data';
-import { MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob } from './mobs';
+import { BOSS_KIND, MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, isBoss, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob } from './mobs';
 
 const flat = () => 41; // 어디나 발 높이 41
 
@@ -120,6 +120,24 @@ describe('거미와 원정지별 몹 (M7-3)', () => {
     const three = Array.from({ length: 9 }, (_, i) => pickKind(['zombie', 'creeper', 'spider'], i + 1));
     expect(three.filter((k) => k === 'creeper').length + three.filter((k) => k === 'spider').length).toBe(3);
     expect(new Set(three).size).toBe(3);
+  });
+
+  it('거미 왕 (M7-4): bosses.json 에서 이름·hp 200·드롭(실 64·시계 5·TNT 64·라이터 1)·경험치 80. 밤 스폰 목록엔 안 든다', () => {
+    const k = MOBS.get(BOSS_KIND);
+    expect(isBoss(BOSS_KIND)).toBe(true);
+    expect(k.name).toBe('거미 왕');
+    expect(k.hp).toBe(200);
+    expect(k.xp).toBe(80);
+    expect(k.poisonMs).toBe(4000);
+    expect(k.drops.map((d) => [d.item, d.min, d.max, d.chance])).toEqual([
+      ['string', 64, 64, 1],
+      ['clock', 5, 5, 1],
+      ['tnt', 64, 64, 1],
+      ['flint_and_steel', 1, 1, 1],
+    ]);
+    expect(rollDrops(k, 1, 1).map((d) => `${d.item}×${d.count}`)).toEqual(['string×64', 'clock×5', 'tnt×64', 'flint_and_steel×1']);
+    expect(mobSize(BOSS_KIND).w).toBeGreaterThan(2);
+    expect(spawnKinds(['spider', 'spider_king', 'zombie'])).toEqual(['spider', 'zombie']);
   });
 
   it('땅 찾기에 높이 힌트가 간다 (동굴처럼 층이 여럿일 때)', () => {

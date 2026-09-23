@@ -179,4 +179,4 @@ export const COSMETIC_KO: Readonly<Record<string, string>> = {
 };
 
 /** 경험치 출처 번호 (XpGained.source) */
-export const XP_SOURCE = { mining: 0, expeditionReturn: 1, treasure: 2, codex: 3, hatch: 4, grow: 5, mob: 6 } as const;
+export const XP_SOURCE = { mining: 0, expeditionReturn: 1, treasure: 2, codex: 3, hatch: 4, grow: 5, mob: 6, boss: 7 } as const;

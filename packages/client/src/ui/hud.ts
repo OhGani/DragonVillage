@@ -120,6 +120,7 @@ export class Hud {
       </svg>
       <div class="slot-name"></div>
       <div class="hearts" aria-label="체력" hidden></div>
+      <div class="boss-bar" hidden><div class="boss-name"></div><div class="boss-track"><div class="boss-fill"></div></div><div class="boss-text"></div></div>
       <div class="hurt-vignette"></div>
       <div class="xp-bar" hidden><div class="xp-fill"></div><div class="xp-level"></div></div>
       <div class="xp-orbs"></div>
@@ -749,6 +750,21 @@ export class Hud {
     if (alt && this.actionAlt.textContent !== alt.label) this.actionAlt.textContent = alt.label;
     this.actionAlt.hidden = !alt;
     this.actionEl.hidden = false;
+  }
+  /** 보스 체력 바 (M7-4): 원정에 보스가 살아 있는 동안 화면 위 가운데 */
+  setBoss(name: string, hp: number, max: number): void {
+    const el = this.el.querySelector<HTMLElement>('.boss-bar')!;
+    el.hidden = false;
+    const nameEl = el.querySelector<HTMLElement>('.boss-name')!;
+    if (nameEl.textContent !== name) nameEl.textContent = name;
+    el.querySelector<HTMLElement>('.boss-fill')!.style.width = `${Math.max(0, Math.min(100, (hp / Math.max(1, max)) * 100))}%`;
+    const t = `${hp} / ${max}`;
+    const textEl = el.querySelector<HTMLElement>('.boss-text')!;
+    if (textEl.textContent !== t) textEl.textContent = t;
+  }
+  hideBoss(): void {
+    const el = this.el.querySelector<HTMLElement>('.boss-bar');
+    if (el) el.hidden = true;
   }
   hideAction(): void {
     this.actionEl.hidden = true;

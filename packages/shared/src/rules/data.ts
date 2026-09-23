@@ -4,6 +4,7 @@
  */
 import blocksJson from '../../../../data/blocks.json';
 import buildingsJson from '../../../../data/buildings.json';
+import bossesJson from '../../../../data/bosses.json';
 import mobsJson from '../../../../data/mobs.json';
 import dragonsJson from '../../../../data/dragons.json';
 import expeditionsJson from '../../../../data/expeditions.json';
@@ -50,7 +51,7 @@ export const TOOLS = parseTools(toolsJson);
 /** 경험치 규칙 (M6-1, 마인크래프트 값 + 우리 것) */
 export const XP = parseXp(xpJson);
 /** 원정 밤의 몹 — 좀비·크리퍼 (M7-2). 드롭·이름은 mobs.json, 경험치는 xp.json */
-export const MOBS = parseMobs(mobsJson, XP.mobs);
+export const MOBS = parseMobs(mobsJson, XP.mobs, 'data/mobs.json', bossesJson);
 /** 처음 들어올 때 한 번 받는 것 (#67) */
 export const STARTER_KIT = parseStarterKit(starterKitJson);
 /** 아빠가 모두에게 한 번씩 주는 선물 (#79) */

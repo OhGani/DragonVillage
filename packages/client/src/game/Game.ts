@@ -49,10 +49,12 @@ import {
   phaseAt,
   portalContains,
   skyLightAt,
+  BOSS_KIND,
+  MOB_KIND_OF,
 } from '@dragon-village/shared';
-import { BLOCKS, BUILDINGS, DRAGONS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, PHRASES, POTIONS, RECIPES, XP } from '@dragon-village/shared/data';
+import { BLOCKS, BUILDINGS, DRAGONS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RECIPES, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
-import { beam as beamSound, ding, explosion as explosionSound, hit as hitSound, hurt as hurtSound, levelUp } from '../audio/sound';
+import { beam as beamSound, ding, explosion as explosionSound, hit as hitSound, hurt as hurtSound, levelUp, roar } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
 import { InputManager } from '../input/InputManager';
 import { KeyboardMouse } from '../input/keyboard';
@@ -671,14 +673,28 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       sendMove();
       hud.toast(m.dropped > 0 ? `💀 쓰러졌어요… 경험치 구슬 ${m.dropped}개가 그 자리에 남았어요. 가서 되찾아요!` : '💀 쓰러졌어요… 다시 일어났어요', 6000);
     },
-    onMobs: (list) => mobView.setState(list),
+    onMobs: (list) => {
+      mobView.setState(list);
+      const boss = list.find((m) => MOB_KIND_OF[m.kind] === BOSS_KIND);
+      if (boss) hud.setBoss(`🕷️ ${MOBS.get(BOSS_KIND).name}`, boss.hp, MOBS.get(BOSS_KIND).hp);
+      else hud.hideBoss();
+    },
     onMobEvent: (m) => {
       mobView.event(m.ev, m.id, m.x, m.y, m.z, performance.now(), m.dmg);
       if (m.ev === 'explode') {
         hud.hurtFlash();
         explosionSound();
-      } else if (m.ev === 'die') ding();
-      else if (m.ev === 'hit') hitSound();
+      } else if (m.ev === 'die') {
+        ding();
+        if (m.mob === BOSS_KIND) {
+          hud.hideBoss();
+          levelUp(); // 승리 팡파르 대신
+        }
+      } else if (m.ev === 'hit') hitSound();
+      else if (m.ev === 'wake') {
+        roar();
+        hud.hurtFlash();
+      } else if (m.ev === 'summon') roar();
     },
     onOrbs: (list) => orbView.set(list),
     onOrbGone: (id, by) => {
