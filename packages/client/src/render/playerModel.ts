@@ -179,16 +179,7 @@ function headVoxels(p: SkinPalette): Voxel[] {
     undefined,
     (_x, _y, z) => (z === -4 ? 0 : 1),
   );
-  // 코는 그림이 아니라 한 칸 앞으로 튀어나온 진짜 돌기 (아빠 요청, #86).
-  // 앞면은 볼과 같은 밝기지만 옆·아랫면이 어두워 그림자가 지고, 옆에서 보면 콧날이 보인다.
-  // 자리는 FACE 의 n 이 정한다 — 얼굴 그림 한 곳만 고치면 코도 같이 움직인다
-  for (let r = 0; r < FACE.length; r++) {
-    const row = FACE[r]!;
-    for (let i = 0; i < row.length; i++) {
-      if (row[i] !== 'n') continue;
-      head.push({ x: i - 4, y: FACE.length - 1 - r, z: -5, c: css(shade(p.skin, 0.97)) });
-    }
-  }
+  // 코는 얼굴 그림(FACE 의 n, 조금 어두운 피부색)으로만. 앞으로 튀어나온 돌기는 뺐다 (아빠 2026-09-23, #96 — 2022-09-22 #86 때 넣었던 것)
   return head;
 }
 

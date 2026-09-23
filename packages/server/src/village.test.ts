@@ -1181,6 +1181,27 @@ describe('동굴 원정 + 포탈 2단계 (M7-3)', () => {
 });
 const e2 = (room: VillageRoom) => room.expedition!;
 
+describe('손에 든 것 보이기 (#96)', () => {
+  it('가방에 있는 것만 인정하고, 같은 세계 사람에게 held 가 가고, 새로 온 사람 목록에도 실린다', () => {
+    const room = makeRoom();
+    const a = inbox(),
+      b = inbox(),
+      c = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.join('b'.repeat(32), '아들', 1, b.send)!;
+    room.giveItems(ra.idx, 'stone', 3);
+    b.clear();
+    room.setHeld(ra.idx, 'stone');
+    expect(b.json.find((m) => m.t === 'held')).toMatchObject({ idx: ra.idx, item: 'stone' });
+    b.clear();
+    room.setHeld(ra.idx, 'diamond'); // 가방에 없다 → 빈손
+    expect(b.json.find((m) => m.t === 'held')).toMatchObject({ idx: ra.idx, item: null });
+    room.setHeld(ra.idx, 'stone');
+    const rc = room.join('c'.repeat(32), '친구', 2, c.send)!;
+    expect(rc.players.find((p) => p.idx === ra.idx)!.held).toBe('stone'); // 입장 목록에 실린다
+  });
+});
+
 describe('원정 밤의 몹 (M7-2)', () => {
   const T0 = 40_000_000;
   const NIGHT = T0 + 361_000; // grass_island 은 360초부터 밤

@@ -144,6 +144,8 @@ export interface NetEvents {
   onChest(x: number, y: number, z: number, slots: Inventory): void;
   /** 누가 드래곤을 탔다/내렸다 (M6-4, 나 포함) */
   onMount(idx: number, riding: RidingInfo): void;
+  /** 누가 손에 든 것을 바꿨다 (#96) */
+  onHeld(idx: number, item: string | null): void;
   /** 누가 빔을 쐈다 (M6-5) */
   onBeam(m: { idx: number; dragon: string; color: string; power: number; from: { x: number; y: number; z: number }; dir: { x: number; y: number; z: number }; range: number }): void;
   /** 내 기력 (M6-5). readyAt·now 는 서버 시각 */
@@ -362,6 +364,10 @@ export class NetClient {
   sendHit(id: number, slot: number): void {
     this.sendJson({ t: 'hit', id, slot });
   }
+  /** 손에 든 것 (#96) */
+  sendHeld(item: string | null): void {
+    this.sendJson({ t: 'held', item });
+  }
   /** 마을 창고 (M6-6) */
   sendOpenStorage(): void {
     this.sendJson({ t: 'openStorage' });
@@ -521,6 +527,7 @@ export class NetClient {
     else if (msg.t === 'orbGone') ev.onOrbGone(msg.id, msg.by);
     else if (msg.t === 'mob') ev.onMobEvent(msg);
     else if (msg.t === 'dismount') ev.onDismount(msg.idx);
+    else if (msg.t === 'held') ev.onHeld(msg.idx, msg.item);
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }
 

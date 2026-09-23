@@ -363,6 +363,12 @@ export class Session {
         if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 탈 수 없어요');
         return;
       }
+      case 'held': {
+        if (!this.room) return;
+        if (msg.item !== null && typeof msg.item !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        this.room.setHeld(this.idx, msg.item);
+        return;
+      }
       case 'dismount': {
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
         const err = this.room.dismount(this.idx);

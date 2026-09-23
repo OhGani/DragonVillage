@@ -199,6 +199,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const hud = new Hud(root, isTouch);
   const nameOf = (id: string) => (id in STATION_KO ? STATION_KO[id as keyof typeof STATION_KO] : itemName(id, registry, ITEM_NAMES));
   const iconOf = (id: string, size: number): HTMLCanvasElement | null => itemIcon(id, size, registry, atlas, nameOf(id));
+  remote.iconOf = (id) => iconOf(id, 32); // 다른 사람 손에 든 것 (#96)
+  let sentHeld: string | null | undefined; // 서버에 마지막으로 알린 손 아이템
 
   // ---- 가방 (M4): 서버가 진실. welcome 으로 받고 InvSlots 로 고친다 ----
   const inv: Inventory = cloneInventory(welcome.inventory);
@@ -597,6 +599,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       input.paused = true;
       kbm.enabled = false;
       if (kbm.locked) document.exitPointerLock();
+    },
+    onHeld: (idx, item) => {
+      if (idx !== myIdx) remote.setHeld(idx, item);
     },
     onMount: (idx, riding) => {
       if (idx !== myIdx) {
@@ -1204,6 +1209,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     sky.update(camera.position);
     ctx.portal.update(now / 1000);
     hand.setBlock(heldBlock());
+    if (started && hud.selectedItem !== sentHeld) {
+      sentHeld = hud.selectedItem;
+      net.sendHeld(sentHeld); // 손에 든 것이 바뀌면 다른 사람에게 (#96)
+    }
     const walking = player.onGround && player.horizontalSpeed > 0.4 ? Math.min(1, player.horizontalSpeed / 4.3) : 0;
     hand.update(dt, camera, player.walkCycle, walking);
 

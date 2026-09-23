@@ -182,6 +182,8 @@ export interface RoomPlayer {
   xp: number;
   /** 타고 있는 드래곤 (M6-4). 접속 동안만 — 끊기면 둥지로 돌아간다 */
   riding: RidingInfo | null;
+  /** 손에 든 아이템 (#96, 다른 사람에게 보이기). 클라가 알려 주고, 서버는 가방에 있는지만 본다 */
+  held: string | null;
   /** 탄 드래곤의 기력 (M6-5). 탈 때 가득 찬다. 사이는 회복 공식으로 채운다 */
   stamina: Stamina;
   /** 다음에 빔을 쏠 수 있는 시각 */
@@ -1028,7 +1030,17 @@ export class VillageRoom {
   }
 
   private toInfo(p: RoomPlayer): PlayerInfo {
-    return { idx: p.idx, nick: p.nick, color: p.color, x: p.pos.x, y: p.pos.y, z: p.pos.z, yaw: p.pos.yaw, pitch: p.pos.pitch, riding: p.riding };
+    return { idx: p.idx, nick: p.nick, color: p.color, x: p.pos.x, y: p.pos.y, z: p.pos.z, yaw: p.pos.yaw, pitch: p.pos.pitch, riding: p.riding, held: p.held };
+  }
+
+  /** 손에 든 것 (#96): 가방에 없는 아이템이면 빈손으로 본다. 같은 세계 사람들에게 알린다 */
+  setHeld(idx: number, item: string | null): void {
+    const p = this.players.get(idx);
+    if (!p) return;
+    const next = item && /^[a-z0-9_.@]+$/.test(item) && countOf(p.inv, item) > 0 ? item : null;
+    if (next === p.held) return;
+    p.held = next;
+    this.broadcastJson({ t: 'held', idx, item: next }, idx, p.world);
   }
 
   private freeIdx(): number {
@@ -1073,7 +1085,7 @@ export class VillageRoom {
         gifts.push({ id: g.id, name: g.name, message: g.message });
       }
     }
-    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0 };
+    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0 };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     const me = this.toInfo(player);

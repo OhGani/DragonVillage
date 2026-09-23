@@ -367,6 +367,8 @@ export interface PlayerInfo {
   pitch: number;
   /** 타고 있는 드래곤 (M6-4). 없으면 null/생략 */
   riding?: RidingInfo | null;
+  /** 손에 든 아이템 (#96). 없으면 null/생략 */
+  held?: string | null;
 }
 export interface VillageInfo {
   code: string;
@@ -452,6 +454,8 @@ export type ClientJson =
   | { t: 'ride'; id: number }
   /** 내리기 (M6-4) */
   | { t: 'dismount' }
+  /** 손에 든 것이 바뀌었다 (#96) — 핫바 선택·가방 변화 때 */
+  | { t: 'held'; item: string | null }
   /** 타고 있는 드래곤의 스킬 (M6-5). 지금은 'beam' 만 */
   | { t: 'skill'; id: string }
   /** 마을 창고 열기 (M6-6) — 창고 건물 옆에서 */
@@ -520,6 +524,7 @@ export type ServerJson =
   /** 누가 드래곤을 탔다/내렸다 (같은 세계 모두, 본인 포함) (M6-4) */
   | { t: 'mount'; idx: number; riding: RidingInfo }
   | { t: 'dismount'; idx: number }
+  | { t: 'held'; idx: number; item: string | null }
   /** 누가 빔을 쐈다 (같은 세계 모두, 본인 포함) (M6-5). from 은 드래곤 입 근처, dir 은 단위 벡터 */
   | { t: 'beam'; idx: number; dragon: string; color: string; power: number; from: { x: number; y: number; z: number }; dir: { x: number; y: number; z: number }; range: number }
   /** 쏜 사람에게: 기력 남은 값·최대·다음에 쏠 수 있는 서버 시각 (M6-5) */

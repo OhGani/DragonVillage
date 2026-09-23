@@ -21,6 +21,8 @@ interface Figure {
   legR: THREE.Mesh;
   armL: THREE.Mesh;
   armR: THREE.Mesh;
+  /** 오른손에 든 것 (아이콘 판, #96) */
+  held: THREE.Mesh | null;
   walk: number;
   lastMove: number;
   bubble: { sprite: THREE.Sprite; until: number } | null;
@@ -84,6 +86,8 @@ export function nameSprite(text: string, bg = 'rgba(0,0,0,0.45)', scale = 0.55):
 export class RemotePlayers {
   readonly group = new THREE.Group();
   private readonly figures = new Map<number, Figure>();
+  /** 아이템 id → 아이콘 캔버스 (Game 이 준다). 없으면 손에 든 것을 안 그린다 */
+  iconOf: ((id: string) => HTMLCanvasElement | null) | null = null;
 
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
@@ -128,6 +132,7 @@ export class RemotePlayers {
       legR,
       armL,
       armR,
+      held: null,
       target: { x: info.x, y: info.y, z: info.z, yaw: info.yaw, pitch: info.pitch, flags: 0 },
       cur: { x: info.x, y: info.y, z: info.z, yaw: info.yaw },
       walk: 0,
@@ -138,6 +143,34 @@ export class RemotePlayers {
       lum: 1,
     });
     if (info.riding) this.setMount(info.idx, info.riding);
+    if (info.held) this.setHeld(info.idx, info.held);
+  }
+
+  /** 오른손에 든 것 (#96): 아이콘을 작은 판으로 손끝에 붙인다. 팔과 함께 흔들린다 */
+  setHeld(idx: number, item: string | null): void {
+    const f = this.figures.get(idx);
+    if (!f) return;
+    if (f.held) {
+      f.armR.remove(f.held);
+      f.held.geometry.dispose();
+      const mat = f.held.material as THREE.MeshBasicMaterial;
+      mat.map?.dispose();
+      mat.dispose();
+      f.held = null;
+    }
+    f.info.held = item;
+    if (!item || !this.iconOf) return;
+    const canvas = this.iconOf(item);
+    if (!canvas) return;
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.NearestFilter;
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.2, side: THREE.DoubleSide }));
+    // 팔 축(어깨)에서 손끝(-11칸) 앞쪽. 조금 바깥·앞으로 기울여 정면·옆에서 다 보인다
+    mesh.position.set(1.5 * VOXEL, -11 * VOXEL, -3 * VOXEL);
+    mesh.rotation.set(-0.35, 0.45, 0);
+    f.armR.add(mesh);
+    f.held = mesh;
   }
 
   /** 드래곤 타기/내리기 (M6-4): 인형 발 아래에 어른 드래곤을 붙인다 */
