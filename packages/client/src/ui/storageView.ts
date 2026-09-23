@@ -150,12 +150,13 @@ export class StorageView {
       row.appendChild(text);
       const acts = document.createElement('div');
       acts.className = 'storage-acts';
-      acts.append(
-        this.btn('넣기 1', 'plain-btn small', () => this.deps.onMove(item, 1, 'in'), mine < 1),
-        this.btn('전부 넣기', 'plain-btn small', () => this.deps.onMove(item, mine, 'in'), mine < 1),
-        this.btn('꺼내기 1', 'plain-btn small', () => this.deps.onMove(item, 1, 'out'), have < 1),
-        this.btn('꺼내기 16', 'plain-btn small', () => this.deps.onMove(item, Math.min(16, have), 'out'), have < 1),
-      );
+      // 버튼은 개수에 맞춰서 (아빠 2026-09-24: 안장 1개에도 "꺼내기 16" 이 붙어 있었다). 한 번에 최대 999 (서버 한도)
+      if (mine >= 1) acts.append(this.btn('넣기 1', 'plain-btn small', () => this.deps.onMove(item, 1, 'in')));
+      if (mine > 16) acts.append(this.btn('넣기 16', 'plain-btn small', () => this.deps.onMove(item, 16, 'in')));
+      if (mine >= 2) acts.append(this.btn(`전부 넣기 ${mine}`, 'plain-btn small', () => this.deps.onMove(item, Math.min(mine, 999), 'in')));
+      if (have >= 1) acts.append(this.btn('꺼내기 1', 'plain-btn small', () => this.deps.onMove(item, 1, 'out')));
+      if (have > 16) acts.append(this.btn('꺼내기 16', 'plain-btn small', () => this.deps.onMove(item, 16, 'out')));
+      if (have >= 2) acts.append(this.btn(have > 999 ? '꺼내기 999' : `전부 꺼내기 ${have}`, 'plain-btn small', () => this.deps.onMove(item, Math.min(have, 999), 'out')));
       row.appendChild(acts);
       list.appendChild(row);
     }
