@@ -14,7 +14,10 @@ const HAND_SCALE = 0.34;
 const HAND_TILT = 0.3; // 윗면이 보이도록 살짝 기울임
 const HAND_TURN = 0.6;
 
-/** 1인칭 손에 든 블록. 별도 씬에 그려서 벽에 파묻히지 않는다. */
+/** 아이템(블록 아닌 것) 판 크기 */
+const ITEM_SIZE = 0.62;
+
+/** 1인칭 손에 든 블록·아이템. 별도 씬에 그려서 벽에 파묻히지 않는다. 블록은 진짜 상자, 도구·안장 같은 아이템은 아이콘 판(#96). */
 export class HandView {
   readonly scene = new THREE.Scene();
   private readonly anchor = new THREE.Group();
@@ -22,6 +25,7 @@ export class HandView {
   private mesh: THREE.Mesh | null = null;
   private swingT = 1;
   private currentBlock = -1;
+  private currentItem: string | null = null;
 
   constructor(
     private readonly materials: ChunkMaterials,
@@ -33,14 +37,41 @@ export class HandView {
     this.pivot.rotation.set(HAND_TILT, HAND_TURN, 0);
   }
 
-  setBlock(num: number): void {
-    if (num === this.currentBlock) return;
-    this.currentBlock = num;
-    if (this.mesh) {
-      this.pivot.remove(this.mesh);
-      this.mesh.geometry.dispose();
-      this.mesh = null;
+  private clearMesh(): void {
+    if (!this.mesh) return;
+    this.pivot.remove(this.mesh);
+    this.mesh.geometry.dispose();
+    if (this.currentItem) {
+      const mat = this.mesh.material as THREE.MeshBasicMaterial;
+      mat.map?.dispose();
+      mat.dispose();
     }
+    this.mesh = null;
+  }
+
+  /** 블록이 아닌 아이템: 아이콘 캔버스를 판으로 든다. icon 이 없으면 빈손 */
+  setItem(id: string | null, icon: HTMLCanvasElement | null): void {
+    if (id === this.currentItem && this.currentBlock <= 0) return;
+    this.clearMesh();
+    this.currentBlock = 0;
+    this.currentItem = id;
+    if (!id || !icon) return;
+    const tex = new THREE.CanvasTexture(icon);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.NearestFilter;
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.2, side: THREE.DoubleSide });
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(ITEM_SIZE, ITEM_SIZE), mat);
+    this.mesh.rotation.set(0, -HAND_TURN * 0.7, 0.15); // 판이 화면을 거의 보게, 살짝 기울여 손에 든 느낌
+    this.mesh.position.set(-0.05, 0.05, 0);
+    this.mesh.frustumCulled = false;
+    this.pivot.add(this.mesh);
+  }
+
+  setBlock(num: number): void {
+    if (num === this.currentBlock && !this.currentItem) return;
+    this.clearMesh();
+    this.currentItem = null;
+    this.currentBlock = num;
     if (num <= 0) return;
     const padded = new Uint16Array(PADDED_VOLUME);
     padded[paddedIndex(0, 0, 0)] = num;
@@ -94,6 +125,6 @@ export class HandView {
   }
 
   dispose(): void {
-    if (this.mesh) this.mesh.geometry.dispose();
+    this.clearMesh();
   }
 }

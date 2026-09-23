@@ -1208,7 +1208,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     materials.setTime(now / 1000);
     sky.update(camera.position);
     ctx.portal.update(now / 1000);
-    hand.setBlock(heldBlock());
+    {
+      const b = heldBlock();
+      if (b > 0) hand.setBlock(b);
+      else hand.setItem(hud.selectedItem, hud.selectedItem ? iconOf(hud.selectedItem, 64) : null); // 도구·안장 같은 아이템도 손에 보인다 (#96)
+    }
     if (started && hud.selectedItem !== sentHeld) {
       sentHeld = hud.selectedItem;
       net.sendHeld(sentHeld); // 손에 든 것이 바뀌면 다른 사람에게 (#96)
