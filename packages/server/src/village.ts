@@ -1496,6 +1496,7 @@ export class VillageRoom {
     const res = craft(p.inv, r, changed);
     if (!res.ok) return res.bagFull ? 'BAG_FULL' : 'MISSING'; // 가방이 가득 차면 재료도 안 빠진다 (#95)
     this.sendInv(p, changed);
+    this.log(`마을 ${this.info.code}: ${p.nick} 제작 ${r.id} ← ${Object.entries(r.in).map(([i, n]) => `${i}×${n}`).join(', ')}`); // 사라짐 시비 추적용 (#95)
     if (p.world === 'expedition') for (const [item, n] of Object.entries(r.out)) p.gained.set(item, (p.gained.get(item) ?? 0) + n);
     return null;
   }
