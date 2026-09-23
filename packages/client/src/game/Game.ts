@@ -52,7 +52,7 @@ import {
 } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, DRAGONS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, PHRASES, POTIONS, RECIPES, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
-import { beam as beamSound, ding, explosion as explosionSound, hurt as hurtSound, levelUp } from '../audio/sound';
+import { beam as beamSound, ding, explosion as explosionSound, hit as hitSound, hurt as hurtSound, levelUp } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
 import { InputManager } from '../input/InputManager';
 import { KeyboardMouse } from '../input/keyboard';
@@ -668,11 +668,12 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     },
     onMobs: (list) => mobView.setState(list),
     onMobEvent: (m) => {
-      mobView.event(m.ev, m.id, m.x, m.y, m.z);
+      mobView.event(m.ev, m.id, m.x, m.y, m.z, performance.now(), m.dmg);
       if (m.ev === 'explode') {
         hud.hurtFlash();
         explosionSound();
       } else if (m.ev === 'die') ding();
+      else if (m.ev === 'hit') hitSound();
     },
     onOrbs: (list) => orbView.set(list),
     onOrbGone: (id, by) => {

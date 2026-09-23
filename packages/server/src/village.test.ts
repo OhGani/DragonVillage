@@ -1245,7 +1245,8 @@ describe('원정 밤의 몹 (M7-2)', () => {
     expect(room.hitMob(ra.idx, m.id, undefined, NIGHT + 2000)).toBeNull();
     expect(m.hp).toBe(19);
     expect(room.hitMob(ra.idx, m.id, undefined, NIGHT + 2100)).toBe('COOLDOWN');
-    expect(a.json.some((mm) => mm.t === 'mob' && mm.ev === 'hit')).toBe(true);
+    expect(a.json.find((mm) => mm.t === 'mob' && mm.ev === 'hit')).toMatchObject({ id: m.id, dmg: 1 }); // 피해 숫자 (#94)
+    expect(m.x).toBeGreaterThan(p.pos.x + 1.5); // 때린 반대쪽으로 밀려났다
     const far = { ...m };
     m.x = p.pos.x + 10;
     expect(room.hitMob(ra.idx, m.id, undefined, NIGHT + 3000)).toBe('TOO_FAR');
@@ -1261,7 +1262,10 @@ describe('원정 밤의 몹 (M7-2)', () => {
     const perHit = hpBefore - m.hp;
     expect(perHit).toBeGreaterThan(1); // 맨손(1)보다 세다
     t += 500;
-    for (let i = 0; i < 20 && sys.mobs.has(m.id); i++, t += 500) expect(room.hitMob(ra.idx, m.id, slot, t)).toBeNull();
+    for (let i = 0; i < 20 && sys.mobs.has(m.id); i++, t += 500) {
+      m.x = far.x; // 맞을 때마다 밀려나니(#94) 다시 붙여 놓는다
+      expect(room.hitMob(ra.idx, m.id, slot, t)).toBeNull();
+    }
     expect(sys.mobs.has(m.id)).toBe(false);
     expect(a.json.find((mm) => mm.t === 'mob' && mm.ev === 'die')).toMatchObject({ id: m.id, mob: 'zombie' });
     expect(room.xpOf(ra.idx)).toBe(xp0 + 5);

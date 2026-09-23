@@ -163,7 +163,7 @@ export interface NetEvents {
   onOrbGone(id: number, by: number): void;
   /** 원정 몹 상태 (20Hz, M7-2) */
   onMobs(list: MobEntry[]): void;
-  onMobEvent(m: { ev: 'spawn' | 'hit' | 'die' | 'explode'; id: number; mob: string; x: number; y: number; z: number }): void;
+  onMobEvent(m: { ev: 'spawn' | 'hit' | 'die' | 'explode'; id: number; mob: string; x: number; y: number; z: number; dmg?: number }): void;
   onDismount(idx: number): void;
 }
 

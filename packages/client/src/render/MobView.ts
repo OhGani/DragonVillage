@@ -3,8 +3,10 @@
  * 좀비는 플레이어 인형 생성기에 초록 피부·낡은 옷 팔레트, 팔은 앞으로. 크리퍼는 머리 8 + 몸 4×12 + 다리 넷.
  * 거미(M7-3)는 머리(붉은 눈 여덟)·가슴·큰 배 + 다리 여덟(따로 메시, 걷는 대로 흔든다). 넓고 낮다(mobSize).
  * 맞으면 붉게 깜빡, 크리퍼가 부풀 때 하얘지며 커진다, 죽거나 터지면 조각이 흩어진다.
+ * 머리 위 체력 바(빨강, 숫자)와 맞을 때 떠오르는 피해 숫자 — 맞았다는 게 한눈에 보이게 (#94).
  */
 import { MOB_KIND_OF, MOB_STATE, type MobEntry, mobSize } from '@dragon-village/shared';
+import { MOBS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { PLAYER_SHADES, type SkinPalette, VOXEL, playerVoxels } from './playerModel';
 import { type Voxel, buildVoxelGeometry } from './voxelGeometry';
@@ -84,6 +86,39 @@ function spiderLegVoxels(): Voxel[] {
   return out;
 }
 
+/** 캔버스 스프라이트 (체력 바·피해 숫자). 그리기는 draw 가 맡는다 */
+function canvasSprite(w: number, h: number, scaleW: number, scaleH: number): { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture } {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: true, transparent: true }));
+  sprite.scale.set(scaleW, scaleH, 1);
+  return { sprite, ctx, tex };
+}
+
+function drawHpBar(ctx: CanvasRenderingContext2D, tex: THREE.CanvasTexture, hp: number, max: number): void {
+  const w = ctx.canvas.width,
+    h = ctx.canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(0, 6, w, h - 12);
+  const ratio = Math.max(0, Math.min(1, hp / Math.max(1, max)));
+  ctx.fillStyle = ratio > 0.5 ? '#e53935' : ratio > 0.25 ? '#fb8c00' : '#ffd600';
+  ctx.fillRect(3, 9, (w - 6) * ratio, h - 18);
+  ctx.font = 'bold 15px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+  ctx.lineWidth = 3;
+  ctx.strokeText(`${hp} / ${max}`, w / 2, h / 2);
+  ctx.fillText(`${hp} / ${max}`, w / 2, h / 2);
+  tex.needsUpdate = true;
+}
+
 function partMesh(voxels: readonly Voxel[], material: THREE.Material): THREE.Mesh {
   const geom = buildVoxelGeometry(voxels, VOXEL, PLAYER_SHADES);
   geom.translate(VOXEL / 2, 0, VOXEL / 2);
@@ -108,6 +143,16 @@ interface Figure {
   /** 거미 다리 여덟 (왼 넷, 오른 넷) */
   spiderLegs: THREE.Mesh[];
   walk: number;
+  /** 머리 위 체력 바 */
+  bar: { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture };
+  maxHp: number;
+  shownHp: number;
+}
+
+/** 떠오르는 피해 숫자 */
+interface Pop {
+  sprite: THREE.Sprite;
+  born: number;
 }
 
 interface Burst {
@@ -122,6 +167,7 @@ export class MobView {
   private readonly group = new THREE.Group();
   private readonly figures = new Map<number, Figure>();
   private readonly bursts: Burst[] = [];
+  private readonly pops: Pop[] = [];
 
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
@@ -173,8 +219,15 @@ export class MobView {
       body.add(partMesh(creeperVoxels(), material));
     }
     group.add(body);
+    // 체력 바: 머리 위, 몸과 따로(돌지도 커지지도 않는다)
+    const kindName = MOB_KIND_OF[m.kind] ?? 'zombie';
+    const maxHp = MOBS.get(kindName).hp;
+    const bar = canvasSprite(128, 28, 1.1, 0.24);
+    bar.sprite.position.set(0, mobSize(m.kind).h + 0.35, 0);
+    drawHpBar(bar.ctx, bar.tex, m.hp, maxHp);
+    group.add(bar.sprite);
     this.group.add(group);
-    return { group, body, material, kind: m.kind, cur: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, target: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, state: m.state, hp: m.hp, flashUntil: 0, fuseT: 0, armL, armR, legL, legR, spiderLegs, walk: 0 };
+    return { group, body, material, kind: m.kind, cur: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, target: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, state: m.state, hp: m.hp, flashUntil: 0, fuseT: 0, armL, armR, legL, legR, spiderLegs, walk: 0, bar, maxHp, shownHp: m.hp };
   }
 
   /** 서버 상태 묶음 (20Hz). 목록에 없는 몹은 지운다 */
@@ -191,19 +244,51 @@ export class MobView {
       f.target = { x: m.x, y: m.y, z: m.z, yaw: m.yaw };
       f.state = m.state;
       f.hp = m.hp;
+      if (f.shownHp !== m.hp) {
+        f.shownHp = m.hp;
+        drawHpBar(f.bar.ctx, f.bar.tex, m.hp, f.maxHp);
+      }
     }
     for (const id of [...this.figures.keys()]) if (!seen.has(id)) this.remove(id);
   }
 
-  /** 서버 mob 이벤트 */
-  event(ev: string, id: number, x: number, y: number, z: number, now = performance.now()): void {
+  /** 서버 mob 이벤트. hit 이면 dmg 만큼 피해 숫자가 떠오른다 */
+  event(ev: string, id: number, x: number, y: number, z: number, now = performance.now(), dmg?: number): void {
     const f = this.figures.get(id);
-    if (ev === 'hit' && f) f.flashUntil = now + 160;
-    else if (ev === 'die' || ev === 'explode') {
+    if (ev === 'hit') {
+      if (f) {
+        f.flashUntil = now + 160;
+        // 서버 자리로 바로 당긴다 (밀려난 게 보이게)
+        f.target = { ...f.target, x, y, z };
+        if (f.hp > 0 && dmg) {
+          f.hp = Math.max(0, f.hp - dmg);
+          f.shownHp = f.hp;
+          drawHpBar(f.bar.ctx, f.bar.tex, f.hp, f.maxHp);
+        }
+      }
+      if (dmg) this.pop(x, y + mobSize(f?.kind ?? 0).h + 0.7, z, dmg, now);
+    } else if (ev === 'die' || ev === 'explode') {
       const color = ev === 'explode' ? 0xffd27a : !f ? 0xffffff : f.kind === 0 ? 0x5d8b4a : f.kind === 2 ? SPIDER_DARK : CREEPER_GREEN;
       this.burst(x, y + mobSize(f?.kind ?? 0).h * 0.5, z, color, ev === 'explode' ? 28 : 12, now);
       this.remove(id);
     }
+  }
+
+  /** 떠오르는 피해 숫자 "-N" */
+  private pop(x: number, y: number, z: number, dmg: number, now: number): void {
+    const c = canvasSprite(96, 48, 0.9, 0.45);
+    c.ctx.font = 'bold 34px system-ui, sans-serif';
+    c.ctx.textAlign = 'center';
+    c.ctx.textBaseline = 'middle';
+    c.ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+    c.ctx.lineWidth = 6;
+    c.ctx.fillStyle = '#ffeb3b';
+    c.ctx.strokeText(`-${dmg}`, 48, 26);
+    c.ctx.fillText(`-${dmg}`, 48, 26);
+    c.tex.needsUpdate = true;
+    c.sprite.position.set(x, y, z);
+    this.group.add(c.sprite);
+    this.pops.push({ sprite: c.sprite, born: now });
   }
 
   private burst(x: number, y: number, z: number, color: number, n: number, now: number): void {
@@ -228,6 +313,8 @@ export class MobView {
     if (!f) return;
     this.group.remove(f.group);
     f.material.dispose();
+    f.bar.tex.dispose();
+    f.bar.sprite.material.dispose();
     f.group.traverse((o) => {
       if (o instanceof THREE.Mesh) o.geometry.dispose();
     });
@@ -238,6 +325,8 @@ export class MobView {
     for (const id of [...this.figures.keys()]) this.remove(id);
     for (const b of this.bursts) this.group.remove(b.group);
     this.bursts.length = 0;
+    for (const p of this.pops) this.group.remove(p.sprite);
+    this.pops.length = 0;
   }
 
   /** 조준선이 닿는 몹 (가장 가까운 것). 눈에서 maxDist 안 */
@@ -327,6 +416,19 @@ export class MobView {
         p.v.y -= 9.8 * dt;
       }
       (b.parts[0]!.m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 1 - age / 0.9);
+    }
+    for (let i = this.pops.length - 1; i >= 0; i--) {
+      const p = this.pops[i]!;
+      const age = (now - p.born) / 1000;
+      if (age > 0.8) {
+        this.group.remove(p.sprite);
+        (p.sprite.material as THREE.SpriteMaterial).map?.dispose();
+        p.sprite.material.dispose();
+        this.pops.splice(i, 1);
+        continue;
+      }
+      p.sprite.position.y += dt * 0.9;
+      (p.sprite.material as THREE.SpriteMaterial).opacity = age < 0.5 ? 1 : 1 - (age - 0.5) / 0.3;
     }
   }
 }

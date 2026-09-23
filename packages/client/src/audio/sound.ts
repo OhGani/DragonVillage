@@ -84,6 +84,15 @@ export function hurt(): void {
   tone(90, t + 0.02, 0.18, 0.1, 'triangle');
 }
 
+/** 몹을 때렸다 (M7-2 #94): 짧은 '탁' */
+export function hit(): void {
+  const c = audio();
+  if (!c) return;
+  const t = c.currentTime;
+  tone(520 + rnd() * 80, t, 0.05, 0.1, 'square');
+  tone(250, t + 0.01, 0.08, 0.08, 'triangle');
+}
+
 /** 크리퍼 폭발 (M7-2): 낮은 '쿵' + 잡음 */
 export function explosion(): void {
   const c = audio();

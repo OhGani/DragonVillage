@@ -29,6 +29,12 @@ const LINK_ERROR_KO: Record<string, string> = {
   IS_PARENT: '이 이름은 부모로 연결돼 있어요. 아이는 자기 이름으로 들어가서 연결해요',
 };
 /** 둥지·부화 거절 이유 (M6-2) */
+/** 몹 때리기 오류 (M7-2) */
+const HIT_ERROR_KO: Record<string, string> = {
+  NO_MOB: '거기엔 아무것도 없어요',
+  TOO_FAR: '너무 멀어요 — 가까이 가서 쳐요',
+};
+
 const NEST_ERROR_KO: Record<string, string> = {
   NOT_AT_NEST: '둥지 안에 서서 해요 (광장 남쪽 길 끝)',
   NO_EGG: '그 알이 가방에 없어요',
@@ -387,7 +393,7 @@ export class Session {
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
         if (!Number.isInteger(msg.id)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
         const err = this.room.hitMob(this.idx, msg.id, typeof msg.slot === 'number' ? msg.slot : undefined);
-        if (err && err !== 'COOLDOWN') return this.error(err, NEST_ERROR_KO[err] ?? '지금은 때릴 수 없어요');
+        if (err && err !== 'COOLDOWN') return this.error(err, HIT_ERROR_KO[err] ?? '지금은 때릴 수 없어요');
         return;
       }
       case 'skill': {

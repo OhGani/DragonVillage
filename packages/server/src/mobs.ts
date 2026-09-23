@@ -2,6 +2,7 @@
  * 원정 몹 돌리기 (M7-2·M7-3): 밤이면 생기고, 사람을 쫓고, 물고, 터진다. 규칙은 shared/rules/mobs.ts, 여기는 세계·플레이어와 잇는 살.
  * 블록은 절대 안 부수고, 피해는 플레이어에게만 간다(몹끼리·드래곤은 없음 = 아군 피해 없음).
  * 어떤 몹이 나오는지는 원정지(`expeditions.json nightMobs`). 항상 어두운 원정지(동굴)는 처음부터 나온다. 거미가 물면 독(초당 1, 3초).
+ * 맞은 몹은 때린 쪽 반대로 0.7칸 밀려나고(발 디딜 곳이 있을 때만), `mob hit` 에 피해 숫자(dmg)가 실린다 — 맞았다는 게 눈에 보이게 (#94).
  */
 import {
   type BlockRegistry,
@@ -49,6 +50,8 @@ export interface MobHooks {
 }
 
 const STEP_MS = 100;
+/** 맞으면 밀려나는 거리 */
+const KNOCKBACK = 0.7;
 
 export class MobSystem {
   readonly mobs = new Map<number, MobState>();
@@ -181,7 +184,10 @@ export class MobSystem {
     const last = this.lastHitAt.get(p.idx) ?? 0;
     if (now - last < HIT_COOLDOWN_MS) return 'COOLDOWN';
     this.lastHitAt.set(p.idx, now);
-    this.damage(m, damage, p.idx, now);
+    const dx = m.x - p.x,
+      dz = m.z - p.z;
+    const d = Math.hypot(dx, dz) || 1;
+    this.damage(m, damage, p.idx, now, { x: dx / d, z: dz / d });
     return null;
   }
 
@@ -191,15 +197,28 @@ export class MobSystem {
     for (const m of [...this.mobs.values()]) {
       if (!beamHitsMob(from, dir, range, m, 0.9 + power * 0.15)) continue;
       n++;
-      this.damage(m, 4 * power, shooterIdx, now);
+      const h = Math.hypot(dir.x, dir.z) || 1;
+      this.damage(m, 4 * power, shooterIdx, now, { x: dir.x / h, z: dir.z / h });
     }
     return n;
   }
 
-  private damage(m: MobState, amount: number, byIdx: number, now: number): void {
-    m.hp = Math.max(0, m.hp - Math.floor(amount));
+  /** push = 밀려나는 방향(가로 단위 벡터) */
+  private damage(m: MobState, amount: number, byIdx: number, now: number, push?: { x: number; z: number }): void {
+    const dealt = Math.floor(amount);
+    m.hp = Math.max(0, m.hp - dealt);
     if (m.hp > 0) {
-      this.hooks.json({ t: 'mob', ev: 'hit', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z });
+      if (push) {
+        const nx = m.x + push.x * KNOCKBACK,
+          nz = m.z + push.z * KNOCKBACK;
+        const gy = this.groundAt(nx, nz, m.y);
+        if (gy !== null && Math.abs(gy - m.y) <= 1) {
+          m.x = nx;
+          m.z = nz;
+          m.y = gy;
+        }
+      }
+      this.hooks.json({ t: 'mob', ev: 'hit', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z, dmg: dealt });
       return;
     }
     const def = this.defs.get(m.kind);
