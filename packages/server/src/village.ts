@@ -137,11 +137,16 @@ import {
   itemName,
   OLD_SITES,
   clearSiteBlocks,
+  FLAG_POLE,
+  type FlagMark,
+  RAID_AGGRO_R,
+  WEEK_MS,
 } from '@dragon-village/shared';
-import { BUILDINGS, DRAGONS, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP, ITEM_NAMES } from '@dragon-village/shared/data';
+import { BUILDINGS, DRAGONS, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
-import { MobSystem } from './mobs';
+import { RAID_GOAL, RaidSystem } from './raid';
+import { MobSystem, type MobArena, type MobHooks } from './mobs';
 import type { DragonRow, Storage } from './storage';
 
 /** 플레이어 몸 크기 (클라 Player.ts 와 같아야 한다) */
@@ -450,7 +455,7 @@ export class VillageRoom {
       const n = this.placeBlocks(buildingBlocks(id, GROUND_Y), null);
       this.log(`마을 ${this.info.code}: ${BUILDINGS.find(id)?.name ?? id}을(를) 세웠어요 (${n}칸)`);
     }
-    this.placeBlocks(flagBlocks(GROUND_Y, this.level()), null);
+    this.placeFlag(null);
   }
 
   /** 블록 목록을 세계에 놓고 더러워진 청크를 표시한다. world 를 주면 그 세계 사람들에게 묶음으로 알린다. 바뀐 칸 수 */
@@ -559,7 +564,7 @@ export class VillageRoom {
     for (const [item, n] of Object.entries(def.cost)) this.storage.storageTake(this.info.code, item, n);
     this.storage.addBuilding(this.info.code, id, now);
     const n = this.placeBlocks(buildingBlocks(id, GROUND_Y), 'village');
-    this.placeBlocks(flagBlocks(GROUND_Y, this.level()), 'village');
+    this.placeFlag('village');
     this.log(`마을 ${this.info.code}: ${p.nick} 이(가) ${def.name}을(를) 지었어요 (${n}칸) — 마을 레벨 ${this.level()}`);
     this.broadcastStorage();
     this.broadcastVillage();
@@ -578,7 +583,7 @@ export class VillageRoom {
     this.addXp(p, XP.ours.codexNewEntry, XP_SOURCE.codex, p.pos.x, p.pos.y + 1, p.pos.z, now);
     this.sendJson(p, { t: 'codex', kind: 'block', id: item, total });
     if (this.level() !== before) {
-      this.placeBlocks(flagBlocks(GROUND_Y, this.level()), 'village');
+      this.placeFlag('village');
       this.broadcastVillage();
     }
   }
@@ -906,7 +911,8 @@ export class VillageRoom {
     // 드래곤 입 근처: 내 눈보다 아래(안장 위에 앉아 있으니)·앞 1.2칸. 1인칭에서 빔이 아래에서 조준점으로 모여 들어 총알처럼 보인다
     const from = { x: p.pos.x + dir.x * 1.2, y: p.pos.y + EYE - 0.8 + dir.y * 1.2, z: p.pos.z + dir.z * 1.2 };
     this.broadcastJson({ t: 'beam', idx, dragon: def.id, color: beam.color, power: beam.power, from, dir, range: BEAM_RANGE }, -1, p.world);
-    if (p.world === 'expedition' && this.mobSys) this.mobSys.beam(from, dir, BEAM_RANGE, beam.power, idx, now); // 몹에 4×세기 (M7-2). 사람·드래곤은 안 맞는다
+    const sys = p.world === 'expedition' ? this.mobSys : (this.raid?.mobs ?? null);
+    if (sys) sys.beam(from, dir, BEAM_RANGE, beam.power, idx, now); // 몹에 4×세기 (M7-2). 사람·드래곤은 안 맞는다. 마을이면 방어전 우민
     this.sendJson(p, { t: 'stamina', value: r.stamina.value, max, readyAt: r.readyAt, now });
     return null;
   }
@@ -1099,6 +1105,7 @@ export class VillageRoom {
     this.players.set(idx, player);
     const me = this.toInfo(player);
     this.broadcastJson({ t: 'playerJoined', player: me }, idx, 'village');
+    if (this.raid) this.sendJson(player, { t: 'raid', raid: this.raid.state(Date.now()) });
     this.savePlayer(player);
     if (savedInv === null || gifts.length) this.storage?.saveInventory(token, this.info.code, inv); // 키트·선물은 한 번만 — 바로 저장해 둔다
     this.log(`마을 ${this.info.code}: ${nick}(#${idx}) 입장${savedInv === null ? ' (처음, 시작 키트)' : ''}${gifts.length ? ` (선물 ${gifts.map((g) => g.name).join('·')})` : ''}, ${this.players.size}명`);
@@ -1189,15 +1196,16 @@ export class VillageRoom {
   /** 원정 몹 (M7-2). 원정이 생길 때 만들고 폐기될 때 버린다 */
   mobSys: MobSystem | null = null; // 시험에서 들여다본다
 
-  private makeMobSystem(e: Expedition): MobSystem {
-    return new MobSystem(e, this.registry, MOBS, {
-      players: () => this.playersIn('expedition').filter((p) => p.hp > 0).map((p) => ({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE })),
+  /** 몹 시스템 훅 — 그 세계(원정/마을) 사람들과 잇는다 */
+  private mobHooks(world: WorldKind): MobHooks {
+    return {
+      players: () => this.playersIn(world).filter((p) => p.hp > 0).map((p) => ({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE })),
       hurt: (idx, amount, cause, now) => {
         const p = this.players.get(idx);
-        if (p && p.world === 'expedition') this.hurt(p, amount, cause, now);
+        if (p && p.world === world) this.hurt(p, amount, cause, now);
       },
-      broadcast: (bytes) => this.broadcast(bytes, -1, 'expedition'),
-      json: (obj) => this.broadcastJson(obj, -1, 'expedition'),
+      broadcast: (bytes) => this.broadcast(bytes, -1, world),
+      json: (obj) => this.broadcastJson(obj, -1, world),
       reward: (idx, drops, xp, at, now) => {
         const p = this.players.get(idx);
         if (!p) return;
@@ -1209,31 +1217,122 @@ export class VillageRoom {
       bossWake: (kind) => {
         const name = MOBS.get(kind).name;
         this.log(`마을 ${this.info.code}: ${name} 깨어남`);
-        this.broadcastJson({ t: 'error', code: 'BOSS_WAKE', message: `🕷️ ${name}이 나타났다! 함께 잡아요` }, -1, 'expedition');
+        this.broadcastJson({ t: 'error', code: 'BOSS_WAKE', message: `🕷️ ${name}이 나타났다! 함께 잡아요` }, -1, world);
       },
       bossDefeated: (kind, drops, xp, at, byIdx, now) => {
-        // 협동 보스 (M7-4): 드롭은 마을 창고로(가방에 안 들어가는 큰 묶음), 경험치는 원정에 있는 모두에게 각각
+        // 협동 보스 (M7-4): 드롭은 마을 창고로(가방에 안 들어가는 큰 묶음), 경험치는 그 세계에 있는 모두에게 각각
         const name = MOBS.get(kind).name;
         const by = this.players.get(byIdx);
         for (const d of drops) this.storage?.storageAdd(this.info.code, d.item, d.count);
-        for (const p of this.playersIn('expedition')) if (xp > 0) this.addXp(p, xp, XP_SOURCE.boss, at.x, at.y, at.z, now);
+        for (const p of this.playersIn(world)) if (xp > 0) this.addXp(p, xp, XP_SOURCE.boss, at.x, at.y, at.z, now);
         const loot = drops.map((d) => `${itemName(d.item, this.registry, ITEM_NAMES)} ${d.count}`).join(' · ');
         this.log(`마을 ${this.info.code}: ${name} 처치 (${by?.nick ?? '?'} 마무리) — 창고에 ${loot}`);
-        this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 ${name}을 잡았다! 전리품은 마을 창고에: ${loot}` }, -1, 'expedition');
-        this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 원정대가 ${name}을 잡았어요! 창고에 ${loot}` }, -1, 'village');
+        this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 ${name}을 잡았다! 전리품은 마을 창고에: ${loot}` }, -1, world);
+        if (world !== 'village') this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 원정대가 ${name}을 잡았어요! 창고에 ${loot}` }, -1, 'village');
         this.broadcastStorage();
       },
-    });
+    };
+  }
+
+  private makeMobSystem(e: Expedition): MobSystem {
+    const arena: MobArena = {
+      world: e.world,
+      seed: e.seed,
+      nightStartsAt: e.def.nightStartsAt,
+      nightMobs: e.def.nightMobs,
+      den: e.den,
+      get ended() {
+        return e.ended;
+      },
+      elapsedSec: (now) => e.elapsedSec(now),
+    };
+    return new MobSystem(arena, this.registry, MOBS, this.mobHooks('expedition'));
+  }
+
+  // ---------------------------------------------------------------- 마을 방어전 (M7-5)
+
+  /** 진행 중인 방어전. 끝나면 null */
+  raid: RaidSystem | null = null;
+
+  /** 마지막 방어전 결과 → 깃대 맨 위 깃발 색 */
+  private flagMark(): FlagMark {
+    const last = this.storage?.lastRaid(this.info.code);
+    return last ? (last.won ? 'win' : 'loss') : null;
+  }
+
+  private placeFlag(world: WorldKind | null): void {
+    this.placeBlocks(flagBlocks(GROUND_Y, this.level(), this.flagMark()), world);
+  }
+
+  /** 깃대 옆(4칸)에 서 있나 */
+  private nearFlag(p: RoomPlayer): boolean {
+    return p.world === 'village' && Math.hypot(p.pos.x - (FLAG_POLE.x + 0.5), p.pos.z - (FLAG_POLE.z + 0.5)) <= 4 && Math.abs(p.pos.y - GROUND_Y) < 6;
+  }
+
+  /**
+   * 방어전 시작 (M7-5): 마을에서 깃대 옆에 서서. 오류: NOT_AT_FLAG · RAID_RUNNING · NEED_LEVEL · WEEK_CAP · NO_STORAGE
+   */
+  startRaid(idx: number, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (!this.storage) return 'NO_STORAGE';
+    if (this.raid) return 'RAID_RUNNING';
+    if (!this.nearFlag(p)) return 'NOT_AT_FLAG';
+    if (this.level() < RAIDS.minVillageLevel) return 'NEED_LEVEL';
+    if (this.storage.countRaidsSince(this.info.code, now - WEEK_MS) >= RAIDS.maxPerWeek) return 'WEEK_CAP';
+    const raid = { done: false };
+    const arena: MobArena = {
+      world: this.world,
+      seed: (this.info.seed ^ now) >>> 0,
+      nightStartsAt: 0,
+      nightMobs: [],
+      den: null,
+      get ended() {
+        return raid.done;
+      },
+      elapsedSec: (t) => Math.max(0, (t - now) / 1000),
+    };
+    const mobs = new MobSystem(arena, this.registry, MOBS, this.mobHooks('village'), { autoSpawn: false, aggroRange: RAID_AGGRO_R, goal: RAID_GOAL });
+    this.raid = new RaidSystem(mobs, RAIDS, {
+      players: () => this.playersIn('village').filter((q) => q.hp > 0).map((q) => ({ idx: q.idx, x: q.pos.x, y: q.pos.y, z: q.pos.z, eyeY: q.pos.y + EYE })),
+      state: (st) => this.broadcastJson({ t: 'raid', raid: st }, -1, 'village'),
+      notice: (code, message) => this.broadcastJson({ t: 'error', code, message }, -1, 'village'),
+      finished: (won, wave, t) => {
+        raid.done = true;
+        this.storage?.addRaid(this.info.code, now, won, wave);
+        this.placeFlag('village');
+        if (won) for (const q of this.playersIn('village')) this.addXp(q, RAIDS.xpEach, XP_SOURCE.boss, RAID_GOAL.x, RAID_GOAL.y, RAID_GOAL.z, t);
+        this.log(`마을 ${this.info.code}: 방어전 ${won ? '승리' : '패배'} (파도 ${wave}/${RAIDS.waves})`);
+        this.broadcastJson(
+          { t: 'error', code: won ? 'RAID_WON' : 'RAID_LOST', message: won ? `🏆 마을을 지켰다! 모두 경험치 ${RAIDS.xpEach} — 깃대에 금 깃발` : '💀 우민이 깃대를 차지했어요… 검은 깃발이 걸렸어요. 다음엔 꼭 지켜요' },
+          -1,
+          'village',
+        );
+      },
+    }, now);
+    this.log(`마을 ${this.info.code}: ${p.nick} 이(가) 방어전을 시작했어요`);
+    return null;
+  }
+
+  private tickRaid(now: number): void {
+    const r = this.raid;
+    if (!r) return;
+    r.tick(now);
+    if (r.done) {
+      this.raid = null;
+      this.broadcastJson({ t: 'raid', raid: null }, -1, 'village');
+    }
   }
 
   /** 몹 때리기 (M7-2): 조준한 몹, 눈에서 3.5칸, 0.45초마다. 피해는 손에 든 도구 등급으로 */
   hitMob(idx: number, mobId: number, slot: number | undefined, now = Date.now()): string | null {
     const p = this.players.get(idx);
     if (!p) return 'NOT_IN_VILLAGE';
-    if (p.world !== 'expedition' || !this.mobSys) return 'NO_MOB';
+    const sys = p.world === 'expedition' ? this.mobSys : (this.raid?.mobs ?? null);
+    if (!sys) return 'NO_MOB';
     const held = slot !== undefined && slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
     const tool = toolOf(TOOLS, held);
-    return this.mobSys.hit({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE }, mobId, hitDamage(tool ? tool.tier : null), now);
+    return sys.hit({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE }, mobId, hitDamage(tool ? tool.tier : null), now);
   }
 
   /** 세계에 떨어진 경험치 구슬. 원정 구슬은 섬과 함께 사라지고, 마을 구슬은 서버가 켜져 있는 동안 남는다 */
@@ -1816,6 +1915,7 @@ export class VillageRoom {
       this.broadcast(encodePlayersState(list), -1, 'village');
     }
     this.tickExpedition(now);
+    this.tickRaid(now);
     this.tickGrowth(now);
     this.tickHealth(now);
     if (this.lastFlush === 0) this.lastFlush = now;

@@ -276,11 +276,19 @@ export function villageLevel(builtCount: number, codexCount: number): number {
 /** 광장 북쪽 길가의 깃대: 통나무 기둥 + 레벨만큼 양털 깃발(위에서부터, 최대 6) */
 export const FLAG_POLE = { x: 66, z: 52, height: 7 } as const;
 
-export function flagBlocks(groundY: number, level: number): Placed[] {
+/** 마지막 방어전 결과 표시 (M7-5): 승리 = 금 깃발, 패배 = 검은 깃발(흑요석). 맨 위 깃발 한 칸이 바뀐다 */
+export type FlagMark = 'win' | 'loss' | null;
+
+export function flagBlocks(groundY: number, level: number, mark: FlagMark = null): Placed[] {
   const out: Placed[] = [];
   for (let i = 1; i <= FLAG_POLE.height; i++) out.push({ x: FLAG_POLE.x, y: groundY + i, z: FLAG_POLE.z, id: 'log' });
   const flags = Math.max(0, Math.min(6, level));
-  for (let i = 0; i < 6; i++) out.push({ x: FLAG_POLE.x + 1, y: groundY + FLAG_POLE.height - i, z: FLAG_POLE.z, id: i < flags ? 'wool' : 'air' });
+  for (let i = 0; i < 6; i++) {
+    let id = i < flags ? 'wool' : 'air';
+    if (i === 0 && mark === 'win') id = 'gold_block';
+    else if (i === 0 && mark === 'loss') id = 'obsidian';
+    out.push({ x: FLAG_POLE.x + 1, y: groundY + FLAG_POLE.height - i, z: FLAG_POLE.z, id });
+  }
   return out;
 }
 

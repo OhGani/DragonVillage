@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MOBS } from './data';
-import { BOSS_KIND, MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, isBoss, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob } from './mobs';
+import { BOSS_KIND, MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, isBoss, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob, bossMinionKind } from './mobs';
 
 const flat = () => 41; // 어디나 발 높이 41
 
@@ -138,6 +138,22 @@ describe('거미와 원정지별 몹 (M7-3)', () => {
     expect(rollDrops(k, 1, 1).map((d) => `${d.item}×${d.count}`)).toEqual(['string×64', 'clock×5', 'tnt×64', 'flint_and_steel×1']);
     expect(mobSize(BOSS_KIND).w).toBeGreaterThan(2);
     expect(spawnKinds(['spider', 'spider_king', 'zombie'])).toEqual(['spider', 'zombie']);
+  });
+
+  it('우민 (M7-5): 변명자·약탈자·소환사(보스, 변명자를 부른다). 드롭은 bosses.json evoker 에서', () => {
+    expect(isBoss('evoker')).toBe(true);
+    expect(isBoss('vindicator')).toBe(false);
+    expect(bossMinionKind('evoker')).toBe('vindicator');
+    expect(bossMinionKind('spider_king')).toBe('spider');
+    const e = MOBS.get('evoker');
+    expect(e.name).toBe('소환사');
+    expect(e.hp).toBe(150);
+    expect(e.xp).toBe(100);
+    expect(e.drops.map((d) => d.item)).toEqual(['totem_of_undying']);
+    expect(MOBS.get('pillager').reach).toBe(6);
+    expect(MOBS.get('pillager').drops.map((d) => [d.item, d.chance])).toEqual([['crossbow', 0.3]]);
+    expect(MOBS.get('vindicator').drops[0]?.item).toBe('iron_axe');
+    expect(spawnKinds(['vindicator', 'zombie'])).toEqual(['vindicator', 'zombie']); // 우민도 원정지에 넣을 수는 있다
   });
 
   it('땅 찾기에 높이 힌트가 간다 (동굴처럼 층이 여럿일 때)', () => {

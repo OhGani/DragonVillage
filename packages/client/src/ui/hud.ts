@@ -120,6 +120,7 @@ export class Hud {
       </svg>
       <div class="slot-name"></div>
       <div class="hearts" aria-label="체력" hidden></div>
+      <div class="raid-bar" hidden></div>
       <div class="boss-bar" hidden><div class="boss-name"></div><div class="boss-track"><div class="boss-fill"></div></div><div class="boss-text"></div></div>
       <div class="hurt-vignette"></div>
       <div class="xp-bar" hidden><div class="xp-fill"></div><div class="xp-level"></div></div>
@@ -761,6 +762,17 @@ export class Hud {
     const t = `${hp} / ${max}`;
     const textEl = el.querySelector<HTMLElement>('.boss-text')!;
     if (textEl.textContent !== t) textEl.textContent = t;
+  }
+  /** 방어전 띠 (M7-5): 화면 위. danger 면 붉게 */
+  setRaid(text: string, danger = false): void {
+    const el = this.el.querySelector<HTMLElement>('.raid-bar')!;
+    el.hidden = false;
+    if (el.textContent !== text) el.textContent = text;
+    el.classList.toggle('danger', danger);
+  }
+  hideRaid(): void {
+    const el = this.el.querySelector<HTMLElement>('.raid-bar');
+    if (el) el.hidden = true;
   }
   hideBoss(): void {
     const el = this.el.querySelector<HTMLElement>('.boss-bar');

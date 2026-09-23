@@ -8,22 +8,30 @@
  * - 거미(M7-3): 빠르고(3.4칸/초) 낮다. 물면 2 + 독 3초(초당 1). 벽 타기는 없다. 어느 원정지에 어떤 몹이 나오는지는 `expeditions.json nightMobs`.
  * - 거미 왕(M7-4, `bosses.json spider_king`): 동굴 거미 굴에서 잠자다 사람이 24칸 안에 오면 깨어난다. hp 200, 물면 4 + 독 4초, 8초마다 거미 둘 소환(최대 6).
  *   밀려나지 않는다. 죽으면 드롭은 **마을 창고**로, 경험치 80 은 원정에 있는 모두에게 (협동). 왕관은 아들 확인 뒤.
+ * - 우민(M7-5, 마을 방어전): 변명자(도끼 5)·약탈자(석궁, 6칸)·소환사(보스 hp 150, 변명자 소환). 드롭은 bosses.json evoker.minionDrops/drops.
  * - 수치는 아빠 임시값 — `mobs.json` 에 hp/damage 가 생기면 그걸 읽는다.
  */
 import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
 import { hash3 } from '../math/prng';
 
-export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king';
-export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king'];
-export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3 };
-export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king'];
+export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker';
+export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker'];
+export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6 };
+export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker'];
 
-/** 보스 (M7-4). 보스는 밤 스폰 목록에 안 들어가고, 원정지 구조물(거미 굴)에 하나만 */
+/** 굴 보스 (M7-4, 거미 왕). 보스는 밤 스폰 목록에 안 들어가고, 원정지 구조물(거미 굴)에 하나만. 소환사(M7-5)는 방어전 마지막 파도의 보스 */
 export const BOSS_KIND: MobKind = 'spider_king';
+export const BOSS_KINDS: readonly MobKind[] = ['spider_king', 'evoker'];
 export function isBoss(kind: MobKind): boolean {
-  return kind === BOSS_KIND;
+  return BOSS_KINDS.includes(kind);
 }
+/** 보스가 부르는 부하 */
+export function bossMinionKind(kind: MobKind): MobKind {
+  return kind === 'evoker' ? 'vindicator' : 'spider';
+}
+/** 우민 (마을 방어전 M7-5) */
+export const RAIDER_KINDS: readonly MobKind[] = ['vindicator', 'pillager', 'evoker'];
 /** 보스가 깨어나는 거리(칸) · 소환 주기 · 소환 수 · 살아 있는 부하 최대 */
 export const BOSS_AGGRO_RANGE = 24;
 export const BOSS_SUMMON_EVERY_MS = 8000;
@@ -67,6 +75,10 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name'>> = {
   creeper: { id: 'creeper', hp: 20, damage: 7, speed: 2.6, reach: 3.0, attackEveryMs: 0, fuseMs: 1500, explodeRadius: 3.5, poisonMs: 0 },
   spider: { id: 'spider', hp: 16, damage: 2, speed: 3.4, reach: 1.9, attackEveryMs: 1000, fuseMs: 0, explodeRadius: 0, poisonMs: 3000 },
   spider_king: { id: 'spider_king', hp: 200, damage: 4, speed: 2.4, reach: 2.8, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 4000 },
+  // 우민 (M7-5): 변명자는 도끼(세다), 약탈자는 석궁(6칸에서 쏜다, 화살 연출은 클라), 소환사는 보스 — 변명자를 부른다
+  vindicator: { id: 'vindicator', hp: 24, damage: 5, speed: 2.6, reach: 1.8, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  pillager: { id: 'pillager', hp: 24, damage: 3, speed: 2.4, reach: 6, attackEveryMs: 2000, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  evoker: { id: 'evoker', hp: 150, damage: 3, speed: 2.2, reach: 2.0, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
 };
 
 const MobFile = z
@@ -98,12 +110,29 @@ const BossFile = z
             hp: z.number().optional(),
             xp: z.number().optional(),
             drops: z.array(z.object({ material: z.string(), count: z.number().int().min(1), chance: z.number().min(0).max(1) }).loose()).optional(),
+            /** 부하 드롭 (소환사의 minionDrops: 우민 종류 → 드롭 표). _comment 같은 글도 섞여 있어 배열만 골라 쓴다 */
+            minionDrops: z.record(z.string(), z.unknown()).optional(),
           })
           .loose(),
       )
       .optional(),
   })
   .loose();
+
+const BOSS_NAME_KO: Partial<Record<MobKind, string>> = { spider_king: '거미 왕', evoker: '소환사' };
+const BOSS_XP: Partial<Record<MobKind, number>> = { spider_king: 80, evoker: 100 };
+
+function dropsFromRaw(raw: unknown): MobDrop[] {
+  if (!Array.isArray(raw)) return [];
+  const out: MobDrop[] = [];
+  for (const d of raw) {
+    if (!d || typeof d !== 'object') continue;
+    const o = d as { material?: unknown; count?: unknown; chance?: unknown };
+    if (typeof o.material !== 'string' || typeof o.count !== 'number') continue;
+    out.push({ item: o.material, min: o.count, max: o.count, chance: typeof o.chance === 'number' ? o.chance : 1 });
+  }
+  return out;
+}
 
 export class MobRegistry {
   constructor(readonly defs: Readonly<Record<MobKind, MobDef>>) {}
@@ -132,15 +161,17 @@ export function parseMobs(raw: unknown, xpByMob: ReadonlyMap<string, readonly [n
       const src = bosses.find((x) => x.id === kind);
       defs[kind] = {
         ...base,
-        name: src?.name ?? '거미 왕',
+        name: src?.name?.replace(/\s*\(.*\)\s*$/, '') ?? BOSS_NAME_KO[kind] ?? kind, // "소환사 (우민 보스)" → "소환사"
         hp: src?.hp ?? base.hp,
-        drops: (src?.drops ?? []).map((d) => ({ item: d.material, min: d.count, max: d.count, chance: d.chance })),
-        xp: src?.xp ?? 80,
+        drops: dropsFromRaw(src?.drops),
+        xp: src?.xp ?? BOSS_XP[kind] ?? 80,
       };
       continue;
     }
     const src = result.data.hostile.find((h) => h.id === kind);
-    const drops: MobDrop[] = (src?.drops ?? []).map(([item, [min, max], chance]) => ({ item, min, max, chance }));
+    const evoker = bosses.find((x) => x.id === 'evoker');
+    const minion = evoker?.minionDrops?.[kind];
+    const drops: MobDrop[] = src ? (src.drops ?? []).map(([item, [min, max], chance]) => ({ item, min, max, chance })) : dropsFromRaw(minion);
     const xpRange = xpByMob?.get(kind);
     defs[kind] = {
       ...base,
@@ -160,7 +191,7 @@ export const SPAWN_MAX = 24;
 export const SPAWN_EVERY_MS = 4000;
 /** 몹 몸 판정 (넓이·높이) — 좀비·크리퍼. 거미는 넓고 낮다 */
 export const MOB_SIZE = { w: 0.6, h: 1.9 } as const;
-export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = { zombie: MOB_SIZE, creeper: MOB_SIZE, spider: { w: 1.4, h: 0.9 }, spider_king: { w: 2.8, h: 1.7 } };
+export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = { zombie: MOB_SIZE, creeper: MOB_SIZE, spider: { w: 1.4, h: 0.9 }, spider_king: { w: 2.8, h: 1.7 }, vindicator: MOB_SIZE, pillager: MOB_SIZE, evoker: MOB_SIZE };
 export function mobSize(kind: MobKind | number): { w: number; h: number } {
   return MOB_SIZES[typeof kind === 'number' ? (MOB_KIND_OF[kind] ?? 'zombie') : kind];
 }

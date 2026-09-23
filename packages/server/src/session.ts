@@ -13,7 +13,7 @@ import {
   encodePong,
   sanitizeNick,
 } from '@dragon-village/shared';
-import { EXPEDITIONS, FAMILY_RULES } from '@dragon-village/shared/data';
+import { EXPEDITIONS, FAMILY_RULES, RAIDS } from '@dragon-village/shared/data';
 import { randomBytes } from 'node:crypto';
 import type { WebSocket } from 'ws';
 import { PIN_RE, type AccountService } from './accounts';
@@ -29,6 +29,15 @@ const LINK_ERROR_KO: Record<string, string> = {
   IS_PARENT: '이 이름은 부모로 연결돼 있어요. 아이는 자기 이름으로 들어가서 연결해요',
 };
 /** 둥지·부화 거절 이유 (M6-2) */
+/** 방어전 시작 오류 (M7-5) */
+const RAID_ERROR_KO: Record<string, string> = {
+  NOT_AT_FLAG: '광장 깃대 옆에서 시작할 수 있어요',
+  RAID_RUNNING: '이미 방어전이 진행 중이에요',
+  NEED_LEVEL: '마을 레벨이 더 올라야 우민이 쳐들어와요',
+  WEEK_CAP: '방어전은 일주일에 두 번까지예요',
+  NO_STORAGE: '지금은 방어전을 할 수 없어요',
+};
+
 /** 몹 때리기 오류 (M7-2) */
 const HIT_ERROR_KO: Record<string, string> = {
   NO_MOB: '거기엔 아무것도 없어요',
@@ -361,6 +370,17 @@ export class Session {
         if (!Number.isInteger(msg.id)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
         const err = this.room.ride(this.idx, msg.id);
         if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 탈 수 없어요');
+        return;
+      }
+      case 'startRaid': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        // 시간 제한: 원정과 같은 규칙 (10분 세션)
+        if (this.family && this.nick) {
+          const check = this.family.expeditionCheck(this.nick, RAIDS.durationSec);
+          if (!check.ok) return this.error('NOT_ENOUGH_TIME', check.message);
+        }
+        const err = this.room.startRaid(this.idx);
+        if (err) return this.error(err, RAID_ERROR_KO[err] ?? '지금은 방어전을 시작할 수 없어요');
         return;
       }
       case 'held': {

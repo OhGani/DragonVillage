@@ -43,6 +43,7 @@ import {
   encodeBlockChangeReq,
   encodePing,
   encodePlayerMove,
+  type RaidStateInfo,
 } from '@dragon-village/shared';
 
 const TOKEN_KEY = 'dv.token';
@@ -146,6 +147,8 @@ export interface NetEvents {
   onMount(idx: number, riding: RidingInfo): void;
   /** 누가 손에 든 것을 바꿨다 (#96) */
   onHeld(idx: number, item: string | null): void;
+  /** 마을 방어전 상태 (M7-5). null = 끝/없음 */
+  onRaid(raid: RaidStateInfo | null): void;
   /** 누가 빔을 쐈다 (M6-5) */
   onBeam(m: { idx: number; dragon: string; color: string; power: number; from: { x: number; y: number; z: number }; dir: { x: number; y: number; z: number }; range: number }): void;
   /** 내 기력 (M6-5). readyAt·now 는 서버 시각 */
@@ -368,6 +371,10 @@ export class NetClient {
   sendHeld(item: string | null): void {
     this.sendJson({ t: 'held', item });
   }
+  /** 마을 방어전 시작 (M7-5) */
+  sendStartRaid(): void {
+    this.sendJson({ t: 'startRaid' });
+  }
   /** 마을 창고 (M6-6) */
   sendOpenStorage(): void {
     this.sendJson({ t: 'openStorage' });
@@ -528,6 +535,7 @@ export class NetClient {
     else if (msg.t === 'mob') ev.onMobEvent(msg);
     else if (msg.t === 'dismount') ev.onDismount(msg.idx);
     else if (msg.t === 'held') ev.onHeld(msg.idx, msg.item);
+    else if (msg.t === 'raid') ev.onRaid(msg.raid);
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }
 

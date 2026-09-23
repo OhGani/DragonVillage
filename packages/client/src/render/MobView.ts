@@ -13,6 +13,13 @@ import { PLAYER_SHADES, type SkinPalette, VOXEL, playerVoxels } from './playerMo
 import { type Voxel, buildVoxelGeometry } from './voxelGeometry';
 
 const ZOMBIE: SkinPalette = { shirt: 0x2f6a7a, skin: 0x5d8b4a, hair: 0x2c3e2b, pants: 0x3a3560, shoes: 0x25211f };
+/** 우민 (M7-5): 잿빛 피부. 변명자는 짙은 남색 옷, 약탈자는 갈색 가죽, 소환사는 검은 로브 */
+const HUMANOID: Partial<Record<string, SkinPalette>> = {
+  zombie: ZOMBIE,
+  vindicator: { shirt: 0x2f3f52, skin: 0x9aa3a9, hair: 0x2a2a2a, pants: 0x1e2a36, shoes: 0x1a1a1a },
+  pillager: { shirt: 0x5a4632, skin: 0x9aa3a9, hair: 0x2a2a2a, pants: 0x3a2f24, shoes: 0x1a1a1a },
+  evoker: { shirt: 0x1c1c22, skin: 0x9aa3a9, hair: 0x111111, pants: 0x1c1c22, shoes: 0x111111 },
+};
 const CREEPER_GREEN = 0x4caf50;
 const SPIDER_DARK = 0x2a2320;
 const KING_DARK = 0x3a2344;
@@ -207,8 +214,10 @@ export class MobView {
       legL: THREE.Mesh | null = null,
       legR: THREE.Mesh | null = null;
     const spiderLegs: THREE.Mesh[] = [];
-    if (MOB_KIND_OF[m.kind] === 'zombie') {
-      const v = playerVoxels(ZOMBIE);
+    const kindName = MOB_KIND_OF[m.kind] ?? 'zombie';
+    const pal = HUMANOID[kindName];
+    if (pal) {
+      const v = playerVoxels(pal);
       const at = (mesh: THREE.Mesh, spot: readonly [number, number]) => {
         mesh.position.set(spot[0] * VOXEL, spot[1] * VOXEL, 0);
         return mesh;
@@ -219,7 +228,8 @@ export class MobView {
       legR = at(partMesh(v.leg, material), [2, 12]);
       armL = at(partMesh(v.arm, material), [-6, 24]);
       armR = at(partMesh(v.arm, material), [6, 24]);
-      armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.15; // 좀비 팔은 앞으로
+      if (kindName === 'zombie') armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.15; // 좀비 팔은 앞으로
+      else if (kindName === 'evoker') armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.6; // 소환사는 손을 든다
       body.add(torso, head, legL, legR, armL, armR);
     } else if (MOB_KIND_OF[m.kind] === 'spider' || MOB_KIND_OF[m.kind] === 'spider_king') {
       body.add(partMesh(spiderBodyVoxels(MOB_KIND_OF[m.kind] === 'spider_king'), material));
@@ -241,7 +251,6 @@ export class MobView {
     }
     group.add(body);
     // 체력 바: 머리 위, 몸과 따로(돌지도 커지지도 않는다)
-    const kindName = MOB_KIND_OF[m.kind] ?? 'zombie';
     const maxHp = MOBS.get(kindName).hp;
     const king = MOB_KIND_OF[m.kind] === 'spider_king';
     const baseScale = king ? 2.2 : 1;
@@ -297,7 +306,7 @@ export class MobView {
       f.summonT = 0.8;
       this.burst(x, y + 0.6, z, 0xb388ff, 16, now);
     } else if (ev === 'die' || ev === 'explode') {
-      const color = ev === 'explode' ? 0xffd27a : !f ? 0xffffff : f.kind === 0 ? 0x5d8b4a : f.kind === 2 ? SPIDER_DARK : f.kind === 3 ? GOLD : CREEPER_GREEN;
+      const color = ev === 'explode' ? 0xffd27a : !f ? 0xffffff : f.kind === 0 ? 0x5d8b4a : f.kind === 2 ? SPIDER_DARK : f.kind === 3 ? GOLD : f.kind >= 4 ? 0x9aa3a9 : CREEPER_GREEN;
       this.burst(x, y + mobSize(f?.kind ?? 0).h * 0.5, z, color, ev === 'explode' ? 28 : f?.kind === 3 ? 40 : 12, now);
       this.remove(id);
     }

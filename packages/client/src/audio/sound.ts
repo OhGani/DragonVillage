@@ -103,6 +103,27 @@ export function roar(): void {
   tone(55, t + 0.2, 0.5, 0.14, 'triangle');
 }
 
+/** 마을 종 (M7-5): 우민이 온다. 세 번 울린다 */
+export function bell(): void {
+  const c = audio();
+  if (!c) return;
+  const t = c.currentTime;
+  for (let i = 0; i < 3; i++) {
+    tone(880, t + i * 0.55, 0.5, 0.12, 'sine');
+    tone(1320, t + i * 0.55, 0.35, 0.05, 'triangle');
+  }
+}
+
+/** 방어전 패배: 내려가는 세 음 */
+export function lose(): void {
+  const c = audio();
+  if (!c) return;
+  const t = c.currentTime;
+  tone(392, t, 0.3, 0.12, 'square');
+  tone(330, t + 0.3, 0.3, 0.12, 'square');
+  tone(262, t + 0.6, 0.6, 0.12, 'square');
+}
+
 /** 크리퍼 폭발 (M7-2): 낮은 '쿵' + 잡음 */
 export function explosion(): void {
   const c = audio();

@@ -51,10 +51,13 @@ import {
   skyLightAt,
   BOSS_KIND,
   MOB_KIND_OF,
+  FLAG_POLE,
+  RAID_CAPTURE_SEC,
+  type RaidStateInfo,
 } from '@dragon-village/shared';
-import { BLOCKS, BUILDINGS, DRAGONS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RECIPES, XP } from '@dragon-village/shared/data';
+import { BLOCKS, BUILDINGS, DRAGONS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
-import { beam as beamSound, ding, explosion as explosionSound, hit as hitSound, hurt as hurtSound, levelUp, roar } from '../audio/sound';
+import { beam as beamSound, bell, ding, explosion as explosionSound, hit as hitSound, hurt as hurtSound, levelUp, lose, roar } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
 import { InputManager } from '../input/InputManager';
 import { KeyboardMouse } from '../input/keyboard';
@@ -223,6 +226,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   let expeditionState: ExpeditionStateInfo | null = welcome.expedition;
   // 마을 상태 (M6-6): 건물·레벨·도감은 서버가 진실
   let villageState = welcome.village_state ?? { built: [], level: 1, codex: 0, codexIds: [], eggSlots: 4 };
+  /** 마을 방어전 상태 (M7-5). null = 없음 */
+  let raidState: RaidStateInfo | null = null;
+  let raidPhaseSeen: string | null = null;
   /** 출발 카드에서 고른 원정지 (열린 것 중 차례, M7-3) */
   let expeditionPick = 0;
   const openExpeditions = () => EXPEDITIONS.v1().filter((d) => hasGenerator(d.generator) && expeditionUnlocked(d.unlockedBy, villageState.built));
@@ -604,6 +610,26 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     },
     onHeld: (idx, item) => {
       if (idx !== myIdx) remote.setHeld(idx, item);
+    },
+    onRaid: (s) => {
+      raidState = s;
+      if (!s) {
+        hud.hideRaid();
+        raidPhaseSeen = null;
+        return;
+      }
+      if (s.phase !== raidPhaseSeen) {
+        raidPhaseSeen = s.phase;
+        if (s.phase === 'warning') bell();
+        else if (s.phase === 'wave') roar();
+        else if (s.phase === 'won') levelUp();
+        else if (s.phase === 'lost') lose();
+      }
+      const mm = `${Math.floor(s.secLeft / 60)}:${String(s.secLeft % 60).padStart(2, '0')}`;
+      if (s.phase === 'warning') hud.setRaid(`🔔 우민이 온다! ${s.warnLeft}초 · 깃대를 지켜요`);
+      else if (s.phase === 'wave') hud.setRaid(`⚔️ 파도 ${s.wave}/${s.waves} · 우민 ${s.remaining} · ${mm}${s.capture > 0 ? ` · 🚩 깃대 ${s.capture}/${RAID_CAPTURE_SEC}` : ''}`, s.capture > 0);
+      else if (s.phase === 'won') hud.setRaid('🏆 마을을 지켰다!');
+      else hud.setRaid('💀 우민이 깃대를 차지했어요…', true);
     },
     onMount: (idx, riding) => {
       if (idx !== myIdx) {
@@ -1085,6 +1111,17 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       // 둥지 안 (M6-2): 광장 남쪽 집터
       if (ctx.kind === 'village' && nestContains(GROUND_Y, p.x, p.y, p.z)) {
         hud.showAction('드래곤 둥지', '알을 놓고, 레벨을 써서 부화시켜요', '둥지 열기' + KEY_HINT, openNest);
+        return;
+      }
+      // 깃대 옆 (M7-5): 방어전 시작
+      if (ctx.kind === 'village' && !raidState && Math.hypot(p.x - (FLAG_POLE.x + 0.5), p.z - (FLAG_POLE.z + 0.5)) <= 4) {
+        const need = expeditionNeedMin(Math.ceil(RAIDS.durationSec / 60), FAMILY_RULES);
+        if (todayCard?.enforced && !canStartExpedition(todayCard, Math.ceil(RAIDS.durationSec / 60), FAMILY_RULES)) {
+          hud.showAction('오늘은 방어전은 쉬어요', `방어전은 ${need}분 필요해요`, '알겠어요', () => hud.hideAction());
+          return;
+        }
+        if (villageState.level < RAIDS.minVillageLevel) hud.showAction('🔔 우민 방어전', `마을 레벨 ${RAIDS.minVillageLevel}부터 우민이 쳐들어와요 (지금 ${villageState.level})`, '알겠어요', () => hud.hideAction());
+        else hud.showAction('🔔 우민 방어전', `${Math.round(RAIDS.durationSec / 60)}분 · 파도 ${RAIDS.waves}번 · 우민이 북쪽에서 깃대로 와요\n마을은 부서지지 않아요 · 일주일에 ${RAIDS.maxPerWeek}번`, '방어 시작' + KEY_HINT, () => net.sendStartRaid());
         return;
       }
       if (hud.actionVisible) hud.hideAction();

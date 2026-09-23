@@ -167,6 +167,8 @@ CREATE TABLE IF NOT EXISTS codex(
   village TEXT NOT NULL, kind TEXT NOT NULL, id TEXT NOT NULL, token TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY(village, kind, id));
 CREATE TABLE IF NOT EXISTS gifts_given(
   token TEXT NOT NULL, gift TEXT NOT NULL, given_at INTEGER NOT NULL, PRIMARY KEY(token, gift));
+CREATE TABLE IF NOT EXISTS raids(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, village TEXT NOT NULL, started_at INTEGER NOT NULL, won INTEGER NOT NULL, wave INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS time_adjustments(
   id INTEGER PRIMARY KEY AUTOINCREMENT, child TEXT NOT NULL, date TEXT NOT NULL, delta_min INTEGER NOT NULL, reason TEXT NOT NULL, created_at INTEGER NOT NULL);
 `;
@@ -204,6 +206,9 @@ export class Storage {
       pruneStorage: this.db.prepare('DELETE FROM storage WHERE village = ? AND count <= 0'),
       listBuildings: this.db.prepare('SELECT id FROM buildings WHERE village = ? ORDER BY built_at'),
       addBuilding: this.db.prepare('INSERT OR IGNORE INTO buildings(village, id, built_at) VALUES (?, ?, ?)'),
+      addRaid: this.db.prepare('INSERT INTO raids(village, started_at, won, wave) VALUES (?, ?, ?, ?)'),
+      countRaidsSince: this.db.prepare('SELECT COUNT(*) AS n FROM raids WHERE village = ? AND started_at >= ?'),
+      lastRaid: this.db.prepare('SELECT won, wave, started_at AS startedAt FROM raids WHERE village = ? ORDER BY started_at DESC LIMIT 1'),
       addCodex: this.db.prepare('INSERT OR IGNORE INTO codex(village, kind, id, token, at) VALUES (?, ?, ?, ?, ?)'),
       listCodex: this.db.prepare('SELECT id FROM codex WHERE village = ? AND kind = ? ORDER BY at'),
       getInventory: this.db.prepare('SELECT json FROM inventories WHERE token = ?'),
@@ -348,6 +353,17 @@ export class Storage {
   }
   addBuilding(code: string, id: string, now = Date.now()): void {
     this.stmts.addBuilding.run(code, id, now);
+  }
+  /** 방어전 기록 (M7-5) */
+  addRaid(code: string, startedAt: number, won: boolean, wave: number): void {
+    this.stmts.addRaid.run(code, startedAt, won ? 1 : 0, wave);
+  }
+  countRaidsSince(code: string, since: number): number {
+    return (this.stmts.countRaidsSince.get(code, since) as { n: number }).n;
+  }
+  lastRaid(code: string): { won: boolean; wave: number; startedAt: number } | null {
+    const r = this.stmts.lastRaid.get(code) as { won: number; wave: number; startedAt: number } | undefined;
+    return r ? { won: r.won === 1, wave: r.wave, startedAt: r.startedAt } : null;
   }
   /** 도감에 올린다. 처음이면 true */
   codexAdd(code: string, kind: string, id: string, token: string, now = Date.now()): boolean {
