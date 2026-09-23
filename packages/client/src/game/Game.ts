@@ -4,6 +4,8 @@ import {
   GROUND_Y,
   type NestDragonInfo,
   type RidingInfo,
+  HIT_COOLDOWN_MS,
+  HIT_REACH,
   STORAGE_REACH,
   beamOf,
   siteCenter,
@@ -48,7 +50,7 @@ import {
 } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, DRAGONS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, PHRASES, POTIONS, RECIPES, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
-import { beam as beamSound, ding, hurt as hurtSound, levelUp } from '../audio/sound';
+import { beam as beamSound, ding, explosion as explosionSound, hurt as hurtSound, levelUp } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
 import { InputManager } from '../input/InputManager';
 import { KeyboardMouse } from '../input/keyboard';
@@ -73,6 +75,7 @@ import { MountView, NestDragons } from '../render/DragonMesh';
 import { BeamView } from '../render/BeamView';
 import { StorageView } from '../ui/storageView';
 import { OrbView } from '../render/OrbView';
+import { MobView } from '../render/MobView';
 import { askInput, askPin } from '../ui/pinDialog';
 import { itemIcon } from '../ui/itemIcon';
 import { MesherPool } from '../workers/MesherPool';
@@ -166,6 +169,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   // 체력·구슬 (M7-1): 서버가 진실. 하트는 welcome 값으로 시작
   const orbView = new OrbView(scene);
   let hp = welcome.hp;
+  // 원정 몹 (M7-2): 서버 상태를 그리고, 조준한 몹을 탭/클릭하면 때린다
+  const mobView = new MobView(scene);
+  let hitCooldown = 0;
   let stamina: { value: number; max: number; at: number; readyAt: number } | null = null;
   let serverClockOffset = 0; // 서버 now - 내 Date.now()
   const beamNeed = () => (myRiding ? beamOf(DRAGONS.require(myRiding.dragon)).stamina : 0);
@@ -429,6 +435,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     warned3 = warned1 = false;
     hud.hideAction();
     orbView.clear(); // 그 세계의 구슬은 서버가 곧 보내 준다
+    mobView.clear();
     if (w.kind === 'expedition' && w.expedition) {
       hud.toast(`${w.expedition.name}에 도착했어요! 가운데 포탈로 돌아오면 모은 것을 가져가요`, 5000);
     } else {
@@ -645,6 +652,14 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       pl.vel.x = pl.vel.y = pl.vel.z = 0;
       sendMove();
       hud.toast(m.dropped > 0 ? `💀 쓰러졌어요… 경험치 구슬 ${m.dropped}개가 그 자리에 남았어요. 가서 되찾아요!` : '💀 쓰러졌어요… 다시 일어났어요', 6000);
+    },
+    onMobs: (list) => mobView.setState(list),
+    onMobEvent: (m) => {
+      mobView.event(m.ev, m.id, m.x, m.y, m.z);
+      if (m.ev === 'explode') {
+        hud.hurtFlash();
+        explosionSound();
+      } else if (m.ev === 'die') ding();
     },
     onOrbs: (list) => orbView.set(list),
     onOrbGone: (id, by) => {
@@ -1108,6 +1123,15 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     interaction.heldItem = hud.selectedItem;
 
     player.update(inp, dt);
+    // 몹을 조준하고 있으면 탭/클릭은 때리기 (블록은 안 부순다)
+    hitCooldown = Math.max(0, hitCooldown - dt);
+    const aimedMob = mobView.count > 0 ? mobView.aim(player.eye, player.lookDir, HIT_REACH) : null;
+    interaction.suppressPrimary = aimedMob !== null;
+    if (aimedMob !== null && inp.primary && hitCooldown <= 0) {
+      hitCooldown = HIT_COOLDOWN_MS / 1000;
+      net.sendHit(aimedMob, hud.selectedIndex);
+      hand.swing();
+    }
     interaction.update(inp, dt);
     player.applyToCamera(camera, bobStrength);
 
@@ -1122,6 +1146,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     mount.update(player, dt);
     beams.update();
     orbView.update(dt);
+    mobView.update(dt);
     if (stamina) refreshStamina();
 
     // 이 프레임에 바뀐 블록들의 빛을 한 번에 다시 계산 → 빛이 바뀐 청크도 다시 메싱
@@ -1215,6 +1240,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         return ctx.interaction;
       },
       registry,
+      mobView,
       camera,
       scene,
       renderer,

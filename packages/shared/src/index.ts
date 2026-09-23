@@ -16,6 +16,7 @@ export * from './rules/dragons';
 export * from './rules/beam';
 export * from './rules/buildings';
 export * from './rules/health';
+export * from './rules/mobs';
 export * from './chunk/chunk';
 export * from './chunk/world';
 export * from './chunk/serialize';

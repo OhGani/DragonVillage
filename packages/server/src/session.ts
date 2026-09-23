@@ -45,6 +45,7 @@ const NEST_ERROR_KO: Record<string, string> = {
   NOT_RIDING: '타고 있지 않아요',
   UNKNOWN_SKILL: '그런 스킬은 없어요',
   NOT_AT_STORAGE: '창고 건물 옆에서 해요 (광장 동쪽)',
+  NO_MOB: '거기엔 아무것도 없어요',
   UNKNOWN_BUILDING: '그런 건물은 없어요',
   NO_SITE: '그 건물은 아직 지을 자리가 없어요 (다음 단계)',
   ALREADY_BUILT: '이미 지어졌어요',
@@ -379,6 +380,13 @@ export class Session {
         const err = this.room.build(this.idx, msg.id);
         if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 지을 수 없어요');
         this.log(`세션 ${this.remote}: '${this.nick}' 건물 ${msg.id}`);
+        return;
+      }
+      case 'hit': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.id)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.hitMob(this.idx, msg.id, typeof msg.slot === 'number' ? msg.slot : undefined);
+        if (err && err !== 'COOLDOWN') return this.error(err, NEST_ERROR_KO[err] ?? '지금은 때릴 수 없어요');
         return;
       }
       case 'skill': {

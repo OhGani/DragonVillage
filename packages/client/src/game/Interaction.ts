@@ -40,6 +40,8 @@ export class Interaction {
   target: RayHit | null = null;
   /** 0..1 부수기 진행 */
   progress = 0;
+  /** 몹을 조준하고 있으면 true — 그 프레임엔 블록을 안 부순다 (M7-2) */
+  suppressPrimary = false;
   private breakingKey = -1;
   private cooldown = 0;
   private placeTimer = 0;
@@ -114,7 +116,11 @@ export class Interaction {
     this.cooldown = Math.max(0, this.cooldown - dt);
 
     // ---- 부수기 (꾹) ----
-    if (input.primary && this.target) {
+    if (this.suppressPrimary) {
+      this.breakingKey = -1;
+      this.progress = 0;
+    }
+    if (input.primary && this.target && !this.suppressPrimary) {
       const t = this.target;
       const key = ((t.x * 1024 + t.y) * 1024 + t.z) | 0;
       if (key !== this.breakingKey) {

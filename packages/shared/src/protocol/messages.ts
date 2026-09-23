@@ -10,6 +10,7 @@
 import type { DragonInfo, NestDragonInfo, NestSlotInfo, RidingInfo } from '../rules/dragons';
 import type { GiftNotice } from '../rules/gifts';
 import type { TodayCard } from '../rules/family';
+import type { MobEntry } from '../rules/mobs';
 import { ByteReader, ByteWriter } from './bytes';
 
 export const PROTOCOL_VERSION = 1;
@@ -44,6 +45,8 @@ export const MSG = {
   XpGained: 0x52,
   /** 경험치 총량 정정 S→C */
   XpState: 0x53,
+  /** S→C 20Hz 원정 몹 상태 (M7-2) */
+  MobsState: 0x60,
   Ping: 0x7f,
   Pong: 0x7e,
 } as const;
@@ -192,6 +195,12 @@ export interface EmoteMsg {
 export function encodePlayerMove(m: PlayerMoveMsg): Uint8Array {
   return new ByteWriter(24).u8(MSG.PlayerMove).f32(m.x).f32(m.y).f32(m.z).f32(m.yaw).f32(m.pitch).u8(m.flags).finish();
 }
+/** 몹 상태 묶음 (M7-2): id·종류·위치·yaw·hp·상태 */
+export function encodeMobsState(list: readonly MobEntry[]): Uint8Array {
+  const w = new ByteWriter(2 + list.length * 21).u8(MSG.MobsState).u8(Math.min(255, list.length));
+  for (const m of list.slice(0, 255)) w.u16(m.id & 0xffff).u8(m.kind & 0xff).f32(m.x).f32(m.y).f32(m.z).f32(m.yaw).u8(Math.max(0, Math.min(255, m.hp))).u8(m.state & 0xff);
+  return w.finish();
+}
 export function encodePlayersState(list: readonly PlayerStateEntry[]): Uint8Array {
   const w = new ByteWriter(2 + list.length * 22).u8(MSG.PlayersState).u8(list.length);
   for (const p of list) w.u8(p.idx).f32(p.x).f32(p.y).f32(p.z).f32(p.yaw).f32(p.pitch).u8(p.flags);
@@ -251,6 +260,7 @@ export type ClientBinary =
 
 export type ServerBinary =
   | { type: typeof MSG.PlayersState; msg: PlayerStateEntry[] }
+  | { type: typeof MSG.MobsState; msg: MobEntry[] }
   | { type: typeof MSG.BlockChanged; msg: BlockChangedMsg }
   | { type: typeof MSG.BlockChangeRejected; msg: BlockChangeRejectedMsg }
   | { type: typeof MSG.BlockBatch; msg: BlockBatchMsg }
@@ -303,6 +313,12 @@ export function decodeServerBinary(bytes: Uint8Array): ServerBinary | null {
       const n = r.u8();
       const list: PlayerStateEntry[] = [];
       for (let i = 0; i < n; i++) list.push({ idx: r.u8(), x: r.f32(), y: r.f32(), z: r.f32(), yaw: r.f32(), pitch: r.f32(), flags: r.u8() });
+      return { type, msg: list };
+    }
+    case MSG.MobsState: {
+      const n = r.u8();
+      const list: MobEntry[] = [];
+      for (let i = 0; i < n; i++) list.push({ id: r.u16(), kind: r.u8(), x: r.f32(), y: r.f32(), z: r.f32(), yaw: r.f32(), hp: r.u8(), state: r.u8() });
       return { type, msg: list };
     }
     case MSG.BlockChanged:
@@ -443,7 +459,9 @@ export type ClientJson =
   /** 창고 ↔ 가방. dir 'in' = 가방 → 창고 */
   | { t: 'storageMove'; item: string; count: number; dir: 'in' | 'out' }
   /** 건물 짓기 (창고 재료로) */
-  | { t: 'build'; id: string };
+  | { t: 'build'; id: string }
+  /** 몹 때리기 (M7-2) */
+  | { t: 'hit'; id: number; slot?: number };
 
 export type ServerJson =
   | { t: 'hello'; token: string; protocol: number }
@@ -520,6 +538,8 @@ export type ServerJson =
   | { t: 'orbs'; list: { id: number; x: number; y: number; z: number; amount: number }[] }
   /** 구슬 하나가 회수됐다 */
   | { t: 'orbGone'; id: number; by: number }
+  /** 몹 사건 (M7-2): 생김·맞음·죽음·폭발 */
+  | { t: 'mob'; ev: 'spawn' | 'hit' | 'die' | 'explode'; id: number; mob: string; x: number; y: number; z: number }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }

@@ -75,6 +75,7 @@ import {
   type BlockDef,
   BEAM_RANGE,
   HP_MAX,
+  hitDamage,
   ORB_PICKUP_RANGE,
   type OrbInfo,
   deathXpDrop,
@@ -132,9 +133,10 @@ import {
   encodePlayersState,
   generateVillage,
 } from '@dragon-village/shared';
-import { BUILDINGS, DRAGONS, EXPEDITIONS, GIFTS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP } from '@dragon-village/shared/data';
+import { BUILDINGS, DRAGONS, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
+import { MobSystem } from './mobs';
 import type { DragonRow, Storage } from './storage';
 
 /** 플레이어 몸 크기 (클라 Player.ts 와 같아야 한다) */
@@ -891,6 +893,7 @@ export class VillageRoom {
     // 드래곤 입 근처: 내 눈보다 아래(안장 위에 앉아 있으니)·앞 1.2칸. 1인칭에서 빔이 아래에서 조준점으로 모여 들어 총알처럼 보인다
     const from = { x: p.pos.x + dir.x * 1.2, y: p.pos.y + EYE - 0.8 + dir.y * 1.2, z: p.pos.z + dir.z * 1.2 };
     this.broadcastJson({ t: 'beam', idx, dragon: def.id, color: beam.color, power: beam.power, from, dir, range: BEAM_RANGE }, -1, p.world);
+    if (p.world === 'expedition' && this.mobSys) this.mobSys.beam(from, dir, BEAM_RANGE, beam.power, idx, now); // 몹에 4×세기 (M7-2). 사람·드래곤은 안 맞는다
     this.sendJson(p, { t: 'stamina', value: r.stamina.value, max, readyAt: r.readyAt, now });
     return null;
   }
@@ -1159,6 +1162,39 @@ export class VillageRoom {
   }
 
   // ---------------------------------------------------------------- 체력·죽음·구슬 (M7-1)
+
+  /** 원정 몹 (M7-2). 원정이 생길 때 만들고 폐기될 때 버린다 */
+  mobSys: MobSystem | null = null; // 시험에서 들여다본다
+
+  private makeMobSystem(e: Expedition): MobSystem {
+    return new MobSystem(e, this.registry, MOBS, {
+      players: () => this.playersIn('expedition').filter((p) => p.hp > 0).map((p) => ({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE })),
+      hurt: (idx, amount, cause, now) => {
+        const p = this.players.get(idx);
+        if (p && p.world === 'expedition') this.hurt(p, amount, cause, now);
+      },
+      broadcast: (bytes) => this.broadcast(bytes, -1, 'expedition'),
+      json: (obj) => this.broadcastJson(obj, -1, 'expedition'),
+      reward: (idx, drops, xp, at, now) => {
+        const p = this.players.get(idx);
+        if (!p) return;
+        const changed = new Set<number>();
+        for (const d of drops) this.giveTo(p, d.item, d.count, changed);
+        this.sendInv(p, changed);
+        if (xp > 0) this.addXp(p, xp, XP_SOURCE.mob, at.x, at.y, at.z, now);
+      },
+    });
+  }
+
+  /** 몹 때리기 (M7-2): 조준한 몹, 눈에서 3.5칸, 0.45초마다. 피해는 손에 든 도구 등급으로 */
+  hitMob(idx: number, mobId: number, slot: number | undefined, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (p.world !== 'expedition' || !this.mobSys) return 'NO_MOB';
+    const held = slot !== undefined && slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
+    const tool = toolOf(TOOLS, held);
+    return this.mobSys.hit({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE }, mobId, hitDamage(tool ? tool.tier : null), now);
+  }
 
   /** 세계에 떨어진 경험치 구슬. 원정 구슬은 섬과 함께 사라지고, 마을 구슬은 서버가 켜져 있는 동안 남는다 */
   private readonly orbs = new Map<number, OrbInfo & { world: WorldKind }>();
@@ -1661,6 +1697,8 @@ export class VillageRoom {
 
   private disposeExpedition(): void {
     if (!this.expedition) return;
+    this.mobSys?.clear();
+    this.mobSys = null;
     for (const [id, o] of this.orbs) if (o.world === 'expedition') this.orbs.delete(id); // 원정 구슬은 섬과 함께 사라진다
     this.log(`마을 ${this.info.code}: 원정 "${this.expedition.def.name}" 폐기`);
     this.expedition = null;
@@ -1685,6 +1723,9 @@ export class VillageRoom {
       const list: PlayerStateEntry[] = inside.map((p) => ({ idx: p.idx, ...p.pos }));
       this.broadcast(encodePlayersState(list), -1, 'expedition');
     }
+    // 몹 (M7-2): 밤이면 생기고 쫓고 물고 터진다
+    if (!this.mobSys) this.mobSys = this.makeMobSystem(e);
+    if (inside.length) this.mobSys.tick(now);
     // 1Hz 타이머
     if (!e.ended && now - this.lastTimerAt >= 1000) {
       this.lastTimerAt = now;

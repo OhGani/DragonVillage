@@ -83,3 +83,22 @@ export function hurt(): void {
   tone(140, t, 0.12, 0.12, 'square');
   tone(90, t + 0.02, 0.18, 0.1, 'triangle');
 }
+
+/** 크리퍼 폭발 (M7-2): 낮은 '쿵' + 잡음 */
+export function explosion(): void {
+  const c = audio();
+  if (!c) return;
+  const t = c.currentTime;
+  tone(60, t, 0.5, 0.2, 'sawtooth');
+  tone(38, t + 0.02, 0.7, 0.16, 'square');
+  const buf = c.createBuffer(1, Math.floor(c.sampleRate * 0.35), c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (rnd() * 2 - 1) * (1 - i / d.length);
+  const src = c.createBufferSource();
+  const g = c.createGain();
+  src.buffer = buf;
+  g.gain.setValueAtTime(0.18, t);
+  g.gain.exponentialRampToValueAtTime(0.0005, t + 0.35);
+  src.connect(g).connect(c.destination);
+  src.start(t);
+}

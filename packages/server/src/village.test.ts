@@ -764,7 +764,7 @@ describe('가방이 모자라면 상자를 못 부순다 (아빠 2026-09-22, #84
     expect(BLOCKS.get(room.world.getBlock(66, y, 64)).id).toBe('chest');
     a.clear();
     expect(room.openChest(ra.idx, 66, y, 64, 1000)).toBeNull();
-    expect((a.json.filter((m) => m.t === 'chest').at(-1) as { slots: (null | { item: string; count: number })[] }).slots[0]).toEqual({ item: 'coal', count: 10 });
+    expect((a.json.filter((m) => m.t === 'chest').at(-1) as unknown as { slots: (null | { item: string; count: number })[] }).slots[0]).toEqual({ item: 'coal', count: 10 });
 
     // 두 칸(석탄 한 묶음 + 상자 하나)을 비우면 부술 수 있다
     p.inv[0] = null;
@@ -1071,7 +1071,7 @@ describe('체력·낙하·죽음·구슬 (M7-1)', () => {
     expect(room.xpOf(ra.idx)).toBe(0);
     expect([p.pos.x, p.pos.z]).toEqual([e.spawn.x, e.spawn.z]);
     expect(p.world).toBe('expedition');
-    const orbs = a.json.find((m) => m.t === 'orbs') as { list: { amount: number }[] };
+    const orbs = a.json.find((m) => m.t === 'orbs') as unknown as { list: { amount: number }[] };
     expect(orbs.list).toEqual([expect.objectContaining({ amount: 35 })]);
     // 원정이 끝나 폐기되면 구슬도 없다 (죽은 직후 0.8초 위치 잠금이 풀린 뒤 포탈로)
     room.onMove(ra.idx, { x: e.portal.x, y: e.portal.y + 1, z: e.portal.z + 0.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, Date.now() + 1000);
@@ -1084,5 +1084,136 @@ describe('체력·낙하·죽음·구슬 (M7-1)', () => {
     move(room, ra.idx, 64.5, y0 + 30, 64.5, 0);
     move(room, ra.idx, 64.5, y0, 64.5, FLAG_GROUND);
     expect(room.hpOf(ra.idx)).toBe(20);
+  });
+});
+
+describe('원정 밤의 몹 (M7-2)', () => {
+  const T0 = 40_000_000;
+  const NIGHT = T0 + 361_000; // grass_island 은 360초부터 밤
+
+  function goOut() {
+    const room = makeRoom(new Storage(':memory:'));
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 44.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    expect(room.startExpedition(ra.idx, 'grass_island', T0)).toBeNull();
+    const e = room.expedition!;
+    const p = room.players.get(ra.idx)!;
+    return { room, a, ra, e, p };
+  }
+
+  it('낮에는 안 생기고, 밤이 되면 4초마다 하나씩 최대 8마리, 모두에게 MobsState 가 간다', () => {
+    const { room, a, e } = goOut();
+    for (let t = T0; t < T0 + 30_000; t += 1000) room.tick(t);
+    expect(room.mobSys?.mobs.size ?? 0).toBe(0); // 낮
+    a.clear();
+    for (let t = NIGHT; t < NIGHT + 9_000; t += 500) room.tick(t); // 9초: 0·4·8초에 셋
+    const n = room.mobSys!.mobs.size;
+    expect(n).toBe(3);
+    expect(a.bin.some((m) => m.type === MSG.MobsState)).toBe(true);
+    const spawns = a.json.filter((m) => m.t === 'mob' && m.ev === 'spawn');
+    expect(spawns.length).toBe(n);
+    // 오래 두면 최대 8마리를 넘지 않는다 (사람에게 닿은 크리퍼는 터져 빠지고 그 자리는 다시 채워진다)
+    for (let t = NIGHT + 9_000; t < NIGHT + 60_000; t += 500) {
+      room.tick(t);
+      expect(room.mobSys!.mobs.size).toBeLessThanOrEqual(8);
+    }
+    for (const m of room.mobSys!.mobs.values()) {
+      const d = Math.hypot(m.x - e.spawn.x, m.z - e.spawn.z);
+      expect(d).toBeLessThan(40); // 사람(포탈 앞)에서 12~24칸에 생겨 다가온다
+      expect(BLOCKS.get(e.world.getBlock(Math.floor(m.x), Math.floor(m.y) - 1, Math.floor(m.z))).solid).toBe(true); // 땅 위에 서 있다
+    }
+  });
+
+  it('좀비는 다가와 물고(3), 때리면 맞고 죽으면 드롭·경험치가 온다. 빔은 길 위 몹을 맞춘다', () => {
+    const { room, a, ra, e, p } = goOut();
+    room.tick(NIGHT); // 첫 스폰
+    const sys = room.mobSys!;
+    const m = [...sys.mobs.values()][0]!;
+    expect(m).toBeDefined();
+    // 좀비로 바꿔 사람 바로 옆에 둔다
+    m.kind = 'zombie';
+    m.hp = 20;
+    m.x = p.pos.x + 1;
+    m.z = p.pos.z;
+    m.y = p.pos.y;
+    a.clear();
+    room.tick(NIGHT + 200);
+    expect(room.hpOf(ra.idx)).toBe(17);
+    expect(a.json.find((mm) => mm.t === 'health')).toMatchObject({ hp: 17, cause: 'zombie' });
+    // 1.2초 안엔 다시 안 문다, 지나면 문다
+    room.tick(NIGHT + 800);
+    expect(room.hpOf(ra.idx)).toBe(17);
+    room.tick(NIGHT + 1500);
+    expect(room.hpOf(ra.idx)).toBe(14);
+    // 때리기: 맨손 1, 0.45초 쿨. 멀면 TOO_FAR
+    expect(room.hitMob(ra.idx, 999, undefined, NIGHT + 2000)).toBe('NO_MOB');
+    expect(room.hitMob(ra.idx, m.id, undefined, NIGHT + 2000)).toBeNull();
+    expect(m.hp).toBe(19);
+    expect(room.hitMob(ra.idx, m.id, undefined, NIGHT + 2100)).toBe('COOLDOWN');
+    expect(a.json.some((mm) => mm.t === 'mob' && mm.ev === 'hit')).toBe(true);
+    const far = { ...m };
+    m.x = p.pos.x + 10;
+    expect(room.hitMob(ra.idx, m.id, undefined, NIGHT + 3000)).toBe('TOO_FAR');
+    m.x = far.x;
+    // 철 곡괭이면 맨손보다 세다 — 몇 번 안에 죽는다
+    room.giveItems(ra.idx, 'iron_pickaxe', 1);
+    const slot = p.inv.findIndex((s) => s?.item === 'iron_pickaxe');
+    const xp0 = room.xpOf(ra.idx);
+    a.clear();
+    let t = NIGHT + 4000;
+    const hpBefore = m.hp;
+    expect(room.hitMob(ra.idx, m.id, slot, t)).toBeNull();
+    const perHit = hpBefore - m.hp;
+    expect(perHit).toBeGreaterThan(1); // 맨손(1)보다 세다
+    t += 500;
+    for (let i = 0; i < 20 && sys.mobs.has(m.id); i++, t += 500) expect(room.hitMob(ra.idx, m.id, slot, t)).toBeNull();
+    expect(sys.mobs.has(m.id)).toBe(false);
+    expect(a.json.find((mm) => mm.t === 'mob' && mm.ev === 'die')).toMatchObject({ id: m.id, mob: 'zombie' });
+    expect(room.xpOf(ra.idx)).toBe(xp0 + 5);
+    expect(a.bin.find((mm) => mm.type === MSG.XpGained)).toMatchObject({ msg: { amount: 5, source: 6 } });
+    // 빔: 앞(-z) 10칸에 좀비를 두고 쏘면 4×세기 만큼 맞는다
+    room.giveItems(ra.idx, 'dragon_egg.iron', 1);
+    const z2 = { id: 500, kind: 'zombie' as const, x: p.pos.x, y: p.pos.y, z: p.pos.z - 10, yaw: 0, hp: 20, state: 0, fuseAt: 0, lastAttackAt: 0 };
+    sys.mobs.set(500, z2);
+    const side = { ...z2, id: 501, x: p.pos.x + 5 };
+    sys.mobs.set(501, side);
+    const eye = { x: p.pos.x, y: p.pos.y + 1.62, z: p.pos.z };
+    expect(sys.beam(eye, { x: 0, y: 0, z: -1 }, 24, 2, ra.idx, t)).toBe(1); // 길 위 하나만
+    expect(z2.hp).toBe(12);
+    expect(side.hp).toBe(20);
+    expect(room.hpOf(ra.idx)).toBe(14); // 사람은 안 맞는다
+    expect(e.ended).toBe(false);
+  });
+
+  it('크리퍼는 3칸 안에서 1.5초 부풀다 터지고, 사람은 다치지만 블록은 그대로다. 원정이 끝나면 몹도 사라진다', () => {
+    const { room, a, ra, e, p } = goOut();
+    room.tick(NIGHT);
+    const sys = room.mobSys!;
+    const m = [...sys.mobs.values()][0]!;
+    m.kind = 'creeper';
+    m.x = p.pos.x + 2;
+    m.z = p.pos.z;
+    m.y = p.pos.y;
+    const bx = Math.floor(m.x),
+      by = Math.floor(m.y) - 1,
+      bz = Math.floor(m.z);
+    const floor = e.world.getBlock(bx, by, bz);
+    a.clear();
+    room.tick(NIGHT + 200); // 부풀기 시작
+    expect(m.state).toBe(2);
+    room.tick(NIGHT + 1000);
+    expect(room.hpOf(ra.idx)).toBe(20);
+    room.tick(NIGHT + 1800); // 1.5초 지나 터짐
+    expect(sys.mobs.has(m.id)).toBe(false);
+    expect(room.hpOf(ra.idx)).toBeLessThan(20);
+    expect(room.hpOf(ra.idx)).toBeGreaterThan(10);
+    expect(a.json.find((mm) => mm.t === 'mob' && mm.ev === 'explode')).toMatchObject({ mob: 'creeper' });
+    expect(e.world.getBlock(bx, by, bz)).toBe(floor); // 블록은 안 부순다
+    // 원정 종료 → 폐기되면 몹 시스템도 없다
+    room.tick(T0 + 600_000 + 1000);
+    room.tick(T0 + 600_000 + 70_000);
+    expect(room.expedition).toBeNull();
+    expect(room.mobSys).toBeNull();
   });
 });

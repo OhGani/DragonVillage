@@ -4,6 +4,7 @@
  */
 import blocksJson from '../../../../data/blocks.json';
 import buildingsJson from '../../../../data/buildings.json';
+import mobsJson from '../../../../data/mobs.json';
 import dragonsJson from '../../../../data/dragons.json';
 import expeditionsJson from '../../../../data/expeditions.json';
 import familyRulesJson from '../../../../data/family-rules.json';
@@ -17,6 +18,7 @@ import toolsJson from '../../../../data/tools.json';
 import xpJson from '../../../../data/xp.json';
 import { parseBlocks } from './blocks';
 import { parseBuildings } from './buildings';
+import { parseMobs } from './mobs';
 import { eggItem, eggRecipes, parseDragons } from './dragons';
 import { parseExpeditions } from './expeditions';
 import { parseFamilyRules } from './family';
@@ -47,6 +49,8 @@ export const FAMILY_RULES = parseFamilyRules(familyRulesJson);
 export const TOOLS = parseTools(toolsJson);
 /** 경험치 규칙 (M6-1, 마인크래프트 값 + 우리 것) */
 export const XP = parseXp(xpJson);
+/** 원정 밤의 몹 — 좀비·크리퍼 (M7-2). 드롭·이름은 mobs.json, 경험치는 xp.json */
+export const MOBS = parseMobs(mobsJson, XP.mobs);
 /** 처음 들어올 때 한 번 받는 것 (#67) */
 export const STARTER_KIT = parseStarterKit(starterKitJson);
 /** 아빠가 모두에게 한 번씩 주는 선물 (#79) */

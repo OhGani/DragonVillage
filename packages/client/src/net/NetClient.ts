@@ -37,6 +37,7 @@ import {
   type PlayerStateEntry,
   type ServerBinary,
   type ServerJson,
+  type MobEntry,
   type VillageInfo,
   decodeServerBinary,
   encodeBlockChangeReq,
@@ -150,7 +151,7 @@ export interface NetEvents {
   /** 마을 창고 재고 (M6-6) */
   onStorage(items: { item: string; count: number }[]): void;
   /** 마을 상태: 건물·레벨·도감 수 (M6-6) */
-  onVillage(m: { built: string[]; level: number; codex: number }): void;
+  onVillage(m: { built: string[]; level: number; codex: number; eggSlots: number }): void;
   /** 도감에 새로 올랐다 (M6-6) */
   onCodex(m: { kind: 'block'; id: string; total: number }): void;
   /** 내 체력 (M7-1) */
@@ -160,6 +161,9 @@ export interface NetEvents {
   /** 이 세계의 경험치 구슬 전부 */
   onOrbs(list: { id: number; x: number; y: number; z: number; amount: number }[]): void;
   onOrbGone(id: number, by: number): void;
+  /** 원정 몹 상태 (20Hz, M7-2) */
+  onMobs(list: MobEntry[]): void;
+  onMobEvent(m: { ev: 'spawn' | 'hit' | 'die' | 'explode'; id: number; mob: string; x: number; y: number; z: number }): void;
   onDismount(idx: number): void;
 }
 
@@ -354,6 +358,10 @@ export class NetClient {
   sendRide(id: number): void {
     this.sendJson({ t: 'ride', id });
   }
+  /** 몹 때리기 (M7-2). slot = 손에 든 칸 */
+  sendHit(id: number, slot: number): void {
+    this.sendJson({ t: 'hit', id, slot });
+  }
   /** 마을 창고 (M6-6) */
   sendOpenStorage(): void {
     this.sendJson({ t: 'openStorage' });
@@ -511,6 +519,7 @@ export class NetClient {
     else if (msg.t === 'respawn') ev.onRespawn(msg);
     else if (msg.t === 'orbs') ev.onOrbs(msg.list);
     else if (msg.t === 'orbGone') ev.onOrbGone(msg.id, msg.by);
+    else if (msg.t === 'mob') ev.onMobEvent(msg);
     else if (msg.t === 'dismount') ev.onDismount(msg.idx);
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }
@@ -551,6 +560,9 @@ export class NetClient {
         break;
       case MSG.PlayersState:
         ev.onPlayers(m.msg);
+        break;
+      case MSG.MobsState:
+        ev.onMobs(m.msg);
         break;
       case MSG.ExpeditionTimer:
         ev.onTimer(m.msg);
