@@ -83,6 +83,7 @@ const CRAFT_ERROR_KO: Record<string, string> = {
   NOT_YET: '대장간은 아직 준비 중이에요',
   NO_STATION: '제작대(화로·양조기) 가까이에서 만들 수 있어요',
   MISSING: '재료가 모자라요',
+  BAG_FULL: '가방이 가득 차서 만들 수 없어요 — 자리를 비우고 다시',
   BAD_BOTTLES: '병 칸에는 물병이나 물약을 한 개씩 놓아요',
   NO_INGREDIENT: '재료 칸이 비었어요',
   NO_EFFECT: '그 재료로는 아무것도 안 돼요',

@@ -5,7 +5,7 @@
  */
 import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
-import { type Inventory, give, hasAll, missing, take } from './inventory';
+import { type Inventory, give, hasAll, missing, take, cloneInventory } from './inventory';
 
 const NAME_RE = /^[a-z0-9_]+$/;
 export const STATIONS = ['inventory', 'crafting_table', 'furnace', 'forge', 'brewing', 'world', 'anvil'] as const;
@@ -107,23 +107,23 @@ export interface CraftResult {
   ok: boolean;
   /** 모자란 재료 (ok=false 일 때) */
   missing?: Record<string, number>;
-  /** 결과가 가방에 다 안 들어가 사라진 것 */
-  lost?: Record<string, number>;
+  /** 결과가 가방에 다 안 들어간다 (ok=false 일 때) — 재료도 빼지 않았다 */
+  bagFull?: boolean;
 }
 
 /**
  * 만든다: 재료를 빼고 결과를 넣는다. 재료가 모자라면 아무것도 안 바꾸고 missing. 바뀐 칸은 changed 에.
- * 가방이 가득 차 결과가 못 들어가면 그만큼은 사라진다(lost) — 아이템 엔티티가 없다(#66).
+ * 결과가 가방에 다 들어가지 않으면 **아무것도 안 바꾸고** bagFull (#95 — 예전엔 재료만 빠지고 결과가 사라졐다). 아이템 엔티티가 없다(#66).
  */
 export function craft(inv: Inventory, recipe: RecipeDef, changed?: Set<number>): CraftResult {
   if (!hasAll(inv, recipe.in)) return { ok: false, missing: missing(inv, recipe.in) };
+  // 먼저 복사본에서 해 보고, 다 들어갈 때만 진짜로
+  const trial = cloneInventory(inv);
+  for (const [item, n] of Object.entries(recipe.in)) take(trial, item, n);
+  for (const [item, n] of Object.entries(recipe.out)) if (give(trial, item, n) > 0) return { ok: false, bagFull: true };
   for (const [item, n] of Object.entries(recipe.in)) take(inv, item, n, changed);
-  const lost: Record<string, number> = {};
-  for (const [item, n] of Object.entries(recipe.out)) {
-    const left = give(inv, item, n, changed);
-    if (left > 0) lost[item] = left;
-  }
-  return Object.keys(lost).length ? { ok: true, lost } : { ok: true };
+  for (const [item, n] of Object.entries(recipe.out)) give(inv, item, n, changed);
+  return { ok: true };
 }
 
 function describePath(path: PropertyKey[], raw: unknown): string {

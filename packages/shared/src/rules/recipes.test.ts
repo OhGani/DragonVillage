@@ -60,7 +60,7 @@ describe('craft', () => {
     expect(craftableTimes(inv, door)).toBe(0);
   });
 
-  it('가방이 가득 차면 결과 일부는 사라진다(lost)', () => {
+  it('가방이 가득 차 결과가 안 들어가면 만들지 않고 재료도 그대로 (bagFull, #95)', () => {
     const inv = emptyInventory();
     for (let i = 0; i < inv.length; i++) inv[i] = { item: 'stone', count: 64 };
     inv[0] = { item: 'log', count: 1 };
@@ -68,9 +68,17 @@ describe('craft', () => {
     // log 1 을 빼서 0번 칸이 비고 거기에 판자 4 가 들어간다 → 안 사라짐
     expect(res).toEqual({ ok: true });
     expect(inv[0]).toEqual({ item: 'planks', count: 4 });
-    // 이번엔 빈 칸이 안 생기는 경우: log 2 짜리 칸에서 1만 쓴다
+    // 이번엔 빈 칸이 안 생기는 경우: log 2 짜리 칸에서 1만 쓴다 → 거절, 통나무 2 그대로
     inv[0] = { item: 'log', count: 2 };
-    const res2 = craft(inv, reg.require('planks'));
-    expect(res2).toEqual({ ok: true, lost: { planks: 4 } });
+    const changed = new Set<number>();
+    const res2 = craft(inv, reg.require('planks'), changed);
+    expect(res2).toEqual({ ok: false, bagFull: true });
+    expect(inv[0]).toEqual({ item: 'log', count: 2 });
+    expect(changed.size).toBe(0);
+    // 결과가 이미 있는 칸에 합쳐질 수 있으면 된다
+    inv[1] = { item: 'planks', count: 60 };
+    expect(craft(inv, reg.require('planks'))).toEqual({ ok: true });
+    expect(inv[1]).toEqual({ item: 'planks', count: 64 });
+    expect(inv[0]).toEqual({ item: 'log', count: 1 });
   });
 });

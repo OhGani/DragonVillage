@@ -143,6 +143,13 @@ describe('제작·양조 (M4)', () => {
     expect(room.craft(ia, 'no_such')).toBe('BAD_RECIPE');
     expect(room.craft(ia, 'obsidian_from_lava')).toBe('BAD_RECIPE'); // world 레시피는 제작이 아니다
     expect(room.craft(ia, 'iron_pickaxe')).toBe('NOT_YET'); // 대장간은 M6
+    // 가방이 가득 차면 BAG_FULL — 재료(통나무)는 그대로 (#95)
+    for (let i = 0; i < p.inv.length; i++) if (!p.inv[i]) p.inv[i] = { item: 'stone', count: 64 };
+    for (const s of p.inv) if (s && s.item === 'planks') s.count = 64;
+    const logs = countOf(p.inv, 'log');
+    expect(logs).toBeGreaterThan(0);
+    expect(room.craft(ia, 'planks')).toBe('BAG_FULL');
+    expect(countOf(p.inv, 'log')).toBe(logs);
   });
 
   it('양조기 옆에서 물병 + 네더 사마귀 → 어색한 물약, 연료 블레이즈 가루', () => {
