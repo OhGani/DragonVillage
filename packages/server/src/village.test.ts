@@ -11,6 +11,9 @@ import {
   decodeServerBinary,
   type ServerBinary,
   MOB_STATE,
+  OLD_SITES,
+  buildingBlocks,
+  isBuildingBuiltAt,
 } from '@dragon-village/shared';
 import { BLOCKS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
@@ -1200,6 +1203,36 @@ describe('손에 든 것 보이기 (#96)', () => {
     room.setHeld(ra.idx, 'stone');
     const rc = room.join('c'.repeat(32), '친구', 2, c.send)!;
     expect(rc.players.find((p) => p.idx === ra.idx)!.held).toBe('stone'); // 입장 목록에 실린다
+  });
+});
+
+describe('건물 자리 이사 (#99)', () => {
+  it('옛 자리(76,50)에 등대가 서 있으면 켤 때 지우고 새 자리(76,72)에 다시 세운다', () => {
+    const storage = new Storage(':memory:');
+    storage.addBuilding('123456', 'lighthouse', 1);
+    // 첫 방: 옛 자리에 등대를 직접 세워 두고 저장
+    const room1 = makeRoom(storage);
+    const old = OLD_SITES.find((s) => s.id === 'lighthouse')!;
+    const mark = (room1 as unknown as { markDirtyBlock(x: number, y: number, z: number): void }).markDirtyBlock.bind(room1);
+    for (const b of buildingBlocks('lighthouse', GROUND_Y).map((b) => ({ ...b, x: b.x - 76 + old.x0, z: b.z - 72 + old.z0 }))) {
+      room1.world.setBlock(b.x, b.y, b.z, BLOCKS.numOf(b.id));
+      mark(b.x, b.y, b.z);
+    }
+    const idAt1 = (x: number, y: number, z: number) => BLOCKS.get(room1.world.getBlock(x, y, z)).id;
+    expect(isBuildingBuiltAt(idAt1, 'lighthouse', GROUND_Y, old)).toBe(true);
+    for (const b of buildingBlocks('lighthouse', GROUND_Y)) {
+      room1.world.setBlock(b.x, b.y, b.z, BLOCKS.numOf(b.id === 'glowstone' ? 'air' : b.id === 'cobblestone' && b.y > GROUND_Y ? 'air' : b.id)); // 새 자리는 반쯤만 (아직 안 지어진 셈)
+      mark(b.x, b.y, b.z);
+    }
+    room1.flush(Date.now());
+    // 둘째 방(재시작): 옛 자리 비움 + 새 자리 완성
+    const room2 = makeRoom(storage);
+    const idAt = (x: number, y: number, z: number) => BLOCKS.get(room2.world.getBlock(x, y, z)).id;
+    expect(isBuildingBuiltAt(idAt, 'lighthouse', GROUND_Y, old)).toBe(false);
+    expect(idAt(old.x0 + 1, GROUND_Y + 5, old.z0 + 1)).toBe('air');
+    expect(idAt(old.x0 + 1, GROUND_Y, old.z0 + 1)).toBe('grass');
+    expect(isBuildingBuiltAt(idAt, 'lighthouse', GROUND_Y)).toBe(true);
+    expect(idAt(77, GROUND_Y + 12, 73)).toBe('glowstone');
   });
 });
 

@@ -135,6 +135,8 @@ import {
   expeditionUnlocked,
   hasGenerator,
   itemName,
+  OLD_SITES,
+  clearSiteBlocks,
 } from '@dragon-village/shared';
 import { BUILDINGS, DRAGONS, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP, ITEM_NAMES } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
@@ -437,6 +439,12 @@ export class VillageRoom {
   /** 켤 때 한 번: 창고(처음부터)와 지어 둔 건물이 서 있는지 보고 없으면 다시 세운다. 깃대도 레벨에 맞춘다 */
   private ensureBuildings(): void {
     const idAt = (x: number, y: number, z: number) => this.registry.get(this.world.getBlock(x, y, z)).id;
+    // 자리를 옮긴 건물 (#99): 옛 자리에 서 있으면 지운다 → 아래에서 새 자리에 다시 세워진다
+    for (const old of OLD_SITES) {
+      if (!this.builtIds().includes(old.id) || !isBuildingBuiltAt(idAt, old.id, GROUND_Y, old)) continue;
+      const n = this.placeBlocks(clearSiteBlocks(old, GROUND_Y), null);
+      this.log(`마을 ${this.info.code}: ${BUILDINGS.find(old.id)?.name ?? old.id} 옛 자리(${old.x0}, ${old.z0}) 를 비웠어요 (${n}칸) — 새 자리로 옮깁니다`);
+    }
     for (const id of this.builtIds()) {
       if (!siteOf(id) || isBuildingBuiltAt(idAt, id, GROUND_Y)) continue;
       const n = this.placeBlocks(buildingBlocks(id, GROUND_Y), null);

@@ -87,13 +87,24 @@ export const BUILDING_SITES: readonly Site[] = [
   { id: 'storage', x0: 76, z0: 58, size: [5, 5, 4] }, // 광장 동쪽, 길(z 64) 북쪽
   { id: 'forge', x0: 47, z0: 58, size: [5, 5, 4] }, // 광장 서쪽, 길 북쪽
   { id: 'farm', x0: 47, z0: 72, size: [7, 7, 2] }, // 남서
-  { id: 'lighthouse', x0: 76, z0: 50, size: [3, 3, 12] }, // 북동, 집터 남쪽
+  { id: 'lighthouse', x0: 76, z0: 72, size: [3, 3, 12] }, // 남동, 창고 남쪽 — 북동 집터(74~80·42~48)는 아빠·아들이 직접 짓는 곳이라 비워 둔다 (#99)
   { id: 'brewing_stand', x0: 50, z0: 48, size: [3, 3, 3] }, // 북서 (강은 z 40 아래)
   { id: 'portal_2', x0: 61, z0: 41, size: [7, 7, 5] }, // 북쪽 포탈 단(worldgen/village PORTAL_PAD) 그 자리 — 길의 북쪽 끝
   // 둥지는 겹쳐 자란다: 7×7 둥지 바깥에 11×11 고리(큰 둥지), 그 바깥에 15×15 고리(드래곤 성)
   { id: 'dragon_nest_2', x0: 58, z0: 79, size: [11, 11, 8] },
   { id: 'dragon_nest_3', x0: 56, z0: 77, size: [15, 15, 12] },
 ];
+
+/**
+ * 자리를 옮긴 건물의 옛 자리 (#99). 서버가 켜질 때 옛 자리에 그 건물이 서 있으면 지우고(바닥은 잔디) 새 자리에 다시 세운다.
+ * 옮길 때마다 여기에 한 줄 더한다 — 이미 지어 둔 마을이 깨지지 않게.
+ */
+export const OLD_SITES: readonly Site[] = [{ id: 'lighthouse', x0: 76, z0: 50, size: [3, 3, 12] }];
+
+/** 옛 자리를 비우는 블록 목록: 바닥은 잔디, 위는 공기 */
+export function clearSiteBlocks(s: Site, groundY: number): Placed[] {
+  return box(s, groundY, (_dx, _dz, dy) => (dy === 0 ? 'grass' : 'air'));
+}
 
 /** 둥지 식구 — 자리가 서로 겹치는 게 정상 (고리로 자란다) */
 export const NEST_FAMILY: readonly string[] = ['dragon_nest_1', 'dragon_nest_2', 'dragon_nest_3'];
@@ -217,9 +228,9 @@ export function buildingBlocks(id: string, groundY: number): Placed[] {
   }
 }
 
-/** 지어져 있나 — 자리의 표식 두 칸으로 판단 (서버가 켜질 때) */
-export function isBuildingBuiltAt(idAt: (x: number, y: number, z: number) => string, id: string, groundY: number): boolean {
-  const s = siteOf(id);
+/** 지어져 있나 — 자리의 표식 두 칸으로 판단 (서버가 켜질 때). site 를 주면 그 자리(옛 자리 검사)로 */
+export function isBuildingBuiltAt(idAt: (x: number, y: number, z: number) => string, id: string, groundY: number, site?: Site): boolean {
+  const s = site ?? siteOf(id);
   if (!s) return false;
   switch (id) {
     case 'storage':
