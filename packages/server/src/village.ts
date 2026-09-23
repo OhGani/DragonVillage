@@ -21,6 +21,7 @@ import {
   type ExpeditionResultItem,
   EMOTE_PER_SEC,
   FLAG_GROUND,
+  FLAG_WATER,
   FluidSim,
   type InvDropMsg,
   type InvMoveMsg,
@@ -73,6 +74,13 @@ import {
   type NestDragonInfo,
   type BlockDef,
   BEAM_RANGE,
+  HP_MAX,
+  ORB_PICKUP_RANGE,
+  type OrbInfo,
+  deathXpDrop,
+  regenAt,
+  trackFall,
+  xpAfterDeath,
   PREBUILT,
   STORAGE_REACH,
   buildingBlocks,
@@ -174,6 +182,14 @@ export interface RoomPlayer {
   stamina: Stamina;
   /** 다음에 빔을 쏠 수 있는 시각 */
   beamReadyAt: number;
+  /** 체력 (M7-1). 접속 동안만 — 들어오면 가득 */
+  hp: number;
+  /** 공중에서 가장 높았던 y (땅이면 null) — 낙하 피해 재기 */
+  fallPeak: number | null;
+  lastHurtAt: number;
+  lastRegenAt: number;
+  /** 죽은 직후 이 시각까지는 위치 보고를 무시한다 — 클라가 아직 옛 자리를 보내는 사이 방금 떨어뜨린 구슬을 도로 집지 않게 */
+  moveLockUntil: number;
 }
 
 export interface JoinResult {
@@ -195,7 +211,9 @@ export interface JoinResult {
   /** 마을 창고 재고 (M6-6) */
   storage: { item: string; count: number }[];
   /** 마을 상태 (M6-6) */
-  village: { built: string[]; level: number; codex: number; codexIds: string[] };
+  village: { built: string[]; level: number; codex: number; codexIds: string[]; eggSlots: number };
+  /** 내 체력 (M7-1) */
+  hp: number;
 }
 
 export interface RoomOptions {
@@ -213,6 +231,8 @@ export interface RoomOptions {
 
 /** 제작대·화로·양조기를 이 거리(칸) 안에서 찾는다 */
 export const STATION_REACH = 5;
+/** 죽은 뒤 이만큼은 위치 보고를 무시한다 (클라가 옛 자리를 보내는 한 바퀴) */
+const RESPAWN_LOCK_MS = 800;
 
 export class VillageRoom {
   readonly world: VoxelWorld;
@@ -1048,7 +1068,7 @@ export class VillageRoom {
         gifts.push({ id: g.id, name: g.name, message: g.message });
       }
     }
-    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0 };
+    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0 };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     const me = this.toInfo(player);
@@ -1069,6 +1089,7 @@ export class VillageRoom {
       gifts,
       storage: this.storage?.getStorage(this.info.code) ?? [],
       village: this.villageState(),
+      hp: player.hp,
     };
   }
 
@@ -1116,10 +1137,11 @@ export class VillageRoom {
     if (this.players.size === 0) this.flush(Date.now());
   }
 
-  onMove(idx: number, m: PlayerMoveMsg): void {
+  onMove(idx: number, m: PlayerMoveMsg, now = Date.now()): void {
     const p = this.players.get(idx);
     if (!p) return;
     if (!Number.isFinite(m.x) || !Number.isFinite(m.y) || !Number.isFinite(m.z)) return;
+    if (now < p.moveLockUntil) return; // 다시 일어나는 중 (M7-1)
     const w = this.worldOf(p);
     // 세계 밖으로는 못 나간다 (클라도 막지만 서버가 한 번 더)
     p.pos.x = Math.max(0, Math.min(w.sizeX, m.x));
@@ -1128,6 +1150,85 @@ export class VillageRoom {
     p.pos.yaw = m.yaw;
     p.pos.pitch = m.pitch;
     p.pos.flags = m.flags & 0xff;
+    // 낙하 (M7-1): 공중 최고점 → 착지 때 피해. 물·드래곤은 안 아프다
+    const fall = trackFall(p.fallPeak, p.pos.y, (m.flags & FLAG_GROUND) !== 0, (m.flags & FLAG_WATER) !== 0, p.riding !== null);
+    p.fallPeak = fall.peak;
+    if (fall.damage > 0 && p.hp > 0) this.hurt(p, fall.damage, 'fall', now);
+    // 구슬 회수: 가까이 지나가면 내 것
+    if (this.orbs.size && p.hp > 0) this.pickupOrbs(p, now);
+  }
+
+  // ---------------------------------------------------------------- 체력·죽음·구슬 (M7-1)
+
+  /** 세계에 떨어진 경험치 구슬. 원정 구슬은 섬과 함께 사라지고, 마을 구슬은 서버가 켜져 있는 동안 남는다 */
+  private readonly orbs = new Map<number, OrbInfo & { world: WorldKind }>();
+  private nextOrbId = 1;
+
+  private orbsIn(world: WorldKind): OrbInfo[] {
+    return [...this.orbs.values()].filter((o) => o.world === world).map(({ id, x, y, z, amount }) => ({ id, x, y, z, amount }));
+  }
+
+  hpOf(idx: number): number {
+    return this.players.get(idx)?.hp ?? 0;
+  }
+
+  /** 다친다. 0 이 되면 죽는다 */
+  hurt(p: RoomPlayer, amount: number, cause: string, now = Date.now()): void {
+    const n = Math.floor(amount);
+    if (n <= 0 || p.hp <= 0) return;
+    p.hp = Math.max(0, p.hp - n);
+    p.lastHurtAt = now;
+    this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause });
+    if (p.hp === 0) this.die(p, cause, now);
+  }
+
+  /**
+   * 죽음: 경험치를 구슬로 그 자리에 떨어뜨리고(7×레벨, 최대 100) 레벨 0, 그 세계의 시작점에서 다시 일어난다.
+   * 원정지면 포탈 앞, 마을이면 광장. 가방은 그대로 (초5 여섯 명 — 억울하지 않게)
+   */
+  private die(p: RoomPlayer, cause: string, now: number): void {
+    const dropped = deathXpDrop(XP, p.xp);
+    if (dropped > 0) {
+      const id = this.nextOrbId++;
+      const orb = { id, x: Math.floor(p.pos.x) + 0.5, y: Math.floor(p.pos.y), z: Math.floor(p.pos.z) + 0.5, amount: dropped, world: p.world };
+      this.orbs.set(id, orb);
+      this.broadcastJson({ t: 'orbs', list: this.orbsIn(p.world) }, -1, p.world);
+    }
+    p.xp = xpAfterDeath(XP, p.xp);
+    p.send(encodeXpState({ total: p.xp }));
+    const e = this.expedition;
+    const sp = p.world === 'expedition' && e ? e.spawn : this.spawn;
+    p.pos = { x: sp.x, y: sp.y, z: sp.z, yaw: sp.yaw, pitch: 0, flags: FLAG_GROUND };
+    p.fallPeak = null;
+    p.hp = HP_MAX;
+    p.lastHurtAt = now;
+    p.moveLockUntil = now + RESPAWN_LOCK_MS;
+    this.savePlayer(p, now);
+    this.sendJson(p, { t: 'respawn', x: sp.x, y: sp.y, z: sp.z, yaw: sp.yaw, dropped });
+    this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'respawn' });
+    this.log(`마을 ${this.info.code}: ${p.nick} ${cause} 로 쓰러짐 — 구슬 ${dropped}, ${p.world === 'expedition' ? '포탈 앞' : '광장'}에서 다시`);
+  }
+
+  private pickupOrbs(p: RoomPlayer, now: number): void {
+    for (const [id, o] of this.orbs) {
+      if (o.world !== p.world) continue;
+      if (Math.hypot(o.x - p.pos.x, o.y - p.pos.y, o.z - p.pos.z) > ORB_PICKUP_RANGE) continue;
+      this.orbs.delete(id);
+      this.broadcastJson({ t: 'orbGone', id, by: p.idx }, -1, p.world);
+      this.addXp(p, o.amount, XP_SOURCE.mining, o.x, o.y + 0.5, o.z, now);
+    }
+  }
+
+  /** 틱마다: 맞은 지 5초 지나면 3초에 1 회복 */
+  private tickHealth(now: number): void {
+    for (const p of this.players.values()) {
+      const g = regenAt(p.hp, p.lastHurtAt, p.lastRegenAt, now);
+      if (g > 0) {
+        p.hp = Math.min(HP_MAX, p.hp + g);
+        p.lastRegenAt = now;
+        this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'regen' });
+      }
+    }
   }
 
   /** 검증만 (테스트용). 거절 사유 번호 또는 null */
@@ -1493,7 +1594,9 @@ export class VillageRoom {
       serverNow: now,
       treasures: e.def.treasures,
     };
+    p.fallPeak = null; // 포탈을 지나는 건 떨어진 게 아니다
     this.sendJson(p, { t: 'worldEnter', kind: 'expedition', expedition: info, spawn: me, players: others, chunkCount: e.modifiedCount });
+    this.sendJson(p, { t: 'orbs', list: this.orbsIn('expedition') });
     for (const c of e.modifiedChunks()) {
       const chunk = e.world.getChunk(c.cx, c.cy, c.cz);
       if (chunk) p.send(encodeChunkData({ cx: c.cx, cy: c.cy, cz: c.cz, bytes: this.encode(chunk) }));
@@ -1532,7 +1635,9 @@ export class VillageRoom {
     const me = this.toInfo(p);
     const others = this.playersIn('village').filter((o) => o.idx !== idx).map((o) => this.toInfo(o));
     this.broadcastJson({ t: 'playerJoined', player: me }, idx, 'village');
+    p.fallPeak = null;
     this.sendJson(p, { t: 'worldEnter', kind: 'village', expedition: null, spawn: me, players: others, chunkCount: this.modifiedCount });
+    this.sendJson(p, { t: 'orbs', list: this.orbsIn('village') });
     this.sendModifiedChunks(p.send);
     this.sendJson(p, { t: 'ready' });
     this.sendJson(p, { t: 'expeditionState', expedition: this.expeditionState(now) });
@@ -1556,6 +1661,7 @@ export class VillageRoom {
 
   private disposeExpedition(): void {
     if (!this.expedition) return;
+    for (const [id, o] of this.orbs) if (o.world === 'expedition') this.orbs.delete(id); // 원정 구슬은 섬과 함께 사라진다
     this.log(`마을 ${this.info.code}: 원정 "${this.expedition.def.name}" 폐기`);
     this.expedition = null;
     this.expeditionDisposeAt = 0;
@@ -1628,6 +1734,7 @@ export class VillageRoom {
     }
     this.tickExpedition(now);
     this.tickGrowth(now);
+    this.tickHealth(now);
     if (this.lastFlush === 0) this.lastFlush = now;
     if (now - this.lastFlush >= FLUSH_MS) this.flush(now);
   }

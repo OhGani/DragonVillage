@@ -1578,6 +1578,58 @@ body {
   pointer-events: none;
 }
 
+/* ---- 체력 하트·피격 (M7-1) ---- */
+.hearts {
+  position: absolute;
+  left: 50%;
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 78px);
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  pointer-events: none;
+}
+.hearts[hidden] {
+  display: none;
+}
+.heart {
+  width: 18px;
+  height: 18px;
+  background: #3a0d0d;
+  clip-path: path('M9 16 L2 9 A4 4 0 0 1 9 4 A4 4 0 0 1 16 9 Z');
+  filter: drop-shadow(1px 1px 0 #000);
+}
+.heart.full {
+  background: #ff3b3b;
+}
+.heart.half {
+  background: linear-gradient(90deg, #ff3b3b 50%, #3a0d0d 50%);
+}
+.hearts.low .heart.full,
+.hearts.low .heart.half {
+  animation: heart-beat 0.8s infinite;
+}
+@keyframes heart-beat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+.hurt-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse at center, rgba(255, 0, 0, 0) 55%, rgba(200, 0, 0, 0.55) 100%);
+  transition: opacity 0.25s;
+}
+.hurt-vignette.on {
+  opacity: 1;
+  transition: none;
+}
+
 /* ---- 마을 창고·건물 창 (M6-6) ---- */
 .storage-card {
   max-width: min(96vw, 620px);

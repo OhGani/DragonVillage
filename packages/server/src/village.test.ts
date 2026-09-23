@@ -2,6 +2,7 @@ import {
   BY_SERVER,
   DEFAULT_VILLAGE_SEED,
   FLAG_GROUND,
+  FLAG_WATER,
   GROUND_Y,
   MSG,
   REJECT,
@@ -974,5 +975,114 @@ describe('원정 보물 상자에서 꺼낸 것도 정산에 들어간다 (아�
     a.clear();
     expect(room.returnHome(ra.idx, 3000)).toBeNull();
     expect(a.json.find((m) => m.t === 'expeditionResult')).toMatchObject({ items: [{ id: 'leather', count: 1 }] });
+  });
+});
+
+describe('체력·낙하·죽음·구슬 (M7-1)', () => {
+  const y0 = GROUND_Y + 1;
+  const move = (room: VillageRoom, idx: number, x: number, y: number, z: number, flags: number) => room.onMove(idx, { x, y, z, yaw: 0, pitch: 0, flags });
+
+  it('들어오면 하트 가득, 절벽에서 떨어지면 아프고, 물·드래곤은 안 아프고, 가만히 있으면 찬다', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    expect(ra.hp).toBe(20);
+    // 12칸 위에서 떨어져 착지 → 9 피해
+    move(room, ra.idx, 64.5, y0 + 12, 64.5, 0);
+    move(room, ra.idx, 64.5, y0 + 6, 64.5, 0);
+    move(room, ra.idx, 64.5, y0, 64.5, FLAG_GROUND);
+    expect(room.hpOf(ra.idx)).toBe(11);
+    expect(a.json.find((m) => m.t === 'health')).toEqual({ t: 'health', hp: 11, max: 20, cause: 'fall' });
+    // 점프 정도(1.2)는 0
+    a.clear();
+    move(room, ra.idx, 64.5, y0 + 1.2, 64.5, 0);
+    move(room, ra.idx, 64.5, y0, 64.5, FLAG_GROUND);
+    expect(room.hpOf(ra.idx)).toBe(11);
+    // 물에 떨어지면 0
+    move(room, ra.idx, 64.5, y0 + 20, 64.5, 0);
+    move(room, ra.idx, 64.5, y0 - 1, 64.5, FLAG_WATER);
+    move(room, ra.idx, 64.5, y0 - 1, 64.5, FLAG_GROUND | FLAG_WATER);
+    expect(room.hpOf(ra.idx)).toBe(11);
+    // 회복: 5초 뒤부터 3초마다 1
+    const p = room.players.get(ra.idx)!;
+    const t0 = p.lastHurtAt;
+    room.tick(t0 + 4000);
+    expect(room.hpOf(ra.idx)).toBe(11);
+    room.tick(t0 + 5000);
+    expect(room.hpOf(ra.idx)).toBe(12);
+    room.tick(t0 + 6000);
+    expect(room.hpOf(ra.idx)).toBe(12);
+    room.tick(t0 + 8000);
+    expect(room.hpOf(ra.idx)).toBe(13);
+    expect(a.json.filter((m) => m.t === 'health').at(-1)).toMatchObject({ hp: 13, cause: 'regen' });
+  });
+
+  it('죽으면 7×레벨 구슬을 그 자리에 떨어뜨리고 레벨 0, 광장에서 다시 일어나고, 구슬을 지나가면 되찾는다 (모두에게 보인다)', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const a = inbox(),
+      b = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.join('b'.repeat(32), '아들', 1, b.send);
+    room.giveXp(ra.idx, 160); // 레벨 10 → 구슬 70
+    expect(room.xpOf(ra.idx)).toBe(160);
+    a.clear();
+    b.clear();
+    // 30칸 위에서 광장 동쪽(70, 64)에 떨어진다 → 27 피해 → 죽음
+    move(room, ra.idx, 70.5, y0 + 30, 64.5, 0);
+    move(room, ra.idx, 70.5, y0, 64.5, FLAG_GROUND);
+    expect(room.xpOf(ra.idx)).toBe(0);
+    expect(room.hpOf(ra.idx)).toBe(20); // 다시 일어났다
+    const p = room.players.get(ra.idx)!;
+    expect([p.pos.x, p.pos.z]).toEqual([64.5, 64.5]); // 광장
+    expect(a.json.find((m) => m.t === 'respawn')).toMatchObject({ x: 64.5, z: 64.5, dropped: 70 });
+    expect(a.bin.find((m) => m.type === MSG.XpState)).toMatchObject({ msg: { total: 0 } });
+    const orbs = b.json.find((m) => m.t === 'orbs') as { list: { id: number; x: number; y: number; z: number; amount: number }[] } | undefined;
+    expect(orbs!.list).toEqual([{ id: 1, x: 70.5, y: y0, z: 64.5, amount: 70 }]);
+    // 죽은 직후 클라가 아직 보내는 옛 자리(죽은 곳)는 무시된다 — 방금 떨어뜨린 구슬을 도로 집지 않는다
+    move(room, ra.idx, 70.5, y0, 64.5, FLAG_GROUND);
+    expect(room.xpOf(ra.idx)).toBe(0);
+    expect([p.pos.x, p.pos.z]).toEqual([64.5, 64.5]);
+    // 아들이 지나가면 아들이 가져간다 (규칙: 누구든 회수)
+    a.clear();
+    b.clear();
+    const rbIdx = room.players.size - 1; // 아들 idx (두 번째)
+    move(room, rbIdx, 70.5, y0, 64.5, FLAG_GROUND);
+    expect(room.xpOf(rbIdx)).toBe(70);
+    expect(b.json.find((m) => m.t === 'orbGone')).toEqual({ t: 'orbGone', id: 1, by: rbIdx });
+    expect(a.json.find((m) => m.t === 'orbGone')).toEqual({ t: 'orbGone', id: 1, by: rbIdx });
+    // 다시 지나가도 없다
+    b.clear();
+    move(room, rbIdx, 70.5, y0, 64.5, FLAG_GROUND);
+    expect(room.xpOf(rbIdx)).toBe(70);
+  });
+
+  it('원정지에서 죽으면 포탈 앞에서 다시, 구슬은 원정이 끝나면 사라진다. 드래곤을 타면 떨어져도 안 아프다', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.giveXp(ra.idx, 55); // 레벨 5 → 35
+    move(room, ra.idx, 64.5, y0, 44.5, FLAG_GROUND);
+    expect(room.startExpedition(ra.idx, 'grass_island', 1000)).toBeNull();
+    const e = room.expedition!;
+    const p = room.players.get(ra.idx)!;
+    a.clear();
+    move(room, ra.idx, e.spawn.x + 3, e.spawn.y + 30, e.spawn.z, 0);
+    move(room, ra.idx, e.spawn.x + 3, e.spawn.y, e.spawn.z, FLAG_GROUND);
+    expect(room.xpOf(ra.idx)).toBe(0);
+    expect([p.pos.x, p.pos.z]).toEqual([e.spawn.x, e.spawn.z]);
+    expect(p.world).toBe('expedition');
+    const orbs = a.json.find((m) => m.t === 'orbs') as { list: { amount: number }[] };
+    expect(orbs.list).toEqual([expect.objectContaining({ amount: 35 })]);
+    // 원정이 끝나 폐기되면 구슬도 없다 (죽은 직후 0.8초 위치 잠금이 풀린 뒤 포탈로)
+    room.onMove(ra.idx, { x: e.portal.x, y: e.portal.y + 1, z: e.portal.z + 0.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, Date.now() + 1000);
+    expect(room.returnHome(ra.idx, 2000)).toBeNull();
+    room.tick(2000 + 10 * 60_000 + 60_000);
+    expect(room.expedition).toBeNull();
+    a.clear();
+    // 마을에서 드래곤을 탄 채 높이서 내려와도 0 (탑승은 낙하 없음)
+    p.riding = { id: 1, dragon: 'wood' };
+    move(room, ra.idx, 64.5, y0 + 30, 64.5, 0);
+    move(room, ra.idx, 64.5, y0, 64.5, FLAG_GROUND);
+    expect(room.hpOf(ra.idx)).toBe(20);
   });
 });

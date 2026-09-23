@@ -50,6 +50,9 @@ export class Hud {
   readonly rideBtn: HTMLButtonElement;
   /** 빔 버튼 (M6-5). 타고 있을 때만 */
   readonly skillBtn: HTMLButtonElement;
+  private readonly heartsEl: HTMLElement;
+  private readonly vignette: HTMLElement;
+  private vignetteTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly skillBox: HTMLElement;
   private readonly staminaFill: HTMLElement;
   private readonly staminaText: HTMLElement;
@@ -114,6 +117,8 @@ export class Hud {
         <circle class="gauge-fg" cx="20" cy="20" r="${GAUGE_R}"></circle>
       </svg>
       <div class="slot-name"></div>
+      <div class="hearts" aria-label="체력" hidden></div>
+      <div class="hurt-vignette"></div>
       <div class="xp-bar" hidden><div class="xp-fill"></div><div class="xp-level"></div></div>
       <div class="xp-orbs"></div>
       <div class="hotbar"></div>
@@ -214,6 +219,8 @@ export class Hud {
     this.gaugeFg.style.strokeDasharray = `${GAUGE_C}`;
     this.gaugeFg.style.strokeDashoffset = `${GAUGE_C}`;
     this.hotbar = q('.hotbar');
+    this.heartsEl = q('.hearts');
+    this.vignette = q('.hurt-vignette');
     this.xpBar = q('.xp-bar');
     this.xpFill = q('.xp-fill');
     this.xpLevel = q('.xp-level');
@@ -549,6 +556,26 @@ export class Hud {
   }
 
   // ---------------------------------------------------------------- 경험치 (M6-1)
+
+  /** 하트 10개 (M7-1). 반 칸은 반쪽 하트 */
+  setHealth(hp: number, max: number): void {
+    this.heartsEl.hidden = false;
+    const hearts = Math.ceil(max / 2);
+    let html = '';
+    for (let i = 0; i < hearts; i++) {
+      const v = Math.max(0, Math.min(2, hp - i * 2));
+      html += `<span class="heart ${v === 2 ? 'full' : v === 1 ? 'half' : 'empty'}"></span>`;
+    }
+    this.heartsEl.innerHTML = html;
+    this.heartsEl.classList.toggle('low', hp <= 6);
+  }
+
+  /** 맞았다: 화면 가장자리가 잠깐 붉어진다 */
+  hurtFlash(): void {
+    this.vignette.classList.add('on');
+    if (this.vignetteTimer) clearTimeout(this.vignetteTimer);
+    this.vignetteTimer = setTimeout(() => this.vignette.classList.remove('on'), 350);
+  }
 
   /** 초록 바 + 레벨 숫자. 마인크래프트처럼 핫바 바로 위 */
   setXp(total: number): void {

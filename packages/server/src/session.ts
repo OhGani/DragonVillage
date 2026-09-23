@@ -214,6 +214,7 @@ export class Session {
           gifts: result.gifts,
           storage: result.storage,
           village_state: result.village,
+          hp: result.hp,
           needPin,
           family: this.family?.familyOfNick(nick) ?? null,
           today: this.family?.todayCard(nick) ?? null,

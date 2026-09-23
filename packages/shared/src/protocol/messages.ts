@@ -481,6 +481,8 @@ export type ServerJson =
       storage?: { item: string; count: number }[];
       /** 마을 상태 (M6-6) */
       village_state?: { built: string[]; level: number; codex: number; codexIds: string[]; eggSlots: number };
+      /** 내 체력 (M7-1) */
+      hp?: number;
     }
   | { t: 'familyLinked'; code: string }
   /** 오늘 카드가 바뀌었다 (체크·승인·1분 경과·할 일 편집) */
@@ -510,6 +512,14 @@ export type ServerJson =
   | { t: 'village'; built: string[]; level: number; codex: number; eggSlots: number }
   /** 도감에 새로 올랐다 (처음 손에 넣은 블록). 넣은 사람에게 */
   | { t: 'codex'; kind: 'block'; id: string; total: number }
+  /** 내 체력 (M7-1). cause: fall·regen·respawn·mob… */
+  | { t: 'health'; hp: number; max: number; cause: string }
+  /** 죽어서 다시 일어났다 — 이 자리로 옮겨라 (M7-1) */
+  | { t: 'respawn'; x: number; y: number; z: number; yaw: number; dropped: number }
+  /** 이 세계에 떨어져 있는 경험치 구슬 전부 (세계 들어갈 때·떨어질 때) */
+  | { t: 'orbs'; list: { id: number; x: number; y: number; z: number; amount: number }[] }
+  /** 구슬 하나가 회수됐다 */
+  | { t: 'orbGone'; id: number; by: number }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }

@@ -80,6 +80,8 @@ export interface Welcome {
   storage: { item: string; count: number }[];
   /** 마을 상태 (M6-6) */
   village_state: { built: string[]; level: number; codex: number; codexIds: string[]; eggSlots: number } | null;
+  /** 내 체력 (M7-1) */
+  hp: number;
   /** 이번에 받은 선물 (#79) */
   gifts: GiftNotice[];
 }
@@ -151,6 +153,13 @@ export interface NetEvents {
   onVillage(m: { built: string[]; level: number; codex: number }): void;
   /** 도감에 새로 올랐다 (M6-6) */
   onCodex(m: { kind: 'block'; id: string; total: number }): void;
+  /** 내 체력 (M7-1) */
+  onHealth(m: { hp: number; max: number; cause: string }): void;
+  /** 죽어서 다시 일어남 — 이 자리로 (M7-1) */
+  onRespawn(m: { x: number; y: number; z: number; yaw: number; dropped: number }): void;
+  /** 이 세계의 경험치 구슬 전부 */
+  onOrbs(list: { id: number; x: number; y: number; z: number; amount: number }[]): void;
+  onOrbGone(id: number, by: number): void;
   onDismount(idx: number): void;
 }
 
@@ -420,6 +429,7 @@ export class NetClient {
           gifts: msg.gifts ?? [],
           storage: msg.storage ?? [],
           village_state: msg.village_state ?? null,
+          hp: msg.hp ?? 20,
         };
         return;
       case 'familyLinked':
@@ -497,6 +507,10 @@ export class NetClient {
     else if (msg.t === 'storage') ev.onStorage(msg.items);
     else if (msg.t === 'village') ev.onVillage(msg);
     else if (msg.t === 'codex') ev.onCodex(msg);
+    else if (msg.t === 'health') ev.onHealth(msg);
+    else if (msg.t === 'respawn') ev.onRespawn(msg);
+    else if (msg.t === 'orbs') ev.onOrbs(msg.list);
+    else if (msg.t === 'orbGone') ev.onOrbGone(msg.id, msg.by);
     else if (msg.t === 'dismount') ev.onDismount(msg.idx);
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }

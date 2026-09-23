@@ -74,3 +74,12 @@ export function beam(power = 1): void {
   o.stop(t + 1.2 + 0.1 * p);
   tone(1600 + 200 * p, t, 0.12, 0.03); // 시작 순간의 반짝
 }
+
+/** 맞았다 (M7-1): 낮고 둔탁한 '퍽' */
+export function hurt(): void {
+  const c = audio();
+  if (!c) return;
+  const t = c.currentTime;
+  tone(140, t, 0.12, 0.12, 'square');
+  tone(90, t + 0.02, 0.18, 0.1, 'triangle');
+}

@@ -48,7 +48,7 @@ import {
 } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, DRAGONS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, PHRASES, POTIONS, RECIPES, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
-import { beam as beamSound, ding, levelUp } from '../audio/sound';
+import { beam as beamSound, ding, hurt as hurtSound, levelUp } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
 import { InputManager } from '../input/InputManager';
 import { KeyboardMouse } from '../input/keyboard';
@@ -72,6 +72,7 @@ import { NestView } from '../ui/nest';
 import { MountView, NestDragons } from '../render/DragonMesh';
 import { BeamView } from '../render/BeamView';
 import { StorageView } from '../ui/storageView';
+import { OrbView } from '../render/OrbView';
 import { askInput, askPin } from '../ui/pinDialog';
 import { itemIcon } from '../ui/itemIcon';
 import { MesherPool } from '../workers/MesherPool';
@@ -162,6 +163,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const mount = new MountView(scene);
   // 빔 (M6-5): 서버가 확정한 것만 그린다. 기력은 서버 값 사이를 회복 공식으로 채워 바가 부드럽게 찬다
   const beams = new BeamView(scene);
+  // 체력·구슬 (M7-1): 서버가 진실. 하트는 welcome 값으로 시작
+  const orbView = new OrbView(scene);
+  let hp = welcome.hp;
   let stamina: { value: number; max: number; at: number; readyAt: number } | null = null;
   let serverClockOffset = 0; // 서버 now - 내 Date.now()
   const beamNeed = () => (myRiding ? beamOf(DRAGONS.require(myRiding.dragon)).stamina : 0);
@@ -424,6 +428,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     touch.clearHolds();
     warned3 = warned1 = false;
     hud.hideAction();
+    orbView.clear(); // 그 세계의 구슬은 서버가 곧 보내 준다
     if (w.kind === 'expedition' && w.expedition) {
       hud.toast(`${w.expedition.name}에 도착했어요! 가운데 포탈로 돌아오면 모은 것을 가져가요`, 5000);
     } else {
@@ -622,6 +627,29 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       codexBlocks = new Set([...codexBlocks, m.id]);
       bag.setInventory(inv); // 도감 탭이 열려 있으면 다시 그린다
       hud.toast(`📖 새로 발견! ${nameOf(m.id)} — 마을 도감 ${m.total}종 (+${XP.ours.codexNewEntry})`, 4500);
+    },
+    onHealth: (m) => {
+      if (m.hp < hp) {
+        hud.hurtFlash();
+        hurtSound();
+      }
+      hp = m.hp;
+      hud.setHealth(m.hp, m.max);
+    },
+    onRespawn: (m) => {
+      // 쓰러졌다 — 서버가 정한 자리(포탈 앞·광장)로. 가방은 그대로, 구슬은 그 자리에
+      const pl = ctx.player;
+      pl.pos.x = m.x;
+      pl.pos.y = m.y;
+      pl.pos.z = m.z;
+      pl.vel.x = pl.vel.y = pl.vel.z = 0;
+      sendMove();
+      hud.toast(m.dropped > 0 ? `💀 쓰러졌어요… 경험치 구슬 ${m.dropped}개가 그 자리에 남았어요. 가서 되찾아요!` : '💀 쓰러졌어요… 다시 일어났어요', 6000);
+    },
+    onOrbs: (list) => orbView.set(list),
+    onOrbGone: (id, by) => {
+      orbView.remove(id);
+      if (by === myIdx) ding();
     },
     onBeam: (m) => {
       beams.fire(m.from, m.dir, m.color, m.power, m.range);
@@ -849,6 +877,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   hud.skillBtn.addEventListener('click', fireBeam);
   // 오늘 카드 (M5-3): 아이면 남은 시간·할 일. 시간 제한은 걸지 않는다(표시만, 아빠 2026-09-19)
   hud.setToday(welcome.today);
+  hud.setHealth(hp, 20); // 하트 (M7-1) — welcome 값으로 시작
   hud.onCheckTodo = (id) => net.sendCheckTodo(id);
   hud.onApprove = (ask, ok) => net.sendApproveTodo(ask.id, ask.date, ok);
   hud.setPending(welcome.pending);
@@ -1092,6 +1121,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     nestDragons.update(dt);
     mount.update(player, dt);
     beams.update();
+    orbView.update(dt);
     if (stamina) refreshStamina();
 
     // 이 프레임에 바뀐 블록들의 빛을 한 번에 다시 계산 → 빛이 바뀐 청크도 다시 메싱
