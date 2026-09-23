@@ -968,7 +968,9 @@ describe('원정 보물 상자에서 꺼낸 것도 정산에 들어간다 (아�
     // 하나를 다시 상자에 넣으면 모은 것도 하나 줄어든다
     expect(room.chestMove(ra.idx, t.x, t.y, t.z, 27, 1, 1, 2000)).toBeNull();
     expect(room.gainedOf(ra.idx)).toEqual([{ id: 'leather', count: 1 }]);
-    // 마을로 돌아오면 결과에 가죽이 보인다
+    // 포탈 안으로 걸어 들어가 마을로 돌아오면 결과에 가죽이 보인다
+    const e = room.expedition!;
+    room.onMove(ra.idx, { x: e.portal.x, y: e.portal.y + 1, z: e.portal.z + 0.5, yaw: 0, pitch: 0, flags: 0 });
     a.clear();
     expect(room.returnHome(ra.idx, 3000)).toBeNull();
     expect(a.json.find((m) => m.t === 'expeditionResult')).toMatchObject({ items: [{ id: 'leather', count: 1 }] });
