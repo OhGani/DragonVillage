@@ -41,8 +41,10 @@ import {
   REJECT_KO,
   type VoxelWorld,
   decodeChunk,
-  generateIsland,
+  expeditionUnlocked,
+  generateExpedition,
   generateVillage,
+  hasGenerator,
   itemName,
   phaseAt,
   portalContains,
@@ -210,6 +212,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   let expeditionState: ExpeditionStateInfo | null = welcome.expedition;
   // 마을 상태 (M6-6): 건물·레벨·도감은 서버가 진실
   let villageState = welcome.village_state ?? { built: [], level: 1, codex: 0, codexIds: [], eggSlots: 4 };
+  /** 출발 카드에서 고른 원정지 (열린 것 중 차례, M7-3) */
+  let expeditionPick = 0;
+  const openExpeditions = () => EXPEDITIONS.v1().filter((d) => hasGenerator(d.generator) && expeditionUnlocked(d.unlockedBy, villageState.built));
   let codexBlocks = new Set<string>(villageState.codexIds);
   const updateVillageInfo = () => {
     const exp = expeditionState ? ` · 원정 중: ${expeditionState.name} ${expeditionState.players}명` : '';
@@ -343,7 +348,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     chunkData: readonly ChunkDataMsg[],
   ): WorldCtx => {
     // 서버가 준 시드로 똑같이 만들고, 서버가 보낸 바뀐 청크를 덮어쓴다 (서버가 진실, 규칙 1)
-    const gen = kind === 'expedition' && expedition ? generateIsland(registry, expedition.seed, expedition.treasures) : generateVillage(registry, welcome.village.seed);
+    const gen = kind === 'expedition' && expedition ? generateExpedition(EXPEDITIONS.require(expedition.id), registry, expedition.seed) : generateVillage(registry, welcome.village.seed);
     const { world } = gen;
     for (const c of chunkData) if (world.chunkInBounds(c.cx, c.cy, c.cz)) decodeChunk(c.bytes, registry, world.getOrCreateChunk(c.cx, c.cy, c.cz));
     // 조명: 블록이 모두 자리 잡은 뒤 한 번 전체 계산. 이후는 바뀐 칸만
@@ -381,7 +386,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         net.sendOpenChest(bx, by, bz);
       },
     });
-    const portalPos = gen.layout.portal;
+    const portalPos = 'layout' in gen ? gen.layout.portal : gen.portal;
     const portal = new PortalView(scene, portalPos, kind === 'expedition' ? 0x3fbcfc : 0x8a3ffc);
     const c: WorldCtx & { applyServerBlock: typeof applyServerBlock } = {
       kind,
@@ -639,6 +644,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       if (m.hp < hp) {
         hud.hurtFlash();
         hurtSound();
+        if (m.cause === 'poison') hud.toast('🕷️ 독에 물렸어요 — 잠깐 아파요', 1500);
       }
       hp = m.hp;
       hud.setHealth(m.hp, m.max);
@@ -1056,7 +1062,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       return;
     }
     if (ctx.kind === 'village') {
-      const def = EXPEDITIONS.require(FIRST_EXPEDITION);
+      const open = openExpeditions();
+      const def = open[expeditionPick % Math.max(1, open.length)] ?? EXPEDITIONS.require(FIRST_EXPEDITION);
       // 시간 제한 (M5-4): 남은 시간이 원정 길이 + 여유보다 적으면 오늘은 마을에서
       if (todayCard?.enforced && !canStartExpedition(todayCard, Math.ceil(def.durationSec / 60), FAMILY_RULES)) {
         const need = expeditionNeedMin(Math.ceil(def.durationSec / 60), FAMILY_RULES);
@@ -1068,7 +1075,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const m = Math.floor(expeditionState.remainingSec / 60);
         hud.showAction(`${expeditionState.name} 원정 중`, `${expeditionState.players}명이 나가 있어요 · 약 ${m}분 남음`, '따라가기' + KEY_HINT, () => net.sendStartExpedition(expeditionState!.id));
       } else {
-        hud.showAction(`${def.name}으로 원정`, `${Math.round(def.durationSec / 60)}분 · ${Math.round(def.nightStartsAt / 60)}분 뒤 밤 · 보물 상자 ${def.treasures}개\n포탈로 돌아오면 모은 것을 가져와요`, '원정 출발' + KEY_HINT, () => net.sendStartExpedition(FIRST_EXPEDITION));
+        const night = def.nightStartsAt > 0 ? `${Math.round(def.nightStartsAt / 60)}분 뒤 밤` : '처음부터 어두워요 · 몹이 바로 나와요';
+        const alt = open.length > 1 ? { label: `다른 곳 ▸ ${open[(expeditionPick + 1) % open.length]!.name}`, onClick: () => void (expeditionPick = (expeditionPick + 1) % open.length) } : undefined;
+        hud.showAction(`${def.name}으로 원정`, `${Math.round(def.durationSec / 60)}분 · ${night} · 보물 상자 ${def.treasures}개\n포탈로 돌아오면 모은 것을 가져와요`, '원정 출발' + KEY_HINT, () => net.sendStartExpedition(def.id), alt);
       }
     } else {
       hud.showAction('마을로 돌아가기', '지금까지 모은 것을 마을 창고에 넣어요', '돌아가기' + KEY_HINT, () => net.sendReturnHome());

@@ -89,6 +89,7 @@ const START_ERROR_KO: Record<string, string> = {
   ENDING: '원정이 끝나는 중이에요. 잠깐 뒤에 다시',
   BAD_EXPEDITION: '그런 원정지는 없어요',
   NOT_YET: '이 원정지는 아직 준비 중이에요',
+  LOCKED: '포탈 단계가 모자라요 — 창고 🏗️ 탭에서 포탈을 올려요',
 };
 /** 잘못된 마을 코드 시도: 연결당 이 횟수를 넘으면 끊는다 */
 const MAX_BAD_CODES = 5;

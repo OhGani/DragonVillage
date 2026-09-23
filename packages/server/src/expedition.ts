@@ -10,10 +10,9 @@ import {
   type ChunkCoord,
   type ExpeditionDef,
   FluidSim,
-  ISLAND_GEN_VERSION,
   type VoxelWorld,
   chunkKey,
-  generateIsland,
+  generateExpedition,
   phaseAt,
   portalContains,
   remainingSec,
@@ -46,6 +45,8 @@ export class Expedition {
   /** 보물 오두막 상자 자리 (열면 = 부수면 경험치, M6-1) */
   readonly treasures: readonly { x: number; y: number; z: number }[];
   private readonly treasureKeys: Set<string>;
+  /** 보스 굴 바닥 가운데 (동굴 거미 왕, M7-4). 없으면 null */
+  readonly den: { x: number; y: number; z: number } | null;
 
   constructor(
     readonly def: ExpeditionDef,
@@ -53,14 +54,14 @@ export class Expedition {
     registry: BlockRegistry,
     readonly startedAt: number,
   ) {
-    if (def.generator !== 'island') throw new Error(`원정지 생성기 '${def.generator}' 는 아직 없어요 (M3 는 초원 섬만)`);
-    const gen = generateIsland(registry, seed, def.treasures);
+    const gen = generateExpedition(def, registry, seed); // 생성기가 없으면 여기서 던진다 (startExpedition 이 먼저 hasGenerator 로 거른다)
     this.world = gen.world;
     this.spawn = gen.spawn;
-    this.portal = gen.layout.portal;
-    this.treasures = gen.layout.treasures;
-    this.treasureKeys = new Set(gen.layout.treasures.map((t) => `${t.x},${t.y},${t.z}`));
-    this.genVersion = ISLAND_GEN_VERSION;
+    this.portal = gen.portal;
+    this.treasures = gen.treasures;
+    this.den = gen.den;
+    this.treasureKeys = new Set(gen.treasures.map((t) => `${t.x},${t.y},${t.z}`));
+    this.genVersion = gen.genVersion;
     this.genMs = gen.ms;
     this.endsAt = startedAt + def.durationSec * 1000;
     this.fluids = new FluidSim(this.world, registry);

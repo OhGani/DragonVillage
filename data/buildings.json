@@ -168,8 +168,8 @@
       "level": 1,
       "cost": {},
       "footprint": [
-        5,
-        1,
+        7,
+        7,
         5
       ],
       "unlocks": [
@@ -186,8 +186,8 @@
         "iron_ore": 10
       },
       "footprint": [
-        5,
-        1,
+        7,
+        7,
         5
       ],
       "unlocks": [
@@ -205,8 +205,8 @@
         "diamond": 2
       },
       "footprint": [
-        5,
-        1,
+        7,
+        7,
         5
       ],
       "unlocks": [
@@ -223,8 +223,8 @@
         "glowstone": 8
       },
       "footprint": [
-        5,
-        1,
+        7,
+        7,
         5
       ],
       "unlocks": [
@@ -241,8 +241,8 @@
         "ghast_tear": 2
       },
       "footprint": [
-        5,
-        1,
+        7,
+        7,
         5
       ],
       "unlocks": [
@@ -259,8 +259,8 @@
         "echo_shard": 4
       },
       "footprint": [
-        5,
-        1,
+        7,
+        7,
         5
       ],
       "unlocks": [

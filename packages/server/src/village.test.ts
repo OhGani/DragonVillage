@@ -888,7 +888,7 @@ describe('마을 창고·건물·도감 (M6-6)', () => {
     room.onMove(ra.idx, { x: STORE.x, y: GROUND_Y + 1, z: STORE.z - 4, yaw: 0, pitch: 0, flags: 0 });
     expect(room.build(ra.idx, 'castle')).toBe('UNKNOWN_BUILDING');
     expect(room.build(ra.idx, 'storage')).toBe('ALREADY_BUILT');
-    expect(room.build(ra.idx, 'portal_2')).toBe('NO_SITE'); // 포탈 확장은 아직 자리 없음
+    expect(room.build(ra.idx, 'portal_3')).toBe('NO_SITE'); // 포탈 3단계는 아직 자리 없음 (2단계는 M7-3)
     expect(room.build(ra.idx, 'dragon_nest_2')).toBe('NOT_ENOUGH'); // 큰 둥지는 자리가 있다 (#89)
     expect(room.build(ra.idx, 'forge')).toBe('NOT_ENOUGH'); // 창고가 비어 있다
     // 대장간 비용: 조약돌 40 · 석탄 10 · 철광석 5 → 창고에 넣는다 (철광석은 하나 모자라게)
@@ -1087,12 +1087,106 @@ describe('체력·낙하·죽음·구슬 (M7-1)', () => {
   });
 });
 
+describe('동굴 원정 + 포탈 2단계 (M7-3)', () => {
+  const T0 = 50_000_000;
+
+  it('포탈 2단계를 짓기 전엔 LOCKED, 지으면 동굴로 간다. 동굴은 처음부터 몹이 나오고 거미가 셋에 둘', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 777, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 44.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    expect(room.startExpedition(ra.idx, 'cave', T0)).toBe('LOCKED');
+    // 창고 재료로 포탈 2단계를 짓는다 (창고 옆에서)
+    room.onMove(ra.idx, { x: 78.5, y: GROUND_Y + 1, z: 60.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    storage.storageAdd('123456', 'cobblestone', 50);
+    storage.storageAdd('123456', 'iron_ore', 10);
+    expect(room.build(ra.idx, 'portal_2', T0)).toBeNull();
+    expect(BLOCKS.get(room.world.getBlock(61, GROUND_Y + 1, 41)).id).toBe('obsidian'); // 모서리 기둥
+    expect(BLOCKS.get(room.world.getBlock(61, GROUND_Y + 3, 41)).id).toBe('glowstone');
+    expect(BLOCKS.get(room.world.getBlock(64, GROUND_Y + 1, 44)).id).toBe('obsidian'); // 문틀은 그대로
+    expect(BLOCKS.get(room.world.getBlock(64, GROUND_Y, 44)).id).toBe('cobblestone'); // 단 안쪽 그대로
+    a.clear();
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 44.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    expect(room.validate(room.players.get(ra.idx)!, { seq: 1, x: 61, y: GROUND_Y + 1, z: 41, id: 'air' }, T0)).toBe(REJECT.PROTECTED); // 보호
+    expect(room.startExpedition(ra.idx, 'cave', T0)).toBeNull();
+    const e = room.expedition!;
+    expect(e.def.id).toBe('cave');
+    expect(e.spawn.y).toBe(30);
+    expect(e.world.sizeY).toBe(64);
+    const enter = a.json.find((m) => m.t === 'worldEnter')!;
+    expect(enter.expedition).toMatchObject({ id: 'cave', nightStartsAt: 0, treasures: 4 });
+    // 항상 어두움 → 첫 틱부터 스폰, 사람 높이 근처 땅에
+    for (let t = T0; t < T0 + 40_000; t += 500) room.tick(t);
+    const sys = room.mobSys!;
+    expect(sys.kinds).toEqual(['spider', 'zombie']);
+    expect(sys.mobs.size).toBeGreaterThanOrEqual(4);
+    const kinds = [...sys.mobs.values()].map((m) => m.kind);
+    expect(kinds.filter((k) => k === 'spider').length).toBeGreaterThan(kinds.filter((k) => k === 'zombie').length);
+    for (const m of sys.mobs.values()) {
+      expect(Math.abs(m.y - 30)).toBeLessThan(16); // 사람 높이 근처에 생기고, 걸어서 조금 오르내린다
+      expect(BLOCKS.get(e.world.getBlock(Math.floor(m.x), Math.floor(m.y) - 1, Math.floor(m.z))).solid).toBe(true);
+      expect(BLOCKS.get(e.world.getBlock(Math.floor(m.x), Math.floor(m.y), Math.floor(m.z))).solid).toBe(false);
+    }
+    expect(a.json.some((m) => m.t === 'mob' && m.ev === 'spawn' && m.mob === 'spider')).toBe(true);
+  });
+
+  it('거미가 물면 2 + 독으로 3초 동안 초당 1, 원정에서 나가면 독이 풀린다', () => {
+    const storage = new Storage(':memory:');
+    storage.addBuilding('123456', 'portal_2', T0);
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 777, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 44.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    expect(room.startExpedition(ra.idx, 'cave', T0)).toBeNull();
+    // 동굴은 자리가 대부분 돌이라 첫 몹이 늦게 생길 수 있다 — 생길 때까지 4초씩
+    let B = T0;
+    room.tick(B);
+    const sys = room.mobSys!;
+    while (sys.mobs.size === 0 && B < T0 + 120_000) room.tick((B += 4000));
+    const p = room.players.get(ra.idx)!;
+    const m = [...sys.mobs.values()][0]!;
+    expect(m).toBeDefined();
+    m.kind = 'spider';
+    m.hp = 16;
+    m.x = p.pos.x + 1;
+    m.z = p.pos.z;
+    m.y = p.pos.y;
+    a.clear();
+    room.tick(B + 200); // 물었다 (2)
+    expect(room.hpOf(ra.idx)).toBe(18);
+    expect(a.json.find((mm) => mm.t === 'health')).toMatchObject({ hp: 18, cause: 'spider' });
+    m.x = p.pos.x + 30; // 멀리 치워 더는 안 물게
+    room.tick(B + 1100);
+    room.tick(B + 1250); // 1초: 독 1
+    expect(room.hpOf(ra.idx)).toBe(17);
+    expect(a.json.some((mm) => mm.t === 'health' && mm.cause === 'poison')).toBe(true);
+    room.tick(B + 2300); // 2초: 독 1
+    expect(room.hpOf(ra.idx)).toBe(16);
+    room.tick(B + 3300); // 3초: 끝났다 (until = 3200)
+    room.tick(B + 4400);
+    expect(room.hpOf(ra.idx)).toBe(16);
+    expect(sys.poisoned.size).toBe(0);
+    // 다시 물리고 곧장 귀환하면 독이 풀린다
+    m.x = p.pos.x + 1;
+    m.y = p.pos.y;
+    m.z = p.pos.z;
+    room.tick(B + 5000);
+    expect(sys.poisoned.has(ra.idx)).toBe(true);
+    room.onMove(ra.idx, { x: e2(room).portal.x - 0.5, y: e2(room).portal.y + 1, z: e2(room).portal.z + 0.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, B + 5100);
+    expect(room.returnHome(ra.idx, B + 5200)).toBeNull();
+    room.tick(B + 6300);
+    expect(sys.poisoned.size).toBe(0);
+  });
+});
+const e2 = (room: VillageRoom) => room.expedition!;
+
 describe('원정 밤의 몹 (M7-2)', () => {
   const T0 = 40_000_000;
   const NIGHT = T0 + 361_000; // grass_island 은 360초부터 밤
 
   function goOut() {
-    const room = makeRoom(new Storage(':memory:'));
+    const room = new VillageRoom({ ...INFO }, BLOCKS, new Storage(':memory:'), () => {}, { seedFn: () => 777, starterKit: null, gifts: [] }); // 시드 고정 — 몹 걸음이 섬 모양을 따른다
     const a = inbox();
     const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
     room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 44.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);

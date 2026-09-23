@@ -5,6 +5,7 @@
  * - 건물은 광장 둘레 정해진 자리(`BUILDING_SITES`)에 실제 블록 구조물로 선다. 서버가 켜질 때 지어진 것을 다시 확인한다.
  * - 마을 건물 자리는 자동 보호 — 아무도 부수거나 덮지 못한다 (DESIGN 6절).
  * - 마을 레벨 = 1 + 지은 건물 수(둥지 포함) + 도감(처음 손에 넣은 블록 종류) ÷ 10. 광장 깃대에 레벨만큼 깃발이 걸린다.
+ * - 포탈 단계(M7-3): `portal_2` 는 북쪽 포탈 자리 그 자체(7×7 단). 지으면 `expeditions.json unlockedBy: portal_2` 원정지(동굴)가 열린다. 1단계는 처음부터.
  */
 import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
@@ -88,6 +89,7 @@ export const BUILDING_SITES: readonly Site[] = [
   { id: 'farm', x0: 47, z0: 72, size: [7, 7, 2] }, // 남서
   { id: 'lighthouse', x0: 76, z0: 50, size: [3, 3, 12] }, // 북동, 집터 남쪽
   { id: 'brewing_stand', x0: 50, z0: 48, size: [3, 3, 3] }, // 북서 (강은 z 40 아래)
+  { id: 'portal_2', x0: 61, z0: 41, size: [7, 7, 5] }, // 북쪽 포탈 단(worldgen/village PORTAL_PAD) 그 자리 — 길의 북쪽 끝
   // 둥지는 겹쳐 자란다: 7×7 둥지 바깥에 11×11 고리(큰 둥지), 그 바깥에 15×15 고리(드래곤 성)
   { id: 'dragon_nest_2', x0: 58, z0: 79, size: [11, 11, 8] },
   { id: 'dragon_nest_3', x0: 56, z0: 77, size: [15, 15, 12] },
@@ -203,6 +205,13 @@ export function buildingBlocks(id: string, groundY: number): Placed[] {
         return dy <= 1 ? 'air' : null; // 고리 위 한 칸만 비워 두고 위는 그대로
       });
     }
+    case 'portal_2':
+      // 포탈 단 테두리를 돌로 바꾸고 네 모서리에 흑요석 기둥 + 발광석. 문틀·단 안쪽은 건드리지 않는다(null)
+      return box(s, groundY, (dx, dz, dy) => {
+        if (corner(dx, dz)) return dy === 0 || dy === 3 ? 'glowstone' : dy <= 2 ? 'obsidian' : null;
+        if (dy === 0 && edge(dx, dz)) return 'stone';
+        return null;
+      });
     default:
       return [];
   }
@@ -227,9 +236,21 @@ export function isBuildingBuiltAt(idAt: (x: number, y: number, z: number) => str
       return idAt(s.x0, groundY + 4, s.z0) === 'glowstone' && idAt(s.x0, groundY, s.z0) === 'cobblestone';
     case 'dragon_nest_3':
       return idAt(s.x0, groundY + 6, s.z0) === 'glowstone' && idAt(s.x0, groundY, s.z0) === 'stone';
+    case 'portal_2':
+      return idAt(s.x0, groundY + 1, s.z0) === 'obsidian' && idAt(s.x0, groundY + 3, s.z0) === 'glowstone';
     default:
       return false;
   }
+}
+
+// ---------------------------------------------------------------- 포탈 단계
+
+/** 처음부터 열려 있는 포탈 단계 (buildings.json portal_1 — 마을 생성 시 기본 제공) */
+export const PORTAL_BASE = 'portal_1';
+
+/** 이 원정지(unlockedBy = 포탈 건물 id)에 갈 수 있나 */
+export function expeditionUnlocked(unlockedBy: string, built: readonly string[]): boolean {
+  return unlockedBy === PORTAL_BASE || built.includes(unlockedBy);
 }
 
 // ---------------------------------------------------------------- 마을 레벨·깃발

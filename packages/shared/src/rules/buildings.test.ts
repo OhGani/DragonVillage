@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDING_SITES, NEST_FAMILY, PREBUILT, buildingBlocks, flagBlocks, flagContains, isBuildingBuiltAt, missingCost, siteContains, villageLevel } from './buildings';
+import { BUILDING_SITES, NEST_FAMILY, PREBUILT, buildingBlocks, flagBlocks, flagContains, isBuildingBuiltAt, missingCost, siteContains, villageLevel, PORTAL_BASE, expeditionUnlocked } from './buildings';
 import { BLOCKS, BUILDINGS } from './data';
 import { NEST } from './dragons';
 
@@ -26,7 +26,7 @@ describe('마을 건물 (M6-6)', () => {
       const def = BUILDINGS.find(s.id)!;
       expect([s.size[0], s.size[1], s.size[2]]).toEqual([def.footprint[0], def.footprint[1], def.footprint[2]]);
       const onRoad = (s.x0 <= 65 && s.x0 + s.size[0] - 1 >= 63) || (s.z0 <= 65 && s.z0 + s.size[1] - 1 >= 63);
-      if (!NEST_FAMILY.includes(s.id)) expect(onRoad, `${s.id} 가 길(x 64·z 64) 위에 있어요`).toBe(false); // 둥지는 남쪽 길 끝에 있어 고리가 길을 지난다(입구)
+      if (!NEST_FAMILY.includes(s.id) && !s.id.startsWith('portal_')) expect(onRoad, `${s.id} 가 길(x 64·z 64) 위에 있어요`).toBe(false); // 둥지·포탈은 길의 양 끝
     }
   });
 
@@ -59,6 +59,14 @@ describe('마을 건물 (M6-6)', () => {
     expect(flagBlocks(40, 99).filter((b) => b.id === 'wool')).toHaveLength(6);
     for (const b of f) expect(flagContains(40, b.x, b.y, b.z)).toBe(true);
     expect(flagContains(40, 66, 40, 52)).toBe(false); // 바닥은 아니다
+  });
+
+  it('원정지 열림: 1단계는 처음부터, 그 외는 포탈 건물을 지어야 (M7-3)', () => {
+    expect(expeditionUnlocked('portal_1', [])).toBe(true);
+    expect(expeditionUnlocked('portal_2', [])).toBe(false);
+    expect(expeditionUnlocked('portal_2', ['storage', 'portal_2'])).toBe(true);
+    expect(PORTAL_BASE).toBe('portal_1');
+    expect(BUILDINGS.find('portal_2')!.footprint).toEqual([7, 7, 5]);
   });
 
   it('창고 재고로 비용을 낼 수 있는지 — 모자란 것만 돌려준다', () => {

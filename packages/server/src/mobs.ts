@@ -1,6 +1,7 @@
 /**
- * 원정 몹 돌리기 (M7-2): 밤이면 생기고, 사람을 쫓고, 물고, 터진다. 규칙은 shared/rules/mobs.ts, 여기는 세계·플레이어와 잇는 살.
+ * 원정 몹 돌리기 (M7-2·M7-3): 밤이면 생기고, 사람을 쫓고, 물고, 터진다. 규칙은 shared/rules/mobs.ts, 여기는 세계·플레이어와 잇는 살.
  * 블록은 절대 안 부수고, 피해는 플레이어에게만 간다(몹끼리·드래곤은 없음 = 아군 피해 없음).
+ * 어떤 몹이 나오는지는 원정지(`expeditions.json nightMobs`). 항상 어두운 원정지(동굴)는 처음부터 나온다. 거미가 물면 독(초당 1, 3초).
  */
 import {
   type BlockRegistry,
@@ -8,17 +9,21 @@ import {
   HIT_REACH,
   MOB_KIND_NUM,
   MOB_MAX,
-  MOB_SIZE,
   type MobEntry,
   type MobKind,
   type MobRegistry,
   type MobState,
+  POISON_DAMAGE,
+  POISON_EVERY_MS,
   SPAWN_EVERY_MS,
   beamHitsMob,
   encodeMobsState,
   explosionDamage,
+  mobSize,
+  pickKind,
   pickSpawn,
   rollDrops,
+  spawnKinds,
   stepMob,
 } from '@dragon-village/shared';
 import type { Expedition } from './expedition';
@@ -52,32 +57,49 @@ export class MobSystem {
   private lastStepAt = 0;
   private turn = 0;
   private readonly lastHitAt = new Map<number, number>();
+  /** 독에 걸린 사람: 끝나는 시각·다음 아픈 시각 */
+  readonly poisoned = new Map<number, { until: number; nextAt: number }>();
+  readonly kinds: readonly MobKind[];
 
   constructor(
     private readonly e: Expedition,
     private readonly registry: BlockRegistry,
     private readonly defs: MobRegistry,
     private readonly hooks: MobHooks,
-  ) {}
-
-  /** 밤인가 */
-  isNight(now: number): boolean {
-    return this.e.def.nightStartsAt > 0 && this.e.elapsedSec(now) >= this.e.def.nightStartsAt;
+  ) {
+    this.kinds = spawnKinds(e.def.nightMobs);
   }
 
-  /** 그 자리의 발 높이 (위가 두 칸 비어 있는 첫 단단한 블록 위). 없으면 null */
-  groundAt = (x: number, z: number): number | null => {
+  /** 밤인가 (항상 어두운 원정지는 언제나) */
+  isNight(now: number): boolean {
+    return this.e.def.nightStartsAt <= 0 || this.e.elapsedSec(now) >= this.e.def.nightStartsAt;
+  }
+
+  /**
+   * 그 자리의 발 높이. nearY 를 주면 그 근처(위 2칸 ~ 아래 6칸)에서 위가 두 칸 비어 있는 첫 단단한 블록 위 — 동굴처럼 층이 여럿일 때.
+   * 없으면 하늘에서 내려오며 첫 단단한 블록(초원 섬). 못 서면 null
+   */
+  groundAt = (x: number, z: number, nearY?: number): number | null => {
     const bx = Math.floor(x),
       bz = Math.floor(z);
     const w = this.e.world;
     if (!w.inBounds(bx, 0, bz)) return null;
+    const standable = (y: number): boolean => {
+      const here = this.registry.get(w.getBlock(bx, y, bz));
+      if (!here.solid || here.fluid) return false;
+      const a1 = this.registry.get(w.getBlock(bx, y + 1, bz));
+      const a2 = this.registry.get(w.getBlock(bx, y + 2, bz));
+      return !a1.solid && !a2.solid && !a1.fluid && !a2.fluid;
+    };
+    if (nearY !== undefined) {
+      const y0 = Math.floor(nearY);
+      for (let y = Math.min(w.sizeY - 3, y0 + 2); y >= Math.max(1, y0 - 6); y--) if (standable(y)) return y + 1;
+      return null;
+    }
     for (let y = Math.min(w.sizeY - 3, 90); y >= 1; y--) {
       const here = this.registry.get(w.getBlock(bx, y, bz));
       if (!here.solid || here.fluid) continue;
-      const a1 = this.registry.get(w.getBlock(bx, y + 1, bz));
-      const a2 = this.registry.get(w.getBlock(bx, y + 2, bz));
-      if (!a1.solid && !a2.solid && !a1.fluid) return y + 1;
-      return null; // 위가 막혀 있으면 못 선다
+      return standable(y) ? y + 1 : null; // 위가 막혀 있으면 못 선다
     }
     return null;
   };
@@ -90,12 +112,13 @@ export class MobSystem {
       const around = players[this.turn % players.length]!;
       const spot = pickSpawn(this.e.seed, this.turn, around, this.groundAt);
       if (spot) {
-        const kind: MobKind = this.turn % 3 === 0 ? 'creeper' : 'zombie'; // 셋에 하나는 크리퍼
+        const kind = pickKind(this.kinds, this.turn);
         const id = this.nextId++;
         this.mobs.set(id, { id, kind, x: spot.x, y: spot.y, z: spot.z, yaw: 0, hp: this.defs.get(kind).hp, state: 0, fuseAt: 0, lastAttackAt: 0 });
         this.hooks.json({ t: 'mob', ev: 'spawn', id, mob: kind, x: spot.x, y: spot.y, z: spot.z });
       }
     }
+    this.tickPoison(players, now);
     if (this.mobs.size === 0) return;
     if (now - this.lastStepAt >= STEP_MS) {
       const dt = Math.min(0.5, (now - (this.lastStepAt || now - STEP_MS)) / 1000);
@@ -113,11 +136,27 @@ export class MobSystem {
         }
         if (best > 40) target = null; // 너무 멀면 서성인다
         const ev = stepMob(m, def, target, dt, now, this.groundAt);
-        if (ev === 'attack' && target) this.hooks.hurt(target.idx, def.damage, m.kind, now);
-        else if (ev === 'explode') this.explode(m, def, players, now);
+        if (ev === 'attack' && target) {
+          this.hooks.hurt(target.idx, def.damage, m.kind, now);
+          if (def.poisonMs > 0) this.poisoned.set(target.idx, { until: now + def.poisonMs, nextAt: now + POISON_EVERY_MS });
+        } else if (ev === 'explode') this.explode(m, def, players, now);
       }
     }
     this.hooks.broadcast(encodeMobsState(this.entries()));
+  }
+
+  /** 독: 초당 1, 끝나거나 원정에서 나가면 풀린다 */
+  private tickPoison(players: MobTarget[], now: number): void {
+    for (const [idx, p] of [...this.poisoned]) {
+      if (!players.some((t) => t.idx === idx) || now >= p.until) {
+        this.poisoned.delete(idx);
+        continue;
+      }
+      if (now >= p.nextAt) {
+        p.nextAt += POISON_EVERY_MS;
+        this.hooks.hurt(idx, POISON_DAMAGE, 'poison', now);
+      }
+    }
   }
 
   private explode(m: MobState, def: ReturnType<MobRegistry['get']>, players: MobTarget[], now: number): void {
@@ -138,7 +177,7 @@ export class MobSystem {
   hit(p: MobTarget, mobId: number, damage: number, now: number): string | null {
     const m = this.mobs.get(mobId);
     if (!m) return 'NO_MOB';
-    if (Math.hypot(m.x - p.x, m.y + MOB_SIZE.h * 0.5 - p.eyeY, m.z - p.z) > HIT_REACH + 0.6) return 'TOO_FAR';
+    if (Math.hypot(m.x - p.x, m.y + mobSize(m.kind).h * 0.5 - p.eyeY, m.z - p.z) > HIT_REACH + 0.6) return 'TOO_FAR';
     const last = this.lastHitAt.get(p.idx) ?? 0;
     if (now - last < HIT_COOLDOWN_MS) return 'COOLDOWN';
     this.lastHitAt.set(p.idx, now);
@@ -171,5 +210,6 @@ export class MobSystem {
 
   clear(): void {
     this.mobs.clear();
+    this.poisoned.clear();
   }
 }

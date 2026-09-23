@@ -65,7 +65,8 @@ describe('원정 시작·합류', () => {
     // 없는 원정지·아직 없는 생성기
     const { room: r2, ia: i2 } = setup();
     expect(r2.startExpedition(i2, 'moon', T0)).toBe('BAD_EXPEDITION');
-    expect(r2.startExpedition(i2, 'cave', T0)).toBe('NOT_YET');
+    expect(r2.startExpedition(i2, 'cave', T0)).toBe('LOCKED'); // 포탈 2단계를 지어야 (M7-3)
+    expect(r2.startExpedition(i2, 'desert', T0)).toBe('NOT_YET'); // 생성기가 아직 없다 (포탈 단계보다 먼저 본다)
   });
 
   it('입장 welcome 에 진행 중인 원정이 실려 온다', () => {

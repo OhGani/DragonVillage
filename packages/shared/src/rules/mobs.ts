@@ -1,20 +1,25 @@
 /**
- * 원정 밤의 몹 (M7-2): 좀비·크리퍼. 순수 함수 — 서버가 돌리고 클라는 그린다.
+ * 원정 밤의 몹 (M7-2): 좀비·크리퍼, (M7-3) 거미. 순수 함수 — 서버가 돌리고 클라는 그린다.
  *
  * - 원정지가 밤(`nightStartsAt`)이 되면 플레이어 12~24칸 거리, 어두운 잔디 위에 하나씩 생긴다(동시 최대 MOB_MAX).
  * - 좀비: 가장 가까운 사람을 향해 걷고 붙으면 물어 3 (1.2초마다). 크리퍼: 3칸 안에 들어오면 1.5초 부풀다 터진다(7, 멀수록 덜) —
  *   **블록은 안 부순다**(마을 보호 원칙과 같음), 플레이어·드래곤끼리는 절대 안 맞는다(아군 피해 없음).
  * - 때리기: 맨손 1, 도구는 등급이 높을수록. 죽으면 `mobs.json` 드롭 + `xp.json` 경험치. 드래곤 빔은 4×세기.
+ * - 거미(M7-3): 빠르고(3.4칸/초) 낮다. 물면 2 + 독 3초(초당 1). 벽 타기는 없다. 어느 원정지에 어떤 몹이 나오는지는 `expeditions.json nightMobs`.
  * - 수치는 아빠 임시값 — `mobs.json` 에 hp/damage 가 생기면 그걸 읽는다.
  */
 import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
 import { hash3 } from '../math/prng';
 
-export type MobKind = 'zombie' | 'creeper';
-export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper'];
-export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1 };
-export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper'];
+export type MobKind = 'zombie' | 'creeper' | 'spider';
+export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider'];
+export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2 };
+export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider'];
+
+export function isMobKind(s: string): s is MobKind {
+  return (MOB_KINDS as readonly string[]).includes(s);
+}
 
 export interface MobDrop {
   item: string;
@@ -38,13 +43,16 @@ export interface MobDef {
   /** 크리퍼만: 부푸는 시간·폭발 반지름 */
   readonly fuseMs: number;
   readonly explodeRadius: number;
+  /** 거미만: 물면 이만큼 독 (초당 1) */
+  readonly poisonMs: number;
   readonly drops: readonly MobDrop[];
   readonly xp: number;
 }
 
 const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name'>> = {
-  zombie: { id: 'zombie', hp: 20, damage: 3, speed: 2.3, reach: 1.6, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0 },
-  creeper: { id: 'creeper', hp: 20, damage: 7, speed: 2.6, reach: 3.0, attackEveryMs: 0, fuseMs: 1500, explodeRadius: 3.5 },
+  zombie: { id: 'zombie', hp: 20, damage: 3, speed: 2.3, reach: 1.6, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  creeper: { id: 'creeper', hp: 20, damage: 7, speed: 2.6, reach: 3.0, attackEveryMs: 0, fuseMs: 1500, explodeRadius: 3.5, poisonMs: 0 },
+  spider: { id: 'spider', hp: 16, damage: 2, speed: 3.4, reach: 1.9, attackEveryMs: 1000, fuseMs: 0, explodeRadius: 0, poisonMs: 3000 },
 };
 
 const MobFile = z
@@ -97,8 +105,28 @@ export const MOB_MAX = 8;
 export const SPAWN_MIN = 12;
 export const SPAWN_MAX = 24;
 export const SPAWN_EVERY_MS = 4000;
-/** 몹 몸 판정 (넓이·높이) */
+/** 몹 몸 판정 (넓이·높이) — 좀비·크리퍼. 거미는 넓고 낮다 */
 export const MOB_SIZE = { w: 0.6, h: 1.9 } as const;
+export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = { zombie: MOB_SIZE, creeper: MOB_SIZE, spider: { w: 1.4, h: 0.9 } };
+export function mobSize(kind: MobKind | number): { w: number; h: number } {
+  return MOB_SIZES[typeof kind === 'number' ? (MOB_KIND_OF[kind] ?? 'zombie') : kind];
+}
+/** 독: 초당 1 */
+export const POISON_EVERY_MS = 1000;
+export const POISON_DAMAGE = 1;
+
+/** 이 원정지에 나오는 몹 — expeditions.json nightMobs 중 아는 것만. 하나도 없으면 좀비·크리퍼 */
+export function spawnKinds(nightMobs: readonly string[] | undefined): MobKind[] {
+  const kinds = (nightMobs ?? []).filter(isMobKind);
+  return kinds.length ? [...new Set(kinds)] : ['zombie', 'creeper'];
+}
+
+/** 차례(turn)로 몹 고르기: 첫째가 셋에 둘, 나머지가 셋에 하나씩 돌아가며 */
+export function pickKind(kinds: readonly MobKind[], turn: number): MobKind {
+  if (kinds.length <= 1) return kinds[0] ?? 'zombie';
+  if (turn % 3 !== 0) return kinds[0]!;
+  return kinds[1 + (Math.floor(turn / 3) % (kinds.length - 1))]!;
+}
 /** 플레이어가 때릴 수 있는 거리(눈에서) */
 export const HIT_REACH = 3.5;
 export const HIT_COOLDOWN_MS = 450;
@@ -132,14 +160,20 @@ export interface MobEntry {
   state: number;
 }
 
-/** 스폰 자리 뽑기 (결정론: 시드·차례·플레이어 번호). 사람에서 12~24칸, 방향은 무작위. groundAt 이 null 이면 못 선다 */
-export function pickSpawn(seed: number, turn: number, around: { x: number; z: number }, groundAt: (x: number, z: number) => number | null): { x: number; y: number; z: number } | null {
-  for (let i = 0; i < 6; i++) {
+/** 발 높이 찾기: (x, z) 에서, nearY 가 있으면 그 근처(동굴처럼 층이 여럿일 때). 못 서면 null */
+export type GroundAt = (x: number, z: number, nearY?: number) => number | null;
+
+/** 한 차례에 자리를 몇 번 뽑아 보나 (동굴은 대부분 돌이라 넉넉히) */
+export const SPAWN_TRIES = 12;
+
+/** 스폰 자리 뽑기 (결정론: 시드·차례·플레이어 번호). 사람에서 12~24칸, 방향은 무작위, 사람 높이 근처. groundAt 이 null 이면 못 선다 */
+export function pickSpawn(seed: number, turn: number, around: { x: number; y?: number; z: number }, groundAt: GroundAt): { x: number; y: number; z: number } | null {
+  for (let i = 0; i < SPAWN_TRIES; i++) {
     const a = hash3(turn, i, 1, seed) * Math.PI * 2;
     const d = SPAWN_MIN + hash3(turn, i, 2, seed) * (SPAWN_MAX - SPAWN_MIN);
     const x = Math.floor(around.x + Math.cos(a) * d) + 0.5;
     const z = Math.floor(around.z + Math.sin(a) * d) + 0.5;
-    const y = groundAt(x, z);
+    const y = groundAt(x, z, around.y);
     if (y !== null) return { x, y, z };
   }
   return null;
@@ -149,7 +183,7 @@ export function pickSpawn(seed: number, turn: number, around: { x: number; z: nu
  * 몹 한 걸음 (dt 초). target 은 가장 가까운 사람의 발 위치. groundAt 으로 땅을 따라간다(한 칸 오르기까지).
  * 돌려주는 event: 'attack'(좀비가 물었다) · 'explode'(크리퍼가 터졌다) · null
  */
-export function stepMob(m: MobState, def: MobDef, target: { x: number; y: number; z: number } | null, dt: number, now: number, groundAt: (x: number, z: number) => number | null): 'attack' | 'explode' | null {
+export function stepMob(m: MobState, def: MobDef, target: { x: number; y: number; z: number } | null, dt: number, now: number, groundAt: GroundAt): 'attack' | 'explode' | null {
   if (!target) {
     m.state = MOB_STATE.walk;
     m.fuseAt = 0;
@@ -182,8 +216,9 @@ export function stepMob(m: MobState, def: MobDef, target: { x: number; y: number
     const step = Math.min(dist, def.speed * dt);
     const nx = m.x + (dx / dist) * step,
       nz = m.z + (dz / dist) * step;
-    const gy = groundAt(nx, nz);
-    if (gy !== null && gy - m.y <= 1.05) {
+    const gy = groundAt(nx, nz, m.y);
+    if (gy !== null && gy - m.y <= 1.05 && m.y - gy <= 3) {
+      // 한 칸까지 오르고, 세 칸까지만 내려간다 (깊은 구멍·용암엔 안 뛰어든다)
       m.x = nx;
       m.z = nz;
       m.y = gy;
@@ -199,15 +234,16 @@ export function explosionDamage(dist: number, radius: number, damage: number): n
 }
 
 /** 빔(from 에서 dir 로 range 칸)이 몹에 닿나 — 몹 가슴점과 선분 거리 */
-export function beamHitsMob(from: { x: number; y: number; z: number }, dir: { x: number; y: number; z: number }, range: number, m: { x: number; y: number; z: number }, radius: number): boolean {
+export function beamHitsMob(from: { x: number; y: number; z: number }, dir: { x: number; y: number; z: number }, range: number, m: { x: number; y: number; z: number; kind?: MobKind }, radius: number): boolean {
+  const h = m.kind ? mobSize(m.kind).h : MOB_SIZE.h;
   const cx = m.x - from.x,
-    cy = m.y + MOB_SIZE.h * 0.5 - from.y,
+    cy = m.y + h * 0.5 - from.y,
     cz = m.z - from.z;
   const t = Math.max(0, Math.min(range, cx * dir.x + cy * dir.y + cz * dir.z));
   const px = from.x + dir.x * t,
     py = from.y + dir.y * t,
     pz = from.z + dir.z * t;
-  return Math.hypot(m.x - px, m.y + MOB_SIZE.h * 0.5 - py, m.z - pz) <= radius;
+  return Math.hypot(m.x - px, m.y + h * 0.5 - py, m.z - pz) <= radius;
 }
 
 /** 때리는 피해: 맨손 1, 도구 등급마다 +1.5 (나무 2 · 돌 4 · 철 5 · 다이아 7 · 네더라이트 8) */

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { MOBS } from './data';
-import { MOB_MAX, MOB_STATE, type MobState, beamHitsMob, explosionDamage, hitDamage, pickSpawn, rollDrops, stepMob } from './mobs';
+import { MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob } from './mobs';
 
 const flat = () => 41; // 어디나 발 높이 41
 
-function mob(kind: 'zombie' | 'creeper', x: number, z: number): MobState {
+function mob(kind: MobKind, x: number, z: number): MobState {
   return { id: 1, kind, x, y: 41, z, yaw: 0, hp: MOBS.get(kind).hp, state: 0, fuseAt: 0, lastAttackAt: 0 };
 }
 
@@ -84,5 +84,55 @@ describe('원정 밤의 몹 (M7-2)', () => {
     const d1 = rollDrops(MOBS.get('zombie'), 7, 3);
     expect(rollDrops(MOBS.get('zombie'), 7, 3)).toEqual(d1);
     for (const d of d1) expect(d.count).toBeGreaterThan(0);
+  });
+});
+
+describe('거미와 원정지별 몹 (M7-3)', () => {
+  it('거미: mobs.json 이름·드롭, 빠르고 낮고, 물면 2 + 독 3초', () => {
+    const s = MOBS.get('spider');
+    expect(s.name).toBe('거미');
+    expect(s.hp).toBe(16);
+    expect(s.damage).toBe(2);
+    expect(s.poisonMs).toBe(3000);
+    expect(s.speed).toBeGreaterThan(MOBS.get('zombie').speed);
+    expect(s.drops.map((d) => d.item)).toContain('string');
+    expect(mobSize('spider')).toEqual({ w: 1.4, h: 0.9 });
+    expect(mobSize(0)).toEqual({ w: 0.6, h: 1.9 });
+    expect(MOBS.get('zombie').poisonMs).toBe(0);
+    const m = mob('spider', 100, 100);
+    expect(stepMob(m, s, { x: 101.5, y: 41, z: 100 }, 0.1, 5000, flat)).toBe('attack');
+    expect(stepMob(m, s, { x: 101.5, y: 41, z: 100 }, 0.1, 5500, flat)).toBeNull();
+    expect(stepMob(m, s, { x: 101.5, y: 41, z: 100 }, 0.1, 6000, flat)).toBe('attack'); // 1초마다
+    // 낮은 몹은 빔 판정도 낮다
+    expect(beamHitsMob({ x: 0, y: 1.6, z: 0 }, { x: 0, y: 0, z: -1 }, 24, { x: 0, y: 0, z: -10, kind: 'spider' }, 1)).toBe(false); // 가슴점 0.45 — 눈높이 선에서 1.15 떨어짐
+    expect(beamHitsMob({ x: 0, y: 1.6, z: 0 }, { x: 0, y: -0.1, z: -1 }, 24, { x: 0, y: 0, z: -10, kind: 'spider' }, 1)).toBe(true); // 살짝 내려 쏘면 맞는다
+  });
+
+  it('원정지 nightMobs 에서 아는 몹만 고르고, 첫째가 셋에 둘', () => {
+    expect(spawnKinds(['spider', 'zombie', 'skeleton'])).toEqual(['spider', 'zombie']);
+    expect(spawnKinds(['zombie', 'creeper', 'enderman'])).toEqual(['zombie', 'creeper']);
+    expect(spawnKinds(['enderman'])).toEqual(['zombie', 'creeper']);
+    expect(spawnKinds(undefined)).toEqual(['zombie', 'creeper']);
+    const picks = Array.from({ length: 9 }, (_, i) => pickKind(['spider', 'zombie'], i + 1));
+    expect(picks.filter((k) => k === 'spider').length).toBe(6);
+    expect(picks.filter((k) => k === 'zombie').length).toBe(3);
+    expect(pickKind(['zombie'], 3)).toBe('zombie');
+    const three = Array.from({ length: 9 }, (_, i) => pickKind(['zombie', 'creeper', 'spider'], i + 1));
+    expect(three.filter((k) => k === 'creeper').length + three.filter((k) => k === 'spider').length).toBe(3);
+    expect(new Set(three).size).toBe(3);
+  });
+
+  it('땅 찾기에 높이 힌트가 간다 (동굴처럼 층이 여럿일 때)', () => {
+    const seen: (number | undefined)[] = [];
+    const g = (_x: number, _z: number, nearY?: number) => {
+      seen.push(nearY);
+      return 41;
+    };
+    pickSpawn(1, 1, { x: 100, y: 33, z: 100 }, g);
+    expect(seen[0]).toBe(33);
+    const m = mob('zombie', 100, 100);
+    m.y = 27;
+    stepMob(m, MOBS.get('zombie'), { x: 110, y: 27, z: 100 }, 0.1, 1000, g);
+    expect(seen.at(-1)).toBe(27);
   });
 });

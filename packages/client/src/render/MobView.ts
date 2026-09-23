@@ -1,15 +1,17 @@
 /**
- * 원정 몹 그리기 (M7-2): 서버 MobsState(20Hz)를 부드럽게 따라가는 좀비·크리퍼 복셀 인형.
+ * 원정 몹 그리기 (M7-2·M7-3): 서버 MobsState(20Hz)를 부드럽게 따라가는 좀비·크리퍼·거미 복셀 인형.
  * 좀비는 플레이어 인형 생성기에 초록 피부·낡은 옷 팔레트, 팔은 앞으로. 크리퍼는 머리 8 + 몸 4×12 + 다리 넷.
+ * 거미(M7-3)는 머리(붉은 눈 여덟)·가슴·큰 배 + 다리 여덟(따로 메시, 걷는 대로 흔든다). 넓고 낮다(mobSize).
  * 맞으면 붉게 깜빡, 크리퍼가 부풀 때 하얘지며 커진다, 죽거나 터지면 조각이 흩어진다.
  */
-import { MOB_KIND_OF, MOB_SIZE, MOB_STATE, type MobEntry } from '@dragon-village/shared';
+import { MOB_KIND_OF, MOB_STATE, type MobEntry, mobSize } from '@dragon-village/shared';
 import * as THREE from 'three';
 import { PLAYER_SHADES, type SkinPalette, VOXEL, playerVoxels } from './playerModel';
 import { type Voxel, buildVoxelGeometry } from './voxelGeometry';
 
 const ZOMBIE: SkinPalette = { shirt: 0x2f6a7a, skin: 0x5d8b4a, hair: 0x2c3e2b, pants: 0x3a3560, shoes: 0x25211f };
 const CREEPER_GREEN = 0x4caf50;
+const SPIDER_DARK = 0x2a2320;
 
 function css(hex: number): string {
   return '#' + hex.toString(16).padStart(6, '0');
@@ -48,6 +50,40 @@ function creeperVoxels(): Voxel[] {
   return out;
 }
 
+/** 거미 몸통 복셀: 머리 8×8×6 (앞면 z=-11 에 붉은 눈 여덟), 가슴 6×6×6, 배 10×8×12. 앞이 −z, 바닥 y 0 은 다리 끝 */
+function spiderBodyVoxels(): Voxel[] {
+  const out: Voxel[] = [];
+  const mottle = (x: number, y: number, z: number, base: number) => {
+    const h = (x * 73856093) ^ (y * 19349663) ^ (z * 83492791);
+    const k = 0.85 + (((h >>> 0) % 100) / 100) * 0.3;
+    const r = Math.min(255, Math.round(((base >> 16) & 255) * k)),
+      g = Math.min(255, Math.round(((base >> 8) & 255) * k)),
+      b = Math.min(255, Math.round((base & 255) * k));
+    return (r << 16) | (g << 8) | b;
+  };
+  const add = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, color: (x: number, y: number, z: number) => number) => {
+    for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) out.push({ x, y, z, c: css(color(x, y, z)) });
+  };
+  // 배 (뒤, 크다)
+  add(-5, 4, 5, 12, 1, 12, (x, y, z) => mottle(x, y, z, 0x3a2f2a));
+  // 가슴
+  add(-3, 2, 6, 11, -5, 0, (x, y, z) => mottle(x, y, z, SPIDER_DARK));
+  // 머리 + 눈
+  const EYES = ['        ', ' r    r ', 'r r  r r', ' r    r ', '  r  r  ', '        ', '        ', '        '];
+  add(-4, 3, 5, 12, -11, -6, (x, y, z) => {
+    if (z === -11 && EYES[12 - y]![x + 4] === 'r') return 0xd02020;
+    return mottle(x, y, z, SPIDER_DARK);
+  });
+  return out;
+}
+
+/** 거미 다리 하나: 가로 14×2×2 막대 (x 0..13), 몸에 붙는 쪽이 x 0 */
+function spiderLegVoxels(): Voxel[] {
+  const out: Voxel[] = [];
+  for (let x = 0; x < 14; x++) for (let y = 0; y < 2; y++) for (let z = 0; z < 2; z++) out.push({ x, y, z, c: css(x > 9 ? 0x1a1614 : 0x241e1b) });
+  return out;
+}
+
 function partMesh(voxels: readonly Voxel[], material: THREE.Material): THREE.Mesh {
   const geom = buildVoxelGeometry(voxels, VOXEL, PLAYER_SHADES);
   geom.translate(VOXEL / 2, 0, VOXEL / 2);
@@ -69,6 +105,8 @@ interface Figure {
   armR: THREE.Mesh | null;
   legL: THREE.Mesh | null;
   legR: THREE.Mesh | null;
+  /** 거미 다리 여덟 (왼 넷, 오른 넷) */
+  spiderLegs: THREE.Mesh[];
   walk: number;
 }
 
@@ -101,6 +139,7 @@ export class MobView {
       armR: THREE.Mesh | null = null,
       legL: THREE.Mesh | null = null,
       legR: THREE.Mesh | null = null;
+    const spiderLegs: THREE.Mesh[] = [];
     if (MOB_KIND_OF[m.kind] === 'zombie') {
       const v = playerVoxels(ZOMBIE);
       const at = (mesh: THREE.Mesh, spot: readonly [number, number]) => {
@@ -115,12 +154,27 @@ export class MobView {
       armR = at(partMesh(v.arm, material), [6, 24]);
       armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.15; // 좀비 팔은 앞으로
       body.add(torso, head, legL, legR, armL, armR);
+    } else if (MOB_KIND_OF[m.kind] === 'spider') {
+      body.add(partMesh(spiderBodyVoxels(), material));
+      const legGeom = buildVoxelGeometry(spiderLegVoxels(), VOXEL, PLAYER_SHADES);
+      legGeom.translate(0, -VOXEL, -VOXEL); // 붙는 쪽 끝이 원점
+      for (let i = 0; i < 8; i++) {
+        const right = i >= 4;
+        const k = i % 4;
+        const leg = new THREE.Mesh(legGeom, material);
+        leg.position.set((right ? 3 : -3) * VOXEL, 9 * VOXEL, (-4 + k * 3) * VOXEL);
+        // 바깥으로 뻗고(y) 아래로 처진다(z). 앞다리는 앞으로, 뒷다리는 뒤로
+        leg.rotation.set(0, (right ? 0 : Math.PI) + (right ? 1 : -1) * (0.55 - k * 0.37), right ? -0.75 : 0.75);
+        leg.userData.baseY = leg.rotation.y;
+        spiderLegs.push(leg);
+        body.add(leg);
+      }
     } else {
       body.add(partMesh(creeperVoxels(), material));
     }
     group.add(body);
     this.group.add(group);
-    return { group, body, material, kind: m.kind, cur: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, target: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, state: m.state, hp: m.hp, flashUntil: 0, fuseT: 0, armL, armR, legL, legR, walk: 0 };
+    return { group, body, material, kind: m.kind, cur: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, target: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, state: m.state, hp: m.hp, flashUntil: 0, fuseT: 0, armL, armR, legL, legR, spiderLegs, walk: 0 };
   }
 
   /** 서버 상태 묶음 (20Hz). 목록에 없는 몹은 지운다 */
@@ -146,7 +200,8 @@ export class MobView {
     const f = this.figures.get(id);
     if (ev === 'hit' && f) f.flashUntil = now + 160;
     else if (ev === 'die' || ev === 'explode') {
-      this.burst(x, y + MOB_SIZE.h * 0.5, z, ev === 'explode' ? 0xffd27a : f ? (f.kind === 0 ? 0x5d8b4a : CREEPER_GREEN) : 0xffffff, ev === 'explode' ? 28 : 12, now);
+      const color = ev === 'explode' ? 0xffd27a : !f ? 0xffffff : f.kind === 0 ? 0x5d8b4a : f.kind === 2 ? SPIDER_DARK : CREEPER_GREEN;
+      this.burst(x, y + mobSize(f?.kind ?? 0).h * 0.5, z, color, ev === 'explode' ? 28 : 12, now);
       this.remove(id);
     }
   }
@@ -189,11 +244,12 @@ export class MobView {
   aim(eye: { x: number; y: number; z: number }, dir: { x: number; y: number; z: number }, maxDist: number): number | null {
     let best: number | null = null;
     let bestT = maxDist;
-    const hw = MOB_SIZE.w / 2;
     for (const [id, f] of this.figures) {
       const c = f.cur;
+      const size = mobSize(f.kind);
+      const hw = size.w / 2;
       const min = [c.x - hw, c.y, c.z - hw],
-        max = [c.x + hw, c.y + MOB_SIZE.h, c.z + hw];
+        max = [c.x + hw, c.y + size.h, c.z + hw];
       const o = [eye.x, eye.y, eye.z],
         d = [dir.x, dir.y, dir.z];
       let t0 = 0,
@@ -241,6 +297,10 @@ export class MobView {
         f.legL.rotation.x = swing;
         f.legR.rotation.x = -swing;
       }
+      f.spiderLegs.forEach((leg, i) => {
+        const base = leg.userData.baseY as number;
+        leg.rotation.y = base + (i % 2 === 0 ? swing : -swing) * 0.5;
+      });
       // 크리퍼 부풀기: 하얘지며 커진다
       if (f.state === MOB_STATE.fuse) {
         f.fuseT += dt;

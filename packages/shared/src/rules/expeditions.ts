@@ -17,6 +17,7 @@ const RawExpedition = z
     nightStartsAt: z.number().int().min(0, '0 이상이어야 해요 (0 = 항상 어두움)'),
     treasures: z.number().int().min(0, '0 이상이어야 해요'),
     unlockedBy: z.string().min(1),
+    nightMobs: z.array(z.string()).optional(),
     danger: z.number().int().min(0, '0 이상이어야 해요').max(10, '0~10 사이여야 해요'),
     materials: z.array(z.string()),
     release: z.string().optional(),
@@ -56,6 +57,8 @@ export interface ExpeditionDef {
   readonly nightStartsAt: number;
   readonly treasures: number;
   readonly unlockedBy: string;
+  /** 밤에 나오는 몹 (mobs.ts 가 아는 것만 쓴다 — 첫째가 셋에 둘, 나머지가 셋에 하나) */
+  readonly nightMobs: readonly string[];
   readonly danger: number;
   readonly materials: readonly string[];
   readonly release: string;
@@ -173,6 +176,7 @@ export function parseExpeditions(raw: unknown, fileName = 'data/expeditions.json
       nightStartsAt: e.nightStartsAt,
       treasures: e.treasures,
       unlockedBy: e.unlockedBy,
+      nightMobs: e.nightMobs ?? [],
       danger: e.danger,
       materials: e.materials,
       release: e.release ?? 'v1',

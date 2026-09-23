@@ -102,7 +102,9 @@ export class Hud {
   private readonly actionTitle: HTMLElement;
   private readonly actionSub: HTMLElement;
   private readonly actionBtn: HTMLButtonElement;
+  private readonly actionAlt: HTMLButtonElement;
   private onAction: (() => void) | null = null;
+  private onActionAlt: (() => void) | null = null;
   private readonly resultEl: HTMLElement;
   private onResultAgain: (() => void) | null = null;
   private onResultClose: (() => void) | null = null;
@@ -177,6 +179,7 @@ export class Hud {
         <div class="action-title"></div>
         <div class="action-sub"></div>
         <button class="big-btn action-btn"></button>
+        <button class="big-btn small action-alt" hidden></button>
       </div>
       <div class="result-panel" hidden>
         <div class="result-card">
@@ -303,6 +306,11 @@ export class Hud {
     this.actionBtn.addEventListener('click', (e) => {
       e.preventDefault();
       this.onAction?.();
+    });
+    this.actionAlt = q<HTMLButtonElement>('.action-alt');
+    this.actionAlt.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.onActionAlt?.();
     });
     this.resultEl = q('.result-panel');
     q<HTMLButtonElement>('.result-again').addEventListener('click', () => {
@@ -731,16 +739,21 @@ export class Hud {
   }
 
   /** 포탈 앞 카드 (원정 출발 / 따라가기 / 마을로). 같은 내용이면 다시 그리지 않는다 */
-  showAction(title: string, sub: string, button: string, onClick: () => void): void {
+  /** 행동 카드. alt 를 주면 작은 둘째 버튼(예: 다른 원정지 고르기, M7-3) */
+  showAction(title: string, sub: string, button: string, onClick: () => void, alt?: { label: string; onClick: () => void }): void {
     this.onAction = onClick;
+    this.onActionAlt = alt?.onClick ?? null;
     if (this.actionTitle.textContent !== title) this.actionTitle.textContent = title;
     if (this.actionSub.textContent !== sub) this.actionSub.textContent = sub;
     if (this.actionBtn.textContent !== button) this.actionBtn.textContent = button;
+    if (alt && this.actionAlt.textContent !== alt.label) this.actionAlt.textContent = alt.label;
+    this.actionAlt.hidden = !alt;
     this.actionEl.hidden = false;
   }
   hideAction(): void {
     this.actionEl.hidden = true;
     this.onAction = null;
+    this.onActionAlt = null;
   }
   /** 카드 버튼을 누른 것과 같다 (PC 에서 마우스가 잠겨 있을 때 Enter 키) */
   triggerAction(): void {

@@ -4,7 +4,7 @@
  *  🏗️ 건물: buildings.json 의 건물을 창고 재료로 짓는다. 지어진 것·모자란 재료가 한눈에
  * 서버가 진실 — 여기서는 요청만 보내고 storage/village 메시지로 다시 그린다.
  */
-import { type BuildingDef, type BuildingRegistry, type Inventory, PREBUILT, missingCost, siteOf } from '@dragon-village/shared';
+import { type BuildingDef, type BuildingRegistry, type Inventory, PORTAL_BASE, PREBUILT, missingCost, siteOf } from '@dragon-village/shared';
 
 export interface StorageDeps {
   buildings: BuildingRegistry;
@@ -167,7 +167,7 @@ export class StorageView {
     const list = document.createElement('div');
     list.className = 'storage-list';
     const defs: BuildingDef[] = [...this.deps.buildings.list].sort((a, b) => a.level - b.level);
-    const has = (id: string) => this.built.has(id) || PREBUILT.includes(id) || id === 'dragon_nest_1';
+    const has = (id: string) => this.built.has(id) || PREBUILT.includes(id) || id === 'dragon_nest_1' || id === PORTAL_BASE;
     for (const d of defs) {
       const site = siteOf(d.id);
       const built = has(d.id);

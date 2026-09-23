@@ -132,6 +132,8 @@ import {
   encodeInvSlots,
   encodePlayersState,
   generateVillage,
+  expeditionUnlocked,
+  hasGenerator,
 } from '@dragon-village/shared';
 import { BUILDINGS, DRAGONS, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
@@ -1599,12 +1601,13 @@ export class VillageRoom {
       }
       const def = this.expeditions.find(expeditionId);
       if (!def || def.release !== 'v1') return 'BAD_EXPEDITION';
-      if (def.generator !== 'island') return 'NOT_YET';
+      if (!hasGenerator(def.generator)) return 'NOT_YET';
+      if (!expeditionUnlocked(def.unlockedBy, this.builtIds())) return 'LOCKED'; // 포탈 단계를 먼저 지어야 (M7-3)
       e = new Expedition(def, this.seedFn(), this.registry, now);
       this.expedition = e;
       this.stats.expeditions++;
       this.lastTimerAt = 0;
-      this.log(`마을 ${this.info.code}: 원정 "${def.name}" 시작 (시드 ${e.seed}, 섬 생성 ${e.genMs.toFixed(0)}ms), ${p.nick} 출발`);
+      this.log(`마을 ${this.info.code}: 원정 "${def.name}" 시작 (시드 ${e.seed}, 세계 생성 ${e.genMs.toFixed(0)}ms), ${p.nick} 출발`);
     }
     this.moveToExpedition(p, e, now);
     return null;
@@ -1653,6 +1656,7 @@ export class VillageRoom {
     const items = late ? this.loseGained(p, keepRatio) : this.gainedOf(idx);
     p.gained.clear();
     e.members.delete(idx);
+    this.mobSys?.poisoned.delete(idx); // 마을로 오면 독이 풀린다 (M7-3)
     this.broadcastJson({ t: 'playerLeft', idx }, idx, 'expedition');
     if (!late) this.endIfEmpty(now);
     this.broadcastJson({ t: 'expeditionState', expedition: this.expeditionState(now) }, -1, 'village');

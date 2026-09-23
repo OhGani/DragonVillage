@@ -859,6 +859,12 @@ body {
   background: #7a3fd6;
   border-color: #3f1f73;
 }
+.action-alt {
+  display: block;
+  margin: 8px auto 0;
+  background: #3a2a5a;
+  border-color: #241838;
+}
 .hud.touch .action-card {
   bottom: 110px;
 }
