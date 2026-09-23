@@ -146,6 +146,7 @@ describe('제작·양조 (M4)', () => {
     // 가방이 가득 차면 BAG_FULL — 재료(통나무)는 그대로 (#95)
     for (let i = 0; i < p.inv.length; i++) if (!p.inv[i]) p.inv[i] = { item: 'stone', count: 64 };
     for (const s of p.inv) if (s && s.item === 'planks') s.count = 64;
+    for (const s of p.inv) if (s && s.item === 'log') s.count = 5; // 통나무 칸이 비지 않게 (비면 거기 들어가 버린다)
     const logs = countOf(p.inv, 'log');
     expect(logs).toBeGreaterThan(0);
     expect(room.craft(ia, 'planks')).toBe('BAG_FULL');
