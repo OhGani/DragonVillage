@@ -90,6 +90,13 @@ const STATION_CHECK_MS = 500;
 const MOVE_SEND_MS = 50;
 /** M3 는 첫 원정지 하나 (포탈 단계 해제는 M6) */
 const FIRST_EXPEDITION = 'grass_island';
+/** 한국어 조사 (으)로: 받침 없음·ㄹ 받침이면 '로', 아니면 '으로' (초원 섬으로 · 동굴로) */
+function toward(name: string): string {
+  const code = name.charCodeAt(name.length - 1) - 0xac00;
+  if (code < 0 || code > 11171) return '로';
+  const tail = code % 28;
+  return tail === 0 || tail === 8 ? '로' : '으로';
+}
 
 export interface GameOptions {
   isTouch: boolean;
@@ -1077,7 +1084,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       } else {
         const night = def.nightStartsAt > 0 ? `${Math.round(def.nightStartsAt / 60)}분 뒤 밤` : '처음부터 어두워요 · 몹이 바로 나와요';
         const alt = open.length > 1 ? { label: `다른 곳 ▸ ${open[(expeditionPick + 1) % open.length]!.name}`, onClick: () => void (expeditionPick = (expeditionPick + 1) % open.length) } : undefined;
-        hud.showAction(`${def.name}으로 원정`, `${Math.round(def.durationSec / 60)}분 · ${night} · 보물 상자 ${def.treasures}개\n포탈로 돌아오면 모은 것을 가져와요`, '원정 출발' + KEY_HINT, () => net.sendStartExpedition(def.id), alt);
+        hud.showAction(`${def.name}${toward(def.name)} 원정`, `${Math.round(def.durationSec / 60)}분 · ${night} · 보물 상자 ${def.treasures}개\n포탈로 돌아오면 모은 것을 가져와요`, '원정 출발' + KEY_HINT, () => net.sendStartExpedition(def.id), alt);
       }
     } else {
       hud.showAction('마을로 돌아가기', '지금까지 모은 것을 마을 창고에 넣어요', '돌아가기' + KEY_HINT, () => net.sendReturnHome());
