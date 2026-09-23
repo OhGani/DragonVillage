@@ -13,6 +13,12 @@ export const STAMINA_REGEN_PER_SEC = 5;
 export const ADULT_STAMINA_MULT = 1.5;
 export const BEAM_RANGE = 24;
 export const BEAM_DURATION_MS = 1500;
+/**
+ * 빔 쿨타임 = 빔이 사라지는 시간. 빔은 쿨타임이 아니라 **기력**으로 막는다 (아빠 2026-09-23, 결정 #90):
+ * 어른 기력 150 · 한 발 25 → 연달아 6발, 그 뒤엔 초당 5 회복이라 5초에 한 발. "쏘다가 숨 고르기" 리듬.
+ * dragons.json 의 빔 cooldownSec(6초)은 그대로 두되 빔에는 쓰지 않는다 — 대표 스킬(M7) 쿨타임 규칙의 참고값
+ */
+export const BEAM_COOLDOWN_MS = BEAM_DURATION_MS;
 
 /** 빔 하나의 생김새·비용 */
 export interface BeamDef {
@@ -25,7 +31,7 @@ export interface BeamDef {
 }
 
 /** 빔이 없는 드래곤(아들 설계에서 14/16 만 빔이 있다)은 회색 약한 빔으로 — 타면 누구나 쏠 수 있어야 재미가 있다 */
-const FALLBACK_BEAM: BeamDef = { color: '#bdbdbd', power: 1, stamina: 25, cooldownSec: 6 };
+const FALLBACK_BEAM: BeamDef = { color: '#bdbdbd', power: 1, stamina: 25, cooldownSec: BEAM_DURATION_MS / 1000 };
 
 export function beamOf(def: DragonDef): BeamDef {
   const s = def.skills.find((k) => k.type === 'beam');
@@ -35,7 +41,7 @@ export function beamOf(def: DragonDef): BeamDef {
     color: typeof s.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(s.color) ? s.color : def.color,
     power: Math.round(num(s.powerLevel, 1, 1, 5)),
     stamina: num(s.stamina, 25, 0, 1000),
-    cooldownSec: num(s.cooldownSec, 6, 0, 600),
+    cooldownSec: BEAM_COOLDOWN_MS / 1000, // JSON 값 대신 (결정 #90). 기력이 제한이다
   };
 }
 
