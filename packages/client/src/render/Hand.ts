@@ -82,8 +82,14 @@ export class HandView {
     const geom = buildVoxelGeometry(voxels, ITEM_PIXEL, ITEM_SHADES);
     geom.translate(-8 * ITEM_PIXEL, -8 * ITEM_PIXEL, -0.5 * ITEM_PIXEL);
     this.mesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ vertexColors: true }));
-    const tool = /_(pickaxe|axe|sword|shovel|hoe)$/.test(id) || id === 'shears' || id === 'flint_and_steel';
-    if (tool) {
+    const sword = /_sword$/.test(id);
+    const tool = !sword && (/_(pickaxe|axe|shovel|hoe)$/.test(id) || id === 'shears' || id === 'flint_and_steel');
+    if (sword) {
+      // 검은 칼날이 위를 보게 (피벗 앞기울기를 상쇄), 오른쪽에 세워 든다 — 패널에서 맞춘 값 (2026-09-24)
+      this.mesh.rotation.set(-0.3, -0.6, 0.35);
+      this.mesh.position.set(-0.55, 0.3, 0.1);
+      this.mesh.scale.setScalar(1.3);
+    } else if (tool) {
       // 손잡이를 오른쪽 아래로 눕혀 잡은 느낌: 그림을 시계 방향으로 눕히고 카메라 쪽으로 살짝 돌린다
       // 값은 패널에서 참고 화면(마인크래프트 도끼)과 맞춰 본 것 (2026-09-24): 머리가 화면 오른쪽 아래 1/4 에, 손잡이는 오른쪽 아래로 빠진다
       this.mesh.rotation.set(0.25, -0.45, 2.35);
