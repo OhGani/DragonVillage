@@ -701,7 +701,7 @@ describe('상자 (#84)', () => {
     // 두 번 열어도 또 생기지는 않는다
     a.clear();
     expect(room.openChest(ra.idx, t.x, t.y, t.z, 2000)).toBeNull();
-    expect(json(a)!.slots.filter(Boolean)).toHaveLength(1);
+    expect(json(a)!.slots.filter(Boolean)).toHaveLength(2); // 가죽·당근 그대로, 더 생기지 않는다
     expect(a.bin.find((m) => m.type === MSG.XpGained)).toBeUndefined();
   });
 });
