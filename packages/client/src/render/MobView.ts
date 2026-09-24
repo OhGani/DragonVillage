@@ -191,6 +191,8 @@ interface Figure {
   /** 동물인가 (M8-1) */
   animal: boolean;
   collar: THREE.Mesh | null;
+  /** 깎인 양으로 그렸나 — 바뀌면 인형을 다시 만든다 */
+  sheared: boolean;
   /** 동물 부위 (앞왼·앞오른·뒤왼·뒤오른 다리 / 닭은 둘) */
   legs: THREE.Mesh[];
   head: THREE.Mesh | null;
@@ -305,7 +307,7 @@ export class MobView {
         body.add(leg);
       }
     } else if (ANIMAL_NAMES.has(kindName)) {
-      const parts = animalParts(kindName, animalVariant(m.id));
+      const parts = animalParts(kindName, animalVariant(m.id), { sheared: (m.state & ANIMAL_FLAG.sheared) !== 0 });
       body.add(partMesh(parts.body, material));
       head = pivotMesh(parts.head, material);
       body.add(head);
@@ -338,7 +340,7 @@ export class MobView {
     drawHpBar(bar.ctx, bar.tex, m.hp, maxHp);
     group.add(bar.sprite);
     this.group.add(group);
-    return { group, body, material, kind: m.kind, cur: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, target: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, state: m.state, hp: m.hp, flashUntil: 0, fuseT: 0, armL, armR, legL, legR, spiderLegs, walk: 0, bar, maxHp, shownHp: m.hp, baseScale, summonT: 0, animal: ANIMAL_NAMES.has(kindName), collar: null, nextHeart: 0, legs, head, tail, wings, babyHead, id: m.id };
+    return { group, body, material, kind: m.kind, cur: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, target: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, state: m.state, hp: m.hp, flashUntil: 0, fuseT: 0, armL, armR, legL, legR, spiderLegs, walk: 0, bar, maxHp, shownHp: m.hp, baseScale, summonT: 0, animal: ANIMAL_NAMES.has(kindName), collar: null, nextHeart: 0, legs, head, tail, wings, babyHead, id: m.id, sheared: (m.state & ANIMAL_FLAG.sheared) !== 0 };
   }
 
   /** 서버 상태 묶음 (20Hz). 목록에 없는 몹은 지운다 */
@@ -347,6 +349,15 @@ export class MobView {
     for (const m of list) {
       seen.add(m.id);
       let f = this.figures.get(m.id);
+      if (f && f.animal && f.sheared !== ((m.state & ANIMAL_FLAG.sheared) !== 0)) {
+        // 털이 깎였다/다시 자랐다 → 인형을 새로 (자리는 그대로)
+        const keep = f.cur;
+        this.remove(m.id);
+        f = this.make(m);
+        f.cur = { ...keep };
+        f.group.position.set(keep.x, keep.y, keep.z);
+        this.figures.set(m.id, f);
+      }
       if (!f) {
         f = this.make(m);
         f.group.position.set(m.x, m.y, m.z);
@@ -388,11 +399,13 @@ export class MobView {
       if (dmg) this.pop(x, y + mobSize(f?.kind ?? 0).h + 0.7, z, dmg, now);
     } else if (ev === 'wake' && f) {
       f.flashUntil = now + 400;
-    } else if (ev === 'love' || ev === 'tame' || ev === 'eat' || ev === 'grow' || ev === 'sit') {
+    } else if (ev === 'love' || ev === 'tame' || ev === 'eat' || ev === 'grow' || ev === 'sit' || ev === 'shear' || ev === 'egg') {
       if (ev === 'eat') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '냠', '#ffffff', now);
       else if (ev === 'love') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '♥', '#ff5c8a', now);
       else if (ev === 'tame') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '♥♥', '#ff5c8a', now);
       else if (ev === 'grow') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '어른!', '#ffeb3b', now);
+      else if (ev === 'shear') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '✂️', '#ffffff', now);
+      else if (ev === 'egg') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '🥚', '#ffffff', now);
     } else if (ev === 'summon' && f) {
       f.summonT = 0.8;
       this.burst(x, y + 0.6, z, 0xb388ff, 16, now);

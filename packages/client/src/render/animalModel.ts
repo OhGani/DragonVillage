@@ -140,20 +140,22 @@ function pig(variant: number): AnimalParts {
 }
 
 // ---------------------------------------------------------------- 양
-function sheep(variant: number): AnimalParts {
+function sheep(variant: number, sheared = false): AnimalParts {
   // 흰 55 · 연회색 15 · 회색 10 · 검정 10 · 갈색 7 · 분홍 3 (마인크래프트 자연 색 여섯)
   const wool = variant < 0.55 ? 0xf2f2f2 : variant < 0.7 ? 0xc9c9c9 : variant < 0.8 ? 0x8a8a8a : variant < 0.9 ? 0x2f2f2f : variant < 0.97 ? 0x6b4a2b : 0xf0a0c0;
   const dark = wool === 0x2f2f2f;
   const skin = dark ? 0x6e6459 : 0xd9c8b0;
   const w: ColorFn = soft(wool, dark ? 0.2 : 0.1);
-  const body = new Builder().box(-5, 4, 10, 17, -9, 8, w); // 털 몸 10×8×18
-  const legs = fourLegs(4, 10, 5, -7, 4, soft(skin, 0.06), { rows: 2, color: w }); // 다리 위 두 칸은 털
-  const h = new Builder().box(-3, 2, 12, 17, -15, -10, soft(skin, 0.06)); // 머리 6×6×6
-  h.box(-3, 2, 15, 18, -13, -10, w); // 머리 털
+  const sk: ColorFn = soft(skin, 0.06);
+  // 깎인 양(M8-1 3차): 털 없이 살색 몸 8×6×16, 머리 털도 없다
+  const body = sheared ? new Builder().box(-4, 3, 11, 16, -8, 7, sk) : new Builder().box(-5, 4, 10, 17, -9, 8, w); // 털 몸 10×8×18
+  const legs = sheared ? fourLegs(4, 11, 5, -7, 4, sk) : fourLegs(4, 10, 5, -7, 4, sk, { rows: 2, color: w }); // 다리 위 두 칸은 털
+  const h = new Builder().box(-3, 2, 12, 17, -15, -10, sk); // 머리 6×6×6
+  if (!sheared) h.box(-3, 2, 15, 18, -13, -10, w); // 머리 털
   h.box(-3, 2, 12, 13, -15, -15, soft(scaleColor(skin, 0.85), 0.04)); // 코
   h.dot(-2, 15, -15, 0x1a1a1a).dot(1, 15, -15, 0x1a1a1a); // 눈
   h.dot(-3, 15, -15, dark ? 0xd0d0d0 : 0xffffff).dot(2, 15, -15, dark ? 0xd0d0d0 : 0xffffff);
-  const tail = new Builder().box(-1, 0, 15, 17, 9, 9, w); // 몽당 꼬리
+  const tail = new Builder().box(-1, 0, 15, 17, sheared ? 8 : 9, sheared ? 8 : 9, sheared ? sk : w); // 몽당 꼬리
   return { body: body.out, head: part(h, [0, 15, -10]), legs, tail: part(tail, [0, 18, 9]), wings: [], babyHead: 1.5 };
 }
 
@@ -200,14 +202,14 @@ function dog(variant: number): AnimalParts {
   return { body: body.out, head: part(h, [0, 13, -9]), legs, tail: part(tail, [0, 14, 7]), wings: [], babyHead: 1.5 };
 }
 
-export function animalParts(kind: string, variant: number): AnimalParts {
+export function animalParts(kind: string, variant: number, opts: { sheared?: boolean } = {}): AnimalParts {
   switch (kind) {
     case 'cow':
       return cow(variant);
     case 'pig':
       return pig(variant);
     case 'sheep':
-      return sheep(variant);
+      return sheep(variant, opts.sheared === true);
     case 'chicken':
       return chicken(variant);
     default:

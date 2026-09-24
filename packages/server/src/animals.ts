@@ -10,6 +10,9 @@ import {
   BABY_MS,
   BREED_COOLDOWN_MS,
   BREED_RANGE,
+  EGG_EVERY_MS,
+  EGG_ITEM,
+  EGG_MAX,
   type BlockRegistry,
   FEED_GROW_MS,
   FOLLOW_RANGE,
@@ -27,6 +30,10 @@ import {
   PET_FOLLOW_STOP,
   PET_TELEPORT_RANGE,
   RESPAWN_BATCH,
+  SHEARS_ITEM,
+  WOOL_ITEM,
+  WOOL_REGROW_MS,
+  shearRoll,
   RESPAWN_EVERY_MS,
   type VoxelWorld,
   WANDER_SPEED_MULT,
@@ -55,6 +62,11 @@ export interface AnimalRow {
   sitting: boolean;
   homeX: number;
   homeZ: number;
+  /** 양털이 다시 자라는 시각 (0 = 털 있음) */
+  woolAt: number;
+  /** 품은 달걀 수 (닭) */
+  eggs: number;
+  lastEggAt: number;
 }
 
 export interface AnimalStore {
@@ -95,6 +107,8 @@ interface Animal extends AnimalRow {
   loveUntil: number;
   breedCooldownUntil: number;
   tameAttempts: number;
+  /** 양털 깎은 횟수 (수 결정용) */
+  shearCount: number;
   dirty: boolean;
 }
 
@@ -134,7 +148,7 @@ export class AnimalSystem {
 
   private wrap(r: AnimalRow): Animal {
     const def = this.defs.get(r.kind);
-    return { ...r, hp: animalMaxHp(def.hp, r.kind, r.owner !== null), yaw: 0, target: null, pauseUntil: 0, turn: 0, loveUntil: 0, breedCooldownUntil: 0, tameAttempts: 0, dirty: false };
+    return { ...r, hp: animalMaxHp(def.hp, r.kind, r.owner !== null), yaw: 0, target: null, pauseUntil: 0, turn: 0, loveUntil: 0, breedCooldownUntil: 0, tameAttempts: 0, shearCount: 0, dirty: false };
   }
 
   /** 발 높이 (그 자리 근처 층). 못 서면 null */
@@ -167,7 +181,7 @@ export class AnimalSystem {
     for (let attempt = 0; attempt < 40; attempt++) {
       const c = animalSpotCandidate(this.seed, i, attempt);
       const y = this.grassSpot(c);
-      if (y !== null) return this.add({ kind, x: c.x, y, z: c.z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: c.x, homeZ: c.z }, now);
+      if (y !== null) return this.add({ kind, x: c.x, y, z: c.z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: c.x, homeZ: c.z, woolAt: 0, eggs: 0, lastEggAt: now }, now);
     }
     return null;
   }
@@ -182,7 +196,7 @@ export class AnimalSystem {
       for (let attempt = 0; attempt < 12 && !placed; attempt++) {
         const c = herdSpotCandidate(this.seed, i, k, attempt, first);
         const y = this.grassSpot(c);
-        if (y !== null) placed = this.add({ kind, x: c.x, y, z: c.z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: first.homeX, homeZ: first.homeZ }, now);
+        if (y !== null) placed = this.add({ kind, x: c.x, y, z: c.z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: first.homeX, homeZ: first.homeZ, woolAt: 0, eggs: 0, lastEggAt: now }, now);
       }
       if (!placed) placed = this.spawnWild(kind, i * 31 + k, now);
       if (placed) made++;
@@ -205,6 +219,7 @@ export class AnimalSystem {
     if (a.owner !== null) f |= ANIMAL_FLAG.tamed;
     if (a.sitting) f |= ANIMAL_FLAG.sitting;
     if (a.loveUntil > now) f |= ANIMAL_FLAG.love;
+    if (a.kind === 'sheep' && a.woolAt > now) f |= ANIMAL_FLAG.sheared;
     return f;
   }
 
@@ -259,6 +274,12 @@ export class AnimalSystem {
 
   private step(a: Animal, players: AnimalViewer[], dt: number, now: number): void {
     const def = this.defs.get(a.kind);
+    // 닭은 6분마다 달걀을 하나 품는다 (최대 3, 아기는 아직)
+    if (a.kind === 'chicken' && !this.isBaby(a, now) && now - a.lastEggAt >= EGG_EVERY_MS) {
+      if (a.eggs < EGG_MAX) a.eggs++;
+      a.lastEggAt = now;
+      a.dirty = true;
+    }
     // 아기 → 어른
     if (a.adultAt !== null && a.adultAt <= now) {
       a.adultAt = null;
@@ -353,7 +374,7 @@ export class AnimalSystem {
     const x = (a.x + b.x) / 2,
       z = (a.z + b.z) / 2;
     const y = this.groundAt(x, z, a.y) ?? a.y;
-    const baby = this.add({ kind: a.kind, x, y, z, bornAt: now, adultAt: now + BABY_MS, owner: null, sitting: false, homeX: a.homeX, homeZ: a.homeZ }, now);
+    const baby = this.add({ kind: a.kind, x, y, z, bornAt: now, adultAt: now + BABY_MS, owner: null, sitting: false, homeX: a.homeX, homeZ: a.homeZ, woolAt: 0, eggs: 0, lastEggAt: now }, now);
     this.hooks.json({ t: 'mob', ev: 'love', id: ANIMAL_ID_BASE + baby.id, mob: baby.kind, x, y, z });
     this.hooks.log(`${this.defs.get(a.kind).name} 아기가 태어났어요`);
   }
@@ -404,6 +425,27 @@ export class AnimalSystem {
     const def = this.defs.get(a.kind);
     const id = ANIMAL_ID_BASE + a.id;
     if (a.owner !== null && a.owner !== p.token) return 'PET_OTHER';
+    // 양털 깎기 (M8-1 3차): 가위를 들고 양을 탭 → 양털 1~3, 5분 뒤 다시
+    if (held === SHEARS_ITEM && a.kind === 'sheep') {
+      if (this.isBaby(a, now) || a.woolAt > now) return 'NO_WOOL';
+      a.shearCount++;
+      const n = shearRoll(this.seed, a.id, a.shearCount);
+      a.woolAt = now + WOOL_REGROW_MS;
+      a.dirty = true;
+      this.hooks.reward(p.idx, [{ item: WOOL_ITEM, count: n }], 0, { x: a.x, y: a.y + 1, z: a.z }, now);
+      this.hooks.json({ t: 'mob', ev: 'shear', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
+      return null;
+    }
+    // 달걀 (M8-1 3차): 빈손으로 닭을 탭 → 품은 달걀을 받는다
+    if (!held && a.kind === 'chicken') {
+      if (a.eggs <= 0) return 'NO_EGG';
+      const n = a.eggs;
+      a.eggs = 0;
+      a.dirty = true;
+      this.hooks.reward(p.idx, [{ item: EGG_ITEM, count: n }], 0, { x: a.x, y: a.y + 1, z: a.z }, now);
+      this.hooks.json({ t: 'mob', ev: 'egg', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
+      return null;
+    }
     if (held && def.food.includes(held)) {
       if (!this.hooks.consume(p.idx, held)) return 'NOT_FOOD';
       if (this.isBaby(a, now)) {
@@ -446,7 +488,7 @@ export class AnimalSystem {
     for (const a of this.animals.values()) {
       if (!a.dirty) continue;
       a.dirty = false;
-      this.store.updateAnimal({ id: a.id, kind: a.kind, x: a.x, y: a.y, z: a.z, bornAt: a.bornAt, adultAt: a.adultAt, owner: a.owner, sitting: a.sitting, homeX: a.homeX, homeZ: a.homeZ });
+      this.store.updateAnimal({ id: a.id, kind: a.kind, x: a.x, y: a.y, z: a.z, bornAt: a.bornAt, adultAt: a.adultAt, owner: a.owner, sitting: a.sitting, homeX: a.homeX, homeZ: a.homeZ, woolAt: a.woolAt, eggs: a.eggs, lastEggAt: a.lastEggAt });
     }
   }
 }

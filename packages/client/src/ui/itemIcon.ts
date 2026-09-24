@@ -64,6 +64,7 @@ const BOOTS = ['................', '................', '................', '....
 const SHIELD = ['....iiiiiiii....', '...iwwwwwwwwi...', '...iwwwWWwwwi...', '...iwwWiiWwwi...', '...iwwWiiWwwi...', '...iwwwWWwwwi...', '...iwwwwwwwwi...', '...iwwwwwwwwi...', '....iwwwwwwi....', '....iwwwwwwi....', '.....iwwwwi.....', '......iwwi......', '.......ii.......', '................', '................', '................'];
 const BOW = ['......hhh.......', '.....h....s.....', '....h.....s.....', '...h......s.....', '...h......s.....', '..h.......s.....', '..h.......s.....', '..h.......s.....', '..h.......s.....', '...h......s.....', '...h......s.....', '....h.....s.....', '.....h....s.....', '......hhh.......', '................', '................'];
 const CROSSBOW = ['..h..........h..', '..h....ii....h..', '...h..iwwi..h...', '....hiwwwwih....', '.....sssssss....', '......wwww......', '......wwww......', '......wwww......', '......wwww......', '......wwww......', '......WWWW......', '................', '................', '................', '................', '................'];
+const SHEARS = ['.............ii.', '............iii.', '...........iii..', '..........iii...', '.........iii....', '........iii.....', '.......iii......', '......iii.......', '.....iki........', '....hh.hh.......', '...hh...hh......', '..hh.....hh.....', '.hh.......hh....', 'hh.........hh...', '................', '................'];
 const ARROW = ['..............f.', '.............ff.', '............fff.', '...........hf...', '..........h.....', '.........h......', '........h.......', '.......h........', '......h.........', '.....h..........', '...eh...........', '..eeh...........', '.eee............', 'ee..............', '................', '................'];
 function drawPixels(ctx: CanvasRenderingContext2D, rows: readonly string[], u: number, palette: Record<string, string>): void {
   for (let y = 0; y < 16; y++)
@@ -144,6 +145,20 @@ function drawItem(ctx: CanvasRenderingContext2D, id: string, name: string, s: nu
   }
   if (id === 'crossbow') {
     drawPixels(ctx, CROSSBOW, u, { h: '#8a5a2b', s: '#e8e8e8', i: '#d8d8d8', w: '#a0703a', W: '#5a3a1b' });
+    return;
+  }
+  if (id === 'shears') {
+    drawPixels(ctx, SHEARS, u, { i: '#d8d8d8', k: '#555555', h: '#8a5a2b' });
+    return;
+  }
+  if (id === 'egg') {
+    ctx.fillStyle = '#f3e7c9';
+    ctx.beginPath();
+    ctx.ellipse(8 * u, 8.5 * u, 4.2 * u, 5.4 * u, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fillRect(6 * u, 5 * u, u, 2 * u);
     return;
   }
   if (id === 'arrow') {

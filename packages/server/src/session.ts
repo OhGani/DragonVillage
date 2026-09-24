@@ -65,8 +65,10 @@ const EQUIP_ERROR_KO: Record<string, string> = {
 const USE_ERROR_KO: Record<string, string> = {
   NO_MOB: '거기엔 아무것도 없어요',
   TOO_FAR: '너무 멀어요 — 가까이 가요',
-  NOT_FOOD: '이 동물이 먹는 걸 들고 탭해요 (소·양 밀, 돼지 당근, 닭 씨앗, 강아지 뼈)',
+  NOT_FOOD: '이 동물이 먹는 걸 들고 탭해요 (소·양 밀, 돼지 당근, 닭 씨앗, 강아지 뼈, 양은 가위)',
   PET_OTHER: '남의 강아지예요',
+  NO_WOOL: '털이 아직 안 자랐어요 (5분 뒤에)',
+  NO_EGG: '아직 알이 없어요 — 닭은 6분마다 하나 품어요',
 };
 
 const NEST_ERROR_KO: Record<string, string> = {

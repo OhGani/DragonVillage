@@ -19,7 +19,7 @@ export function isAnimal(kind: MobKind): boolean {
 }
 
 /** 상태 바이트 윗자리: 아기·길들임·앉음·사랑 (아랫자리는 MOB_STATE 걷기/공격) */
-export const ANIMAL_FLAG = { baby: 0x10, tamed: 0x20, sitting: 0x40, love: 0x80 } as const;
+export const ANIMAL_FLAG = { sheared: 0x08, baby: 0x10, tamed: 0x20, sitting: 0x40, love: 0x80 } as const; // 아랫 3비트는 MOB_STATE
 
 /** 동물 id 는 몹 id 와 겹치지 않게 여기서부터 (원정·방어전 몹은 1부터). MobsState 의 id 는 u16 이라 65535 아래여야 한다 */
 export const ANIMAL_ID_BASE = 40_000;
@@ -49,6 +49,14 @@ export const RESPAWN_BATCH = 2;
 export const HERD_SPREAD = 4;
 /** 동물 걸음은 몹 speed 의 이 배 (한가롭게) */
 export const WANDER_SPEED_MULT = 0.6;
+/** 양털 깎기 (M8-1 3차): 가위를 들고 탭 → 양털 1~3, 5분 뒤 다시 자란다 (마인크래프트는 풀을 뜯어야 자란다 — 시간으로 단순화) */
+export const SHEARS_ITEM = 'shears';
+export const WOOL_ITEM = 'wool';
+export const WOOL_REGROW_MS = 5 * 60_000;
+/** 달걀 (M8-1 3차): 어른 닭이 6분마다 하나 품는다(최대 3). 빈손으로 닭을 탭하면 받는다 — 아이템 엔티티가 없어서 (#108) */
+export const EGG_ITEM = 'egg';
+export const EGG_EVERY_MS = 6 * 60_000;
+export const EGG_MAX = 3;
 
 /** 어른 동물의 체력 (아기·길들인 강아지는 다르다) */
 export function animalMaxHp(base: number, kind: MobKind, tamed: boolean): number {
@@ -73,6 +81,11 @@ export function wanderPick(seed: number, id: number, turn: number, cur: { x: num
 /** 이번 걸음 뒤 서 있는 시간(초) 2~5 */
 export function wanderPause(seed: number, id: number, turn: number): number {
   return 2 + hash3(id, turn, 13, seed) * 3;
+}
+
+/** 양털 깎을 때 나오는 수 1~3 (결정론: 시드·id·몇 번째) */
+export function shearRoll(seed: number, id: number, n: number): number {
+  return 1 + Math.floor(hash3(id, n, 41, seed) * 3);
 }
 
 /** 길들이기 시도 결과 (결정론: 시드·id·시도 횟수) */

@@ -1,4 +1,4 @@
-import { ANIMAL_FLAG, ANIMAL_ID_BASE, BABY_MS, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, HERD_SPREAD, INITIAL_ANIMALS, MSG, RESPAWN_BATCH, RESPAWN_EVERY_MS, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, isAnimalSpot, type ServerBinary } from '@dragon-village/shared';
+import { ANIMAL_FLAG, ANIMAL_ID_BASE, BABY_MS, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, EGG_EVERY_MS, HERD_SPREAD, INITIAL_ANIMALS, MSG, RESPAWN_BATCH, RESPAWN_EVERY_MS, VILLAGE_GEN_VERSION, WOOL_REGROW_MS, countOf, decodeServerBinary, give, isAnimalSpot, type ServerBinary } from '@dragon-village/shared';
 import { BLOCKS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
 import { Storage } from './storage';
@@ -211,5 +211,55 @@ describe('마을 동물 (M8-1)', () => {
     const dog2 = again.animals.animals.get(dog.id)!;
     expect(dog2.owner).toBe('a'.repeat(32));
     expect(Math.hypot(dog2.x - dog.x, dog2.z - dog.z)).toBeLessThan(0.01);
+  });
+
+  it('양털 깎기: 가위를 들고 양을 탭 → 양털 1~3, 깎인 표시, 5분 뒤 다시. 닭은 6분마다 달걀을 품고 빈손 탭으로 받는다 (#108)', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    give(p.inv, 'shears', 1);
+    const shears = p.inv.findIndex((s) => s?.item === 'shears');
+    const sheep = [...room.animals.animals.values()].find((an) => an.kind === 'sheep')!;
+    sheep.x = p.pos.x + 1.5;
+    sheep.z = p.pos.z;
+    sheep.y = p.pos.y;
+    const sid = ANIMAL_ID_BASE + sheep.id;
+    expect(room.useMob(ra.idx, sid, shears, T0 + 1000)).toBeNull();
+    const wool = countOf(p.inv, 'wool');
+    expect(wool).toBeGreaterThanOrEqual(1);
+    expect(wool).toBeLessThanOrEqual(3);
+    expect(room.useMob(ra.idx, sid, shears, T0 + 2000)).toBe('NO_WOOL');
+    room.tick(T0 + 2500);
+    const st = a.bin.filter((m) => m.type === MSG.MobsState).at(-1)!.msg as { id: number; state: number }[];
+    expect((st.find((e) => e.id === sid)!.state & ANIMAL_FLAG.sheared) !== 0).toBe(true);
+    sheep.x = p.pos.x + 1.5;
+    sheep.z = p.pos.z;
+    expect(room.useMob(ra.idx, sid, shears, T0 + WOOL_REGROW_MS + 3000)).toBeNull();
+    // 달걀
+    const hen = [...room.animals.animals.values()].find((an) => an.kind === 'chicken')!;
+    hen.x = p.pos.x + 1.5;
+    hen.z = p.pos.z;
+    hen.y = p.pos.y;
+    hen.lastEggAt = T0;
+    hen.eggs = 0;
+    const hid = ANIMAL_ID_BASE + hen.id;
+    expect(room.useMob(ra.idx, hid, undefined, T0 + 3000)).toBe('NO_EGG');
+    for (let t = T0 + 3000; t <= T0 + EGG_EVERY_MS + 4000; t += 1000) {
+      room.tick(t);
+      hen.x = p.pos.x + 1.5;
+      hen.z = p.pos.z;
+      hen.y = p.pos.y;
+    }
+    expect(hen.eggs).toBe(1);
+    expect(room.useMob(ra.idx, hid, undefined, T0 + EGG_EVERY_MS + 5000)).toBeNull();
+    expect(countOf(p.inv, 'egg')).toBe(1);
+    expect(hen.eggs).toBe(0);
+    // 저장 → 다시 켜도 깎인 시각·달걀 유지
+    room.flush(T0 + EGG_EVERY_MS + 6000);
+    const again = makeRoom(storage);
+    expect(again.animals.animals.get(sheep.id)!.woolAt).toBe(sheep.woolAt);
   });
 });
