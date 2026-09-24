@@ -1,6 +1,7 @@
 import { ANIMAL_ID_BASE, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, HP_MAX, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, give, type ServerBinary } from '@dragon-village/shared';
-import { BLOCKS } from '@dragon-village/shared/data';
+import { BLOCKS, MOBS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
+import { MobSystem } from './mobs';
 import { Storage } from './storage';
 import { VillageRoom } from './village';
 
@@ -118,5 +119,23 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
     cow.x = p.pos.x + 30;
     expect(room.shoot(ra.idx, id, bowSlot, T0 + 3000)).toBe('TOO_FAR');
     expect(countOf(p.inv, 'arrow')).toBe(3); // 못 맞히면 화살도 안 쓴다
+  });
+
+  it('스켈레톤·약탈자는 6칸에서 화살을 쏜다: 피해와 함께 arrow(몹 → 사람) 가 모두에게 간다, 좀비는 안 간다', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const json: { t: string; [k: string]: unknown }[] = [];
+    const hurt: string[] = [];
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 64.5, eyeY: GROUND_Y + 1 + 1.6 };
+    const arena = { world: room.world, seed: 5, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0 };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: (_i, _a, cause) => hurt.push(cause), broadcast: () => {}, json: (o) => json.push(o as { t: string }), reward: () => {}, bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 24, goal: null, quiet: true });
+    sys.spawnKind('skeleton', 64.5, GROUND_Y + 1, 59.5); // 5칸 앞
+    sys.spawnKind('zombie', 64.5, GROUND_Y + 1, 65.8); // 붙어 있음
+    for (let t = T0; t < T0 + 5000; t += 100) sys.tick(t);
+    expect(hurt).toContain('skeleton');
+    expect(hurt).toContain('zombie');
+    const arrows = json.filter((m) => m.t === 'arrow') as unknown as { from: { z: number }; to: { z: number } }[];
+    expect(arrows.length).toBeGreaterThanOrEqual(1);
+    expect(arrows.length).toBe(hurt.filter((c) => c === 'skeleton').length); // 화살 하나 = 스켈레톤 공격 하나
+    expect(arrows[0]!.from.z).toBeLessThan(arrows[0]!.to.z); // 몹에서 사람 쪽으로
   });
 });

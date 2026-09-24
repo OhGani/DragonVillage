@@ -36,6 +36,7 @@ import {
   encodeMobsState,
   explosionDamage,
   isBoss,
+  isRangedMob,
   mobSize,
   pickKind,
   pickSpawn,
@@ -228,6 +229,8 @@ export class MobSystem {
         if (target) {
           const ev = stepMob(m, def, target, dt, now, this.groundAt);
           if (ev === 'attack') {
+            // 원거리 몹은 화살이 날아가는 그림을 먼저 (피해는 바로)
+            if (isRangedMob(def)) this.hooks.json({ t: 'arrow', from: { x: m.x, y: m.y + mobSize(m.kind).h * 0.8, z: m.z }, to: { x: target.x, y: target.eyeY - 0.3, z: target.z } });
             this.hooks.hurt(target.idx, def.damage, m.kind, now);
             if (def.poisonMs > 0) this.poisoned.set(target.idx, { until: now + def.poisonMs, nextAt: now + POISON_EVERY_MS });
           } else if (ev === 'explode') this.explode(m, def, players, now);

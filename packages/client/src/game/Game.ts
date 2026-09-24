@@ -657,6 +657,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       hud.setArmor(m.defense);
       bag.refresh();
     },
+    onArrow: (m) => mobView.shot(m.from, m.to), // 스켈레톤·약탈자 화살
     onShot: (m) => {
       const to = mobView.positionOf(m.id);
       if (!to) return;

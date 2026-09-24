@@ -260,6 +260,11 @@ export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = {
 export function mobSize(kind: MobKind | number): { w: number; h: number } {
   return MOB_SIZES[typeof kind === 'number' ? (MOB_KIND_OF[kind] ?? 'zombie') : kind];
 }
+/** 원거리 몹 (활·석궁): 닿는 거리가 이 이상이면 화살을 쏘는 것으로 본다 — 서버가 'arrow' 로 알리고 클라가 그린다 (M8-2) */
+export const RANGED_REACH = 4;
+export function isRangedMob(def: { reach: number }): boolean {
+  return def.reach >= RANGED_REACH;
+}
 /** 독: 초당 1 */
 export const POISON_EVERY_MS = 1000;
 export const POISON_DAMAGE = 1;

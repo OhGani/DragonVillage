@@ -151,6 +151,8 @@ export interface NetEvents {
   onEquip(m: { idx: number; parts: Record<string, string | null>; defense: number; toughness: number }): void;
   /** 화살이 날아갔다 (M8-2) */
   onShot(m: { idx: number; id: number; from: { x: number; y: number; z: number } }): void;
+  /** 몹이 쏜 화살 (M8-2 3차) */
+  onArrow(m: { from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number } }): void;
   /** 마을 방어전 상태 (M7-5). null = 끝/없음 */
   onRaid(raid: RaidStateInfo | null): void;
   /** 누가 빔을 쐈다 (M6-5) */
@@ -556,6 +558,7 @@ export class NetClient {
     else if (msg.t === 'held') ev.onHeld(msg.idx, msg.item);
     else if (msg.t === 'equip') ev.onEquip(msg);
     else if (msg.t === 'shot') ev.onShot(msg);
+    else if (msg.t === 'arrow') ev.onArrow(msg);
     else if (msg.t === 'raid') ev.onRaid(msg.raid);
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }

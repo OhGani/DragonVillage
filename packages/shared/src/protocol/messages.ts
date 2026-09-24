@@ -541,6 +541,8 @@ export type ServerJson =
   | { t: 'equip'; idx: number; parts: Record<string, string | null>; defense: number; toughness: number }
   /** 화살이 날아갔다 (M8-2): from(눈) → 몹 id 쪽으로 */
   | { t: 'shot'; idx: number; id: number; from: { x: number; y: number; z: number } }
+  /** 몹(스켈레톤·약탈자)이 쏜 화살: from(몹) → to(사람 가슴) (M8-2 3차) */
+  | { t: 'arrow'; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number } }
   /** 마을 방어전 상태 1Hz (M7-5). null = 끝났다/없다 */
   | { t: 'raid'; raid: RaidStateInfo | null }
   /** 누가 빔을 쐈다 (같은 세계 모두, 본인 포함) (M6-5). from 은 드래곤 입 근처, dir 은 단위 벡터 */
