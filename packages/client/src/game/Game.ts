@@ -1259,6 +1259,15 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     } else highlight.clearTarget();
     particles.update(dt);
     hud.setProgress(interaction.progress);
+    {
+      // 나침반 점: 마을에선 광장, 원정지에선 포탈 방향 (#103 — 마을이 넓어져 길을 잃지 않게)
+      const goal = ctx.kind === 'village' ? { x: 64.5, z: 64.5, name: '광장', near: 24 } : { x: ctx.portalPos.x, z: ctx.portalPos.z + 0.5, name: '포탈', near: 12 };
+      const gdx = goal.x - player.pos.x,
+        gdz = goal.z - player.pos.z;
+      const gd = Math.hypot(gdx, gdz);
+      if (gd > goal.near) hud.setCompassTarget(((Math.atan2(gdx, -gdz) * 180) / Math.PI + 360) % 360, `${goal.name} ${Math.round(gd)}칸`);
+      else hud.setCompassTarget(null, null);
+    }
     hud.setHeading(player.yaw);
     if (started) updatePortalCard();
     if (bag.visible && (stationTimer += dt * 1000) >= STATION_CHECK_MS) {

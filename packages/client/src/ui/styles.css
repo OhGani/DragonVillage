@@ -1911,3 +1911,20 @@ body {
 .raid-bar ~ .boss-bar {
   top: 52px;
 }
+
+/* ---------- 나침반 목표 점 (#103): 광장·포탈 방향 ---------- */
+.compass-home {
+  position: absolute;
+  left: calc(50% - 5px);
+  top: calc(50% - 5px);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffd54f;
+  border: 2px solid #5a4000;
+  box-shadow: 0 0 4px #ffd54f;
+  will-change: transform;
+}
+.compass-home[hidden] {
+  display: none;
+}

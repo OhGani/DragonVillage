@@ -1103,9 +1103,19 @@ export class VillageRoom {
     const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0 };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
+    // 타고 있다가 나갔으면 다시 탄다 (#103, 아빠 요청). 드래곤이 없어졌거나 남이 타고 있으면 광장에서 (공중에 남지 않게)
+    if (saved?.ridingDragon != null && this.storage) {
+      const row = this.storage.getDragon(saved.ridingDragon);
+      if (row && row.village === this.info.code && row.token === token && row.stage === 'adult' && !this.riddenIds().has(row.id)) {
+        player.riding = { id: row.id, dragon: row.dragon };
+        player.stamina = { value: staminaMaxFor('adult'), at: Date.now() };
+        this.log(`마을 ${this.info.code}: ${nick} ${DRAGONS.require(row.dragon).name}에 다시 탄 채로 들어옴`);
+      } else player.pos = { x: this.spawn.x, y: this.spawn.y, z: this.spawn.z, yaw: this.spawn.yaw, pitch: 0, flags: FLAG_GROUND };
+    }
     const me = this.toInfo(player);
     this.broadcastJson({ t: 'playerJoined', player: me }, idx, 'village');
     if (this.raid) this.sendJson(player, { t: 'raid', raid: this.raid.state(Date.now()) });
+    if (player.riding) this.broadcastNest(); // 둥지에서 그 드래곤이 빠진다
     this.savePlayer(player);
     if (savedInv === null || gifts.length) this.storage?.saveInventory(token, this.info.code, inv); // 키트·선물은 한 번만 — 바로 저장해 둔다
     this.log(`마을 ${this.info.code}: ${nick}(#${idx}) 입장${savedInv === null ? ' (처음, 시작 키트)' : ''}${gifts.length ? ` (선물 ${gifts.map((g) => g.name).join('·')})` : ''}, ${this.players.size}명`);
@@ -1963,6 +1973,7 @@ export class VillageRoom {
       village: this.info.code,
       nick: p.nick,
       color: p.color,
+      ridingDragon: p.riding?.id ?? null,
       x: p.pos.x,
       y: p.pos.y,
       z: p.pos.z,

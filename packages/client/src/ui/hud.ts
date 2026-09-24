@@ -147,6 +147,7 @@ export class Hud {
             <span class="compass-label compass-e">동</span>
             <span class="compass-label compass-s">남</span>
             <span class="compass-label compass-w">서</span>
+            <span class="compass-home" hidden></span>
           </div>
           <div class="compass-pointer"></div>
         </div>
@@ -424,6 +425,23 @@ export class Hud {
    * 나침반. yaw(라디안, 0 = -Z 북, 양수 = 왼쪽으로 돈 것) → 보는 방향이 맨 위에 오도록 눈금판을 돌린다.
    * 글자는 반대로 돌려 항상 똑바로 서 있게 한다.
    */
+  /** 나침반 위 금색 점: 광장(마을)·포탈(원정지) 방향. bearing 은 북 0 시계 방향(도). null 이면 숨김 (#103) */
+  setCompassTarget(bearing: number | null, label: string | null): void {
+    const dot = this.el.querySelector<HTMLElement>('.compass-home')!;
+    if (bearing === null) {
+      if (!dot.hidden) dot.hidden = true;
+      this.compassTargetLabel = null;
+      return;
+    }
+    dot.hidden = false;
+    dot.style.transform = `rotate(${bearing}deg) translateY(-23px)`;
+    if (this.compassTargetLabel !== label) {
+      this.compassTargetLabel = label;
+      this.lastBearing = -999; // 다음 setHeading 이 글자를 다시 쓴다
+    }
+  }
+  private compassTargetLabel: string | null = null;
+
   setHeading(yaw: number): void {
     // 방위각: 북 0, 동 90, 남 180, 서 270 (시계 방향). yaw 는 반시계라 부호를 뒤집는다
     const bearing = (((-yaw * 180) / Math.PI) % 360 + 360) % 360;
@@ -431,7 +449,7 @@ export class Hud {
     this.lastBearing = bearing;
     this.compassRose.style.transform = `rotate(${-bearing}deg)`;
     for (const l of this.compassLabels) l.style.transform = `rotate(${bearing}deg)`;
-    this.compassText.textContent = HEADING_NAMES[Math.round(bearing / 45) % 8];
+    this.compassText.textContent = HEADING_NAMES[Math.round(bearing / 45) % 8] + (this.compassTargetLabel ? ` · ${this.compassTargetLabel}` : '');
   }
 
   /** 게임 방법 창 맨 아래: 마을 이름·코드·인원 */

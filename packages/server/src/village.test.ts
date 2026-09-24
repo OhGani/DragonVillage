@@ -1185,6 +1185,35 @@ describe('동굴 원정 + 포탈 2단계 (M7-3)', () => {
 });
 const e2 = (room: VillageRoom) => room.expedition!;
 
+describe('탑승 유지 (#103)', () => {
+  it('타고 나가면 다시 들어올 때 그대로 타고 있다. 드래곤이 없어졌으면 광장에서', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const id = storage.insertDragon('123456', 'a'.repeat(32), 'wood', 0, 1000);
+    storage.hatchDragon(id, 1000);
+    storage.growDragon(id);
+    const p = room.players.get(ra.idx)!;
+    p.riding = { id, dragon: 'wood' };
+    room.onMove(ra.idx, { x: 80.5, y: 60, z: 80.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, 2000); // 공중
+    room.leave(ra.idx);
+    expect(storage.getPlayer('a'.repeat(32))?.ridingDragon).toBe(id);
+    const b = inbox();
+    const rb = room.join('a'.repeat(32), '아빠', 0, b.send)!;
+    expect(rb.spawn.riding).toEqual({ id, dragon: 'wood' });
+    expect(rb.spawn.y).toBe(60); // 나간 자리(공중) 그대로
+    expect(room.players.get(rb.idx)!.riding?.id).toBe(id);
+    // 드래곤이 사라졌으면 못 타고 광장으로
+    room.leave(rb.idx);
+    (storage as unknown as { db: { prepare(sql: string): { run(...a: unknown[]): unknown } } }).db.prepare('DELETE FROM dragons WHERE id = ?').run(id);
+    const c = inbox();
+    const rc = room.join('a'.repeat(32), '아빠', 0, c.send)!;
+    expect(rc.spawn.riding ?? null).toBeNull();
+    expect(rc.spawn.y).toBe(GROUND_Y + 1);
+  });
+});
+
 describe('검·대장간 제작 (2026-09-24)', () => {
   it('대장간 레시피는 대장간을 짓고 그 옆에서만. 철 검은 몹을 6 만큼 때린다', () => {
     const storage = new Storage(':memory:');
