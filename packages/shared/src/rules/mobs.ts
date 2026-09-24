@@ -335,6 +335,12 @@ export function hitDamage(toolTier: number | null): number {
   return Math.floor(1 + (toolTier ?? 0) * 1.5);
 }
 
+/** 손에 든 도구의 공격력: 검은 tools.json damage(나무 4 · 돌 5 · 철 6 · 금 4 · 다이아 7 · 네더라이트 8), 곡괭이·도끼는 등급으로, 맨손 1 */
+export function attackDamageOf(tool: { kind: string; tier: number; damage: number | null } | null): number {
+  if (tool?.kind === 'sword' && tool.damage !== null) return Math.floor(tool.damage);
+  return hitDamage(tool ? tool.tier : null);
+}
+
 /** 드롭 뽑기 (결정론: 시드·몹 id) */
 export function rollDrops(def: MobDef, seed: number, mobId: number): { item: string; count: number }[] {
   const out: { item: string; count: number }[] = [];

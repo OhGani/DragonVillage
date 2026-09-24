@@ -142,7 +142,7 @@ describe('제작·양조 (M4)', () => {
     expect(countOf(p.inv, 'oak_door')).toBe(3);
     expect(room.craft(ia, 'no_such')).toBe('BAD_RECIPE');
     expect(room.craft(ia, 'obsidian_from_lava')).toBe('BAD_RECIPE'); // world 레시피는 제작이 아니다
-    expect(room.craft(ia, 'iron_pickaxe')).toBe('NOT_YET'); // 대장간은 M6
+    expect(room.craft(ia, 'iron_pickaxe')).toBe('NEED_FORGE'); // 대장간을 지어야 (2026-09-24 열림)
     // 가방이 가득 차면 BAG_FULL — 재료(통나무)는 그대로 (#95)
     for (let i = 0; i < p.inv.length; i++) if (!p.inv[i]) p.inv[i] = { item: 'stone', count: 64 };
     for (const s of p.inv) if (s && s.item === 'planks') s.count = 64;

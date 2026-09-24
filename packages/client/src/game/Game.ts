@@ -344,6 +344,12 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
             want.delete(w.getBlock(x, y, z));
           }
         }
+    // 대장간 (2026-09-24): 마을에 지어져 있고 그 자리 가운데 7칸 안이면
+    const forge = siteOf('forge');
+    if (ctx.kind === 'village' && forge && villageState.built.includes('forge')) {
+      const c = siteCenter(forge);
+      if (Math.hypot(p.x - c.x, p.z - c.z) <= STORAGE_REACH) out.forge = true;
+    }
     return out;
   };
 

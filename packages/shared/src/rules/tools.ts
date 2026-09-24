@@ -19,6 +19,8 @@ const RawTool = z
     speed: z.number().min(1, '1 이상이어야 해요'),
     obsidianSpeed: z.number().min(0.1).optional(),
     durability: z.number().int().min(1, '1 이상이어야 해요'),
+    /** 검만: 몹을 때리는 힘 (맨손 1) */
+    damage: z.number().min(0, '0 이상이어야 해요').optional(),
   })
   .loose();
 
@@ -28,11 +30,12 @@ const ToolsFile = z
     enchantSpeedPerLevel: z.number().min(1, '1 이상이어야 해요'),
     pickaxes: z.array(RawTool).min(1, '곡괭이가 하나는 있어야 해요'),
     axes: z.array(RawTool).optional(),
+    swords: z.array(RawTool).optional(),
   })
   .loose();
 
 /** 도구 종류 — blocks.json 의 tool 과 같은 말 */
-export type ToolKind = 'pickaxe' | 'axe';
+export type ToolKind = 'pickaxe' | 'axe' | 'sword';
 
 export interface ToolDef {
   readonly id: string;
@@ -42,6 +45,8 @@ export interface ToolDef {
   readonly speed: number;
   readonly obsidianSpeed: number | null;
   readonly durability: number;
+  /** 검의 공격력 (다른 도구는 null → 등급으로 계산) */
+  readonly damage: number | null;
 }
 
 /** 옛 이름 (M6-1 부터 쓰던 것) */
@@ -51,6 +56,7 @@ export interface ToolRules {
   readonly enchantSpeedPerLevel: number;
   readonly pickaxes: ReadonlyMap<string, ToolDef>;
   readonly axes: ReadonlyMap<string, ToolDef>;
+  readonly swords: ReadonlyMap<string, ToolDef>;
 }
 
 /** 맨손은 나무 곡괭이와 같은 등급 0 (toolTier 0 인 돌·조약돌만, 속도는 배수 없음) */
@@ -70,14 +76,16 @@ export function parseTools(raw: unknown, fileName = 'data/tools.json'): ToolRule
     for (const t of raws) {
       if (seen.has(t.id)) problems.push(`${ko} '${t.id}' 가 두 번 나와요`);
       seen.add(t.id);
-      out.set(t.id, { id: t.id, name: t.name, kind, tier: t.tier, speed: t.speed, obsidianSpeed: t.obsidianSpeed ?? null, durability: t.durability });
+      out.set(t.id, { id: t.id, name: t.name, kind, tier: t.tier, speed: t.speed, obsidianSpeed: t.obsidianSpeed ?? null, durability: t.durability, damage: t.damage ?? null });
     }
     return out;
   };
   const pickaxes = load(result.data.pickaxes, 'pickaxe', '곡괭이');
   const axes = load(result.data.axes ?? [], 'axe', '도끼');
+  const swords = load(result.data.swords ?? [], 'sword', '검');
+  for (const s of swords.values()) if (s.damage === null) problems.push(`검 '${s.id}' 에 damage(공격력)가 없어요`);
   if (problems.length) throw new DataError(fileName, problems);
-  return { enchantSpeedPerLevel: result.data.enchantSpeedPerLevel, pickaxes, axes };
+  return { enchantSpeedPerLevel: result.data.enchantSpeedPerLevel, pickaxes, axes, swords };
 }
 
 /** 손에 든 아이템이 곡괭이면 그 정의, 아니면 null */
@@ -90,9 +98,14 @@ export function axeOf(tools: ToolRules, item: string | null | undefined): ToolDe
   return item ? (tools.axes.get(item) ?? null) : null;
 }
 
-/** 손에 든 아이템이 도구(곡괭이·도끼)면 그 정의, 아니면 null */
+/** 손에 든 아이템이 검이면 그 정의, 아니면 null */
+export function swordOf(tools: ToolRules, item: string | null | undefined): ToolDef | null {
+  return item ? (tools.swords.get(item) ?? null) : null;
+}
+
+/** 손에 든 아이템이 도구(곡괭이·도끼·검)면 그 정의, 아니면 null */
 export function toolOf(tools: ToolRules, item: string | null | undefined): ToolDef | null {
-  return pickaxeOf(tools, item) ?? axeOf(tools, item);
+  return pickaxeOf(tools, item) ?? axeOf(tools, item) ?? swordOf(tools, item);
 }
 
 /** 이 블록을 이 도구로 캘 수 있나 (등급만 본다). 곡괭이가 필요 없는 블록은 언제나 ok (도끼 블록도 맨손으로 캔다) */

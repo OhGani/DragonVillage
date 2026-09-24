@@ -39,7 +39,7 @@ export interface BagDeps {
 }
 
 /** 근처에 있는 작업대 블록 */
-export type Stations = { crafting_table?: boolean; furnace?: boolean; brewing_stand?: boolean };
+export type Stations = { crafting_table?: boolean; furnace?: boolean; brewing_stand?: boolean; forge?: boolean };
 type Tab = 'bag' | 'craft' | 'brew' | 'codex';
 
 export class BagView {
@@ -325,7 +325,7 @@ export class BagView {
       });
       this.side.appendChild(drop);
     }
-    const near = (['crafting_table', 'furnace', 'brewing_stand'] as const).filter((k) => this.stations[k]);
+    const near = (['crafting_table', 'furnace', 'brewing_stand', 'forge'] as const).filter((k) => this.stations[k]);
     const tip = document.createElement('div');
     tip.className = 'bag-tip';
     tip.textContent = near.length ? `가까이에: ${near.map((k) => this.deps.nameOf(k)).join(', ')}` : '제작대·화로·양조기 가까이 가면 더 만들 수 있어요';
@@ -338,6 +338,7 @@ export class BagView {
     const stations: Station[] = ['inventory'];
     if (this.stations.crafting_table) stations.push('crafting_table');
     if (this.stations.furnace) stations.push('furnace');
+    if (this.stations.forge) stations.push('forge');
     const recipes: RecipeDef[] = stations.flatMap((st) => this.deps.recipes.forStation(st));
     // 만들 수 있는 것 먼저
     recipes.sort((a, b) => Number(canCraft(this.inv, b)) - Number(canCraft(this.inv, a)));

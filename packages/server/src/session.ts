@@ -89,8 +89,9 @@ const RESUME_ERROR_KO: Record<string, string> = {
 /** 제작·양조 거절 이유 */
 const CRAFT_ERROR_KO: Record<string, string> = {
   BAD_RECIPE: '그런 레시피는 없어요',
-  NOT_YET: '대장간은 아직 준비 중이에요',
-  NO_STATION: '제작대(화로·양조기) 가까이에서 만들 수 있어요',
+  NOT_YET: '모루는 아직 준비 중이에요',
+  NEED_FORGE: '대장간을 먼저 지어요 (창고 🏗️ 탭)',
+  NO_STATION: '제작대(화로·양조기·대장간) 가까이에서 만들 수 있어요',
   MISSING: '재료가 모자라요',
   BAG_FULL: '가방이 가득 차서 만들 수 없어요 — 자리를 비우고 다시',
   BAD_BOTTLES: '병 칸에는 물병이나 물약을 한 개씩 놓아요',

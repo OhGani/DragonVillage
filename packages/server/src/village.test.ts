@@ -1185,6 +1185,41 @@ describe('동굴 원정 + 포탈 2단계 (M7-3)', () => {
 });
 const e2 = (room: VillageRoom) => room.expedition!;
 
+describe('검·대장간 제작 (2026-09-24)', () => {
+  it('대장간 레시피는 대장간을 짓고 그 옆에서만. 철 검은 몹을 6 만큼 때린다', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 777, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.giveItems(ra.idx, 'iron_ingot', 4);
+    room.giveItems(ra.idx, 'stick', 2);
+    expect(room.craft(ra.idx, 'iron_sword')).toBe('NEED_FORGE');
+    storage.addBuilding('123456', 'forge', 1);
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, 1000);
+    expect(room.craft(ra.idx, 'iron_sword')).toBe('NO_STATION'); // 광장 가운데는 대장간(47~51·58~62)에서 멀다
+    room.onMove(ra.idx, { x: 52.5, y: GROUND_Y + 1, z: 60.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, 1000);
+    expect(room.craft(ra.idx, 'iron_sword')).toBeNull();
+    const p = room.players.get(ra.idx)!;
+    expect(countOf(p.inv, 'iron_sword')).toBe(1);
+    expect(countOf(p.inv, 'iron_ingot')).toBe(2);
+    // 철 검으로 좀비를 때리면 6
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 44.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, 2000);
+    expect(room.startExpedition(ra.idx, 'grass_island', 2000)).toBeNull();
+    room.tick(2000 + 361_000);
+    const sys = room.mobSys!;
+    const m = [...sys.mobs.values()][0]!;
+    const q = room.players.get(ra.idx)!;
+    m.kind = 'zombie';
+    m.hp = 20;
+    m.x = q.pos.x + 1;
+    m.y = q.pos.y;
+    m.z = q.pos.z;
+    const slot = q.inv.findIndex((s) => s?.item === 'iron_sword');
+    expect(room.hitMob(ra.idx, m.id, slot, 2000 + 362_000)).toBeNull();
+    expect(m.hp).toBe(14);
+  });
+});
+
 describe('손에 든 것 보이기 (#96)', () => {
   it('가방에 있는 것만 인정하고, 같은 세계 사람에게 held 가 가고, 새로 온 사람 목록에도 실린다', () => {
     const room = makeRoom();

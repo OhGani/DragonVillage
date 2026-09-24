@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import toolsJson from '../../../../data/tools.json';
 import { BLOCKS, ITEM_NAMES, RECIPES, TOOLS } from './data';
-import { axeOf, breakSeconds, canBreakWith, needToolText, parseTools, pickaxeOf, toolOf } from './tools';
+import { axeOf, breakSeconds, canBreakWith, needToolText, parseTools, pickaxeOf, swordOf, toolOf } from './tools';
+import { attackDamageOf } from './mobs';
 
 const B = (id: string) => BLOCKS.require(id);
 const P = (id: string) => pickaxeOf(TOOLS, id);
@@ -96,6 +97,24 @@ describe('도끼 (아빠 2026-09-21, #80)', () => {
     expect(canBreakWith(B('stone'), A('iron_axe'))).toBe(true); // 돌은 맨손도 되니 도끼도 된다
     expect(breakSeconds(B('stone'), A('iron_axe'))).toBe(1.5); // 빨라지지는 않는다
     expect(needToolText(B('coal_ore'))).toContain('곡괭이');
+  });
+
+  it('검 6종 (2026-09-24): 공격력 나무 4 · 돌 5 · 철 6 · 금 4 · 다이아 7 · 네더라이트 8, 블록은 맨손 속도, 레시피는 재료 2 + 막대기 1', () => {
+    expect(TOOLS.swords.size).toBe(6);
+    expect([...TOOLS.swords.values()].map((s) => s.damage)).toEqual([4, 5, 6, 4, 7, 8]);
+    expect(swordOf(TOOLS, 'iron_sword')?.kind).toBe('sword');
+    expect(toolOf(TOOLS, 'diamond_sword')?.damage).toBe(7);
+    expect(attackDamageOf(toolOf(TOOLS, 'iron_sword'))).toBe(6);
+    expect(attackDamageOf(toolOf(TOOLS, 'iron_pickaxe'))).toBe(4); // 곡괭이는 등급(2)으로 1 + 3
+    expect(attackDamageOf(null)).toBe(1);
+    const stone = BLOCKS.get(BLOCKS.numOf('stone'));
+    expect(breakSeconds(stone, toolOf(TOOLS, 'diamond_sword'))).toBe(stone.hardness); // 검으론 빨라지지 않는다
+    expect(canBreakWith(BLOCKS.get(BLOCKS.numOf('iron_ore')), toolOf(TOOLS, 'netherite_sword'))).toBe(false); // 광석도 못 캔다
+    const swords = RECIPES.defs.filter((r) => r.id.endsWith('_sword'));
+    expect(swords.map((r) => r.id)).toEqual(['wooden_sword', 'stone_sword', 'iron_sword', 'golden_sword', 'diamond_sword', 'netherite_sword']);
+    expect(swords[0]!.in).toEqual({ planks: 2, stick: 1 });
+    expect(swords[2]!.station).toBe('forge');
+    expect(swords[5]!.in).toEqual({ diamond_sword: 1, netherite: 1 });
   });
 
   it('도끼 레시피 6개 — 재료 3 + 막대기 2, 네더라이트는 다이아몬드 도끼 + 네더라이트', () => {

@@ -27,6 +27,44 @@ const MATERIAL_COLOR: Record<string, string> = {
   netherite: '#4a3f4a',
 };
 
+/** 검 16×16 픽셀 그림 (마인크래프트 검처럼 왼쪽 아래 손잡이 → 오른쪽 위 칼날). b 칼날 밝음 · B 칼날 어두움 · g 날밑 · h 손잡이 · k 손잡이 끝 */
+const SWORD = [
+  '............bBB.',
+  '...........bBB..',
+  '..........bBB...',
+  '.........bBB....',
+  '........bBB.....',
+  '.......bBB......',
+  '......bBB.......',
+  '.....bBB........',
+  '..g.bBB.........',
+  '..ggBB..........',
+  '...gggg.........',
+  '..hhg.gg........',
+  '.hh.............',
+  'hh..............',
+  'kh..............',
+  '................',
+];
+
+function shadeHex(hex: string, k: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (c: number) => Math.max(0, Math.min(255, Math.round(c * k)));
+  return `#${((f(n >> 16) << 16) | (f((n >> 8) & 255) << 8) | f(n & 255)).toString(16).padStart(6, '0')}`;
+}
+
+/** 검: 픽셀 하나하나 칸으로 그린다 (손에 들면 이 픽셀이 그대로 입체가 된다) */
+function drawSword(ctx: CanvasRenderingContext2D, material: string, u: number): void {
+  const color: Record<string, string> = { b: shadeHex(material, 1.18), B: shadeHex(material, 0.82), g: shadeHex(material, 0.7), h: '#6b4a2b', k: '#3d2a17' };
+  for (let y = 0; y < 16; y++)
+    for (let x = 0; x < 16; x++) {
+      const ch = SWORD[y]![x]!;
+      if (ch === '.') continue;
+      ctx.fillStyle = color[ch] ?? material;
+      ctx.fillRect(x * u, y * u, u + 0.5, u + 0.5);
+    }
+}
+
 function materialOf(id: string): string {
   for (const k of Object.keys(MATERIAL_COLOR)) if (id.startsWith(k + '_') || id === k) return MATERIAL_COLOR[k];
   return '#b0b0b0';
@@ -61,6 +99,10 @@ function drawItem(ctx: CanvasRenderingContext2D, id: string, name: string, s: nu
   const isStick = id === 'stick' || id === 'blaze_rod' || id === 'breeze_rod' || id === 'bone';
   const isString = id === 'string';
 
+  if (id.endsWith('_sword')) {
+    drawSword(ctx, materialOf(id), u);
+    return;
+  }
   const egg = dragonOfEgg(id);
   if (egg) {
     // 드래곤 알: 드래곤 색 타원 + 점, 아래 어둡게

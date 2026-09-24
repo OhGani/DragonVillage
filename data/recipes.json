@@ -317,6 +317,84 @@
       "_note": "아빠 2026-09-21 (마인크래프트 값). 대장간에서 다이아몬드 도끼에 네더라이트를 붙인다"
     },
     {
+      "id": "wooden_sword",
+      "name": "나무 검",
+      "station": "crafting_table",
+      "in": {
+        "planks": 2,
+        "stick": 1
+      },
+      "out": {
+        "wooden_sword": 1
+      },
+      "_note": "아빠 2026-09-24 (마인크래프트 값). 공격력은 data/tools.json swords"
+    },
+    {
+      "id": "stone_sword",
+      "name": "돌 검",
+      "station": "crafting_table",
+      "in": {
+        "cobblestone": 2,
+        "stick": 1
+      },
+      "out": {
+        "stone_sword": 1
+      },
+      "_note": "아빠 2026-09-24 (마인크래프트 값). 공격력은 data/tools.json swords"
+    },
+    {
+      "id": "iron_sword",
+      "name": "철 검",
+      "station": "forge",
+      "in": {
+        "iron_ingot": 2,
+        "stick": 1
+      },
+      "out": {
+        "iron_sword": 1
+      },
+      "_note": "아빠 2026-09-24 (마인크래프트 값). 공격력은 data/tools.json swords. 예전 이름 '철 칼'"
+    },
+    {
+      "id": "golden_sword",
+      "name": "황금 검",
+      "station": "forge",
+      "in": {
+        "gold_ingot": 2,
+        "stick": 1
+      },
+      "out": {
+        "golden_sword": 1
+      },
+      "_note": "아빠 2026-09-24 (마인크래프트 값). 공격력은 data/tools.json swords"
+    },
+    {
+      "id": "diamond_sword",
+      "name": "다이아몬드 검",
+      "station": "forge",
+      "in": {
+        "diamond": 2,
+        "stick": 1
+      },
+      "out": {
+        "diamond_sword": 1
+      },
+      "_note": "아빠 2026-09-24 (마인크래프트 값). 공격력은 data/tools.json swords"
+    },
+    {
+      "id": "netherite_sword",
+      "name": "네더라이트 검",
+      "station": "forge",
+      "in": {
+        "diamond_sword": 1,
+        "netherite": 1
+      },
+      "out": {
+        "netherite_sword": 1
+      },
+      "_note": "아빠 2026-09-24 (마인크래프트 값). 공격력은 data/tools.json swords. 대장간에서 다이아몬드 검에 네더라이트를 붙인다"
+    },
+    {
       "id": "planks",
       "name": "판자",
       "station": "inventory",
@@ -568,18 +646,6 @@
       },
       "out": {
         "arrow": 4
-      }
-    },
-    {
-      "id": "iron_sword",
-      "name": "철 칼",
-      "station": "forge",
-      "in": {
-        "iron_ingot": 2,
-        "stick": 1
-      },
-      "out": {
-        "iron_sword": 1
       }
     },
     {

@@ -75,7 +75,6 @@ import {
   type BlockDef,
   BEAM_RANGE,
   HP_MAX,
-  hitDamage,
   ORB_PICKUP_RANGE,
   type OrbInfo,
   deathXpDrop,
@@ -141,6 +140,7 @@ import {
   type FlagMark,
   RAID_AGGRO_R,
   WEEK_MS,
+  attackDamageOf,
 } from '@dragon-village/shared';
 import { BUILDINGS, DRAGONS, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
@@ -1332,7 +1332,7 @@ export class VillageRoom {
     if (!sys) return 'NO_MOB';
     const held = slot !== undefined && slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
     const tool = toolOf(TOOLS, held);
-    return sys.hit({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE }, mobId, hitDamage(tool ? tool.tier : null), now);
+    return sys.hit({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE }, mobId, attackDamageOf(tool), now);
   }
 
   /** 세계에 떨어진 경험치 구슬. 원정 구슬은 섬과 함께 사라지고, 마을 구슬은 서버가 켜져 있는 동안 남는다 */
@@ -1627,8 +1627,14 @@ export class VillageRoom {
     const r = this.recipes.find(recipeId);
     if (!r || r.release !== 'v1') return 'BAD_RECIPE';
     if (r.station === 'world' || r.station === 'brewing') return 'BAD_RECIPE';
-    if (r.station === 'forge' || r.station === 'anvil') return 'NOT_YET';
-    if (r.station !== 'inventory' && !this.nearBlock(p, r.station)) return 'NO_STATION';
+    if (r.station === 'anvil') return 'NOT_YET';
+    if (r.station === 'forge') {
+      // 대장간 제작 (2026-09-24 열림): 대장간 건물이 서 있고 그 옆(자리 가운데 7칸)에 있어야
+      if (!this.builtIds().includes('forge')) return 'NEED_FORGE';
+      const site = siteOf('forge');
+      const c = site ? siteCenter(site) : null;
+      if (!c || p.world !== 'village' || Math.hypot(p.pos.x - c.x, p.pos.z - c.z) > STORAGE_REACH || Math.abs(p.pos.y - GROUND_Y) >= 6) return 'NO_STATION';
+    } else if (r.station !== 'inventory' && !this.nearBlock(p, r.station)) return 'NO_STATION';
     const changed = new Set<number>();
     const res = craft(p.inv, r, changed);
     if (!res.ok) return res.bagFull ? 'BAG_FULL' : 'MISSING'; // 가방이 가득 차면 재료도 안 빠진다 (#95)
