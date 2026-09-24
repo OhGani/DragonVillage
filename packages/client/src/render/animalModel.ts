@@ -4,6 +4,7 @@
  * 닭 몸 6×6×8·부리·턱볏·날개, 늑대 몸·갈기·주둥이·꼬리. 머리·다리·꼬리·날개는 따로 그려서 MobView 가 움직인다(걷기·풀 뜯기·꼬리 흔들기·날개 퍼덕).
  * 색 변종(마인크래프트 열대·온대·한대, 양털 여섯 색)은 동물 id 로 결정론 — 모두에게 같은 소가 보인다.
  * 앞이 −z, 바닥 y 0, x 는 가운데 0 (복셀 x 는 정수 칸, 짝수 너비면 −w/2..w/2−1).
+ * **모든 부위의 복셀과 pivot 은 같은 몸 좌표로 적는다** — pivotMesh 가 pivot 을 빼서 축을 원점으로 옮긴다 (꼬리를 축 기준으로 적었다가 공중에 뜬 적 있음).
  */
 import type { Voxel } from './voxelGeometry';
 
@@ -117,8 +118,8 @@ function cow(variant: number): AnimalParts {
   }
   const hornLen = kind === 'cold' ? 3 : 2;
   h.box(-5 - (kind === 'cold' ? 1 : 0), -5, 22, 21 + hornLen, -12, -11, solid(0xd0d0d0)).box(4, 4 + (kind === 'cold' ? 1 : 0), 22, 21 + hornLen, -12, -11, solid(0xd0d0d0)); // 뿔
-  const tail = new Builder().box(-1, 0, -6, 0, 0, 0, soft(coat, 0.08)).dot(-1, -6, 0, 0x2a1e14).dot(0, -6, 0, 0x2a1e14); // 꼬리(아래로), 끝은 검은 털
-  return { body: body.out, head: part(h, [0, 19, -10]), legs, tail: part(tail, [0, 21, 9]), wings: [], babyHead: 1.5 };
+  const tail = new Builder().box(-1, 0, 15, 21, 9, 9, soft(coat, 0.08)).dot(-1, 15, 9, 0x2a1e14).dot(0, 15, 9, 0x2a1e14); // 꼬리(몸 뒤 위에서 아래로), 끝은 검은 털
+  return { body: body.out, head: part(h, [0, 19, -10]), legs, tail: part(tail, [0, 22, 9]), wings: [], babyHead: 1.5 };
 }
 
 // ---------------------------------------------------------------- 돼지
@@ -134,8 +135,8 @@ function pig(variant: number): AnimalParts {
   h.dot(-2, 10, -17, scaleColor(nose, 0.7)).dot(1, 10, -17, scaleColor(nose, 0.7)); // 콧구멍
   h.dot(-4, 13, -16, 0xffffff).dot(-3, 13, -16, 0x1a1a1a).dot(2, 13, -16, 0x1a1a1a).dot(3, 13, -16, 0xffffff); // 눈
   h.box(-4, -4, 16, 16, -13, -12, hide).box(3, 3, 16, 16, -13, -12, hide); // 귀 살짝 (머리 위 한 칸)
-  const tail = new Builder().box(0, 0, -2, 0, 0, 0, soft(skin, 0.05)).dot(0, -2, 1, scaleColor(skin, 0.9)); // 꼬랑지
-  return { body: body.out, head: part(h, [0, 12, -9]), legs, tail: part(tail, [0, 13, 8]), wings: [], babyHead: 1.5 };
+  const tail = new Builder().box(0, 0, 11, 13, 8, 8, soft(skin, 0.05)).dot(0, 11, 9, scaleColor(skin, 0.9)); // 꼬랑지 (몸 뒤 z 8, 끝이 살짝 말림)
+  return { body: body.out, head: part(h, [0, 12, -9]), legs, tail: part(tail, [0, 14, 8]), wings: [], babyHead: 1.5 };
 }
 
 // ---------------------------------------------------------------- 양
@@ -152,8 +153,8 @@ function sheep(variant: number): AnimalParts {
   h.box(-3, 2, 12, 13, -15, -15, soft(scaleColor(skin, 0.85), 0.04)); // 코
   h.dot(-2, 15, -15, 0x1a1a1a).dot(1, 15, -15, 0x1a1a1a); // 눈
   h.dot(-3, 15, -15, dark ? 0xd0d0d0 : 0xffffff).dot(2, 15, -15, dark ? 0xd0d0d0 : 0xffffff);
-  const tail = new Builder().box(-1, 0, -2, 0, 0, 0, w);
-  return { body: body.out, head: part(h, [0, 15, -10]), legs, tail: part(tail, [0, 17, 9]), wings: [], babyHead: 1.5 };
+  const tail = new Builder().box(-1, 0, 15, 17, 9, 9, w); // 몽당 꼬리
+  return { body: body.out, head: part(h, [0, 15, -10]), legs, tail: part(tail, [0, 18, 9]), wings: [], babyHead: 1.5 };
 }
 
 // ---------------------------------------------------------------- 닭
@@ -195,8 +196,8 @@ function dog(variant: number): AnimalParts {
   h.dot(-3, 14, -12, 0xffffff).dot(-2, 14, -12, 0x1a1a1a).dot(1, 14, -12, 0x1a1a1a).dot(2, 14, -12, 0xffffff); // 눈
   h.box(-3, -2, 16, 17, -11, -11, f).box(1, 2, 16, 17, -11, -11, f); // 귀 2×2×1
   h.dot(-2, 16, -11, scaleColor(coat, 0.7)).dot(1, 16, -11, scaleColor(coat, 0.7)); // 귓속
-  const tail = new Builder().box(-1, 0, -7, 0, 0, 1, f).dot(-1, -7, 0, scaleColor(coat, 0.85)).dot(0, -7, 1, scaleColor(coat, 0.85)); // 꼬리 2×8×2 (아래로 늘어진 기본)
-  return { body: body.out, head: part(h, [0, 13, -9]), legs, tail: part(tail, [0, 13, 7]), wings: [], babyHead: 1.5 };
+  const tail = new Builder().box(-1, 0, 6, 13, 7, 8, f).dot(-1, 6, 7, scaleColor(coat, 0.85)).dot(0, 6, 8, scaleColor(coat, 0.85)); // 꼬리 2×8×2 — 몸 뒤(z 7) 위(y 14)에서 아래로 늘어진 기본, 축은 몸 뒤 위 모서리
+  return { body: body.out, head: part(h, [0, 13, -9]), legs, tail: part(tail, [0, 14, 7]), wings: [], babyHead: 1.5 };
 }
 
 export function animalParts(kind: string, variant: number): AnimalParts {
