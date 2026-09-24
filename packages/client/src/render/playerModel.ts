@@ -139,7 +139,7 @@ function faceColor(ch: string, p: SkinPalette): number {
  * 상자 하나를 복셀로 채운다. color(x, y, z) 가 칸마다 색을 정하고, 그 위에 얼룩·모서리 명암을 얹는다.
  * extra(x, y, z) 는 부위별 그늘(어깨 밑·다리 위처럼 가려지는 곳)을 더 어둡게 할 때 쓴다.
  */
-function fill(
+export function fill(
   x0: number,
   x1: number,
   y0: number,

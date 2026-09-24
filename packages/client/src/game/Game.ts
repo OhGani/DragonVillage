@@ -649,7 +649,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       if (idx !== myIdx) remote.setHeld(idx, item);
     },
     onEquip: (m) => {
-      if (m.idx !== myIdx) return;
+      if (m.idx !== myIdx) {
+        remote.setEquip(m.idx, m.parts); // 다른 사람 인형에 갑옷 덧입히기
+        return;
+      }
       myEquip = sanitizeEquipment(COMBAT, m.parts);
       hud.setArmor(m.defense);
       bag.refresh();

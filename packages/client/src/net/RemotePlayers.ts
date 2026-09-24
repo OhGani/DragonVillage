@@ -5,6 +5,9 @@
  */
 import { FLAG_RIDING, FLAG_SNEAK, type PlayerInfo, type PlayerStateEntry, RIDE_SEAT_Y, type RidingInfo, blockOf, skyOf } from '@dragon-village/shared';
 import { dragonMesh } from '../render/DragonMesh';
+import { sanitizeEquipment } from '@dragon-village/shared';
+import { COMBAT } from '@dragon-village/shared/data';
+import { armorVoxels, shieldVoxels } from '../render/armorModel';
 import { PART_AT, PLAYER_SHADES, VOXEL, paletteFor, playerVoxels } from '../render/playerModel';
 import { type Voxel, buildVoxelGeometry } from '../render/voxelGeometry';
 import * as THREE from 'three';
@@ -16,6 +19,7 @@ interface Figure {
   label: THREE.Sprite;
   target: { x: number; y: number; z: number; yaw: number; pitch: number; flags: number };
   cur: { x: number; y: number; z: number; yaw: number };
+  torso: THREE.Mesh;
   head: THREE.Mesh;
   legL: THREE.Mesh;
   legR: THREE.Mesh;
@@ -23,6 +27,8 @@ interface Figure {
   armR: THREE.Mesh;
   /** 오른손에 든 것 (아이콘 판, #96) */
   held: THREE.Mesh | null;
+  /** 입은 갑옷 껍질·방패 (M8-2). 부위 메시의 자식 */
+  armor: THREE.Mesh[];
   walk: number;
   lastMove: number;
   bubble: { sprite: THREE.Sprite; until: number } | null;
@@ -127,12 +133,14 @@ export class RemotePlayers {
       group,
       body,
       label,
+      torso,
       head,
       legL,
       legR,
       armL,
       armR,
       held: null,
+      armor: [],
       target: { x: info.x, y: info.y, z: info.z, yaw: info.yaw, pitch: info.pitch, flags: 0 },
       cur: { x: info.x, y: info.y, z: info.z, yaw: info.yaw },
       walk: 0,
@@ -144,6 +152,35 @@ export class RemotePlayers {
     });
     if (info.riding) this.setMount(info.idx, info.riding);
     if (info.held) this.setHeld(info.idx, info.held);
+    if (info.equip) this.setEquip(info.idx, info.equip);
+  }
+
+  /** 입은 갑옷·방패 (M8-2): 부위마다 한 칸 두께 껍질을 자식으로 붙인다 (같은 재질 → 빛도 같이) */
+  setEquip(idx: number, parts: Record<string, string | null>): void {
+    const f = this.figures.get(idx);
+    if (!f) return;
+    for (const m of f.armor) {
+      m.parent?.remove(m);
+      m.geometry.dispose();
+    }
+    f.armor = [];
+    const eq = sanitizeEquipment(COMBAT, parts);
+    f.info.equip = eq;
+    const v = armorVoxels(eq);
+    const torso = f.torso;
+    const attach = (parent: THREE.Object3D | undefined, voxels: readonly Voxel[]) => {
+      if (!parent || voxels.length === 0) return;
+      const mesh = partMesh(voxels, f.material);
+      parent.add(mesh);
+      f.armor.push(mesh);
+    };
+    attach(f.head, v.head);
+    attach(torso, v.torso);
+    attach(f.armL, v.armL);
+    attach(f.armR, v.armR);
+    attach(f.legL, v.legL);
+    attach(f.legR, v.legR);
+    if (eq.shield) attach(f.armL, shieldVoxels());
   }
 
   /** 오른손에 든 것 (#96): 아이콘을 작은 판으로 손끝에 붙인다. 팔과 함께 흔들린다 */
