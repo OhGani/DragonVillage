@@ -5,11 +5,13 @@
  * 맞으면 붉게 깜빡, 크리퍼가 부풀 때 하얘지며 커진다, 죽거나 터지면 조각이 흩어진다.
  * 머리 위 체력 바(빨강, 숫자)와 맞을 때 떠오르는 피해 숫자 — 맞았다는 게 한눈에 보이게 (#94).
  * 거미 왕(M7-4)은 같은 거미 복셀을 2.2배로, 자줏빛 몸에 금 왕관. 잠들었을 땐 낮게 웅크리고, 소환할 땐 몸을 든다.
+ * 동물(M8-1)은 `animalModel.ts` — 마인크래프트 비율·색 변종, 머리·다리·꼬리·날개를 따로 움직인다(걷기·풀 뜯기·꼬리·날개). 아기는 머리가 크다.
  */
 import { ANIMAL_FLAG, MOB_KIND_OF, MOB_STATE, type MobEntry, mobSize } from '@dragon-village/shared';
 import { MOBS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { PLAYER_SHADES, type SkinPalette, VOXEL, playerVoxels } from './playerModel';
+import { type Part, animalParts, animalVariant, collarVoxels } from './animalModel';
 import { type Voxel, buildVoxelGeometry } from './voxelGeometry';
 
 const ZOMBIE: SkinPalette = { shirt: 0x2f6a7a, skin: 0x5d8b4a, hair: 0x2c3e2b, pants: 0x3a3560, shoes: 0x25211f };
@@ -22,81 +24,6 @@ const HUMANOID: Partial<Record<string, SkinPalette>> = {
   skeleton: { shirt: 0xdcdcdc, skin: 0xd8d8d8, hair: 0xbdbdbd, pants: 0xcfcfcf, shoes: 0x9e9e9e },
 };
 
-/** 동물 복셀 (M8-1): 상자 몇 개 — 몸·머리·다리 넷·귀/꼬리. 앞이 −z, 바닥 y 0. 한 칸 = VOXEL(1.8/32) */
-function animalVoxels(kind: string): Voxel[] {
-  const out: Voxel[] = [];
-  const mot = (x: number, y: number, z: number, base: number, amp = 0.12) => {
-    const h = (x * 73856093) ^ (y * 19349663) ^ (z * 83492791);
-    const k = 1 - amp / 2 + (((h >>> 0) % 100) / 100) * amp;
-    const c = (v: number) => Math.min(255, Math.round(v * k));
-    return (c(base >> 16) << 16) | (c((base >> 8) & 255) << 8) | c(base & 255);
-  };
-  const box = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, color: (x: number, y: number, z: number) => number) => {
-    for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) out.push({ x, y, z, c: css(color(x, y, z)) });
-  };
-  const legs = (h: number, w: number, sx: number, z0: number, z1: number, color: (x: number, y: number, z: number) => number) => {
-    for (const [lx, lz] of [
-      [-sx, z0],
-      [sx - w + 1, z0],
-      [-sx, z1],
-      [sx - w + 1, z1],
-    ] as [number, number][])
-      box(lx, lx + w - 1, 0, h - 1, lz, lz + w - 1, color);
-  };
-  switch (kind) {
-    case 'cow': {
-      const hide = (x: number, y: number, z: number) => (((x * 7 + y * 3 + z * 5) >>> 0) % 11 < 3 ? mot(x, y, z, 0xeeeeee, 0.06) : mot(x, y, z, 0x4a3320));
-      legs(8, 4, 5, -7, 4, (x, y, z) => mot(x, y, z, 0x3a2818));
-      box(-6, 5, 8, 17, -9, 8, hide); // 몸
-      box(-4, 3, 12, 19, -15, -10, (x, y, z) => (z === -15 && y <= 13 ? 0xd8b7a0 : hide(x, y, z))); // 머리 + 주둥이
-      box(-6, -5, 18, 19, -13, -12, () => 0xd0d0d0); // 뿔
-      box(4, 5, 18, 19, -13, -12, () => 0xd0d0d0);
-      break;
-    }
-    case 'pig': {
-      const pink = (x: number, y: number, z: number) => mot(x, y, z, 0xf0a3a8, 0.08);
-      legs(4, 4, 5, -6, 3, pink);
-      box(-5, 4, 4, 11, -8, 7, pink);
-      box(-4, 3, 5, 12, -14, -9, (x, y, z) => (z === -14 && y >= 6 && y <= 8 && x >= -2 && x <= 1 ? 0xd97a80 : pink(x, y, z))); // 머리 + 코
-      break;
-    }
-    case 'sheep': {
-      const wool = (x: number, y: number, z: number) => mot(x, y, z, 0xf2f2f2, 0.1);
-      legs(7, 4, 5, -7, 4, (x, y, z) => mot(x, y, z, 0xd9c8b0));
-      box(-6, 5, 7, 17, -9, 8, wool); // 털 몸
-      box(-3, 2, 11, 17, -15, -10, (x, y, z) => (z <= -13 ? 0xc9b79c : wool(x, y, z))); // 머리(얼굴은 살색)
-      break;
-    }
-    case 'chicken': {
-      const white = (x: number, y: number, z: number) => mot(x, y, z, 0xf6f6f6, 0.06);
-      legs(4, 2, 2, -1, -1, () => 0xe6a23c);
-      box(-3, 2, 4, 9, -4, 3, white); // 몸
-      box(-2, 1, 9, 14, -6, -3, (x, y, z) => (z === -6 && y >= 10 && y <= 11 ? 0xe6a23c : white(x, y, z))); // 머리 + 부리
-      box(-2, 1, 8, 9, -7, -6, () => 0xe53935); // 턱볏
-      box(-1, 0, 15, 15, -5, -4, () => 0xe53935); // 볏
-      break;
-    }
-    default: {
-      // dog (늑대)
-      const fur = (x: number, y: number, z: number) => mot(x, y, z, 0xc8c8c8, 0.14);
-      legs(6, 2, 3, -5, 4, fur);
-      box(-3, 2, 6, 11, -7, 6, fur); // 몸
-      box(-3, 2, 8, 13, -12, -7, (x, y, z) => (z === -12 && y <= 9 ? 0x555555 : fur(x, y, z))); // 머리 + 코
-      box(-3, -2, 13, 15, -11, -10, fur); // 귀
-      box(1, 2, 13, 15, -11, -10, fur);
-      box(-1, 0, 9, 10, 7, 12, fur); // 꼬리
-      break;
-    }
-  }
-  return out;
-}
-
-/** 길들인 강아지 목줄 (빨간 띠) */
-function collarVoxels(): Voxel[] {
-  const out: Voxel[] = [];
-  for (let x = -3; x <= 2; x++) for (let y = 8; y <= 8; y++) for (const z of [-8, -7]) if (x === -3 || x === 2 || z === -8) out.push({ x, y, z, c: '#e53935' });
-  return out;
-}
 const CREEPER_GREEN = 0x4caf50;
 const SPIDER_DARK = 0x2a2320;
 const ANIMAL_NAMES = new Set(['cow', 'pig', 'sheep', 'chicken', 'dog']);
@@ -226,6 +153,14 @@ function partMesh(voxels: readonly Voxel[], material: THREE.Material): THREE.Mes
   geom.translate(VOXEL / 2, 0, VOXEL / 2);
   return new THREE.Mesh(geom, material);
 }
+/** 회전 축이 있는 부위 (동물 머리·다리·꼬리·날개): 축이 메시 원점, 메시는 축 자리에 놓인다 */
+function pivotMesh(p: Part, material: THREE.Material): THREE.Mesh {
+  const geom = buildVoxelGeometry(p.v, VOXEL, PLAYER_SHADES);
+  geom.translate((0.5 - p.pivot[0]) * VOXEL, -p.pivot[1] * VOXEL, (0.5 - p.pivot[2]) * VOXEL);
+  const mesh = new THREE.Mesh(geom, material);
+  mesh.position.set(p.pivot[0] * VOXEL, p.pivot[1] * VOXEL, p.pivot[2] * VOXEL);
+  return mesh;
+}
 
 interface Figure {
   group: THREE.Group;
@@ -256,6 +191,13 @@ interface Figure {
   /** 동물인가 (M8-1) */
   animal: boolean;
   collar: THREE.Mesh | null;
+  /** 동물 부위 (앞왼·앞오른·뒤왼·뒤오른 다리 / 닭은 둘) */
+  legs: THREE.Mesh[];
+  head: THREE.Mesh | null;
+  tail: THREE.Mesh | null;
+  wings: THREE.Mesh[];
+  babyHead: number;
+  id: number;
   /** 사랑 하트 다음 시각 */
   nextHeart: number;
 }
@@ -303,6 +245,11 @@ export class MobView {
       legL: THREE.Mesh | null = null,
       legR: THREE.Mesh | null = null;
     const spiderLegs: THREE.Mesh[] = [];
+    const legs: THREE.Mesh[] = [];
+    const wings: THREE.Mesh[] = [];
+    let head: THREE.Mesh | null = null,
+      tail: THREE.Mesh | null = null;
+    let babyHead = 1;
     const kindName = MOB_KIND_OF[m.kind] ?? 'zombie';
     const pal = HUMANOID[kindName];
     if (pal) {
@@ -336,7 +283,25 @@ export class MobView {
         body.add(leg);
       }
     } else if (ANIMAL_NAMES.has(kindName)) {
-      body.add(partMesh(animalVoxels(kindName), material));
+      const parts = animalParts(kindName, animalVariant(m.id));
+      body.add(partMesh(parts.body, material));
+      head = pivotMesh(parts.head, material);
+      body.add(head);
+      for (const l of parts.legs) {
+        const mesh = pivotMesh(l, material);
+        legs.push(mesh);
+        body.add(mesh);
+      }
+      if (parts.tail) {
+        tail = pivotMesh(parts.tail, material);
+        body.add(tail);
+      }
+      for (const w of parts.wings) {
+        const mesh = pivotMesh(w, material);
+        wings.push(mesh);
+        body.add(mesh);
+      }
+      babyHead = parts.babyHead;
     } else {
       body.add(partMesh(creeperVoxels(), material));
     }
@@ -351,7 +316,7 @@ export class MobView {
     drawHpBar(bar.ctx, bar.tex, m.hp, maxHp);
     group.add(bar.sprite);
     this.group.add(group);
-    return { group, body, material, kind: m.kind, cur: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, target: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, state: m.state, hp: m.hp, flashUntil: 0, fuseT: 0, armL, armR, legL, legR, spiderLegs, walk: 0, bar, maxHp, shownHp: m.hp, baseScale, summonT: 0, animal: ANIMAL_NAMES.has(kindName), collar: null, nextHeart: 0 };
+    return { group, body, material, kind: m.kind, cur: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, target: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, state: m.state, hp: m.hp, flashUntil: 0, fuseT: 0, armL, armR, legL, legR, spiderLegs, walk: 0, bar, maxHp, shownHp: m.hp, baseScale, summonT: 0, animal: ANIMAL_NAMES.has(kindName), collar: null, nextHeart: 0, legs, head, tail, wings, babyHead, id: m.id };
   }
 
   /** 서버 상태 묶음 (20Hz). 목록에 없는 몹은 지운다 */
@@ -414,6 +379,42 @@ export class MobView {
       this.burst(x, y + mobSize(f?.kind ?? 0).h * 0.5, z, color, ev === 'explode' ? 28 : f?.kind === 3 ? 40 : 12, now);
       this.remove(id);
     }
+  }
+
+  /** 동물 부위 움직임: 다리는 대각선 짝으로, 머리는 걷는 박자·서 있으면 가끔 풀 뜯기, 강아지 꼬리는 길들이면 세워 흔들고, 닭은 걸을 때 날개 퍼덕 */
+  private animateAnimal(f: Figure, moving: boolean, swing: number, now: number): void {
+    const kindName = MOB_KIND_OF[f.kind] ?? 'cow';
+    const t = now / 1000 + (f.id % 97) * 0.37; // 마리마다 박자가 다르게
+    const sitting = (f.state & ANIMAL_FLAG.sitting) !== 0;
+    const baby = (f.state & ANIMAL_FLAG.baby) !== 0;
+    const tamed = (f.state & ANIMAL_FLAG.tamed) !== 0;
+    f.legs.forEach((leg, i) => {
+      let a = i === 0 || i === 3 ? swing : -swing;
+      if (sitting && i >= 2) a = -1.35; // 앉으면 뒷다리를 앞으로 접는다
+      leg.rotation.x = a;
+    });
+    if (f.head) {
+      let nod = moving ? Math.sin(f.walk * 2) * 0.06 : 0;
+      if (!moving && !sitting && kindName !== 'dog') {
+        const ph = t % 7; // 7초마다 1.8초 풀 뜯기
+        if (ph < 1.8) nod -= (kindName === 'chicken' ? 0.5 : 0.75) * Math.sin((ph / 1.8) * Math.PI);
+      }
+      f.head.rotation.x = nod;
+      f.head.scale.setScalar(baby ? f.babyHead : 1);
+    }
+    if (f.tail) {
+      if (kindName === 'dog') {
+        f.tail.rotation.x = sitting ? -0.35 : tamed ? -2.2 : -0.9; // 길들이면 꼬리를 세운다
+        f.tail.rotation.z = tamed || moving ? Math.sin(t * 9) * 0.45 : 0;
+      } else {
+        f.tail.rotation.x = 0.15;
+        f.tail.rotation.z = Math.sin(t * 2.2) * 0.25; // 파리 쫓기
+      }
+    }
+    f.wings.forEach((w, i) => {
+      w.rotation.z = (i === 0 ? -1 : 1) * (moving ? Math.abs(Math.sin(f.walk * 3)) * 0.9 : 0);
+    });
+    f.body.position.y = sitting ? -0.14 : 0;
   }
 
   /** 떠오르는 글자 (사랑 ♥·냠·어른!) */
@@ -549,6 +550,7 @@ export class MobView {
         const base = leg.userData.baseY as number;
         leg.rotation.y = base + (i % 2 === 0 ? swing : -swing) * 0.5;
       });
+      if (f.animal) this.animateAnimal(f, speed > 0.3, swing, now);
       // 크리퍼 부풀기: 하얘지며 커진다
       if (f.state === MOB_STATE.fuse) {
         f.fuseT += dt;
@@ -561,7 +563,6 @@ export class MobView {
         if (f.state === MOB_STATE.sleep) s *= 0.85; // 잠든 보스는 웅크린다
         if (f.animal) {
           if (f.state & ANIMAL_FLAG.baby) s *= 0.5; // 아기
-          f.body.position.y = f.state & ANIMAL_FLAG.sitting ? -0.12 : 0; // 앉으면 낮게
           if (f.state & ANIMAL_FLAG.love && now >= f.nextHeart) {
             f.nextHeart = now + 900;
             this.popText(c.x, c.y + mobSize(f.kind).h * s + 0.4, c.z, '♥', '#ff5c8a', now);
