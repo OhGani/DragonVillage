@@ -15,10 +15,12 @@ import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
 import { hash3 } from '../math/prng';
 
-export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker';
-export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker'];
-export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6 };
-export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker'];
+export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog';
+export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog'];
+export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12 };
+export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog'];
+/** 순한 동물 (마을, M8-1). 규칙은 animals.ts */
+const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog'];
 
 /** 굴 보스 (M7-4, 거미 왕). 보스는 밤 스폰 목록에 안 들어가고, 원정지 구조물(거미 굴)에 하나만. 소환사(M7-5)는 방어전 마지막 파도의 보스 */
 export const BOSS_KIND: MobKind = 'spider_king';
@@ -68,9 +70,15 @@ export interface MobDef {
   readonly poisonMs: number;
   readonly drops: readonly MobDrop[];
   readonly xp: number;
+  /** 순한 동물인가 (때리지 않으면 안 덤빈다) */
+  readonly passive: boolean;
+  /** 먹이 (mobs.json breedWith·followsWhenHolding). 들고 있으면 따라오고, 주면 사랑한다 */
+  readonly food: readonly string[];
+  /** 길들이는 아이템 (mobs.json tameWith) */
+  readonly tameWith: readonly string[];
 }
 
-const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name'>> = {
+const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | 'food' | 'tameWith'>> = {
   zombie: { id: 'zombie', hp: 20, damage: 3, speed: 2.3, reach: 1.6, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   creeper: { id: 'creeper', hp: 20, damage: 7, speed: 2.6, reach: 3.0, attackEveryMs: 0, fuseMs: 1500, explodeRadius: 3.5, poisonMs: 0 },
   spider: { id: 'spider', hp: 16, damage: 2, speed: 3.4, reach: 1.9, attackEveryMs: 1000, fuseMs: 0, explodeRadius: 0, poisonMs: 3000 },
@@ -79,10 +87,31 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name'>> = {
   vindicator: { id: 'vindicator', hp: 24, damage: 5, speed: 2.6, reach: 1.8, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   pillager: { id: 'pillager', hp: 24, damage: 3, speed: 2.4, reach: 6, attackEveryMs: 2000, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   evoker: { id: 'evoker', hp: 150, damage: 3, speed: 2.2, reach: 2.0, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  // 스켈레톤 (M8-1): 활 — 6칸에서 쏜다(약탈자처럼). 뼈를 떨군다 → 강아지 길들이기
+  skeleton: { id: 'skeleton', hp: 20, damage: 3, speed: 2.2, reach: 6, attackEveryMs: 2000, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  // 동물 (M8-1): 공격 없음. speed 는 따라올 때, 산책은 그 0.6배
+  cow: { id: 'cow', hp: 10, damage: 0, speed: 1.8, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  pig: { id: 'pig', hp: 10, damage: 0, speed: 1.8, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  sheep: { id: 'sheep', hp: 8, damage: 0, speed: 1.8, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  chicken: { id: 'chicken', hp: 4, damage: 0, speed: 1.6, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  dog: { id: 'dog', hp: 8, damage: 0, speed: 2.6, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
 };
+
+const RawPassive = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    breedWith: z.string().optional(),
+    followsWhenHolding: z.string().optional(),
+    tameWith: z.union([z.string(), z.array(z.string())]).optional(),
+    drops: z.array(z.tuple([z.string(), z.tuple([z.number(), z.number()]), z.number()]).rest(z.unknown())).optional(),
+    xp: z.union([z.number(), z.tuple([z.number(), z.number()])]).optional(),
+  })
+  .loose();
 
 const MobFile = z
   .object({
+    passive: z.array(RawPassive).optional(),
     hostile: z.array(
       z
         .object({
@@ -165,6 +194,25 @@ export function parseMobs(raw: unknown, xpByMob: ReadonlyMap<string, readonly [n
         hp: src?.hp ?? base.hp,
         drops: dropsFromRaw(src?.drops),
         xp: src?.xp ?? BOSS_XP[kind] ?? 80,
+        passive: false,
+        food: [],
+        tameWith: [],
+      };
+      continue;
+    }
+    if (PASSIVE_KINDS.includes(kind)) {
+      const src = (result.data.passive ?? []).find((h) => h.id === kind);
+      const food = [...new Set([src?.breedWith, src?.followsWhenHolding, ...(kind === 'chicken' ? ['pumpkin_seeds', 'melon_seeds'] : [])].filter((x): x is string => typeof x === 'string'))];
+      const tame = src?.tameWith === undefined ? [] : Array.isArray(src.tameWith) ? src.tameWith : [src.tameWith];
+      const xpRange = xpByMob?.get(kind);
+      defs[kind] = {
+        ...base,
+        name: src?.name ?? kind,
+        drops: (src?.drops ?? []).map(([item, [min, max], chance]) => ({ item, min, max, chance })),
+        xp: xpRange ? xpRange[0] : typeof src?.xp === 'number' ? src.xp : 1,
+        passive: true,
+        food,
+        tameWith: tame,
       };
       continue;
     }
@@ -180,6 +228,9 @@ export function parseMobs(raw: unknown, xpByMob: ReadonlyMap<string, readonly [n
       damage: src?.damage ?? base.damage,
       drops,
       xp: xpRange ? xpRange[0] : (src?.xp ?? 5),
+      passive: false,
+      food: [],
+      tameWith: [],
     };
   }
   return new MobRegistry(defs);
@@ -191,7 +242,21 @@ export const SPAWN_MAX = 24;
 export const SPAWN_EVERY_MS = 4000;
 /** 몹 몸 판정 (넓이·높이) — 좀비·크리퍼. 거미는 넓고 낮다 */
 export const MOB_SIZE = { w: 0.6, h: 1.9 } as const;
-export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = { zombie: MOB_SIZE, creeper: MOB_SIZE, spider: { w: 1.4, h: 0.9 }, spider_king: { w: 2.8, h: 1.7 }, vindicator: MOB_SIZE, pillager: MOB_SIZE, evoker: MOB_SIZE };
+export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = {
+  zombie: MOB_SIZE,
+  creeper: MOB_SIZE,
+  spider: { w: 1.4, h: 0.9 },
+  spider_king: { w: 2.8, h: 1.7 },
+  vindicator: MOB_SIZE,
+  pillager: MOB_SIZE,
+  evoker: MOB_SIZE,
+  skeleton: MOB_SIZE,
+  cow: { w: 0.9, h: 1.4 },
+  pig: { w: 0.9, h: 0.9 },
+  sheep: { w: 0.9, h: 1.3 },
+  chicken: { w: 0.4, h: 0.7 },
+  dog: { w: 0.6, h: 0.85 },
+};
 export function mobSize(kind: MobKind | number): { w: number; h: number } {
   return MOB_SIZES[typeof kind === 'number' ? (MOB_KIND_OF[kind] ?? 'zombie') : kind];
 }
@@ -201,7 +266,7 @@ export const POISON_DAMAGE = 1;
 
 /** 이 원정지에 나오는 몹 — expeditions.json nightMobs 중 아는 것만(보스 제외). 하나도 없으면 좀비·크리퍼 */
 export function spawnKinds(nightMobs: readonly string[] | undefined): MobKind[] {
-  const kinds = (nightMobs ?? []).filter(isMobKind).filter((k) => !isBoss(k));
+  const kinds = (nightMobs ?? []).filter(isMobKind).filter((k) => !isBoss(k) && !PASSIVE_KINDS.includes(k));
   return kinds.length ? [...new Set(kinds)] : ['zombie', 'creeper'];
 }
 

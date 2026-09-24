@@ -395,6 +395,30 @@
       "_note": "아빠 2026-09-24 (마인크래프트 값). 공격력은 data/tools.json swords. 대장간에서 다이아몬드 검에 네더라이트를 붙인다"
     },
     {
+      "id": "wheat_from_hay",
+      "name": "밀",
+      "station": "inventory",
+      "in": {
+        "hay_bale": 1
+      },
+      "out": {
+        "wheat": 9
+      },
+      "_note": "아빠 2026-09-24 (마인크래프트 값). 밭·창고의 건초 더미를 풀면 밀 — 소·양 먹이(M8-1). 밭 농사는 나중에"
+    },
+    {
+      "id": "pumpkin_seeds",
+      "name": "호박 씨",
+      "station": "inventory",
+      "in": {
+        "pumpkin": 1
+      },
+      "out": {
+        "pumpkin_seeds": 4
+      },
+      "_note": "아빠 2026-09-24 (마인크래프트 값). 닭 먹이(M8-1)"
+    },
+    {
       "id": "planks",
       "name": "판자",
       "station": "inventory",

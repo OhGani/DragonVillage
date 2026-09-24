@@ -1123,7 +1123,7 @@ describe('동굴 원정 + 포탈 2단계 (M7-3)', () => {
     // 항상 어두움 → 첫 틱부터 스폰, 사람 높이 근처 땅에
     for (let t = T0; t < T0 + 40_000; t += 500) room.tick(t);
     const sys = room.mobSys!;
-    expect(sys.kinds).toEqual(['spider', 'zombie']);
+    expect(sys.kinds).toEqual(['spider', 'zombie', 'skeleton']); // 스켈레톤은 M8-1 부터
     expect(sys.mobs.size).toBeGreaterThanOrEqual(4);
     const kinds = [...sys.mobs.values()].map((m) => m.kind);
     expect(kinds.filter((k) => k === 'spider').length).toBeGreaterThan(kinds.filter((k) => k === 'zombie').length);

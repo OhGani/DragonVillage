@@ -54,6 +54,8 @@ import {
   FLAG_POLE,
   RAID_CAPTURE_SEC,
   type RaidStateInfo,
+  ANIMAL_FLAG,
+  ANIMAL_ID_BASE,
 } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, DRAGONS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
@@ -177,7 +179,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   nestDragons.sync(welcome.nestDragons);
   let nestDragonList: NestDragonInfo[] = welcome.nestDragons;
   // 탑승 (M6-4): 내가 탄 드래곤은 서버가 mount/dismount 로 알려 준다. 세계를 바꿔도(원정) 그대로 타고 간다
-  let myRiding: RidingInfo | null = null;
+  /** 타고 있는 드래곤. 다시 들어올 때 서버가 준 것으로 시작 (#103 — 탑승 유지) */
+  let myRiding: RidingInfo | null = welcome.spawn.riding ?? null;
   const mount = new MountView(scene);
   // 빔 (M6-5): 서버가 확정한 것만 그린다. 기력은 서버 값 사이를 회복 공식으로 채워 바가 부드럽게 찬다
   const beams = new BeamView(scene);
@@ -241,6 +244,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   let villageState = welcome.village_state ?? { built: [], level: 1, codex: 0, codexIds: [], eggSlots: 4 };
   /** 마을 방어전 상태 (M7-5). null = 없음 */
   let raidState: RaidStateInfo | null = null;
+  /** 마지막으로 안내한 조준 몹 (M8-1) */
+  let aimHintFor: number | null = null;
   let raidPhaseSeen: string | null = null;
   /** 출발 카드에서 고른 원정지 (열린 것 중 차례, M7-3) */
   let expeditionPick = 0;
@@ -737,6 +742,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
           levelUp(); // 승리 팡파르 대신
         }
       } else if (m.ev === 'hit') hitSound();
+      else if (m.ev === 'love' || m.ev === 'tame' || m.ev === 'grow') ding();
       else if (m.ev === 'wake') {
         roar();
         hud.hurtFlash();
@@ -974,6 +980,13 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   // 오늘 카드 (M5-3): 아이면 남은 시간·할 일. 시간 제한은 걸지 않는다(표시만, 아빠 2026-09-19)
   hud.setToday(welcome.today);
   hud.setHealth(hp, 20); // 하트 (M7-1) — welcome 값으로 시작
+  if (myRiding) {
+    // 타고 있던 채로 들어왔다 (#103): 드래곤·빔 버튼·기력을 바로 켠다 (mount 이벤트는 처음 탈 때만 온다)
+    mount.set(myRiding.dragon);
+    hud.setRiding(true, DRAGONS.find(myRiding.dragon)?.skills.find((s) => s.type === 'beam')?.name ?? '빔');
+    stamina = { value: staminaMaxFor('adult'), max: staminaMaxFor('adult'), at: Date.now() + serverClockOffset, readyAt: 0 };
+    refreshStamina();
+  }
   hud.onCheckTodo = (id) => net.sendCheckTodo(id);
   hud.onApprove = (ask, ok) => net.sendApproveTodo(ask.id, ask.date, ok);
   hud.setPending(welcome.pending);
@@ -1220,12 +1233,31 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     player.update(inp, dt);
     // 몹을 조준하고 있으면 탭/클릭은 때리기 (블록은 안 부순다)
     hitCooldown = Math.max(0, hitCooldown - dt);
-    const aimedMob = mobView.count > 0 ? mobView.aim(player.eye, player.lookDir, HIT_REACH) : null;
+    const aimedMob = mobView.count > 0 ? mobView.aim(player.eye, player.lookDir, HIT_REACH + 1) : null;
     interaction.suppressPrimary = aimedMob !== null;
+    interaction.suppressSecondary = aimedMob !== null;
     if (aimedMob !== null && inp.primary && hitCooldown <= 0) {
       hitCooldown = HIT_COOLDOWN_MS / 1000;
       net.sendHit(aimedMob, hud.selectedIndex);
       hand.swing();
+    }
+    // 동물에게 손에 든 것 쓰기 (M8-1): 먹이·뼈·빈손(앉기)
+    if (aimedMob !== null && inp.secondaryTap && aimedMob >= ANIMAL_ID_BASE) {
+      net.sendUseMob(aimedMob, hud.selectedIndex);
+      hand.swing();
+    }
+    // 조준한 동물이 바뀌면 안내 한 줄
+    if (aimedMob !== aimHintFor) {
+      aimHintFor = aimedMob;
+      const f = aimedMob !== null ? mobView.figureOf(aimedMob) : undefined;
+      if (f && aimedMob !== null && aimedMob >= ANIMAL_ID_BASE) {
+        const def = MOBS.get(MOB_KIND_OF[f.kind] ?? 'cow');
+        const baby = (f.state & ANIMAL_FLAG.baby) !== 0;
+        const tamed = (f.state & ANIMAL_FLAG.tamed) !== 0;
+        const foods = def.food.map((i) => nameOf(i)).join('·');
+        const tip = tamed ? '내 강아지면 빈손으로 탭 → 앉기/일어나기' : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
+        hud.toast(`${def.name}${baby ? ' (아기)' : ''}${tamed ? ' 🐾' : ''} · ${tip}`, 2500);
+      }
     }
     interaction.update(inp, dt);
     player.applyToCamera(camera, bobStrength);

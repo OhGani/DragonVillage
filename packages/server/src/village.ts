@@ -141,11 +141,14 @@ import {
   RAID_AGGRO_R,
   WEEK_MS,
   attackDamageOf,
+  ANIMAL_ID_BASE,
+  encodeMobsState,
 } from '@dragon-village/shared';
 import { BUILDINGS, DRAGONS, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import { RAID_GOAL, RaidSystem } from './raid';
+import { AnimalSystem } from './animals';
 import { MobSystem, type MobArena, type MobHooks } from './mobs';
 import type { DragonRow, Storage } from './storage';
 
@@ -299,6 +302,28 @@ export class VillageRoom {
     this.load();
     this.ensureNest(pristine);
     this.ensureBuildings();
+    this.animals = new AnimalSystem(this.world, this.registry, MOBS, this.info.seed, this.storage, this.info.code, {
+      players: () => this.playersIn('village').map((p) => ({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held: p.held })),
+      json: (obj) => this.broadcastJson(obj, -1, 'village'),
+      reward: (idx, drops, xp, at, now) => {
+        const p = this.players.get(idx);
+        if (!p) return;
+        const changed = new Set<number>();
+        for (const d of drops) this.giveTo(p, d.item, d.count, changed);
+        this.sendInv(p, changed);
+        if (xp > 0) this.addXp(p, xp, XP_SOURCE.mob, at.x, at.y, at.z, now);
+      },
+      consume: (idx, item) => {
+        const p = this.players.get(idx);
+        if (!p || countOf(p.inv, item) < 1) return false;
+        const changed = new Set<number>();
+        take(p.inv, item, 1, changed);
+        this.sendInv(p, changed);
+        return true;
+      },
+      log: (msg) => this.log(`마을 ${this.info.code}: ${msg}`),
+    });
+    this.animals.load(Date.now());
     this.repairChests();
   }
 
@@ -1263,6 +1288,9 @@ export class VillageRoom {
 
   /** 진행 중인 방어전. 끝나면 null */
   raid: RaidSystem | null = null;
+  /** 마을 동물 (M8-1) */
+  animals!: AnimalSystem;
+  private lastCreatureCount = 0;
 
   /** 마지막 방어전 결과 → 깃대 맨 위 깃발 색 */
   private flagMark(): FlagMark {
@@ -1302,7 +1330,7 @@ export class VillageRoom {
       },
       elapsedSec: (t) => Math.max(0, (t - now) / 1000),
     };
-    const mobs = new MobSystem(arena, this.registry, MOBS, this.mobHooks('village'), { autoSpawn: false, aggroRange: RAID_AGGRO_R, goal: RAID_GOAL });
+    const mobs = new MobSystem(arena, this.registry, MOBS, this.mobHooks('village'), { autoSpawn: false, aggroRange: RAID_AGGRO_R, goal: RAID_GOAL, quiet: true });
     this.raid = new RaidSystem(mobs, RAIDS, {
       players: () => this.playersIn('village').filter((q) => q.hp > 0).map((q) => ({ idx: q.idx, x: q.pos.x, y: q.pos.y, z: q.pos.z, eyeY: q.pos.y + EYE })),
       state: (st) => this.broadcastJson({ t: 'raid', raid: st }, -1, 'village'),
@@ -1324,6 +1352,25 @@ export class VillageRoom {
     return null;
   }
 
+  /** 마을의 살아 있는 것들(동물 + 방어전 우민)을 한 목록으로 20Hz (M8-1). 비었으면 한 번만 빈 목록 */
+  private tickCreatures(now: number): void {
+    if (this.playersIn('village').length === 0) return;
+    this.animals.tick(now);
+    const list = [...(this.raid?.mobs.entries() ?? []), ...this.animals.entries(now)];
+    if (list.length === 0 && this.lastCreatureCount === 0) return;
+    this.lastCreatureCount = list.length;
+    this.broadcast(encodeMobsState(list), -1, 'village');
+  }
+
+  /** 동물에게 손에 든 것 쓰기 (M8-1). 오류는 세션이 한국어로 */
+  useMob(idx: number, mobId: number, slot: number | undefined, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (p.world !== 'village' || mobId < ANIMAL_ID_BASE) return 'NO_MOB';
+    const held = slot !== undefined && slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
+    return this.animals.use({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held }, mobId, held, now);
+  }
+
   private tickRaid(now: number): void {
     const r = this.raid;
     if (!r) return;
@@ -1338,11 +1385,13 @@ export class VillageRoom {
   hitMob(idx: number, mobId: number, slot: number | undefined, now = Date.now()): string | null {
     const p = this.players.get(idx);
     if (!p) return 'NOT_IN_VILLAGE';
-    const sys = p.world === 'expedition' ? this.mobSys : (this.raid?.mobs ?? null);
-    if (!sys) return 'NO_MOB';
     const held = slot !== undefined && slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
     const tool = toolOf(TOOLS, held);
-    return sys.hit({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE }, mobId, attackDamageOf(tool), now);
+    const me = { idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE };
+    if (p.world === 'village' && mobId >= ANIMAL_ID_BASE) return this.animals.hit({ ...me, token: p.token, held }, mobId, attackDamageOf(tool), now); // 동물 (M8-1)
+    const sys = p.world === 'expedition' ? this.mobSys : (this.raid?.mobs ?? null);
+    if (!sys) return 'NO_MOB';
+    return sys.hit(me, mobId, attackDamageOf(tool), now);
   }
 
   /** 세계에 떨어진 경험치 구슬. 원정 구슬은 섬과 함께 사라지고, 마을 구슬은 서버가 켜져 있는 동안 남는다 */
@@ -1932,6 +1981,7 @@ export class VillageRoom {
     }
     this.tickExpedition(now);
     this.tickRaid(now);
+    this.tickCreatures(now);
     this.tickGrowth(now);
     this.tickHealth(now);
     if (this.lastFlush === 0) this.lastFlush = now;
@@ -1941,6 +1991,7 @@ export class VillageRoom {
   /** 바뀐 청크·플레이어 위치 저장 */
   flush(now: number): void {
     this.lastFlush = now;
+    this.animals?.save();
     if (!this.storage) {
       this.dirty.clear();
       return;

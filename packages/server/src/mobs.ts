@@ -64,6 +64,8 @@ export interface MobSystemOptions {
   aggroRange: number;
   /** 사람이 멀 때 걸어갈 곳 (방어전 깃대) */
   goal: { x: number; y: number; z: number } | null;
+  /** true 면 tick 이 MobsState 를 스스로 보내지 않는다 (마을이 동물과 합쳐 보낸다) */
+  quiet: boolean;
 }
 
 export interface MobTarget {
@@ -93,7 +95,7 @@ export interface MobHooks {
 const STEP_MS = 100;
 /** 맞으면 밀려나는 거리 */
 const KNOCKBACK = 0.7;
-const DEFAULT_OPTS: MobSystemOptions = { autoSpawn: true, aggroRange: 40, goal: null };
+const DEFAULT_OPTS: MobSystemOptions = { autoSpawn: true, aggroRange: 40, goal: null, quiet: false };
 
 export class MobSystem {
   readonly mobs = new Map<number, MobState>();
@@ -237,7 +239,7 @@ export class MobSystem {
         } else stepMob(m, def, null, dt, now, this.groundAt);
       }
     }
-    this.hooks.broadcast(encodeMobsState(this.entries()));
+    if (!this.opts.quiet) this.hooks.broadcast(encodeMobsState(this.entries()));
   }
 
   /** 보스: 가까이 오면 깨어나고, 깨어 있으면 주기마다 부하를 부른다 */

@@ -168,7 +168,7 @@ export interface NetEvents {
   onOrbGone(id: number, by: number): void;
   /** 원정 몹 상태 (20Hz, M7-2) */
   onMobs(list: MobEntry[]): void;
-  onMobEvent(m: { ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon'; id: number; mob: string; x: number; y: number; z: number; dmg?: number }): void;
+  onMobEvent(m: { ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'grow'; id: number; mob: string; x: number; y: number; z: number; dmg?: number }): void;
   onDismount(idx: number): void;
 }
 
@@ -374,6 +374,10 @@ export class NetClient {
   /** 마을 방어전 시작 (M7-5) */
   sendStartRaid(): void {
     this.sendJson({ t: 'startRaid' });
+  }
+  /** 동물에게 손에 든 것 쓰기 (M8-1) */
+  sendUseMob(id: number, slot: number): void {
+    this.sendJson({ t: 'useMob', id, slot });
   }
   /** 마을 창고 (M6-6) */
   sendOpenStorage(): void {

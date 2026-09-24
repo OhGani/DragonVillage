@@ -42,6 +42,14 @@ const RAID_ERROR_KO: Record<string, string> = {
 const HIT_ERROR_KO: Record<string, string> = {
   NO_MOB: '거기엔 아무것도 없어요',
   TOO_FAR: '너무 멀어요 — 가까이 가서 쳐요',
+  PET: '길들인 동물은 때릴 수 없어요',
+};
+/** 동물에게 쓰기 오류 (M8-1) */
+const USE_ERROR_KO: Record<string, string> = {
+  NO_MOB: '거기엔 아무것도 없어요',
+  TOO_FAR: '너무 멀어요 — 가까이 가요',
+  NOT_FOOD: '이 동물이 먹는 걸 들고 탭해요 (소·양 밀, 돼지 당근, 닭 씨앗, 강아지 뼈)',
+  PET_OTHER: '남의 강아지예요',
 };
 
 const NEST_ERROR_KO: Record<string, string> = {
@@ -371,6 +379,13 @@ export class Session {
         if (!Number.isInteger(msg.id)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
         const err = this.room.ride(this.idx, msg.id);
         if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 탈 수 없어요');
+        return;
+      }
+      case 'useMob': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.id)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.useMob(this.idx, msg.id, typeof msg.slot === 'number' ? msg.slot : undefined);
+        if (err && err !== 'COOLDOWN') return this.error(err, USE_ERROR_KO[err] ?? '지금은 할 수 없어요');
         return;
       }
       case 'startRaid': {

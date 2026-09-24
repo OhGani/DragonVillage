@@ -109,7 +109,7 @@ describe('거미와 원정지별 몹 (M7-3)', () => {
   });
 
   it('원정지 nightMobs 에서 아는 몹만 고르고, 첫째가 셋에 둘', () => {
-    expect(spawnKinds(['spider', 'zombie', 'skeleton'])).toEqual(['spider', 'zombie']);
+    expect(spawnKinds(['spider', 'zombie', 'skeleton'])).toEqual(['spider', 'zombie', 'skeleton']); // 스켈레톤은 M8-1 부터 진짜 몹
     expect(spawnKinds(['zombie', 'creeper', 'enderman'])).toEqual(['zombie', 'creeper']);
     expect(spawnKinds(['enderman'])).toEqual(['zombie', 'creeper']);
     expect(spawnKinds(undefined)).toEqual(['zombie', 'creeper']);
@@ -154,6 +154,24 @@ describe('거미와 원정지별 몹 (M7-3)', () => {
     expect(MOBS.get('pillager').drops.map((d) => [d.item, d.chance])).toEqual([['crossbow', 0.3]]);
     expect(MOBS.get('vindicator').drops[0]?.item).toBe('iron_axe');
     expect(spawnKinds(['vindicator', 'zombie'])).toEqual(['vindicator', 'zombie']); // 우민도 원정지에 넣을 수는 있다
+  });
+
+  it('동물 5종 + 스켈레톤 (M8-1): mobs.json passive 에서 이름·먹이·길들이기·드롭. 밤 스폰 목록엔 안 든다', () => {
+    const cow = MOBS.get('cow');
+    expect(cow.name).toBe('소');
+    expect(cow.passive).toBe(true);
+    expect(cow.food).toEqual(['wheat']);
+    expect(cow.drops.map((d) => d.item)).toEqual(['leather', 'beef']);
+    expect(cow.xp).toBe(1);
+    expect(MOBS.get('pig').food).toEqual(['carrot']);
+    expect(MOBS.get('chicken').food).toEqual(['wheat_seeds', 'pumpkin_seeds', 'melon_seeds']);
+    expect(MOBS.get('dog').tameWith).toEqual(['bone']);
+    expect(MOBS.get('dog').name).toBe('강아지');
+    expect(MOBS.get('skeleton').drops.map((d) => d.item)).toContain('bone');
+    expect(MOBS.get('skeleton').reach).toBe(6);
+    expect(MOBS.get('zombie').passive).toBe(false);
+    expect(spawnKinds(['spider', 'cow', 'skeleton'])).toEqual(['spider', 'skeleton']);
+    expect(mobSize('chicken').h).toBeLessThan(1);
   });
 
   it('땅 찾기에 높이 힌트가 간다 (동굴처럼 층이 여럿일 때)', () => {

@@ -4,6 +4,7 @@
  */
 import { type Inventory, type TodoStatus, isValidChest, isValidInventory } from '@dragon-village/shared';
 import Database from 'better-sqlite3';
+import type { AnimalRow } from './animals';
 import { copyFileSync } from 'node:fs';
 
 export interface VillageRow {
@@ -169,6 +170,10 @@ CREATE TABLE IF NOT EXISTS codex(
   village TEXT NOT NULL, kind TEXT NOT NULL, id TEXT NOT NULL, token TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY(village, kind, id));
 CREATE TABLE IF NOT EXISTS gifts_given(
   token TEXT NOT NULL, gift TEXT NOT NULL, given_at INTEGER NOT NULL, PRIMARY KEY(token, gift));
+CREATE TABLE IF NOT EXISTS animals(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, village TEXT NOT NULL, kind TEXT NOT NULL, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL,
+  born_at INTEGER NOT NULL, adult_at INTEGER, owner TEXT, sitting INTEGER NOT NULL DEFAULT 0, home_x REAL NOT NULL, home_z REAL NOT NULL);
+CREATE INDEX IF NOT EXISTS animals_village ON animals(village);
 CREATE TABLE IF NOT EXISTS raids(
   id INTEGER PRIMARY KEY AUTOINCREMENT, village TEXT NOT NULL, started_at INTEGER NOT NULL, won INTEGER NOT NULL, wave INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS time_adjustments(
@@ -210,6 +215,10 @@ export class Storage {
       listBuildings: this.db.prepare('SELECT id FROM buildings WHERE village = ? ORDER BY built_at'),
       addBuilding: this.db.prepare('INSERT OR IGNORE INTO buildings(village, id, built_at) VALUES (?, ?, ?)'),
       addRaid: this.db.prepare('INSERT INTO raids(village, started_at, won, wave) VALUES (?, ?, ?, ?)'),
+      listAnimals: this.db.prepare('SELECT id, kind, x, y, z, born_at AS bornAt, adult_at AS adultAt, owner, sitting, home_x AS homeX, home_z AS homeZ FROM animals WHERE village = ? ORDER BY id'),
+      insertAnimal: this.db.prepare('INSERT INTO animals(village, kind, x, y, z, born_at, adult_at, owner, sitting, home_x, home_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+      updateAnimal: this.db.prepare('UPDATE animals SET x = ?, y = ?, z = ?, adult_at = ?, owner = ?, sitting = ?, home_x = ?, home_z = ? WHERE id = ?'),
+      deleteAnimal: this.db.prepare('DELETE FROM animals WHERE id = ?'),
       countRaidsSince: this.db.prepare('SELECT COUNT(*) AS n FROM raids WHERE village = ? AND started_at >= ?'),
       lastRaid: this.db.prepare('SELECT won, wave, started_at AS startedAt FROM raids WHERE village = ? ORDER BY started_at DESC LIMIT 1'),
       addCodex: this.db.prepare('INSERT OR IGNORE INTO codex(village, kind, id, token, at) VALUES (?, ?, ?, ?, ?)'),
@@ -356,6 +365,19 @@ export class Storage {
   }
   addBuilding(code: string, id: string, now = Date.now()): void {
     this.stmts.addBuilding.run(code, id, now);
+  }
+  /** 마을 동물 (M8-1) */
+  listAnimals(code: string): AnimalRow[] {
+    return (this.stmts.listAnimals.all(code) as (Omit<AnimalRow, 'sitting'> & { sitting: number })[]).map((r) => ({ ...r, kind: r.kind as AnimalRow['kind'], sitting: r.sitting === 1 }));
+  }
+  insertAnimal(code: string, r: Omit<AnimalRow, 'id'>): number {
+    return Number(this.stmts.insertAnimal.run(code, r.kind, r.x, r.y, r.z, r.bornAt, r.adultAt, r.owner, r.sitting ? 1 : 0, r.homeX, r.homeZ).lastInsertRowid);
+  }
+  updateAnimal(r: AnimalRow): void {
+    this.stmts.updateAnimal.run(r.x, r.y, r.z, r.adultAt, r.owner, r.sitting ? 1 : 0, r.homeX, r.homeZ, r.id);
+  }
+  deleteAnimal(id: number): void {
+    this.stmts.deleteAnimal.run(id);
   }
   /** 방어전 기록 (M7-5) */
   addRaid(code: string, startedAt: number, won: boolean, wave: number): void {

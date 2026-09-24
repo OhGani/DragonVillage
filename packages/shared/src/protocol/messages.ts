@@ -459,6 +459,8 @@ export type ClientJson =
   | { t: 'held'; item: string | null }
   /** 마을 방어전 시작 (M7-5) — 깃대 옆에서 */
   | { t: 'startRaid' }
+  /** 몹(동물)에게 손에 든 것 쓰기 (M8-1): 먹이·뼈·빈손(앉기). slot = 손에 든 칸 */
+  | { t: 'useMob'; id: number; slot?: number }
   /** 타고 있는 드래곤의 스킬 (M6-5). 지금은 'beam' 만 */
   | { t: 'skill'; id: string }
   /** 마을 창고 열기 (M6-6) — 창고 건물 옆에서 */
@@ -550,7 +552,7 @@ export type ServerJson =
   | { t: 'orbGone'; id: number; by: number }
   /** 몹 사건 (M7-2): 생김·맞음·죽음·폭발 */
   /** 몹 사건. wake·summon 은 보스(M7-4) */
-  | { t: 'mob'; ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon'; id: number; mob: string; x: number; y: number; z: number; dmg?: number }
+  | { t: 'mob'; ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'grow'; id: number; mob: string; x: number; y: number; z: number; dmg?: number }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }

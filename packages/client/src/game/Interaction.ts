@@ -42,6 +42,8 @@ export class Interaction {
   progress = 0;
   /** 몹을 조준하고 있으면 true — 그 프레임엔 블록을 안 부순다 (M7-2) */
   suppressPrimary = false;
+  /** 몹을 조준 중이면 놓기도 막는다 (동물 먹이 주기, M8-1) */
+  suppressSecondary = false;
   private breakingKey = -1;
   private cooldown = 0;
   private placeTimer = 0;
@@ -183,7 +185,9 @@ export class Interaction {
     }
 
     // ---- 놓기 (탭 / 우클릭, 유지 시 반복) ----
-    if (input.secondaryTap) {
+    if (this.suppressSecondary) {
+      this.placeTimer = 0;
+    } else if (input.secondaryTap) {
       this.place();
       this.placeTimer = PLACE_REPEAT;
     } else if (input.secondaryHold) {
