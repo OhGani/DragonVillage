@@ -151,7 +151,7 @@ import {
   ANIMAL_ID_BASE,
   encodeMobsState,
 } from '@dragon-village/shared';
-import { BUILDINGS, COMBAT, DRAGONS, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
+import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import { RAID_GOAL, RaidSystem } from './raid';
@@ -1151,6 +1151,7 @@ export class VillageRoom {
     const me = this.toInfo(player);
     this.broadcastJson({ t: 'playerJoined', player: me }, idx, 'village');
     if (this.raid) this.sendJson(player, { t: 'raid', raid: this.raid.state(Date.now()) });
+    this.sendJson(player, { t: 'pets', list: this.animals.petsFor(token) }); // 펫 이름 (#109)
     if (player.riding) this.broadcastNest(); // 둥지에서 그 드래곤이 빠진다
     this.savePlayer(player);
     if (savedInv === null || gifts.length) this.storage?.saveInventory(token, this.info.code, inv); // 키트·선물은 한 번만 — 바로 저장해 둔다
@@ -1373,13 +1374,31 @@ export class VillageRoom {
     this.broadcast(encodeMobsState(list), -1, 'village');
   }
 
+  /** 펫 이름 짓기 (#109). 오류는 세션이 한국어로 */
+  nameMob(idx: number, mobId: number, name: string): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    const err = this.animals.rename(p.token, mobId, name, PET_NAMES);
+    if (err) return err;
+    this.broadcastPets();
+    return null;
+  }
+
+  /** 펫 목록을 마을 사람마다 (mine 이 다르다) */
+  broadcastPets(): void {
+    for (const q of this.playersIn('village')) this.sendJson(q, { t: 'pets', list: this.animals.petsFor(q.token) });
+  }
+
   /** 동물에게 손에 든 것 쓰기 (M8-1). 오류는 세션이 한국어로 */
   useMob(idx: number, mobId: number, slot: number | undefined, now = Date.now()): string | null {
     const p = this.players.get(idx);
     if (!p) return 'NOT_IN_VILLAGE';
     if (p.world !== 'village' || mobId < ANIMAL_ID_BASE) return 'NO_MOB';
     const held = slot !== undefined && slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
-    return this.animals.use({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held }, mobId, held, now);
+    const before = this.animals.petsFor(p.token).length;
+    const err = this.animals.use({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held }, mobId, held, now);
+    if (!err && this.animals.petsFor(p.token).length !== before) this.broadcastPets(); // 길들여졌다
+    return err;
   }
 
   private tickRaid(now: number): void {

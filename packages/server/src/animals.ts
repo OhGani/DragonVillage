@@ -67,6 +67,8 @@ export interface AnimalRow {
   /** 품은 달걀 수 (닭) */
   eggs: number;
   lastEggAt: number;
+  /** 펫 이름 (#109, pet-names.json 에서만) */
+  name: string | null;
 }
 
 export interface AnimalStore {
@@ -181,7 +183,7 @@ export class AnimalSystem {
     for (let attempt = 0; attempt < 40; attempt++) {
       const c = animalSpotCandidate(this.seed, i, attempt);
       const y = this.grassSpot(c);
-      if (y !== null) return this.add({ kind, x: c.x, y, z: c.z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: c.x, homeZ: c.z, woolAt: 0, eggs: 0, lastEggAt: now }, now);
+      if (y !== null) return this.add({ kind, x: c.x, y, z: c.z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: c.x, homeZ: c.z, woolAt: 0, eggs: 0, lastEggAt: now, name: null }, now);
     }
     return null;
   }
@@ -196,7 +198,7 @@ export class AnimalSystem {
       for (let attempt = 0; attempt < 12 && !placed; attempt++) {
         const c = herdSpotCandidate(this.seed, i, k, attempt, first);
         const y = this.grassSpot(c);
-        if (y !== null) placed = this.add({ kind, x: c.x, y, z: c.z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: first.homeX, homeZ: first.homeZ, woolAt: 0, eggs: 0, lastEggAt: now }, now);
+        if (y !== null) placed = this.add({ kind, x: c.x, y, z: c.z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: first.homeX, homeZ: first.homeZ, woolAt: 0, eggs: 0, lastEggAt: now, name: null }, now);
       }
       if (!placed) placed = this.spawnWild(kind, i * 31 + k, now);
       if (placed) made++;
@@ -374,7 +376,7 @@ export class AnimalSystem {
     const x = (a.x + b.x) / 2,
       z = (a.z + b.z) / 2;
     const y = this.groundAt(x, z, a.y) ?? a.y;
-    const baby = this.add({ kind: a.kind, x, y, z, bornAt: now, adultAt: now + BABY_MS, owner: null, sitting: false, homeX: a.homeX, homeZ: a.homeZ, woolAt: 0, eggs: 0, lastEggAt: now }, now);
+    const baby = this.add({ kind: a.kind, x, y, z, bornAt: now, adultAt: now + BABY_MS, owner: null, sitting: false, homeX: a.homeX, homeZ: a.homeZ, woolAt: 0, eggs: 0, lastEggAt: now, name: null }, now);
     this.hooks.json({ t: 'mob', ev: 'love', id: ANIMAL_ID_BASE + baby.id, mob: baby.kind, x, y, z });
     this.hooks.log(`${this.defs.get(a.kind).name} 아기가 태어났어요`);
   }
@@ -482,13 +484,32 @@ export class AnimalSystem {
     return 'NOT_FOOD';
   }
 
+  /** 펫 이름 짓기 (#109): 내 펫에게만, 목록의 이름만 */
+  rename(token: string, mobId: number, name: string, names: { has(n: string): boolean }): string | null {
+    const a = this.find(mobId);
+    if (!a) return 'NO_MOB';
+    if (a.owner !== token) return 'NOT_MINE';
+    if (!names.has(name)) return 'BAD_NAME';
+    a.name = name;
+    a.dirty = true;
+    this.hooks.log(`${this.defs.get(a.kind).name}에게 '${name}' 이름을 지어 줬어요`);
+    return null;
+  }
+
+  /** 길들인 동물 목록 (이름·내 것인지) — 받는 사람 토큰 기준 */
+  petsFor(token: string): { id: number; name: string | null; mine: boolean }[] {
+    const out: { id: number; name: string | null; mine: boolean }[] = [];
+    for (const a of this.animals.values()) if (a.owner !== null) out.push({ id: ANIMAL_ID_BASE + a.id, name: a.name, mine: a.owner === token });
+    return out;
+  }
+
   /** 바뀐 동물 저장 (flush 때) */
   save(): void {
     if (!this.store) return;
     for (const a of this.animals.values()) {
       if (!a.dirty) continue;
       a.dirty = false;
-      this.store.updateAnimal({ id: a.id, kind: a.kind, x: a.x, y: a.y, z: a.z, bornAt: a.bornAt, adultAt: a.adultAt, owner: a.owner, sitting: a.sitting, homeX: a.homeX, homeZ: a.homeZ, woolAt: a.woolAt, eggs: a.eggs, lastEggAt: a.lastEggAt });
+      this.store.updateAnimal({ id: a.id, kind: a.kind, x: a.x, y: a.y, z: a.z, bornAt: a.bornAt, adultAt: a.adultAt, owner: a.owner, sitting: a.sitting, homeX: a.homeX, homeZ: a.homeZ, woolAt: a.woolAt, eggs: a.eggs, lastEggAt: a.lastEggAt, name: a.name });
     }
   }
 }

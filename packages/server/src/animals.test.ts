@@ -262,4 +262,33 @@ describe('마을 동물 (M8-1)', () => {
     const again = makeRoom(storage);
     expect(again.animals.animals.get(sheep.id)!.woolAt).toBe(sheep.woolAt);
   });
+
+  it('펫 이름 (#109): 주인만, 목록의 이름만. pets 는 받는 사람마다 mine 이 다르고 저장된다', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const b = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const rb = room.join('b'.repeat(32), '아들', 1, b.send)!;
+    const dog = [...room.animals.animals.values()].find((an) => an.kind === 'dog')!;
+    const id = ANIMAL_ID_BASE + dog.id;
+    expect(room.nameMob(ra.idx, id, '초코')).toBe('NOT_MINE'); // 아직 야생
+    dog.owner = 'a'.repeat(32);
+    dog.dirty = true;
+    expect(room.nameMob(rb.idx, id, '초코')).toBe('NOT_MINE');
+    expect(room.nameMob(ra.idx, id, '멍멍이123')).toBe('BAD_NAME');
+    a.clear();
+    b.clear();
+    expect(room.nameMob(ra.idx, id, '초코')).toBeNull();
+    const pa = a.json.find((m) => m.t === 'pets')!.list as { id: number; name: string | null; mine: boolean }[];
+    const pb = b.json.find((m) => m.t === 'pets')!.list as { id: number; name: string | null; mine: boolean }[];
+    expect(pa.find((p) => p.id === id)).toEqual({ id, name: '초코', mine: true });
+    expect(pb.find((p) => p.id === id)).toEqual({ id, name: '초코', mine: false });
+    room.flush(T0);
+    const again = makeRoom(storage);
+    expect(again.animals.animals.get(dog.id)!.name).toBe('초코');
+    const c = inbox();
+    again.join('a'.repeat(32), '아빠', 0, c.send);
+    expect((c.json.find((m) => m.t === 'pets')!.list as { name: string | null }[]).some((p) => p.name === '초코')).toBe(true);
+  });
 });

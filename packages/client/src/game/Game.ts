@@ -62,7 +62,7 @@ import {
   equipSlotOf,
   sanitizeEquipment,
 } from '@dragon-village/shared';
-import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, XP } from '@dragon-village/shared/data';
+import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { beam as beamSound, bell, ding, explosion as explosionSound, hit as hitSound, hurt as hurtSound, levelUp, lose, roar } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
@@ -82,6 +82,7 @@ import { Sky } from '../render/Sky';
 import { loadTextureAtlas } from '../render/textures';
 import { BagView, type Stations } from '../ui/bag';
 import { ChatView } from '../ui/chat';
+import { PetNamePicker } from '../ui/petNames';
 import { ChestView } from '../ui/chest';
 import { Hud, type HotbarSlot } from '../ui/hud';
 import { NestView } from '../ui/nest';
@@ -186,6 +187,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   // 탑승 (M6-4): 내가 탄 드래곤은 서버가 mount/dismount 로 알려 준다. 세계를 바꿔도(원정) 그대로 타고 간다
   /** 타고 있는 드래곤. 다시 들어올 때 서버가 준 것으로 시작 (#103 — 탑승 유지) */
   let myRiding: RidingInfo | null = welcome.spawn.riding ?? null;
+  /** 펫 목록 (#109): id → {이름, 내 것}. 조준하면 카드로 이름 짓기 */
+  const pets = new Map<number, { name: string | null; mine: boolean }>();
+  let aimedMobNow: number | null = null;
+  const petNamer = new PetNamePicker(root, PET_NAMES.names, (id, name) => net.sendNameMob(id, name));
   /** 내 장비 (M8-2): 서버가 준 것으로 시작, equip 이벤트로 바뀐다 */
   let myEquip: Equipment = sanitizeEquipment(COMBAT, welcome.spawn.equip ?? null);
   const mount = new MountView(scene);
@@ -658,6 +663,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       bag.refresh();
     },
     onArrow: (m) => mobView.shot(m.from, m.to), // 스켈레톤·약탈자 화살
+    onPets: (list) => {
+      pets.clear();
+      for (const p of list) pets.set(p.id, { name: p.name, mine: p.mine });
+      mobView.setPetNames(list);
+    },
     onShot: (m) => {
       const to = mobView.positionOf(m.id);
       if (!to) return;
@@ -1147,6 +1157,13 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   /** 포탈 안에 서 있으면 카드 */
   const updatePortalCard = () => {
     const p = ctx.player.pos;
+    // 내 펫을 보고 있으면 이름 짓기 카드 (#109)
+    if (aimedMobNow !== null && pets.get(aimedMobNow)?.mine && !petNamer.visible) {
+      const pet = pets.get(aimedMobNow)!;
+      const id = aimedMobNow;
+      hud.showAction(`🐾 ${pet.name ?? '내 강아지'}`, pet.name ? '빈손 탭 → 앉기/일어나기 · 이름을 바꿀 수도 있어요' : '이름을 지어 줘요 (목록에서 골라요) · 빈손 탭 → 앉기/일어나기', (pet.name ? '이름 바꾸기' : '이름 짓기') + KEY_HINT, () => petNamer.show(id, pet.name));
+      return;
+    }
     const inside = portalContains(ctx.portalPos, p.x, p.y, p.z);
     if (!inside) {
       // 내 드래곤을 보고 있으면 타기 카드 (M6-4) — 둥지 카드보다 먼저
@@ -1267,6 +1284,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     // 활·쇠뇌를 들었으면 멀리 있는 몹도 노린다 (M8-2)
     const bow = bowOf(COMBAT, hud.selectedItem);
     const aimedMob = mobView.count > 0 ? mobView.aim(player.eye, player.lookDir, bow ? bow.range : HIT_REACH + 1) : null;
+    aimedMobNow = aimedMob;
     interaction.suppressPrimary = aimedMob !== null;
     interaction.suppressSecondary = aimedMob !== null;
     if (aimedMob !== null && inp.primary && hitCooldown <= 0) {
@@ -1293,7 +1311,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const baby = (f.state & ANIMAL_FLAG.baby) !== 0;
         const tamed = (f.state & ANIMAL_FLAG.tamed) !== 0;
         const foods = def.food.map((i) => nameOf(i)).join('·');
-        const tip = tamed ? '내 강아지면 빈손으로 탭 → 앉기/일어나기' : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
+        const tip = tamed ? (pets.get(aimedMob)?.mine ? '빈손 탭 → 앉기/일어나기 · 카드에서 이름 짓기' : '남이 길들인 강아지예요') : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
         const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : '';
         hud.toast(`${def.name}${baby ? ' (아기)' : ''}${tamed ? ' 🐾' : ''} · ${tip}${extra}`, 3000);
       }

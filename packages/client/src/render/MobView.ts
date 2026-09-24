@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { PLAYER_SHADES, type SkinPalette, VOXEL, playerVoxels } from './playerModel';
 import { type Part, animalParts, animalVariant, collarVoxels } from './animalModel';
 import { type Voxel, buildVoxelGeometry } from './voxelGeometry';
+import { nameSprite } from '../net/RemotePlayers';
 
 const ZOMBIE: SkinPalette = { shirt: 0x2f6a7a, skin: 0x5d8b4a, hair: 0x2c3e2b, pants: 0x3a3560, shoes: 0x25211f };
 /** 우민 (M7-5): 잿빛 피부. 변명자는 짙은 남색 옷, 약탈자는 갈색 가죽, 소환사는 검은 로브 */
@@ -193,6 +194,8 @@ interface Figure {
   collar: THREE.Mesh | null;
   /** 깎인 양으로 그렸나 — 바뀌면 인형을 다시 만든다 */
   sheared: boolean;
+  /** 펫 이름표 (#109) */
+  nameLabel: { sprite: THREE.Sprite; text: string } | null;
   /** 동물 부위 (앞왼·앞오른·뒤왼·뒤오른 다리 / 닭은 둘) */
   legs: THREE.Mesh[];
   head: THREE.Mesh | null;
@@ -235,6 +238,29 @@ export class MobView {
 
   get count(): number {
     return this.figures.size;
+  }
+
+  /** 펫 이름 (#109): id → 이름. 이름표는 setState 에서 붙인다 */
+  private readonly petNames = new Map<number, string>();
+  setPetNames(list: readonly { id: number; name: string | null }[]): void {
+    this.petNames.clear();
+    for (const p of list) if (p.name) this.petNames.set(p.id, p.name);
+    for (const [id, f] of this.figures) this.applyName(id, f);
+  }
+  private applyName(id: number, f: Figure): void {
+    const name = this.petNames.get(id) ?? null;
+    if (f.nameLabel && f.nameLabel.text === name) return;
+    if (f.nameLabel) {
+      f.group.remove(f.nameLabel.sprite);
+      (f.nameLabel.sprite.material as THREE.SpriteMaterial).map?.dispose();
+      f.nameLabel.sprite.material.dispose();
+      f.nameLabel = null;
+    }
+    if (!name) return;
+    const sprite = nameSprite(`🐾 ${name}`, 'rgba(60,30,10,0.55)', 0.4);
+    sprite.position.set(0, mobSize(f.kind).h + 0.55, 0);
+    f.group.add(sprite);
+    f.nameLabel = { sprite, text: name };
   }
 
   /** 몹의 지금 자리 (가슴 높이). 없으면 null */
@@ -340,7 +366,7 @@ export class MobView {
     drawHpBar(bar.ctx, bar.tex, m.hp, maxHp);
     group.add(bar.sprite);
     this.group.add(group);
-    return { group, body, material, kind: m.kind, cur: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, target: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, state: m.state, hp: m.hp, flashUntil: 0, fuseT: 0, armL, armR, legL, legR, spiderLegs, walk: 0, bar, maxHp, shownHp: m.hp, baseScale, summonT: 0, animal: ANIMAL_NAMES.has(kindName), collar: null, nextHeart: 0, legs, head, tail, wings, babyHead, id: m.id, sheared: (m.state & ANIMAL_FLAG.sheared) !== 0 };
+    return { group, body, material, kind: m.kind, cur: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, target: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, state: m.state, hp: m.hp, flashUntil: 0, fuseT: 0, armL, armR, legL, legR, spiderLegs, walk: 0, bar, maxHp, shownHp: m.hp, baseScale, summonT: 0, animal: ANIMAL_NAMES.has(kindName), collar: null, nextHeart: 0, legs, head, tail, wings, babyHead, id: m.id, sheared: (m.state & ANIMAL_FLAG.sheared) !== 0, nameLabel: null };
   }
 
   /** 서버 상태 묶음 (20Hz). 목록에 없는 몹은 지운다 */
@@ -363,6 +389,7 @@ export class MobView {
         f.group.position.set(m.x, m.y, m.z);
         this.figures.set(m.id, f);
       }
+      if (f.animal && (this.petNames.has(m.id) || f.nameLabel)) this.applyName(m.id, f);
       f.target = { x: m.x, y: m.y, z: m.z, yaw: m.yaw };
       f.state = m.state;
       f.hp = m.hp;
