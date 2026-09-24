@@ -693,7 +693,10 @@ describe('상자 (#84)', () => {
     a.clear();
     expect(room.openChest(ra.idx, t.x, t.y, t.z, 2000)).toBeNull();
     const slots = json(a)!.slots.filter(Boolean);
-    expect(slots).toEqual([{ item: 'leather', count: 2 }]);
+    expect(slots).toEqual([
+      { item: 'leather', count: 2 },
+      { item: 'carrot', count: 2 }, // 돼지 먹이 (#110)
+    ]);
     expect(a.bin.find((m) => m.type === MSG.XpGained)).toMatchObject({ msg: { amount: 5, source: 2 } });
     // 두 번 열어도 또 생기지는 않는다
     a.clear();
@@ -971,7 +974,7 @@ describe('원정 보물 상자에서 꺼낸 것도 정산에 들어간다 (아�
     expect(countOf(room.players.get(ra.idx)!.inv, 'leather')).toBe(2);
     expect(room.gainedOf(ra.idx)).toEqual([{ id: 'leather', count: 2 }]);
     // 하나를 다시 상자에 넣으면 모은 것도 하나 줄어든다
-    expect(room.chestMove(ra.idx, t.x, t.y, t.z, 27, 1, 1, 2000)).toBeNull();
+    expect(room.chestMove(ra.idx, t.x, t.y, t.z, 27, 0, 1, 2000)).toBeNull(); // 0번 칸은 비었다 (1번은 당근)
     expect(room.gainedOf(ra.idx)).toEqual([{ id: 'leather', count: 1 }]);
     // 포탈 안으로 걸어 들어가 마을로 돌아오면 결과에 가죽이 보인다
     const e = room.expedition!;
