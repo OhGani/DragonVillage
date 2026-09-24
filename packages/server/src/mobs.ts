@@ -311,10 +311,11 @@ export class MobSystem {
   }
 
   /** 때리기. 오류: NO_MOB · TOO_FAR · COOLDOWN. 보스는 몸이 커서 한 칸 더 멀리서도 닿는다 */
-  hit(p: MobTarget, mobId: number, damage: number, now: number): string | null {
+  /** 때리기. reach = 닿는 거리 (기본 손·검, 활은 사거리) */
+  hit(p: MobTarget, mobId: number, damage: number, now: number, reach = HIT_REACH): string | null {
     const m = this.mobs.get(mobId);
     if (!m) return 'NO_MOB';
-    if (Math.hypot(m.x - p.x, m.y + mobSize(m.kind).h * 0.5 - p.eyeY, m.z - p.z) > HIT_REACH + 0.6 + (isBoss(m.kind) ? 1 : 0)) return 'TOO_FAR';
+    if (Math.hypot(m.x - p.x, m.y + mobSize(m.kind).h * 0.5 - p.eyeY, m.z - p.z) > reach + 0.6 + (isBoss(m.kind) ? 1 : 0)) return 'TOO_FAR';
     const last = this.lastHitAt.get(p.idx) ?? 0;
     if (now - last < HIT_COOLDOWN_MS) return 'COOLDOWN';
     this.lastHitAt.set(p.idx, now);

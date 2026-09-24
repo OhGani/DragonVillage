@@ -215,12 +215,17 @@ interface Burst {
 }
 
 const BURST_GEOM = new THREE.BoxGeometry(0.16, 0.16, 0.16);
+/** 화살 막대 (M8-2): 앞(−z → lookAt 방향)으로 긴 상자 */
+const SHOT_GEOM = new THREE.BoxGeometry(0.06, 0.06, 0.7);
+const SHOT_MAT = new THREE.MeshBasicMaterial({ color: 0xd9c8a0 });
 
 export class MobView {
   private readonly group = new THREE.Group();
   private readonly figures = new Map<number, Figure>();
   private readonly bursts: Burst[] = [];
   private readonly pops: Pop[] = [];
+  /** 날아가는 화살 (M8-2): 0.25초 동안 from → to */
+  private readonly shots: { mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; born: number }[] = [];
 
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
@@ -228,6 +233,23 @@ export class MobView {
 
   get count(): number {
     return this.figures.size;
+  }
+
+  /** 몹의 지금 자리 (가슴 높이). 없으면 null */
+  positionOf(id: number): { x: number; y: number; z: number } | null {
+    const f = this.figures.get(id);
+    return f ? { x: f.cur.x, y: f.cur.y + mobSize(f.kind).h * 0.5 * (f.state & ANIMAL_FLAG.baby ? 0.5 : 1), z: f.cur.z } : null;
+  }
+
+  /** 화살 연출 (M8-2): 눈에서 몹까지 가느다란 막대가 날아간다 */
+  shot(from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }): void {
+    const mesh = new THREE.Mesh(SHOT_GEOM, SHOT_MAT);
+    const f = new THREE.Vector3(from.x, from.y, from.z),
+      t = new THREE.Vector3(to.x, to.y, to.z);
+    mesh.position.copy(f);
+    mesh.lookAt(t);
+    this.group.add(mesh);
+    this.shots.push({ mesh, from: f, to: t, born: -1 });
   }
 
   /** 조준 안내용: 그 몹의 종류·상태 */
@@ -590,6 +612,17 @@ export class MobView {
         p.v.y -= 9.8 * dt;
       }
       (b.parts[0]!.m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 1 - age / 0.9);
+    }
+    for (let i = this.shots.length - 1; i >= 0; i--) {
+      const s = this.shots[i]!;
+      if (s.born < 0) s.born = now;
+      const k = (now - s.born) / 250;
+      if (k >= 1) {
+        this.group.remove(s.mesh);
+        this.shots.splice(i, 1);
+        continue;
+      }
+      s.mesh.position.lerpVectors(s.from, s.to, k);
     }
     for (let i = this.pops.length - 1; i >= 0; i--) {
       const p = this.pops[i]!;

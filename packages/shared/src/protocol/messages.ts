@@ -370,6 +370,8 @@ export interface PlayerInfo {
   riding?: RidingInfo | null;
   /** 손에 든 아이템 (#96). 없으면 null/생략 */
   held?: string | null;
+  /** 장비 (M8-2): 투구·흉갑·레깅스·부츠·방패 */
+  equip?: Record<string, string | null>;
 }
 export interface VillageInfo {
   code: string;
@@ -470,7 +472,12 @@ export type ClientJson =
   /** 건물 짓기 (창고 재료로) */
   | { t: 'build'; id: string }
   /** 몹 때리기 (M7-2) */
-  | { t: 'hit'; id: number; slot?: number };
+  | { t: 'hit'; id: number; slot?: number }
+  /** 장비 (M8-2): 가방 slot 의 갑옷·방패를 입는다 / part 를 벗어 가방으로 */
+  | { t: 'equip'; slot: number }
+  | { t: 'unequip'; part: string }
+  /** 활·쇠뇌로 노린 몹을 쏜다 (M8-2). slot = 활을 든 칸 */
+  | { t: 'shoot'; id: number; slot?: number };
 
 export type ServerJson =
   | { t: 'hello'; token: string; protocol: number }
@@ -530,6 +537,10 @@ export type ServerJson =
   | { t: 'mount'; idx: number; riding: RidingInfo }
   | { t: 'dismount'; idx: number }
   | { t: 'held'; idx: number; item: string | null }
+  /** 누가 장비를 바꿨다 (M8-2). 내 것이면 가방 장비 칸·방어 바를 고친다 */
+  | { t: 'equip'; idx: number; parts: Record<string, string | null>; defense: number; toughness: number }
+  /** 화살이 날아갔다 (M8-2): from(눈) → 몹 id 쪽으로 */
+  | { t: 'shot'; idx: number; id: number; from: { x: number; y: number; z: number } }
   /** 마을 방어전 상태 1Hz (M7-5). null = 끝났다/없다 */
   | { t: 'raid'; raid: RaidStateInfo | null }
   /** 누가 빔을 쐈다 (같은 세계 모두, 본인 포함) (M6-5). from 은 드래곤 입 근처, dir 은 단위 벡터 */

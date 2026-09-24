@@ -147,6 +147,10 @@ export interface NetEvents {
   onMount(idx: number, riding: RidingInfo): void;
   /** 누가 손에 든 것을 바꿨다 (#96) */
   onHeld(idx: number, item: string | null): void;
+  /** 누가 장비를 바꿨다 (M8-2) */
+  onEquip(m: { idx: number; parts: Record<string, string | null>; defense: number; toughness: number }): void;
+  /** 화살이 날아갔다 (M8-2) */
+  onShot(m: { idx: number; id: number; from: { x: number; y: number; z: number } }): void;
   /** 마을 방어전 상태 (M7-5). null = 끝/없음 */
   onRaid(raid: RaidStateInfo | null): void;
   /** 누가 빔을 쐈다 (M6-5) */
@@ -379,6 +383,17 @@ export class NetClient {
   sendUseMob(id: number, slot: number): void {
     this.sendJson({ t: 'useMob', id, slot });
   }
+  /** 활·쇠뇌로 쏘기 (M8-2) */
+  sendShoot(id: number, slot: number): void {
+    this.sendJson({ t: 'shoot', id, slot });
+  }
+  /** 장비 (M8-2) */
+  sendEquip(slot: number): void {
+    this.sendJson({ t: 'equip', slot });
+  }
+  sendUnequip(part: string): void {
+    this.sendJson({ t: 'unequip', part });
+  }
   /** 마을 창고 (M6-6) */
   sendOpenStorage(): void {
     this.sendJson({ t: 'openStorage' });
@@ -539,6 +554,8 @@ export class NetClient {
     else if (msg.t === 'mob') ev.onMobEvent(msg);
     else if (msg.t === 'dismount') ev.onDismount(msg.idx);
     else if (msg.t === 'held') ev.onHeld(msg.idx, msg.item);
+    else if (msg.t === 'equip') ev.onEquip(msg);
+    else if (msg.t === 'shot') ev.onShot(msg);
     else if (msg.t === 'raid') ev.onRaid(msg.raid);
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }

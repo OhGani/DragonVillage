@@ -69,8 +69,9 @@ function collect(into: Map<string, string>, list: unknown): void {
  * 이름표 만들기. recipes 는 결과물 하나짜리 레시피의 out 키 = 레시피 이름으로 본다.
  * potions 의 ingredients/modifiers 는 { id: { name } } 모양.
  */
-export function buildItemNames(sources: { recipes?: unknown; dragons?: unknown; potions?: unknown }): Map<string, string> {
+export function buildItemNames(sources: { recipes?: unknown; dragons?: unknown; potions?: unknown; extra?: ReadonlyMap<string, string> }): Map<string, string> {
   const names = new Map<string, string>();
+  if (sources.extra) for (const [id, name] of sources.extra) names.set(id, name); // 자동 생성 아이템 (전투 장비, M8-2)
   const rec = (sources.recipes as { recipes?: unknown } | undefined)?.recipes;
   if (Array.isArray(rec)) {
     for (const r of rec) {

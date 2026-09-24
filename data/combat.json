@@ -1,0 +1,135 @@
+{
+  "_comment": "전투 장비 — 갑옷·방패·활·화살 (아빠 2026-09-24, 마인크래프트 값. 나무위키 '마인크래프트/아이템/전투'). 갑옷 조각 id 는 '등급_부위' (leather_helmet, iron_chestplate…)로 자동으로 만들어지고 제작법(recipes)도 여기서 자동으로 나온다 — recipes.json 에 적지 않는다. defense = 방어(흉갑 반 칸 = 1). toughness = 방어 강도(다이아몬드 2·네더라이트 3, 큰 피해를 더 잘 막는다). knockbackResist = 밀려남 줄이기(네더라이트만, 아직 안 씀). durability = 내구도(아직 안 닳는다, 도구와 함께 나중에). pieces = 그 부위를 만들 때 드는 재료 수(투구 5·흉갑 8·레깅스 7·부츠 4). station = 어디서 만드나(가죽은 제작대, 금속·다이아몬드는 대장간 — 검과 같은 규칙 #102). upgradeFrom = 네더라이트는 다이아몬드 조각 + 네더라이트 1 (대장장이 형판은 생략). 사슬 갑옷은 마인크래프트에도 제작법이 없어 v1.1(거래·드롭). 피해 계산식은 shared/rules/combat.ts reduceDamage — 마인크래프트 그대로.",
+  "armor": {
+    "slots": {
+      "helmet": { "name": "투구", "pieces": 5 },
+      "chestplate": { "name": "흉갑", "pieces": 8 },
+      "leggings": { "name": "레깅스", "pieces": 7 },
+      "boots": { "name": "부츠", "pieces": 4 }
+    },
+    "tiers": [
+      {
+        "id": "leather",
+        "name": "가죽",
+        "material": "leather",
+        "station": "crafting_table",
+        "defense": { "helmet": 1, "chestplate": 3, "leggings": 2, "boots": 1 },
+        "toughness": 0,
+        "knockbackResist": 0,
+        "durability": { "helmet": 55, "chestplate": 80, "leggings": 75, "boots": 65 },
+        "pieceNames": { "helmet": "가죽 모자", "chestplate": "가죽 조끼", "leggings": "가죽 바지", "boots": "가죽 장화" },
+        "_note": "가죽은 소·원정 보물 상자에서. 풀세트 방어 7 (28%)"
+      },
+      {
+        "id": "iron",
+        "name": "철",
+        "material": "iron_ingot",
+        "station": "forge",
+        "defense": { "helmet": 2, "chestplate": 6, "leggings": 5, "boots": 2 },
+        "toughness": 0,
+        "knockbackResist": 0,
+        "durability": { "helmet": 165, "chestplate": 240, "leggings": 225, "boots": 195 },
+        "_note": "풀세트 방어 15 (60%). 철 주괴 24개"
+      },
+      {
+        "id": "golden",
+        "name": "황금",
+        "material": "gold_ingot",
+        "station": "forge",
+        "defense": { "helmet": 1, "chestplate": 5, "leggings": 3, "boots": 1 },
+        "toughness": 0,
+        "knockbackResist": 0,
+        "durability": { "helmet": 77, "chestplate": 112, "leggings": 105, "boots": 91 },
+        "_note": "풀세트 방어 11 (44%). 예쁘지만 철보다 약하다"
+      },
+      {
+        "id": "diamond",
+        "name": "다이아몬드",
+        "material": "diamond",
+        "station": "forge",
+        "defense": { "helmet": 3, "chestplate": 8, "leggings": 6, "boots": 3 },
+        "toughness": 2,
+        "knockbackResist": 0,
+        "durability": { "helmet": 363, "chestplate": 528, "leggings": 495, "boots": 429 },
+        "_note": "풀세트 방어 20 (80%) + 강도 8. 다이아몬드 24개"
+      },
+      {
+        "id": "netherite",
+        "name": "네더라이트",
+        "material": "netherite",
+        "station": "forge",
+        "upgradeFrom": "diamond",
+        "defense": { "helmet": 3, "chestplate": 8, "leggings": 6, "boots": 3 },
+        "toughness": 3,
+        "knockbackResist": 0.1,
+        "durability": { "helmet": 407, "chestplate": 592, "leggings": 555, "boots": 481 },
+        "_note": "다이아몬드 조각 1 + 네더라이트 1. 네더라이트는 네더 원정지(v1.1)라 지금은 못 만든다"
+      }
+    ],
+    "extra": [
+      {
+        "id": "turtle_helmet",
+        "name": "거북 등딱지",
+        "slot": "helmet",
+        "defense": 2,
+        "toughness": 0,
+        "station": "crafting_table",
+        "in": { "scute": 5 },
+        "_note": "철 투구와 같은 방어. 물속 호흡은 아직 없음"
+      }
+    ]
+  },
+  "shield": {
+    "id": "shield",
+    "name": "방패",
+    "station": "crafting_table",
+    "in": { "planks": 6, "iron_ingot": 1 },
+    "meleeBlock": 0.5,
+    "arrowBlock": 1.0,
+    "ignoredBy": ["vindicator"],
+    "_note": "방패 칸에 끼우면(아빠 결정 #107) 몹의 근접·폭발 피해 절반, 약탈자 화살은 전부 막는다. 변명자 도끼는 방패를 무시한다(마인크래프트: 도끼가 방패를 무력화). 마인크래프트처럼 '들고 있는 동안만 막기' 는 폰 조작이 어려워 안 한다"
+  },
+  "bows": [
+    {
+      "id": "bow",
+      "name": "활",
+      "station": "crafting_table",
+      "in": { "stick": 3, "string": 3 },
+      "damage": 6,
+      "cooldownMs": 1000,
+      "range": 24,
+      "_note": "몹을 노리고 탭하면 화살 1개를 쓴다. 24칸까지. 마인크래프트 6~11 중 기본 6"
+    },
+    {
+      "id": "crossbow",
+      "name": "쇠뇌",
+      "station": "forge",
+      "in": { "stick": 3, "string": 2, "iron_ingot": 1 },
+      "damage": 9,
+      "cooldownMs": 1250,
+      "range": 28,
+      "_note": "철사 덫 갈고리는 아직 없어 뺐다. 활보다 세고 느리다"
+    }
+  ],
+  "arrow": {
+    "id": "arrow",
+    "name": "화살",
+    "station": "inventory",
+    "in": { "flint": 1, "stick": 1, "feather": 1 },
+    "out": 4,
+    "_note": "부싯돌(자갈)·막대기·깃털(닭). 스켈레톤도 떨어뜨린다"
+  },
+  "later": {
+    "_comment": "만들지 않은 것과 이유 — 버전 배치",
+    "chainmail": "사슬 갑옷: 마인크래프트에도 제작법 없음 → v1.1 주민 거래·드롭",
+    "spear": "창: 돌진 피해·사거리 2~4.5 → v1.1",
+    "trident": "삼지창: 드라운드 드롭·던지기 → v1.1 (바다 원정지)",
+    "mace": "철퇴: 무거운 코어·브리즈 막대기(시련의 방) → v1.2",
+    "enchantments": "마법 부여(보호·날카로움·힘·무한…): v1.1 (CONTENT.md 검 메모)",
+    "horse_armor": "말 갑옷: 말과 함께 v1.1",
+    "wolf_armor": "늑대 갑옷: 아르마딜로 인갑 → v1.2",
+    "totem": "불사의 토템: bosses.json 소환사 드롭 그대로, 효과는 v1.1",
+    "wind_charge": "돌풍구: 브리즈 → v1.2",
+    "tipped_arrows": "물약 화살·분광 화살: v1.1"
+  }
+}

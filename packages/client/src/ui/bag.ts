@@ -36,7 +36,14 @@ export interface BagDeps {
   onCraft(recipe: string): void;
   onBrew(bottles: number[], ingredient: number): void;
   onClose(): void;
+  /** 장비 (M8-2): 지금 입은 것, 아이템이 들어가는 칸, 방어 합, 입기/벗기 요청 */
+  equipment(): Readonly<Record<string, string | null>>;
+  equipSlotOf(item: string): string | null;
+  armorDefense(): number;
+  onEquip(slot: number): void;
+  onUnequip(part: string): void;
 }
+const EQUIP_LABEL: Record<string, string> = { helmet: '투구', chestplate: '흉갑', leggings: '레깅스', boots: '부츠', shield: '방패' };
 
 /** 근처에 있는 작업대 블록 */
 export type Stations = { crafting_table?: boolean; furnace?: boolean; brewing_stand?: boolean; forge?: boolean };
@@ -115,6 +122,10 @@ export class BagView {
 
   setInventory(inv: Inventory): void {
     this.inv = inv;
+    if (this.visible) this.renderAll();
+  }
+  /** 장비가 바뀌었다 (M8-2) — 열려 있으면 다시 그린다 */
+  refresh(): void {
     if (this.visible) this.renderAll();
   }
   /** 근처에 있는 작업대 (제작대·화로·양조기) — 탭이 켜지고 꺼진다 */
@@ -324,7 +335,46 @@ export class BagView {
         this.renderSide();
       });
       this.side.appendChild(drop);
+      const part = this.deps.equipSlotOf(s.item);
+      if (part) {
+        const wear = this.button(part === 'shield' ? '🛡️ 방패 들기' : `🛡️ 입기 (${EQUIP_LABEL[part]})`, 'big-btn small', () => {
+          this.deps.onEquip(this.selected);
+          this.selected = -1;
+          this.renderGrid();
+          this.renderSide();
+        });
+        this.side.appendChild(wear);
+      }
     }
+    // 장비 칸 (M8-2): 투구·흉갑·레깅스·부츠·방패 + 방어 합
+    const eq = this.deps.equipment();
+    const box = document.createElement('div');
+    box.className = 'equip-box';
+    const title = document.createElement('div');
+    title.className = 'bag-title';
+    const def = this.deps.armorDefense();
+    title.textContent = `🛡️ 장비${def > 0 ? ` · 방어 ${def}` : ''}`;
+    box.appendChild(title);
+    for (const part of ['helmet', 'chestplate', 'leggings', 'boots', 'shield']) {
+      const row = document.createElement('div');
+      row.className = 'equip-row';
+      const label = document.createElement('span');
+      label.className = 'equip-label';
+      label.textContent = EQUIP_LABEL[part] ?? part;
+      row.appendChild(label);
+      const item = eq[part] ?? null;
+      if (item) {
+        const icon = this.deps.icon(item, 24);
+        if (icon) row.appendChild(icon);
+      }
+      const name = document.createElement('span');
+      name.className = 'equip-name' + (item ? '' : ' none');
+      name.textContent = item ? this.deps.nameOf(item) : '비었어요';
+      row.appendChild(name);
+      if (item) row.appendChild(this.button('벗기', 'plain-btn', () => this.deps.onUnequip(part)));
+      box.appendChild(row);
+    }
+    this.side.appendChild(box);
     const near = (['crafting_table', 'furnace', 'brewing_stand', 'forge'] as const).filter((k) => this.stations[k]);
     const tip = document.createElement('div');
     tip.className = 'bag-tip';

@@ -363,11 +363,11 @@ export class AnimalSystem {
   }
 
   /** 때리기. 길들인 동물은 못 때린다. 오류: NO_MOB · PET · TOO_FAR · COOLDOWN */
-  hit(p: AnimalViewer, mobId: number, damage: number, now: number): string | null {
+  hit(p: AnimalViewer, mobId: number, damage: number, now: number, reach = HIT_REACH): string | null {
     const a = this.find(mobId);
     if (!a) return 'NO_MOB';
     if (a.owner !== null) return 'PET';
-    if (Math.hypot(a.x - p.x, a.y + mobSize(a.kind).h * 0.5 - p.eyeY, a.z - p.z) > HIT_REACH + 0.6) return 'TOO_FAR';
+    if (Math.hypot(a.x - p.x, a.y + mobSize(a.kind).h * 0.5 - p.eyeY, a.z - p.z) > reach + 0.6) return 'TOO_FAR';
     const last = this.lastHitAt.get(p.idx) ?? 0;
     if (now - last < HIT_COOLDOWN_MS) return 'COOLDOWN';
     this.lastHitAt.set(p.idx, now);

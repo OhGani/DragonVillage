@@ -51,6 +51,7 @@ export class Hud {
   /** 빔 버튼 (M6-5). 타고 있을 때만 */
   readonly skillBtn: HTMLButtonElement;
   private readonly heartsEl: HTMLElement;
+  private readonly armorEl: HTMLElement;
   private readonly vignette: HTMLElement;
   private vignetteTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly skillBox: HTMLElement;
@@ -119,6 +120,7 @@ export class Hud {
         <circle class="gauge-fg" cx="20" cy="20" r="${GAUGE_R}"></circle>
       </svg>
       <div class="slot-name"></div>
+      <div class="armor" aria-label="방어" hidden></div>
       <div class="hearts" aria-label="체력" hidden></div>
       <div class="raid-bar" hidden></div>
       <div class="boss-bar" hidden><div class="boss-name"></div><div class="boss-track"><div class="boss-fill"></div></div><div class="boss-text"></div></div>
@@ -226,6 +228,7 @@ export class Hud {
     this.gaugeFg.style.strokeDashoffset = `${GAUGE_C}`;
     this.hotbar = q('.hotbar');
     this.heartsEl = q('.hearts');
+    this.armorEl = q('.armor');
     this.vignette = q('.hurt-vignette');
     this.xpBar = q('.xp-bar');
     this.xpFill = q('.xp-fill');
@@ -596,6 +599,21 @@ export class Hud {
     }
     this.heartsEl.innerHTML = html;
     this.heartsEl.classList.toggle('low', hp <= 6);
+  }
+
+  /** 방어 바 (M8-2): 하트 위에 흉갑 10개, 방어 2마다 한 칸. 0 이면 숨김 */
+  setArmor(defense: number): void {
+    if (defense <= 0) {
+      this.armorEl.hidden = true;
+      return;
+    }
+    this.armorEl.hidden = false;
+    let html = '';
+    for (let i = 0; i < 10; i++) {
+      const v = Math.max(0, Math.min(2, defense - i * 2));
+      html += `<span class="armor-pt ${v === 2 ? 'full' : v === 1 ? 'half' : 'empty'}"></span>`;
+    }
+    this.armorEl.innerHTML = html;
   }
 
   /** 맞았다: 화면 가장자리가 잠깐 붉어진다 */

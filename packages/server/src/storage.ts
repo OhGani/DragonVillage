@@ -119,6 +119,8 @@ export interface PlayerRow {
   xpTotal: number;
   /** 나갈 때 타고 있던 드래곤 (#103). 다시 들어오면 그대로 탄다 */
   ridingDragon: number | null;
+  /** 장비 JSON (M8-2): {helmet, chestplate, leggings, boots, shield} */
+  equipment: string | null;
 }
 
 const SCHEMA = `
@@ -193,6 +195,7 @@ export class Storage {
     this.ensureColumn('time_ledger', 'no_play', 'INTEGER NOT NULL DEFAULT 0');
     this.ensureColumn('players', 'xp_total', 'INTEGER NOT NULL DEFAULT 0');
     this.ensureColumn('players', 'riding_dragon', 'INTEGER');
+    this.ensureColumn('players', 'equipment', 'TEXT');
     this.stmts = {
       getVillage: this.db.prepare('SELECT code, name, seed, gen_version AS genVersion, created_at AS createdAt FROM villages WHERE code = ?'),
       listVillages: this.db.prepare('SELECT code, name, seed, gen_version AS genVersion, created_at AS createdAt FROM villages ORDER BY created_at'),
@@ -204,7 +207,7 @@ export class Storage {
       ),
       countChunks: this.db.prepare('SELECT COUNT(*) AS n FROM chunk_diffs WHERE village = ?'),
       getPlayer: this.db.prepare(
-        'SELECT token, village, nick, color, x, y, z, yaw, pitch, last_seen AS lastSeen, xp_total AS xpTotal, riding_dragon AS ridingDragon FROM players WHERE token = ?',
+        'SELECT token, village, nick, color, x, y, z, yaw, pitch, last_seen AS lastSeen, xp_total AS xpTotal, riding_dragon AS ridingDragon, equipment FROM players WHERE token = ?',
       ),
       addItem: this.db.prepare(
         'INSERT INTO storage(village, item, count) VALUES (?, ?, ?) ON CONFLICT(village, item) DO UPDATE SET count = count + excluded.count',
@@ -295,9 +298,9 @@ export class Storage {
         'INSERT INTO inventories(token, village, json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(token) DO UPDATE SET village = excluded.village, json = excluded.json, updated_at = excluded.updated_at',
       ),
       upsertPlayer: this.db.prepare(
-        `INSERT INTO players(token, village, nick, color, x, y, z, yaw, pitch, last_seen, xp_total, riding_dragon)
-         VALUES (@token, @village, @nick, @color, @x, @y, @z, @yaw, @pitch, @lastSeen, @xpTotal, @ridingDragon)
-         ON CONFLICT(token) DO UPDATE SET village = excluded.village, nick = excluded.nick, color = excluded.color, riding_dragon = excluded.riding_dragon,
+        `INSERT INTO players(token, village, nick, color, x, y, z, yaw, pitch, last_seen, xp_total, riding_dragon, equipment)
+         VALUES (@token, @village, @nick, @color, @x, @y, @z, @yaw, @pitch, @lastSeen, @xpTotal, @ridingDragon, @equipment)
+         ON CONFLICT(token) DO UPDATE SET village = excluded.village, nick = excluded.nick, color = excluded.color, riding_dragon = excluded.riding_dragon, equipment = excluded.equipment,
            x = excluded.x, y = excluded.y, z = excluded.z, yaw = excluded.yaw, pitch = excluded.pitch, last_seen = excluded.last_seen,
            xp_total = excluded.xp_total`,
       ),

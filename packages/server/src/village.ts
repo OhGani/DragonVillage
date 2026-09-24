@@ -141,10 +141,17 @@ import {
   RAID_AGGRO_R,
   WEEK_MS,
   attackDamageOf,
+  type Equipment,
+  type EquipSlot,
+  armorTotals,
+  bowOf,
+  equipSlotOf,
+  finalDamage,
+  sanitizeEquipment,
   ANIMAL_ID_BASE,
   encodeMobsState,
 } from '@dragon-village/shared';
-import { BUILDINGS, DRAGONS, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
+import { BUILDINGS, COMBAT, DRAGONS, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import { RAID_GOAL, RaidSystem } from './raid';
@@ -195,6 +202,10 @@ export interface RoomPlayer {
   riding: RidingInfo | null;
   /** 손에 든 아이템 (#96, 다른 사람에게 보이기). 클라가 알려 주고, 서버는 가방에 있는지만 본다 */
   held: string | null;
+  /** 장비 (M8-2): 투구·흉갑·레깅스·부츠·방패. 서버가 진실, players.equipment 에 저장 */
+  equip: Equipment;
+  /** 다음에 활을 쏠 수 있는 시각 */
+  bowReadyAt: number;
   /** 탄 드래곤의 기력 (M6-5). 탈 때 가득 찬다. 사이는 회복 공식으로 채운다 */
   stamina: Stamina;
   /** 다음에 빔을 쏠 수 있는 시각 */
@@ -1070,7 +1081,7 @@ export class VillageRoom {
   }
 
   private toInfo(p: RoomPlayer): PlayerInfo {
-    return { idx: p.idx, nick: p.nick, color: p.color, x: p.pos.x, y: p.pos.y, z: p.pos.z, yaw: p.pos.yaw, pitch: p.pos.pitch, riding: p.riding, held: p.held };
+    return { idx: p.idx, nick: p.nick, color: p.color, x: p.pos.x, y: p.pos.y, z: p.pos.z, yaw: p.pos.yaw, pitch: p.pos.pitch, riding: p.riding, held: p.held, equip: p.equip };
   }
 
   /** 손에 든 것 (#96): 가방에 없는 아이템이면 빈손으로 본다. 같은 세계 사람들에게 알린다 */
@@ -1125,7 +1136,7 @@ export class VillageRoom {
         gifts.push({ id: g.id, name: g.name, message: g.message });
       }
     }
-    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0 };
+    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0, equip: parseEquipment(saved?.equipment ?? null), bowReadyAt: 0 };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     // 타고 있다가 나갔으면 다시 탄다 (#103, 아빠 요청). 드래곤이 없어졌거나 남이 타고 있으면 광장에서 (공중에 남지 않게)
@@ -1394,6 +1405,78 @@ export class VillageRoom {
     return sys.hit(me, mobId, attackDamageOf(tool), now);
   }
 
+  /** 활·쇠뇌로 노린 몹을 쏜다 (M8-2): 든 칸이 활이고 화살이 있어야. 사거리·피해·간격은 combat.json. 화살 1개 소모, 모두에게 'shot' */
+  shoot(idx: number, mobId: number, slot: number | undefined, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    const held = slot !== undefined && slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
+    const bow = bowOf(COMBAT, held);
+    if (!bow) return 'NO_BOW';
+    if (countOf(p.inv, COMBAT.arrow.id) < 1) return 'NO_ARROW';
+    if (now < p.bowReadyAt) return 'COOLDOWN';
+    const me = { idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE };
+    let err: string | null;
+    if (p.world === 'village' && mobId >= ANIMAL_ID_BASE) err = this.animals.hit({ ...me, token: p.token, held }, mobId, bow.damage, now, bow.range);
+    else {
+      const sys = p.world === 'expedition' ? this.mobSys : (this.raid?.mobs ?? null);
+      err = sys ? sys.hit(me, mobId, bow.damage, now, bow.range) : 'NO_MOB';
+    }
+    if (err) return err;
+    const changed = new Set<number>();
+    take(p.inv, COMBAT.arrow.id, 1, changed);
+    this.sendInv(p, changed);
+    p.bowReadyAt = now + bow.cooldownMs;
+    this.broadcastJson({ t: 'shot', idx, id: mobId, from: { x: p.pos.x, y: me.eyeY, z: p.pos.z } }, -1, p.world);
+    return null;
+  }
+
+  /** 가방 slot 의 갑옷·방패를 입는다 (M8-2). 그 자리에 있던 것은 가방으로 */
+  equip(idx: number, slot: number): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (!Number.isInteger(slot) || slot < 0 || slot >= p.inv.length) return 'BAD_SLOT';
+    const s = p.inv[slot];
+    if (!s) return 'EMPTY';
+    const part = equipSlotOf(COMBAT, s.item);
+    if (!part) return 'NOT_EQUIPPABLE';
+    const old = p.equip[part];
+    if (old && s.count > 1 && !fits(p.inv, [{ item: old, count: 1 }])) return 'BAG_FULL';
+    const changed = new Set<number>();
+    takeFromSlot(p.inv, slot, 1, changed);
+    p.equip[part] = s.item;
+    if (old) {
+      if (!p.inv[slot]) {
+        p.inv[slot] = { item: old, count: 1 };
+        changed.add(slot);
+      } else give(p.inv, old, 1, changed);
+    }
+    this.sendInv(p, changed);
+    this.afterEquip(p);
+    return null;
+  }
+
+  /** part 를 벗어 가방으로 (M8-2) */
+  unequip(idx: number, part: EquipSlot): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    const old = p.equip[part];
+    if (!old) return 'NOTHING';
+    if (!fits(p.inv, [{ item: old, count: 1 }])) return 'BAG_FULL';
+    const changed = new Set<number>();
+    give(p.inv, old, 1, changed);
+    p.equip[part] = null;
+    this.sendInv(p, changed);
+    this.afterEquip(p);
+    return null;
+  }
+
+  private afterEquip(p: RoomPlayer): void {
+    const t = armorTotals(COMBAT, p.equip);
+    this.broadcastJson({ t: 'equip', idx: p.idx, parts: p.equip, defense: t.defense, toughness: t.toughness }, -1, p.world);
+    this.savePlayer(p);
+    this.storage?.saveInventory(p.token, this.info.code, p.inv);
+  }
+
   /** 세계에 떨어진 경험치 구슬. 원정 구슬은 섬과 함께 사라지고, 마을 구슬은 서버가 켜져 있는 동안 남는다 */
   private readonly orbs = new Map<number, OrbInfo & { world: WorldKind }>();
   private nextOrbId = 1;
@@ -1406,10 +1489,14 @@ export class VillageRoom {
     return this.players.get(idx)?.hp ?? 0;
   }
 
-  /** 다친다. 0 이 되면 죽는다 */
+  /** 다친다. 0 이 되면 죽는다. 방패·갑옷이 먼저 깎는다 (M8-2) — 낙하·독은 그대로 */
   hurt(p: RoomPlayer, amount: number, cause: string, now = Date.now()): void {
-    const n = Math.floor(amount);
-    if (n <= 0 || p.hp <= 0) return;
+    if (p.hp <= 0 || amount <= 0) return;
+    const n = finalDamage(COMBAT, p.equip, amount, cause);
+    if (n <= 0) {
+      this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'blocked' }); // 방패가 전부 막았다
+      return;
+    }
     p.hp = Math.max(0, p.hp - n);
     p.lastHurtAt = now;
     this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause });
@@ -2025,6 +2112,7 @@ export class VillageRoom {
       nick: p.nick,
       color: p.color,
       ridingDragon: p.riding?.id ?? null,
+      equipment: JSON.stringify(p.equip),
       x: p.pos.x,
       y: p.pos.y,
       z: p.pos.z,
@@ -2083,3 +2171,13 @@ export class VillageRoom {
 }
 
 export { BY_SERVER };
+
+/** players.equipment JSON → 검사한 장비 (모르는 것은 비움) */
+function parseEquipment(json: string | null): Equipment {
+  if (!json) return sanitizeEquipment(COMBAT, null);
+  try {
+    return sanitizeEquipment(COMBAT, JSON.parse(json));
+  } catch {
+    return sanitizeEquipment(COMBAT, null);
+  }
+}

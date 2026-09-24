@@ -25,6 +25,8 @@ const MATERIAL_COLOR: Record<string, string> = {
   gold: '#f2c94c',
   diamond: '#5fd8e8',
   netherite: '#4a3f4a',
+  leather: '#8a5a3c',
+  turtle: '#4f8a3a',
 };
 
 /** 검 16×16 픽셀 그림 (마인크래프트 검처럼 왼쪽 아래 손잡이 → 오른쪽 위 칼날). b 칼날 밝음 · B 칼날 어두움 · g 날밑 · h 손잡이 · k 손잡이 끝 */
@@ -54,6 +56,28 @@ function shadeHex(hex: string, k: number): string {
 }
 
 /** 검: 픽셀 하나하나 칸으로 그린다 (손에 들면 이 픽셀이 그대로 입체가 된다) */
+/** 갑옷·방패·활 16×16 그림 (M8-2). m 재료색 · M 어두운 재료 · l 밝은 재료, 나머지 글자는 palette */
+const HELMET = ['................', '................', '.....llllll.....', '....lmmmmmml....', '...lmmmmmmmml...', '...mmmmmmmmmm...', '...mmmmmmmmmm...', '...MmmmmmmmmM...', '...MM......MM...', '...MM......MM...', '...MMM....MMM...', '................', '................', '................', '................', '................'];
+const CHESTPLATE = ['................', '..lll......lll..', '..lmml....lmml..', '..lmmm....mmml..', '..mmmmmmmmmmmm..', '..mmmmmmmmmmmm..', '..MmmmmmmmmmmM..', '...mmmmmmmmmm...', '...mmmmmmmmmm...', '...mmmmmmmmmm...', '...MmmmmmmmmM...', '...MMmmmmmmMM...', '...MMMMMMMMMM...', '................', '................', '................'];
+const LEGGINGS = ['................', '...llllllllll...', '...mmmmmmmmmm...', '...mmmmmmmmmm...', '...mmmm..mmmm...', '...mmmm..mmmm...', '...mmm....mmm...', '...mmm....mmm...', '...mmm....mmm...', '...MmM....MmM...', '...MmM....MmM...', '...MMM....MMM...', '................', '................', '................', '................'];
+const BOOTS = ['................', '................', '................', '................', '...lll....lll...', '...mmm....mmm...', '...mmm....mmm...', '...mmm....mmm...', '...mmmm...mmmm..', '..mmmmm..mmmmm..', '..MMMMM..MMMMM..', '................', '................', '................', '................', '................'];
+const SHIELD = ['....iiiiiiii....', '...iwwwwwwwwi...', '...iwwwWWwwwi...', '...iwwWiiWwwi...', '...iwwWiiWwwi...', '...iwwwWWwwwi...', '...iwwwwwwwwi...', '...iwwwwwwwwi...', '....iwwwwwwi....', '....iwwwwwwi....', '.....iwwwwi.....', '......iwwi......', '.......ii.......', '................', '................', '................'];
+const BOW = ['......hhh.......', '.....h....s.....', '....h.....s.....', '...h......s.....', '...h......s.....', '..h.......s.....', '..h.......s.....', '..h.......s.....', '..h.......s.....', '...h......s.....', '...h......s.....', '....h.....s.....', '.....h....s.....', '......hhh.......', '................', '................'];
+const CROSSBOW = ['..h..........h..', '..h....ii....h..', '...h..iwwi..h...', '....hiwwwwih....', '.....sssssss....', '......wwww......', '......wwww......', '......wwww......', '......wwww......', '......wwww......', '......WWWW......', '................', '................', '................', '................', '................'];
+const ARROW = ['..............f.', '.............ff.', '............fff.', '...........hf...', '..........h.....', '.........h......', '........h.......', '.......h........', '......h.........', '.....h..........', '...eh...........', '..eeh...........', '.eee............', 'ee..............', '................', '................'];
+function drawPixels(ctx: CanvasRenderingContext2D, rows: readonly string[], u: number, palette: Record<string, string>): void {
+  for (let y = 0; y < 16; y++)
+    for (let x = 0; x < 16; x++) {
+      const ch = rows[y]![x]!;
+      if (ch === '.') continue;
+      ctx.fillStyle = palette[ch] ?? '#ff00ff';
+      ctx.fillRect(x * u, y * u, u + 0.5, u + 0.5);
+    }
+}
+function armorPalette(material: string): Record<string, string> {
+  return { m: material, M: shadeHex(material, 0.72), l: shadeHex(material, 1.22) };
+}
+
 function drawSword(ctx: CanvasRenderingContext2D, material: string, u: number): void {
   const color: Record<string, string> = { b: shadeHex(material, 1.18), B: shadeHex(material, 0.82), g: shadeHex(material, 0.7), h: '#6b4a2b', k: '#3d2a17' };
   for (let y = 0; y < 16; y++)
@@ -101,6 +125,29 @@ function drawItem(ctx: CanvasRenderingContext2D, id: string, name: string, s: nu
 
   if (id.endsWith('_sword')) {
     drawSword(ctx, materialOf(id), u);
+    return;
+  }
+  // 전투 장비 (M8-2)
+  const armorKind = /_(helmet|chestplate|leggings|boots)$/.exec(id)?.[1];
+  if (armorKind) {
+    const rows = armorKind === 'helmet' ? HELMET : armorKind === 'chestplate' ? CHESTPLATE : armorKind === 'leggings' ? LEGGINGS : BOOTS;
+    drawPixels(ctx, rows, u, armorPalette(materialOf(id)));
+    return;
+  }
+  if (id === 'shield') {
+    drawPixels(ctx, SHIELD, u, { i: '#d8d8d8', w: '#a0703a', W: '#5a3a1b' });
+    return;
+  }
+  if (id === 'bow') {
+    drawPixels(ctx, BOW, u, { h: '#8a5a2b', s: '#e8e8e8' });
+    return;
+  }
+  if (id === 'crossbow') {
+    drawPixels(ctx, CROSSBOW, u, { h: '#8a5a2b', s: '#e8e8e8', i: '#d8d8d8', w: '#a0703a', W: '#5a3a1b' });
+    return;
+  }
+  if (id === 'arrow') {
+    drawPixels(ctx, ARROW, u, { f: '#9a9a9a', h: '#8a5a2b', e: '#f2f2f2' });
     return;
   }
   const egg = dragonOfEgg(id);

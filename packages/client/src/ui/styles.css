@@ -1928,3 +1928,69 @@ body {
 .compass-home[hidden] {
   display: none;
 }
+
+/* ---------- 방어 바 (M8-2): 하트 위 ---------- */
+.armor {
+  position: absolute;
+  left: 50%;
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 98px);
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  pointer-events: none;
+}
+.armor[hidden] {
+  display: none;
+}
+.armor-pt {
+  width: 18px;
+  height: 16px;
+  background: rgba(20, 20, 20, 0.55);
+  clip-path: polygon(22% 0, 78% 0, 100% 28%, 88% 100%, 12% 100%, 0 28%);
+  filter: drop-shadow(1px 1px 0 #000);
+}
+.armor-pt.full {
+  background: #dfe6ea;
+}
+.armor-pt.half {
+  background: linear-gradient(90deg, #dfe6ea 50%, rgba(20, 20, 20, 0.55) 50%);
+}
+/* 가방 장비 칸 (M8-2) */
+.equip-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+.equip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  min-height: 28px;
+}
+.equip-row .equip-label {
+  width: 42px;
+  opacity: 0.75;
+}
+.equip-row .equip-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.equip-row .equip-name.none {
+  opacity: 0.45;
+}
+.equip-row .plain-btn {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 3px 12px;
+  font-size: 13px;
+}
+.equip-row canvas {
+  flex: 0 0 auto;
+}

@@ -56,8 +56,13 @@ import {
   type RaidStateInfo,
   ANIMAL_FLAG,
   ANIMAL_ID_BASE,
+  type Equipment,
+  armorTotals,
+  bowOf,
+  equipSlotOf,
+  sanitizeEquipment,
 } from '@dragon-village/shared';
-import { BLOCKS, BUILDINGS, DRAGONS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, XP } from '@dragon-village/shared/data';
+import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { beam as beamSound, bell, ding, explosion as explosionSound, hit as hitSound, hurt as hurtSound, levelUp, lose, roar } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
@@ -181,6 +186,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   // 탑승 (M6-4): 내가 탄 드래곤은 서버가 mount/dismount 로 알려 준다. 세계를 바꿔도(원정) 그대로 타고 간다
   /** 타고 있는 드래곤. 다시 들어올 때 서버가 준 것으로 시작 (#103 — 탑승 유지) */
   let myRiding: RidingInfo | null = welcome.spawn.riding ?? null;
+  /** 내 장비 (M8-2): 서버가 준 것으로 시작, equip 이벤트로 바뀐다 */
+  let myEquip: Equipment = sanitizeEquipment(COMBAT, welcome.spawn.equip ?? null);
   const mount = new MountView(scene);
   // 빔 (M6-5): 서버가 확정한 것만 그린다. 기력은 서버 값 사이를 회복 공식으로 채워 바가 부드럽게 찬다
   const beams = new BeamView(scene);
@@ -272,6 +279,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     onMove: (from, to, count) => net.sendInvMove(from, to, count),
     onDrop: (slot, count) => net.sendInvDrop(slot, count),
     onCraft: (recipe) => net.sendCraft(recipe),
+    equipment: () => myEquip,
+    equipSlotOf: (item) => equipSlotOf(COMBAT, item),
+    armorDefense: () => armorTotals(COMBAT, myEquip).defense,
+    onEquip: (slot) => net.sendEquip(slot),
+    onUnequip: (part) => net.sendUnequip(part),
     onBrew: (bottles, ingredient) => {
       net.sendBrew(bottles, ingredient);
       bag.clearBrewSelection();
@@ -636,6 +648,19 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     onHeld: (idx, item) => {
       if (idx !== myIdx) remote.setHeld(idx, item);
     },
+    onEquip: (m) => {
+      if (m.idx !== myIdx) return;
+      myEquip = sanitizeEquipment(COMBAT, m.parts);
+      hud.setArmor(m.defense);
+      bag.refresh();
+    },
+    onShot: (m) => {
+      const to = mobView.positionOf(m.id);
+      if (!to) return;
+      const pl = ctx.player;
+      const from = m.idx === myIdx ? { x: pl.eye.x + pl.lookDir.x * 0.6, y: pl.eye.y - 0.25, z: pl.eye.z + pl.lookDir.z * 0.6 } : m.from;
+      mobView.shot(from, to);
+    },
     onRaid: (s) => {
       raidState = s;
       if (!s) {
@@ -711,6 +736,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         hurtSound();
         if (m.cause === 'poison') hud.toast('🕷️ 독에 물렸어요 — 잠깐 아파요', 1500);
       }
+      if (m.cause === 'blocked') hud.toast('🛡️ 방패로 막았어요', 1200);
       hp = m.hp;
       hud.setHealth(m.hp, m.max);
     },
@@ -980,6 +1006,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   // 오늘 카드 (M5-3): 아이면 남은 시간·할 일. 시간 제한은 걸지 않는다(표시만, 아빠 2026-09-19)
   hud.setToday(welcome.today);
   hud.setHealth(hp, 20); // 하트 (M7-1) — welcome 값으로 시작
+  hud.setArmor(armorTotals(COMBAT, myEquip).defense); // 방어 바 (M8-2)
   if (myRiding) {
     // 타고 있던 채로 들어왔다 (#103): 드래곤·빔 버튼·기력을 바로 켠다 (mount 이벤트는 처음 탈 때만 온다)
     mount.set(myRiding.dragon);
@@ -1233,12 +1260,19 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     player.update(inp, dt);
     // 몹을 조준하고 있으면 탭/클릭은 때리기 (블록은 안 부순다)
     hitCooldown = Math.max(0, hitCooldown - dt);
-    const aimedMob = mobView.count > 0 ? mobView.aim(player.eye, player.lookDir, HIT_REACH + 1) : null;
+    // 활·쇠뇌를 들었으면 멀리 있는 몹도 노린다 (M8-2)
+    const bow = bowOf(COMBAT, hud.selectedItem);
+    const aimedMob = mobView.count > 0 ? mobView.aim(player.eye, player.lookDir, bow ? bow.range : HIT_REACH + 1) : null;
     interaction.suppressPrimary = aimedMob !== null;
     interaction.suppressSecondary = aimedMob !== null;
     if (aimedMob !== null && inp.primary && hitCooldown <= 0) {
-      hitCooldown = HIT_COOLDOWN_MS / 1000;
-      net.sendHit(aimedMob, hud.selectedIndex);
+      if (bow) {
+        hitCooldown = bow.cooldownMs / 1000;
+        net.sendShoot(aimedMob, hud.selectedIndex);
+      } else {
+        hitCooldown = HIT_COOLDOWN_MS / 1000;
+        net.sendHit(aimedMob, hud.selectedIndex);
+      }
       hand.swing();
     }
     // 동물에게 손에 든 것 쓰기 (M8-1): 먹이·뼈·빈손(앉기)

@@ -11,6 +11,7 @@ import {
   VILLAGE_CODE_RE,
   decodeClientBinary,
   encodePong,
+  isEquipSlot,
   sanitizeNick,
 } from '@dragon-village/shared';
 import { EXPEDITIONS, FAMILY_RULES, RAIDS } from '@dragon-village/shared/data';
@@ -43,6 +44,22 @@ const HIT_ERROR_KO: Record<string, string> = {
   NO_MOB: '거기엔 아무것도 없어요',
   TOO_FAR: '너무 멀어요 — 가까이 가서 쳐요',
   PET: '길들인 동물은 때릴 수 없어요',
+};
+/** 활 쏘기 오류 (M8-2) */
+const SHOOT_ERROR_KO: Record<string, string> = {
+  NO_MOB: '거기엔 아무것도 없어요',
+  TOO_FAR: '너무 멀어요 — 화살이 닿지 않아요',
+  PET: '길들인 동물은 쏠 수 없어요',
+  NO_BOW: '활이나 쇠뇌를 손에 들어야 해요',
+  NO_ARROW: '화살이 없어요 — 부싯돌·막대기·깃털로 만들어요',
+};
+/** 장비 오류 (M8-2) */
+const EQUIP_ERROR_KO: Record<string, string> = {
+  EMPTY: '그 칸은 비어 있어요',
+  NOT_EQUIPPABLE: '입을 수 있는 게 아니에요 (갑옷·방패만)',
+  BAG_FULL: '가방이 가득 차서 바꿀 수 없어요',
+  NOTHING: '벗을 게 없어요',
+  BAD_SLOT: '그런 칸은 없어요',
 };
 /** 동물에게 쓰기 오류 (M8-1) */
 const USE_ERROR_KO: Record<string, string> = {
@@ -437,6 +454,27 @@ export class Session {
         if (!Number.isInteger(msg.id)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
         const err = this.room.hitMob(this.idx, msg.id, typeof msg.slot === 'number' ? msg.slot : undefined);
         if (err && err !== 'COOLDOWN') return this.error(err, HIT_ERROR_KO[err] ?? '지금은 때릴 수 없어요');
+        return;
+      }
+      case 'shoot': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.id)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.shoot(this.idx, msg.id, typeof msg.slot === 'number' ? msg.slot : undefined);
+        if (err && err !== 'COOLDOWN') return this.error(err, SHOOT_ERROR_KO[err] ?? '지금은 쏠 수 없어요');
+        return;
+      }
+      case 'equip': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.slot)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.equip(this.idx, msg.slot);
+        if (err) return this.error(err, EQUIP_ERROR_KO[err] ?? '지금은 입을 수 없어요');
+        return;
+      }
+      case 'unequip': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!isEquipSlot(msg.part)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.unequip(this.idx, msg.part);
+        if (err) return this.error(err, EQUIP_ERROR_KO[err] ?? '지금은 벗을 수 없어요');
         return;
       }
       case 'skill': {
