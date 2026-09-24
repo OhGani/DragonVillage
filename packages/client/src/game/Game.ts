@@ -82,6 +82,7 @@ import { MountView, NestDragons } from '../render/DragonMesh';
 import { BeamView } from '../render/BeamView';
 import { StorageView } from '../ui/storageView';
 import { OrbView } from '../render/OrbView';
+import { Particles, canvasAverageColor } from '../render/Particles';
 import { MobView } from '../render/MobView';
 import { askInput, askPin } from '../ui/pinDialog';
 import { itemIcon } from '../ui/itemIcon';
@@ -182,6 +183,18 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const beams = new BeamView(scene);
   // 체력·구슬 (M7-1): 서버가 진실. 하트는 welcome 값으로 시작
   const orbView = new OrbView(scene);
+  /** 블록 부스러기 (캐는 중 톡톡, 부서지면 와르르) */
+  const particles = new Particles(scene);
+  const blockColorCache = new Map<number, number>();
+  const blockColor = (num: number): number => {
+    let c = blockColorCache.get(num);
+    if (c === undefined) {
+      c = canvasAverageColor(iconOf(registry.get(num).id, 16));
+      blockColorCache.set(num, c);
+    }
+    return c;
+  };
+  let crumbAcc = 0;
   let hp = welcome.hp;
   // 원정 몹 (M7-2): 서버 상태를 그리고, 조준한 몹을 탭/클릭하면 때린다
   const mobView = new MobView(scene);
@@ -396,6 +409,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       onBroken: (x, y, z, prev) => {
         light.markChanged(x, y, z);
         sendBlock(x, y, z, AIR_ID, prev);
+        particles.burst(x, y, z, blockColor(prev));
       },
       onHint: (text) => hud.toast(text, 2000),
       onOpenChest: (bx, by, bz) => {
@@ -1230,7 +1244,14 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     if (interaction.target) {
       highlight.setTarget(interaction.target.x, interaction.target.y, interaction.target.z);
       highlight.setProgress(interaction.progress);
+      // 캐는 중이면 보는 면에서 부스러기가 톡톡
+      if (interaction.progress > 0 && (crumbAcc += dt) >= 0.11) {
+        crumbAcc = 0;
+        const t = interaction.target;
+        particles.crumb(t.x, t.y, t.z, t.face, blockColor(t.id));
+      }
     } else highlight.clearTarget();
+    particles.update(dt);
     hud.setProgress(interaction.progress);
     hud.setHeading(player.yaw);
     if (started) updatePortalCard();
@@ -1264,7 +1285,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     {
       const b = heldBlock();
       if (b > 0) hand.setBlock(b);
-      else hand.setItem(hud.selectedItem, hud.selectedItem ? iconOf(hud.selectedItem, 64) : null); // 도구·안장 같은 아이템도 손에 보인다 (#96)
+      else hand.setItem(hud.selectedItem, hud.selectedItem ? iconOf(hud.selectedItem, 16) : null); // 도구·안장 같은 아이템도 손에 보인다 (#96) — 16픽셀을 세운 입체
     }
     if (started && hud.selectedItem !== sentHeld) {
       sentHeld = hud.selectedItem;

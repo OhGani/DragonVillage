@@ -4,6 +4,7 @@ import { greedyMesh } from '../mesh/greedyMesher';
 import type { MeshBlockInfo } from '../mesh/meshTypes';
 import type { ChunkMaterials } from './ChunkMaterial';
 import { buffersToGeometry } from './geometry';
+import { type Voxel, buildVoxelGeometry } from './voxelGeometry';
 
 const SWING_TIME = 0.24;
 /** 화면 기준 위치(NDC, -1..1). 화면 비율이 달라도 항상 오른쪽 아래 모서리 → 가운데 핫바와 안 겹친다 */
@@ -14,10 +15,31 @@ const HAND_SCALE = 0.34;
 const HAND_TILT = 0.3; // 윗면이 보이도록 살짝 기울임
 const HAND_TURN = 0.6;
 
-/** 아이템(블록 아닌 것) 판 크기 */
-const ITEM_SIZE = 0.62;
+/** 아이템(블록 아닌 것) 한 픽셀 크기 — 16픽셀이 0.9칸. 도구는 마인크래프트처럼 손보다 크게 보인다 */
+const ITEM_PIXEL = 0.9 / 16;
+const ITEM_SHADES = [0.78, 0.7, 1.0, 0.5, 0.86, 0.94];
 
-/** 1인칭 손에 든 블록·아이템. 별도 씬에 그려서 벽에 파묻히지 않는다. 블록은 진짜 상자, 도구·안장 같은 아이템은 아이콘 판(#96). */
+/** 아이콘 캔버스(정사각, 16 또는 그 배수)를 16×16 격자로 읽어 픽셀마다 상자 하나. y 는 위가 15 */
+function iconVoxels(icon: HTMLCanvasElement): Voxel[] {
+  const ctx = icon.getContext('2d');
+  if (!ctx) return [];
+  const w = icon.width,
+    h = icon.height;
+  const data = ctx.getImageData(0, 0, w, h).data;
+  const out: Voxel[] = [];
+  for (let py = 0; py < 16; py++)
+    for (let px = 0; px < 16; px++) {
+      // 격자 칸 가운데 픽셀을 본다 (dpr 배 캔버스여도 16 칸으로)
+      const sx = Math.min(w - 1, Math.floor(((px + 0.5) * w) / 16)),
+        sy = Math.min(h - 1, Math.floor(((py + 0.5) * h) / 16));
+      const i = (sy * w + sx) * 4;
+      if (data[i + 3]! < 128) continue;
+      out.push({ x: px, y: 15 - py, z: 0, c: `#${((data[i]! << 16) | (data[i + 1]! << 8) | data[i + 2]!).toString(16).padStart(6, '0')}` });
+    }
+  return out;
+}
+
+/** 1인칭 손에 든 블록·아이템. 별도 씬에 그려서 벽에 파묻히지 않는다. 블록은 진짜 상자, 도구·안장 같은 아이템은 픽셀을 세운 입체 모형(#96). */
 export class HandView {
   readonly scene = new THREE.Scene();
   private readonly anchor = new THREE.Group();
@@ -41,28 +63,36 @@ export class HandView {
     if (!this.mesh) return;
     this.pivot.remove(this.mesh);
     this.mesh.geometry.dispose();
-    if (this.currentItem) {
-      const mat = this.mesh.material as THREE.MeshBasicMaterial;
-      mat.map?.dispose();
-      mat.dispose();
-    }
+    if (this.currentItem) (this.mesh.material as THREE.Material).dispose();
     this.mesh = null;
   }
 
-  /** 블록이 아닌 아이템: 아이콘 캔버스를 판으로 든다. icon 이 없으면 빈손 */
+  /**
+   * 블록이 아닌 아이템: 아이콘(16×16 픽셀 그림)의 픽셀 하나하나를 상자로 세운 입체 모형 (마인크래프트 손 아이템처럼, 아빠 2026-09-24).
+   * 도구(곡괭이·도끼)는 손잡이가 오른쪽 아래, 머리가 왼쪽 위로 비스듬히. icon 이 없으면 빈손
+   */
   setItem(id: string | null, icon: HTMLCanvasElement | null): void {
     if (id === this.currentItem && this.currentBlock <= 0) return;
     this.clearMesh();
     this.currentBlock = 0;
     this.currentItem = id;
     if (!id || !icon) return;
-    const tex = new THREE.CanvasTexture(icon);
-    tex.minFilter = THREE.LinearFilter;
-    tex.magFilter = THREE.NearestFilter;
-    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.2, side: THREE.DoubleSide });
-    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(ITEM_SIZE, ITEM_SIZE), mat);
-    this.mesh.rotation.set(0, -HAND_TURN * 0.7, 0.15); // 판이 화면을 거의 보게, 살짝 기울여 손에 든 느낌
-    this.mesh.position.set(-0.05, 0.05, 0);
+    const voxels = iconVoxels(icon);
+    if (voxels.length === 0) return;
+    const geom = buildVoxelGeometry(voxels, ITEM_PIXEL, ITEM_SHADES);
+    geom.translate(-8 * ITEM_PIXEL, -8 * ITEM_PIXEL, -0.5 * ITEM_PIXEL);
+    this.mesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ vertexColors: true }));
+    const tool = /_(pickaxe|axe|sword|shovel|hoe)$/.test(id) || id === 'shears' || id === 'flint_and_steel';
+    if (tool) {
+      // 손잡이를 오른쪽 아래로 눕혀 잡은 느낌: 그림을 시계 방향으로 눕히고 카메라 쪽으로 살짝 돌린다
+      // 값은 패널에서 참고 화면(마인크래프트 도끼)과 맞춰 본 것 (2026-09-24): 머리가 화면 오른쪽 아래 1/4 에, 손잡이는 오른쪽 아래로 빠진다
+      this.mesh.rotation.set(0.25, -0.45, 2.35);
+      this.mesh.position.set(-0.45, 0.4, 0.12);
+      this.mesh.scale.setScalar(1.5);
+    } else {
+      this.mesh.rotation.set(0, -HAND_TURN * 0.7, 0.15);
+      this.mesh.position.set(-0.05, 0.05, 0);
+    }
     this.mesh.frustumCulled = false;
     this.pivot.add(this.mesh);
   }
