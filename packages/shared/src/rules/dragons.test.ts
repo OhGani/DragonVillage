@@ -103,7 +103,7 @@ describe('드래곤 16종 (M6-2)', () => {
 
   it('탑승 (M6-4): 안장 레시피는 가죽 5 + 철 2, 가죽은 임시로 보물 상자에서 2개', () => {
     expect(RECIPES.require('saddle')).toMatchObject({ station: 'crafting_table', in: { leather: 5, iron_ingot: 2 }, out: { saddle: 1 } });
-    expect(EXPEDITIONS.rules.treasureChestGives).toEqual({ leather: 2 });
+    expect(EXPEDITIONS.rules.treasureChestGives).toEqual({ leather: 2, carrot: 2 }); // 당근은 돼지 먹이 (#110)
   });
 
   it('16종 모두 색이 있다 (도감·둥지 창 색 점)', () => {
