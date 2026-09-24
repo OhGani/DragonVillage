@@ -1,4 +1,4 @@
-import { ANIMAL_FLAG, ANIMAL_ID_BASE, BABY_MS, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, INITIAL_ANIMALS, MSG, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, isAnimalSpot, type ServerBinary } from '@dragon-village/shared';
+import { ANIMAL_FLAG, ANIMAL_ID_BASE, BABY_MS, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, HERD_SPREAD, INITIAL_ANIMALS, MSG, RESPAWN_BATCH, RESPAWN_EVERY_MS, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, isAnimalSpot, type ServerBinary } from '@dragon-village/shared';
 import { BLOCKS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
 import { Storage } from './storage';
@@ -35,6 +35,41 @@ describe('마을 동물 (M8-1)', () => {
     expect(storage.listAnimals('123456')).toHaveLength(total);
     const again = makeRoom(storage);
     expect([...again.animals.animals.keys()]).toEqual([...room.animals.animals.keys()]);
+  });
+
+  it('무리로 선다: 같은 종류는 첫 마리 곁(HERD_SPREAD)에 모여 있고 집이 같다', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const cows = [...room.animals.animals.values()].filter((a) => a.kind === 'cow');
+    expect(cows.length).toBe(INITIAL_ANIMALS.cow);
+    const near = cows.filter((c) => Math.hypot(c.x - cows[0]!.x, c.z - cows[0]!.z) <= HERD_SPREAD + 0.01 && c.homeX === cows[0]!.homeX);
+    expect(near.length).toBeGreaterThanOrEqual(2); // 곁에 못 서면 따로 서기도 하니 최소 둘
+  });
+
+  it('사냥으로 줄면 서버를 켤 때 채우고, 돌아가는 중에도 10분마다 둘씩 돌아온다 (길들인 강아지는 세지 않는다) (#106)', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const total = Object.values(INITIAL_ANIMALS).reduce((a, b) => a + b, 0);
+    // 소 전부·돼지 하나를 없앤 것처럼 지우고, 강아지 하나는 길들인 것으로
+    for (const a of [...room.animals.animals.values()]) if (a.kind === 'cow' || (a.kind === 'pig' && a.id % 2 === 0)) (room.animals.animals.delete(a.id), storage.deleteAnimal(a.id));
+    const dog = [...room.animals.animals.values()].find((a) => a.kind === 'dog')!;
+    dog.owner = 'b'.repeat(32);
+    dog.dirty = true;
+    room.flush(T0);
+    const again = makeRoom(storage);
+    expect(again.animals.wildCountOf('cow')).toBe(INITIAL_ANIMALS.cow);
+    expect(again.animals.wildCountOf('pig')).toBe(INITIAL_ANIMALS.pig);
+    expect(again.animals.wildCountOf('dog')).toBe(INITIAL_ANIMALS.dog); // 길들인 것 빼고 목표만큼
+    expect(again.animals.animals.size).toBe(total + 1);
+    // 돌아가는 중: 양을 다 지우면 10분 뒤 둘, 20분 뒤 셋
+    const a = inbox();
+    const ra = again.join('a'.repeat(32), '아빠', 0, a.send)!;
+    again.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    for (const s of [...again.animals.animals.values()]) if (s.kind === 'sheep') again.animals.animals.delete(s.id);
+    expect(again.animals.wildCountOf('sheep')).toBe(0);
+    for (let t = T0; t <= T0 + RESPAWN_EVERY_MS + 1000; t += 200) again.tick(t);
+    expect(again.animals.wildCountOf('sheep')).toBe(RESPAWN_BATCH);
+    for (let t = T0 + RESPAWN_EVERY_MS + 1000; t <= T0 + 2 * RESPAWN_EVERY_MS + 2000; t += 200) again.tick(t);
+    expect(again.animals.wildCountOf('sheep')).toBe(INITIAL_ANIMALS.sheep);
   });
 
   it('산책은 집 24칸 안에서, 마을 사람에게 MobsState 로 간다(id 는 100000 부터, 방어전 몹과 한 목록)', () => {

@@ -19,7 +19,6 @@ import {
   HIT_REACH,
   INITIAL_ANIMALS,
   LOVE_MS,
-  MIN_PER_KIND,
   MOB_KIND_NUM,
   MOB_STATE,
   type MobEntry,
@@ -27,11 +26,13 @@ import {
   type MobRegistry,
   PET_FOLLOW_STOP,
   PET_TELEPORT_RANGE,
+  RESPAWN_BATCH,
   RESPAWN_EVERY_MS,
   type VoxelWorld,
   WANDER_SPEED_MULT,
   animalMaxHp,
   animalSpotCandidate,
+  herdSpotCandidate,
   isAnimalSpot,
   mobSize,
   rollDrops,
@@ -120,11 +121,14 @@ export class AnimalSystem {
   load(now: number): void {
     const rows = this.store?.listAnimals(this.code) ?? [];
     for (const r of rows) this.animals.set(r.id, this.wrap(r));
-    if (rows.length === 0) {
-      let i = 0;
-      for (const [kind, n] of Object.entries(INITIAL_ANIMALS) as [MobKind, number][]) for (let k = 0; k < n; k++) this.spawnWild(kind, i++, now);
-      this.hooks.log(`동물 ${this.animals.size}마리를 숲에 풀었어요`);
+    // 종류별 목표보다 모자라면 무리로 채운다 (처음 켤 때 = 전부, 사냥으로 줄었으면 그만큼) — 숲에 늘 동물이 있게 (#106)
+    let added = 0;
+    let i = rows.length;
+    for (const [kind, n] of Object.entries(INITIAL_ANIMALS) as [MobKind, number][]) {
+      const need = n - this.wildCountOf(kind);
+      if (need > 0) added += this.spawnHerd(kind, need, i++, now);
     }
+    if (added > 0) this.hooks.log(rows.length === 0 ? `동물 ${added}마리를 숲에 풀었어요` : `숲에 동물 ${added}마리를 채웠어요 (${this.animals.size}마리)`);
     this.lastRespawnAt = now;
   }
 
@@ -150,17 +154,40 @@ export class AnimalSystem {
     return null;
   };
 
-  /** 숲 자리에 야생 동물 하나. 잔디 위에 설 수 있는 후보를 찾는다 */
+  /** 잔디 위에 설 수 있는 숲 자리인가 → 발 높이 */
+  private grassSpot(c: { x: number; z: number }): number | null {
+    if (!isAnimalSpot(c.x, c.z)) return null;
+    const y = this.groundAt(c.x, c.z, GROUND_Y + 4);
+    if (y === null || this.world.getBlock(Math.floor(c.x), y - 1, Math.floor(c.z)) !== this.registry.numOf('grass')) return null;
+    return y;
+  }
+
+  /** 숲 자리에 야생 동물 하나 */
   private spawnWild(kind: MobKind, i: number, now: number): Animal | null {
-    const grass = this.registry.numOf('grass');
     for (let attempt = 0; attempt < 40; attempt++) {
       const c = animalSpotCandidate(this.seed, i, attempt);
-      if (!isAnimalSpot(c.x, c.z)) continue;
-      const y = this.groundAt(c.x, c.z, GROUND_Y + 4);
-      if (y === null || this.world.getBlock(Math.floor(c.x), y - 1, Math.floor(c.z)) !== grass) continue;
-      return this.add({ kind, x: c.x, y, z: c.z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: c.x, homeZ: c.z }, now);
+      const y = this.grassSpot(c);
+      if (y !== null) return this.add({ kind, x: c.x, y, z: c.z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: c.x, homeZ: c.z }, now);
     }
     return null;
+  }
+
+  /** 같은 종류 n 마리를 한 무리로: 첫 마리 자리 곁(HERD_SPREAD)에 나머지. 곁에 못 서면 따로 선다. 돌려주는 값 = 실제로 생긴 수 */
+  private spawnHerd(kind: MobKind, n: number, i: number, now: number): number {
+    const first = this.spawnWild(kind, i, now);
+    if (!first) return 0;
+    let made = 1;
+    for (let k = 1; k < n; k++) {
+      let placed: Animal | null = null;
+      for (let attempt = 0; attempt < 12 && !placed; attempt++) {
+        const c = herdSpotCandidate(this.seed, i, k, attempt, first);
+        const y = this.grassSpot(c);
+        if (y !== null) placed = this.add({ kind, x: c.x, y, z: c.z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: first.homeX, homeZ: first.homeZ }, now);
+      }
+      if (!placed) placed = this.spawnWild(kind, i * 31 + k, now);
+      if (placed) made++;
+    }
+    return made;
   }
 
   private add(row: Omit<AnimalRow, 'id'>, now: number): Animal {
@@ -200,15 +227,19 @@ export class AnimalSystem {
     this.lastStepAt = now;
     const players = this.hooks.players();
     for (const a of [...this.animals.values()]) this.step(a, players, dt, now);
-    // 종류가 줄면 다시 생긴다 (10분마다 하나)
+    // 야생이 목표보다 줄면 다시 생긴다 (10분마다, 가장 모자란 종류를 둘씩 무리로) (#106)
+    if (this.lastRespawnAt > now) this.lastRespawnAt = now; // 시계가 거꾸로면(테스트·시간 조정) 지금부터
     if (now - this.lastRespawnAt >= RESPAWN_EVERY_MS && this.animals.size < ANIMALS_MAX) {
       this.lastRespawnAt = now;
-      for (const kind of Object.keys(INITIAL_ANIMALS) as MobKind[]) {
-        if (this.countOf(kind) < MIN_PER_KIND) {
-          const a = this.spawnWild(kind, this.animals.size + Math.floor(now / 1000), now);
-          if (a) this.hooks.log(`${this.defs.get(kind).name}이(가) 숲에 새로 나타났어요`);
-          break;
-        }
+      let worst: MobKind | null = null,
+        worstNeed = 0;
+      for (const [kind, n] of Object.entries(INITIAL_ANIMALS) as [MobKind, number][]) {
+        const need = n - this.wildCountOf(kind);
+        if (need > worstNeed) (worst = kind), (worstNeed = need);
+      }
+      if (worst) {
+        const made = this.spawnHerd(worst, Math.min(RESPAWN_BATCH, worstNeed, ANIMALS_MAX - this.animals.size), this.animals.size + Math.floor(now / 1000), now);
+        if (made > 0) this.hooks.log(`${this.defs.get(worst).name} ${made}마리가 숲에 새로 나타났어요`);
       }
     }
   }
@@ -216,6 +247,13 @@ export class AnimalSystem {
   countOf(kind: MobKind): number {
     let n = 0;
     for (const a of this.animals.values()) if (a.kind === kind) n++;
+    return n;
+  }
+
+  /** 야생(주인 없는) 수 — 길들인 강아지는 숲 목표에 세지 않는다 */
+  wildCountOf(kind: MobKind): number {
+    let n = 0;
+    for (const a of this.animals.values()) if (a.kind === kind && a.owner === null) n++;
     return n;
   }
 
@@ -350,6 +388,7 @@ export class AnimalSystem {
     this.store?.deleteAnimal(a.id);
     this.hooks.json({ t: 'mob', ev: 'die', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
     const baby = this.isBaby(a, now);
+    this.hooks.log(`${def.name}${baby ? ' 아기' : ''}이(가) 잡혔어요 (남은 ${def.name} ${this.wildCountOf(a.kind)}마리)`);
     this.hooks.reward(p.idx, baby ? [] : rollDrops(def, this.seed, a.id), def.xp, { x: a.x, y: a.y + 1, z: a.z }, now);
     return null;
   }
