@@ -37,6 +37,22 @@ export const ITEM_FALLBACK_KO: Readonly<Record<string, string>> = {
   water_bucket: '물 양동이',
   lava_source_block: '용암(원천)',
   water_source_block: '물',
+  // 몹·동물 드롭 (mobs.json drops) — M7·M8. 이름이 없으면 가방에 영문 id 가 그대로 보인다
+  bone: '뼈',
+  beef: '소고기',
+  porkchop: '돼지고기',
+  mutton: '양고기',
+  chicken: '닭고기',
+  rotten_flesh: '썩은 고기',
+  gunpowder: '화약',
+  spider_eye: '거미 눈',
+  potato: '감자',
+  salmon: '연어',
+  rabbit_hide: '토끼 가죽',
+  glow_ink_sac: '발광 먹물',
+  crossbow: '석궁',
+  wheat_seeds: '밀 씨',
+  melon_seeds: '수박 씨',
 };
 
 /** 이름을 가진 항목 목록에서 id → name 을 뽑는다 (모양이 다르면 건너뛴다) */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BLOCKS, ITEM_NAMES, RECIPES, STARTER_KIT } from './data';
+import { BLOCKS, ITEM_NAMES, MOBS, RECIPES, STARTER_KIT } from './data';
 import { buildItemNames, dropOf, itemName } from './items';
 
 describe('dropOf', () => {
@@ -53,6 +53,16 @@ describe('아이템 이름표', () => {
     expect(names.get('sugar')).toBe('설탕');
     expect(names.get('redstone')).toBe('레드스톤'); // modifiers 가 fallback 보다 먼저
     expect(names.get('coal')).toBe('석탄');
+  });
+
+  it('v1 몹·동물 드롭은 모두 한국어 이름이 있다 (가방에 영문 id 가 보이지 않게)', () => {
+    const v1: string[] = ['zombie', 'creeper', 'spider', 'spider_king', 'skeleton', 'vindicator', 'pillager', 'evoker', 'cow', 'pig', 'sheep', 'chicken', 'dog'];
+    for (const kind of v1) {
+      const def = MOBS.defs[kind as keyof typeof MOBS.defs];
+      for (const d of def.drops) expect(itemName(d.item, BLOCKS, ITEM_NAMES), `${kind} 드롭 ${d.item}`).not.toBe(d.item);
+      for (const f of def.food) expect(itemName(f, BLOCKS, ITEM_NAMES), `${kind} 먹이 ${f}`).not.toBe(f);
+      for (const t of def.tameWith) expect(itemName(t, BLOCKS, ITEM_NAMES), `${kind} 길들이기 ${t}`).not.toBe(t);
+    }
   });
 });
 

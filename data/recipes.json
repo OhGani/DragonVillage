@@ -419,6 +419,18 @@
       "_note": "아빠 2026-09-24 (마인크래프트 값). 닭 먹이(M8-1)"
     },
     {
+      "id": "melon_seeds",
+      "name": "수박 씨",
+      "station": "inventory",
+      "in": {
+        "melon": 1
+      },
+      "out": {
+        "melon_seeds": 4
+      },
+      "_note": "2026-09-24. 닭 먹이(M8-1) — 밭의 수박을 캐서 만든다. 밀 씨는 아직 나올 곳이 없어 호박 씨·수박 씨로 닭을 먹인다"
+    },
+    {
       "id": "planks",
       "name": "판자",
       "station": "inventory",
