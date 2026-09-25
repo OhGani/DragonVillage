@@ -62,6 +62,8 @@ export interface Welcome {
   inventory: Inventory;
   /** 이 이름에 PIN 이 없다 → 정하기 창 (M5) */
   needPin: boolean;
+  /** 이 마을에 처음 들어왔다 → 첫 걸음 안내 (M8-3) */
+  first?: boolean;
   /** 연결된 가족 코드 (아이). 없으면 null */
   family: string | null;
   /** 아이의 오늘 카드 (M5-3). 아이가 아니면 null */
@@ -466,6 +468,7 @@ export class NetClient {
           expedition: msg.expedition ?? null,
           inventory: (msg.inventory ?? new Array(37).fill(null)) as Inventory,
           needPin: msg.needPin === true,
+          first: msg.first === true,
           family: msg.family ?? null,
           today: msg.today ?? null,
           parentOf: msg.parentOf ?? null,

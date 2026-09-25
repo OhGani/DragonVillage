@@ -187,6 +187,32 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   // 탑승 (M6-4): 내가 탄 드래곤은 서버가 mount/dismount 로 알려 준다. 세계를 바꿔도(원정) 그대로 타고 간다
   /** 타고 있는 드래곤. 다시 들어올 때 서버가 준 것으로 시작 (#103 — 탑승 유지) */
   let myRiding: RidingInfo | null = welcome.spawn.riding ?? null;
+  // 첫 걸음 안내 (M8-3): 처음 들어온 사람을 포탈 → 원정 출발 → 귀환까지 데려간다. 진행은 이 기기에 남긴다(새로고침해도 이어짐)
+  const GUIDE_KEY = 'dv.guide';
+  const GUIDE_TEXT: Record<number, string> = {
+    1: '① 나침반의 금색 점을 따라 북쪽 포탈로 가요',
+    2: '② 포탈 안에 서서 "원정 출발" 을 눌러요',
+    3: '③ 블록을 꾹 눌러 모아요 · 6분 뒤엔 밤! 가운데 포탈로 돌아와요',
+  };
+  let guideStep = (() => {
+    try {
+      const v = localStorage.getItem(GUIDE_KEY);
+      if (v === 'done') return 0;
+      if (v) return Number(v) || 0;
+    } catch {
+      /* 저장 못 하는 브라우저 */
+    }
+    return welcome.first ? 1 : 0;
+  })();
+  const setGuideStep = (s: number) => {
+    guideStep = s;
+    try {
+      localStorage.setItem(GUIDE_KEY, s === 0 ? 'done' : String(s));
+    } catch {
+      /* 무시 */
+    }
+    hud.setGuide(GUIDE_TEXT[s] ?? null);
+  };
   /** 펫 목록 (#109): id → {이름, 내 것}. 조준하면 카드로 이름 짓기 */
   const pets = new Map<number, { name: string | null; mine: boolean }>();
   let aimedMobNow: number | null = null;
@@ -824,7 +850,13 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       hud.showOverlay('서버와 연결이 끊어졐어요', reason + '\n다시 들어가려면 아래를 눌러요.', '다시 연결');
     },
     onWorldEnter: enterWorld,
-    onExpeditionResult: showResult,
+    onExpeditionResult: (m) => {
+      showResult(m);
+      if (guideStep === 3) {
+        setGuideStep(0);
+        setTimeout(() => hud.toast('🎉 첫 원정 끝! 가져온 걸로 마을을 꾸며 봐요 — 게임 방법(?)에 더 많은 게 있어요', 7000), 1500);
+      }
+    },
     onExpeditionState: (s) => {
       const wasActive = !!expeditionState;
       expeditionState = s;
@@ -1021,6 +1053,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   hud.setToday(welcome.today);
   hud.setHealth(hp, 20); // 하트 (M7-1) — welcome 값으로 시작
   hud.setArmor(armorTotals(COMBAT, myEquip).defense); // 방어 바 (M8-2)
+  hud.setGuide(GUIDE_TEXT[guideStep] ?? null); // 첫 걸음 (M8-3)
   if (myRiding) {
     // 타고 있던 채로 들어왔다 (#103): 드래곤·빔 버튼·기력을 바로 켠다 (mount 이벤트는 처음 탈 때만 온다)
     mount.set(myRiding.dragon);
@@ -1350,10 +1383,18 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     hud.setProgress(interaction.progress);
     {
       // 나침반 점: 마을에선 광장, 원정지에선 포탈 방향 (#103 — 마을이 넓어져 길을 잃지 않게)
-      const goal = ctx.kind === 'village' ? { x: 64.5, z: 64.5, name: '광장', near: 24 } : { x: ctx.portalPos.x, z: ctx.portalPos.z + 0.5, name: '포탈', near: 12 };
+      const goal =
+        ctx.kind === 'village'
+          ? guideStep === 1
+            ? { x: ctx.portalPos.x + 0.5, z: ctx.portalPos.z + 0.5, name: '포탈', near: 3 } // 첫 걸음: 포탈까지 안내
+            : { x: 64.5, z: 64.5, name: '광장', near: 24 }
+          : { x: ctx.portalPos.x, z: ctx.portalPos.z + 0.5, name: '포탈', near: 12 };
       const gdx = goal.x - player.pos.x,
         gdz = goal.z - player.pos.z;
       const gd = Math.hypot(gdx, gdz);
+      // 첫 걸음 진행 (M8-3): 포탈 가까이 → ②, 원정지에 들어가면 → ③
+      if (guideStep === 1 && ctx.kind === 'village' && gd <= 7) setGuideStep(2);
+      else if (guideStep === 2 && ctx.kind === 'expedition') setGuideStep(3);
       if (gd > goal.near) hud.setCompassTarget(((Math.atan2(gdx, -gdz) * 180) / Math.PI + 360) % 360, `${goal.name} ${Math.round(gd)}칸`);
       else hud.setCompassTarget(null, null);
     }

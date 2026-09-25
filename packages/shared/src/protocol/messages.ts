@@ -495,6 +495,8 @@ export type ServerJson =
       inventory?: ({ item: string; count: number } | null)[];
       /** 이 이름에 아직 PIN 이 없다 → 클라가 PIN 정하기 창을 띄운다 (M5) */
       needPin?: boolean;
+      /** 이 마을에 처음 들어왔다 → 첫 걸음 안내 (M8-3) */
+      first?: boolean;
       /** 연결된 가족 코드 (아이). 없으면 null */
       family?: string | null;
       /** 아이의 오늘 카드 (M5-3). 아이가 아니면 null */

@@ -242,6 +242,8 @@ export interface JoinResult {
   village: { built: string[]; level: number; codex: number; codexIds: string[]; eggSlots: number };
   /** 내 체력 (M7-1) */
   hp: number;
+  /** 이 마을에 처음 들어왔다 (시작 키트를 받음) → 클라가 첫 걸음 안내를 켠다 (M8-3) */
+  first: boolean;
 }
 
 export interface RoomOptions {
@@ -1158,6 +1160,7 @@ export class VillageRoom {
     this.log(`마을 ${this.info.code}: ${nick}(#${idx}) 입장${savedInv === null ? ' (처음, 시작 키트)' : ''}${gifts.length ? ` (선물 ${gifts.map((g) => g.name).join('·')})` : ''}, ${this.players.size}명`);
     return {
       idx,
+      first: savedInv === null,
       spawn: me,
       players: others,
       expedition: this.expeditionState(),

@@ -1994,3 +1994,25 @@ body {
 .equip-row canvas {
   flex: 0 0 auto;
 }
+
+/* ---------- 첫 걸음 안내 (M8-3): 화면 위 한 줄, 토스트보다 위 ---------- */
+.guide {
+  position: absolute;
+  left: 50%;
+  top: 9%;
+  transform: translateX(-50%);
+  max-width: min(92vw, 520px);
+  padding: 7px 14px;
+  background: rgba(40, 30, 0, 0.72);
+  border: 2px solid #ffd54f;
+  color: #fff3c4;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: 8px;
+  pointer-events: none;
+  text-align: center;
+  line-height: 1.35;
+}
+.guide[hidden] {
+  display: none;
+}

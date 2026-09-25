@@ -180,6 +180,7 @@ export class Hud {
       </div>
       <pre class="debug-text" hidden></pre>
       <div class="toast" hidden></div>
+      <div class="guide" hidden></div>
       <div class="action-card" hidden>
         <div class="action-title"></div>
         <div class="action-sub"></div>
@@ -433,7 +434,10 @@ export class Hud {
     const dot = this.el.querySelector<HTMLElement>('.compass-home')!;
     if (bearing === null) {
       if (!dot.hidden) dot.hidden = true;
-      this.compassTargetLabel = null;
+      if (this.compassTargetLabel !== null) {
+        this.compassTargetLabel = null;
+        this.lastBearing = -999; // 글자에서 "· 포탈 20칸" 을 바로 지운다
+      }
       return;
     }
     dot.hidden = false;
@@ -599,6 +603,17 @@ export class Hud {
     }
     this.heartsEl.innerHTML = html;
     this.heartsEl.classList.toggle('low', hp <= 6);
+  }
+
+  /** 첫 걸음 안내 줄 (M8-3): 화면 위에 남아 있는 한 줄. null 이면 숨김 */
+  setGuide(text: string | null): void {
+    const g = this.el.querySelector<HTMLElement>('.guide')!;
+    if (!text) {
+      g.hidden = true;
+      return;
+    }
+    g.hidden = false;
+    g.textContent = text;
   }
 
   /** 방어 바 (M8-2): 하트 위에 흉갑 10개, 방어 2마다 한 칸. 0 이면 숨김 */
@@ -918,7 +933,7 @@ function helpHtml(isTouch: boolean): string {
         ['블록 고르기', '아래 칸(핫바)을 탭'],
         ['가방 · 만들기', '핫바 옆 <b>🎒</b>. 칸을 탭해 고르고 다른 칸을 탭하면 옮겨요'],
         ['채팅', '<b>💬</b> → 이모지나 문구를 골라요'],
-        ['FPS 보기', '오른콽 위 <b>i</b>'],
+        ['FPS 보기', '오른쪽 위 <b>i</b>'],
       ]
     : [
         ['걷기 / 달리기', '<b>W A S D</b> / Ctrl 누른 채 W'],
@@ -949,6 +964,11 @@ function helpHtml(isTouch: boolean): string {
     '세계 끝은 보이지 않는 벽. 떨어지면 광장으로 돌아와요.',
     '만든 것은 서버에 저장돼요. 같은 마을 코드로 들어오면 어느 폰·PC 에서도 같은 마을이에요. 친구에게 마을 코드 6자리를 알려 주면 함께 지을 수 있어요(6명까지).',
     '다른 사람이 놓거나 부순 블록도 바로 보여요. 서버가 "너무 멀어요" 같은 말을 하면 그 블록은 되돌아가요.',
+    '<b>체력</b>: 하트 10개. 4칸 넘게 떨어지면 아프고, 원정 밤엔 좀비·크리퍼·거미·스켈레톤이 와요. 몹을 노리고 탭하면 때려요(검이 세요). 하트가 다 떨어지면 경험치를 초록 구슬로 떨어뜨리고 포탈 앞(마을은 광장)에서 다시 — 구슬을 밟으면 되찾아요.',
+    '<b>경험치·드래곤</b>: 원정 귀환·블록 발견·몹 잡기로 경험치. 레벨을 써서 광장 남쪽 둥지에서 드래곤 알을 부화시키고, 어른이 되면 안장(가죽 5 + 철 2)을 얹어 타고 날아요. 타고 ✨ 를 누르면 빔!',
+    '<b>갑옷·방패·활</b>: 가죽(제작대)이나 철·황금·다이아몬드(대장간)로 투구·흉갑·레깅스·부츠를 만들어 가방에서 "🛡️ 입기". 방패를 끼우면 몹 피해가 반으로. 활(막대기 3 + 실 3)과 화살(부싯돌·막대기·깃털)을 들면 멀리 있는 몹도 쏴요.',
+    '<b>동물</b>: 광장에서 50칸쯤 바깥 숲에 소·돼지·양·닭·강아지가 무리로 살아요. 먹이(밀·당근·씨앗)를 들면 따라오고, 둘에게 먹이면 아기가 태어나요. 강아지는 뼈로 길들여 펫으로 — 이름도 지어 줄 수 있어요. 가위로 양털, 빈손으로 닭을 탭하면 달걀.',
+    '<b>마을 창고·건물</b>: 광장 동쪽 창고에 재료를 모아 대장간·농장·등대·포탈 2단계를 지어요. 건물이 늘면 마을 레벨이 오르고 깃발이 늘어요. 마을 레벨 2부터 깃대 옆에서 우민 방어전을 열 수 있어요(주 2회).',
   ];
   return (
     `<table class="help-table">${rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('')}</table>` +
