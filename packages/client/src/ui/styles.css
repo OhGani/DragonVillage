@@ -2016,3 +2016,7 @@ body {
 .guide[hidden] {
   display: none;
 }
+/* 펫 이름 시트 (#109)는 HUD 보다 먼저 만들어져 HUD 가 위를 덮는다 → 위로 올린다 (아빠 2026-09-26 "버튼이 안 눌림") */
+.chat-panel.pet-names {
+  z-index: 40;
+}

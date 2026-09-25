@@ -10,6 +10,8 @@ export class PetNamePicker {
     root: HTMLElement,
     names: readonly string[],
     private readonly onPick: (mobId: number, name: string) => void,
+    /** 닫힐 때 (게임 입력을 다시 켜기 위해) */
+    private readonly onClose: () => void = () => {},
   ) {
     this.sheet = document.createElement('div');
     this.sheet.className = 'chat-panel pet-names';
@@ -54,7 +56,9 @@ export class PetNamePicker {
   }
 
   hide(): void {
+    if (this.sheet.hidden) return;
     this.sheet.hidden = true;
     this.mobId = null;
+    this.onClose();
   }
 }

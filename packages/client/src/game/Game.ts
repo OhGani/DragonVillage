@@ -216,7 +216,15 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   /** 펫 목록 (#109): id → {이름, 내 것}. 조준하면 카드로 이름 짓기 */
   const pets = new Map<number, { name: string | null; mine: boolean }>();
   let aimedMobNow: number | null = null;
-  const petNamer = new PetNamePicker(root, PET_NAMES.names, (id, name) => net.sendNameMob(id, name));
+  const petNamer = new PetNamePicker(
+    root,
+    PET_NAMES.names,
+    (id, name) => net.sendNameMob(id, name),
+    () => {
+      // 시트가 닫히면 게임 입력을 다시 켠다 (채팅 시트와 같다) — 아빠 2026-09-26 "버튼이 안 눌림"
+      if (started && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) resume();
+    },
+  );
   /** 내 장비 (M8-2): 서버가 준 것으로 시작, equip 이벤트로 바뀐다 */
   let myEquip: Equipment = sanitizeEquipment(COMBAT, welcome.spawn.equip ?? null);
   const mount = new MountView(scene);
@@ -988,7 +996,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
   };
   /** 가방·채팅·둥지·상자 — 창이 하나라도 열려 있으면 마우스를 잠그지 않는다. 상자가 빠져 있었다 (아빠 2026-09-23) */
-  const anyPanelOpen = () => bag.visible || chat.visible || nest.visible || chest.visible || storageView.visible;
+  const anyPanelOpen = () => bag.visible || chat.visible || nest.visible || chest.visible || storageView.visible || petNamer.visible;
   // 창고 창 (M6-6): 서버가 재고를 보내 주면 연다 (열 자격도 서버가 본다)
   let pendingStorageOpen = false;
   const openStorage = () => {
@@ -1021,6 +1029,15 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     kbm.enabled = false;
     if (kbm.locked) document.exitPointerLock();
     chat.show();
+  };
+  // 펫 이름 시트 (#109): 채팅 시트처럼 입력을 멈추고 마우스 잠금을 풀어야 버튼이 눌린다
+  const openPetNamer = (id: number, current: string | null) => {
+    if (!started || disconnected || hud.resultVisible || anyPanelOpen()) return;
+    hud.hideAction();
+    input.paused = true;
+    kbm.enabled = false;
+    if (kbm.locked) document.exitPointerLock();
+    petNamer.show(id, current);
   };
   const closeChest = () => {
     if (!chest.visible) return;
@@ -1194,7 +1211,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     if (aimedMobNow !== null && pets.get(aimedMobNow)?.mine && !petNamer.visible) {
       const pet = pets.get(aimedMobNow)!;
       const id = aimedMobNow;
-      hud.showAction(`🐾 ${pet.name ?? '내 강아지'}`, pet.name ? '빈손 탭 → 앉기/일어나기 · 이름을 바꿀 수도 있어요' : '이름을 지어 줘요 (목록에서 골라요) · 빈손 탭 → 앉기/일어나기', (pet.name ? '이름 바꾸기' : '이름 짓기') + KEY_HINT, () => petNamer.show(id, pet.name));
+      hud.showAction(`🐾 ${pet.name ?? '내 강아지'}`, pet.name ? '빈손 탭 → 앉기/일어나기 · 이름을 바꿀 수도 있어요' : '이름을 지어 줘요 (목록에서 골라요) · 빈손 탭 → 앉기/일어나기', (pet.name ? '이름 바꾸기' : '이름 짓기') + KEY_HINT, () => openPetNamer(id, pet.name));
       return;
     }
     const inside = portalContains(ctx.portalPos, p.x, p.y, p.z);
