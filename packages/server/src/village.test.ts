@@ -768,6 +768,20 @@ describe('가방이 모자라면 상자를 못 부순다 (아빠 2026-09-22, #84
     a.clear();
     room.onBlockChange(ra.idx, { seq: 2, x: 66, y, z: 64, id: 'air' }, 1000);
     expect(a.bin.find((m) => m.type === MSG.BlockChangeRejected)).toMatchObject({ msg: { seq: 2, reason: REJECT.BAG_FULL } });
+
+    // 어떤 블록이든 드롭이 들어갈 자리가 없으면 못 캔다 (아빠 2026-09-27 — 가방 가득한 채 다이아몬드를 캐서 사라짐)
+    room.world.setBlock(66, y, 63, BLOCKS.numOf('diamond_ore'));
+    room.giveItems(ra.idx, 'diamond_pickaxe', 1); // 빈 칸 없음 → 실패해도 무방, 곡괭이는 아래서 직접 넣는다
+    p.inv[0] = { item: 'diamond_pickaxe', count: 1 };
+    a.clear();
+    room.onBlockChange(ra.idx, { seq: 3, x: 66, y, z: 63, id: 'air', slot: 0 }, 1100);
+    expect(a.bin.find((m) => m.type === MSG.BlockChangeRejected)).toMatchObject({ msg: { seq: 3, reason: REJECT.BAG_FULL } });
+    expect(BLOCKS.get(room.world.getBlock(66, y, 63)).id).toBe('diamond_ore');
+    // 한 칸 비우면 캘 수 있고 다이아몬드가 들어온다
+    p.inv[1] = null;
+    room.onBlockChange(ra.idx, { seq: 4, x: 66, y, z: 63, id: 'air', slot: 0 }, 1200);
+    expect(a.bin.find((m) => m.type === MSG.BlockChangeRejected && (m.msg as { seq: number }).seq === 4)).toBeUndefined();
+    expect(countOf(p.inv, 'diamond')).toBe(1);
     expect(BLOCKS.get(room.world.getBlock(66, y, 64)).id).toBe('chest');
     a.clear();
     expect(room.openChest(ra.idx, 66, y, 64, 1000)).toBeNull();

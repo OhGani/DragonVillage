@@ -1612,6 +1612,9 @@ export class VillageRoom {
       if (cur.hardness === null) return REJECT.UNBREAKABLE;
       // 상자는 속에 든 것까지 다 받을 자리가 있어야 부순다 (#84, 아빠 2026-09-22 — 넘치는 물건이 사라지던 것)
       if (cur.chest && !fits(p.inv, this.chestTakeaway(p, x, y, z, cur))) return REJECT.BAG_FULL;
+      // 드롭이 들어갈 자리가 없으면 아예 못 캔다 (아빠 2026-09-27 — 쁘뚜가 가방 가득한 채 다이아몬드를 캐서 사라짐). 덤(발광석 가루 등)은 넘치면 버려도 된다
+      const willDrop = dropOf(cur.door ? this.registry.get(cur.door.base) : cur, x, y, z, 0);
+      if (willDrop && !willDrop.needsBucket && !fits(p.inv, [{ item: willDrop.item, count: willDrop.count }])) return REJECT.BAG_FULL;
       // 곡괭이 등급 (아들 2026-09-20): 손에 든 칸의 곡괭이로 이 블록을 캘 수 있나. 맨손은 toolTier 0 만
       const held = req.slot !== undefined && req.slot >= 0 && req.slot < p.inv.length ? (p.inv[req.slot]?.item ?? null) : null;
       if (!canBreakWith(cur, toolOf(TOOLS, held))) return REJECT.TOOL;
