@@ -34,6 +34,7 @@ export class GamepadInput implements InputSource {
     if (b[0]) out.jump = true; // A
     if (b[1]) out.sneak = true; // B
     if (b[10]) out.sprint = true; // L3
+    if (b[2]) out.guard = true; // X = 🛡️ 막기 (#118)
     if (b[7]) out.primary = true; // RT
     if (b[6]) out.secondaryHold = true; // LT
     if (edge(6)) out.secondaryTap = true;

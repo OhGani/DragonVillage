@@ -19,6 +19,8 @@ export interface InputState {
   secondaryTap: boolean;
   /** 계속 누르는 중 = 반복 놓기 */
   secondaryHold: boolean;
+  /** 🛡️ 막기 (#118): 누르는 동안 */
+  guard: boolean;
   /** 슬롯 휠 ±1 */
   slotDelta: number;
   /** 슬롯 직접 선택 0..8, 없으면 -1 */
@@ -37,6 +39,7 @@ export function resetInput(s: InputState): void {
   s.primary = false;
   s.secondaryTap = false;
   s.secondaryHold = false;
+  s.guard = false;
   s.slotDelta = 0;
   s.slotSelect = -1;
   s.toggleDebug = false;

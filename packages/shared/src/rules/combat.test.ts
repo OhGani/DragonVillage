@@ -64,6 +64,13 @@ describe('전투 장비 (M8-2, combat.json)', () => {
     expect(shieldFactor(COMBAT, emptyEquipment(), 'zombie')).toBe(1);
     expect(finalDamage(COMBAT, eq, 6, 'pillager')).toBe(0);
     expect(finalDamage(COMBAT, eq, 7, 'creeper')).toBe(4); // 3.5 → 4
+    // 🛡️ 막기 중(#118): 전부 막는다, 변명자는 그래도 뚫는다, 방패 없으면 소용없다
+    expect(shieldFactor(COMBAT, eq, 'zombie', true)).toBe(0);
+    expect(finalDamage(COMBAT, eq, 7, 'creeper', true)).toBe(0);
+    expect(finalDamage(COMBAT, eq, 5, 'vindicator', true)).toBe(5);
+    expect(finalDamage(COMBAT, eq, 5, 'fall', true)).toBe(5);
+    expect(finalDamage(COMBAT, emptyEquipment(), 5, 'zombie', true)).toBe(5);
+    expect(COMBAT.shield.guardSlow).toBe(0.5);
   });
 
   it('저장된 장비 JSON 은 검사해서 읽는다 (모르는 것·엉뚱한 칸은 비움)', () => {

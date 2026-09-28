@@ -473,6 +473,13 @@ export class Session {
         if (err && err !== 'COOLDOWN') return this.error(err, SHOOT_ERROR_KO[err] ?? '지금은 쏠 수 없어요');
         return;
       }
+      case 'guard': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (typeof msg.on !== 'boolean') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.guard(this.idx, msg.on);
+        if (err === 'NO_SHIELD') return this.error(err, '방패를 끼워야 막을 수 있어요 (가방 → 방패 → 들기)');
+        return;
+      }
       case 'nameMob': {
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
         if (!Number.isInteger(msg.id) || typeof msg.name !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');

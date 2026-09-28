@@ -142,6 +142,7 @@ export class Hud {
         <div class="stick-base" hidden><div class="stick-knob"></div></div>
         <button class="tbtn jump" aria-label="점프">▲</button>
         <button class="tbtn sneak" aria-label="웅크리기">▼</button>
+        <button class="tbtn guard" aria-label="방패로 막기" hidden>🛡️</button>
       </div>
       <div class="compass" aria-label="나침반">
         <div class="compass-dial">
@@ -335,6 +336,7 @@ export class Hud {
       stickKnob: q('.stick-knob'),
       jumpButton: q('.jump'),
       sneakButton: q('.sneak'),
+      guardButton: q('.guard'),
     };
     this.overlayBtn.addEventListener('click', () => this.onOverlayClick?.());
     this.overlay.addEventListener('click', (e) => {
@@ -604,6 +606,17 @@ export class Hud {
     }
     this.heartsEl.innerHTML = html;
     this.heartsEl.classList.toggle('low', hp <= 6);
+  }
+
+  /** 🛡️ 막기 버튼 (#118): 방패를 끼면 보인다 (폰). PC 는 X 키 */
+  setGuardAvailable(on: boolean): void {
+    const b = this.el.querySelector<HTMLElement>('.tbtn.guard')!;
+    if (b.hidden === !on) return;
+    b.hidden = !on;
+  }
+  /** 막는 중 표시 */
+  setGuarding(on: boolean): void {
+    this.el.querySelector<HTMLElement>('.tbtn.guard')!.classList.toggle('active', on);
   }
 
   /** 타고 있는 드래곤 체력 (#113): 기력 바 아래 붉은 바 */
@@ -942,6 +955,7 @@ function helpHtml(isTouch: boolean): string {
         ['웅크리기', '<b>▼</b> (▲ 와 같아요 — 꾹 누르면 그동안, 두 번 톡톡 치면 계속). 웅크리면 모서리에서 안 떨어져요'],
         ['블록 고르기', '아래 칸(핫바)을 탭'],
         ['가방 · 만들기', '핫바 옆 <b>🎒</b>. 칸을 탭해 고르고 다른 칸을 탭하면 옮겨요'],
+        ['공격 · 막기', '몹을 노리고 <b>짧게 탭</b>하면 때려요(검·활). 방패를 끼면 <b>🛡️</b> 버튼이 생겨요 — 누르는 동안 몹 공격을 다 막고 천천히 걸어요'],
         ['채팅', '<b>💬</b> → 이모지나 문구를 골라요'],
         ['FPS 보기', '오른쪽 위 <b>i</b>'],
       ]
@@ -953,6 +967,7 @@ function helpHtml(isTouch: boolean): string {
         ['점프 / 웅크리기', '<b>Space</b> / <b>Shift</b>'],
         ['블록 고르기', '<b>1~9, 0</b> 또는 마우스 휠'],
         ['가방 · 만들기', '<b>E</b> (또는 핫바 옆 🎒)'],
+        ['공격 · 막기', '몹을 노리고 <b>클릭</b>(검·활). 방패를 끼고 <b>X</b> 를 누르는 동안 몹 공격을 다 막아요(천천히 걸어요)'],
         ['채팅', '<b>T</b> (또는 💬) → 이모지·문구 고르기'],
         ['정보', '<b>F3</b>'],
       ];

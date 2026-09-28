@@ -48,6 +48,10 @@ export interface ShieldRule {
   readonly meleeBlock: number;
   /** 화살(약탈자) 피해에서 막는 비율 (1 = 전부) */
   readonly arrowBlock: number;
+  /** 🛡️ 막기(#118)를 누르는 동안 막는 비율 (1 = 전부) */
+  readonly guardBlock: number;
+  /** 막는 동안 걸음 배율 */
+  readonly guardSlow: number;
   /** 방패를 무시하는 몹 (도끼) */
   readonly ignoredBy: readonly string[];
 }
@@ -91,7 +95,7 @@ const RawCombat = z
       })
       .loose(),
     shield: z
-      .object({ id: z.string(), name: z.string(), station: z.enum(['crafting_table', 'forge', 'inventory']), in: Count, meleeBlock: z.number().min(0).max(1), arrowBlock: z.number().min(0).max(1), ignoredBy: z.array(z.string()).optional() })
+      .object({ id: z.string(), name: z.string(), station: z.enum(['crafting_table', 'forge', 'inventory']), in: Count, meleeBlock: z.number().min(0).max(1), arrowBlock: z.number().min(0).max(1), guardBlock: z.number().min(0).max(1).optional(), guardSlow: z.number().min(0).max(1).optional(), ignoredBy: z.array(z.string()).optional() })
       .loose(),
     bows: z.array(z.object({ id: z.string(), name: z.string(), station: z.enum(['crafting_table', 'forge', 'inventory']), in: Count, damage: z.number().positive(), cooldownMs: z.number().positive(), range: z.number().positive() }).loose()),
     arrow: z.object({ id: z.string(), name: z.string(), station: z.enum(['crafting_table', 'forge', 'inventory']), in: Count, out: z.number().int().positive() }).loose(),
@@ -127,7 +131,7 @@ export function parseCombat(raw: unknown, fileName = 'data/combat.json'): Combat
     names.set(e.id, e.name);
     recipes.push(recipe(e.id, e.name, e.station, e.in, { [e.id]: 1 }));
   }
-  const shield: ShieldRule = { id: d.shield.id, name: d.shield.name, meleeBlock: d.shield.meleeBlock, arrowBlock: d.shield.arrowBlock, ignoredBy: d.shield.ignoredBy ?? [] };
+  const shield: ShieldRule = { id: d.shield.id, name: d.shield.name, meleeBlock: d.shield.meleeBlock, arrowBlock: d.shield.arrowBlock, guardBlock: d.shield.guardBlock ?? 1, guardSlow: d.shield.guardSlow ?? 0.5, ignoredBy: d.shield.ignoredBy ?? [] };
   names.set(shield.id, shield.name);
   recipes.push(recipe(shield.id, shield.name, d.shield.station, d.shield.in, { [shield.id]: 1 }));
   const bows = new Map<string, BowDef>();
@@ -182,21 +186,26 @@ export function armorApplies(cause: string): boolean {
 /** 화살(원거리)로 치는 몹 */
 export const ARROW_CAUSES: readonly string[] = ['pillager', 'skeleton'];
 
+/** 🛡️ 막기(#118)는 이만큼 지나면 서버가 저절로 푼다 (클라가 끊겨도 영원히 막지 않게). 클라는 누르는 동안 5초마다 다시 보낸다 */
+export const GUARD_MAX_MS = 15_000;
+export const GUARD_RESEND_MS = 5_000;
+
 /**
  * 방패가 있을 때 피해에 곱하는 값: 화살은 (1 − arrowBlock), 근접·폭발은 meleeBlock, 방패를 무시하는 몹(변명자)은 1.
- * 방패가 없거나 갑옷이 안 통하는 피해(낙하·독)면 1
+ * 🛡️ 막기 중(guarding)이면 (1 − guardBlock) — 변명자는 그래도 뚫는다. 방패가 없거나 갑옷이 안 통하는 피해(낙하·독)면 1
  */
-export function shieldFactor(rules: CombatRules, eq: Equipment, cause: string): number {
+export function shieldFactor(rules: CombatRules, eq: Equipment, cause: string, guarding = false): number {
   if (eq.shield !== rules.shield.id || !armorApplies(cause)) return 1;
   if (rules.shield.ignoredBy.includes(cause)) return 1;
+  if (guarding) return 1 - rules.shield.guardBlock;
   if (ARROW_CAUSES.includes(cause)) return 1 - rules.shield.arrowBlock;
   return rules.shield.meleeBlock;
 }
 
 /** 실제로 깎이는 체력: 방패 → 갑옷 순서. 0 이면 완전히 막은 것. 조금이라도 남으면 최소 1 (갑옷이 있어도 아프긴 하다) */
-export function finalDamage(rules: CombatRules, eq: Equipment, damage: number, cause: string): number {
+export function finalDamage(rules: CombatRules, eq: Equipment, damage: number, cause: string, guarding = false): number {
   if (damage <= 0) return 0;
-  const shielded = damage * shieldFactor(rules, eq, cause);
+  const shielded = damage * shieldFactor(rules, eq, cause, guarding);
   if (shielded <= 0) return 0;
   const t = armorApplies(cause) ? armorTotals(rules, eq) : { defense: 0, toughness: 0 };
   return Math.max(1, Math.round(reduceDamage(shielded, t.defense, t.toughness)));

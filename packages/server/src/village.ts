@@ -151,6 +151,7 @@ import {
   bowOf,
   equipSlotOf,
   finalDamage,
+  GUARD_MAX_MS,
   sanitizeEquipment,
   ANIMAL_ID_BASE,
   encodeMobsState,
@@ -212,6 +213,8 @@ export interface RoomPlayer {
   bowReadyAt: number;
   /** 타고 있는 드래곤의 체력 (#113). 안 탔으면 0 */
   dragonHp: number;
+  /** 🛡️ 막기 (#118): 이 시각까지 막는 중. 0 = 아님 */
+  guardUntil: number;
   /** 탄 드래곤의 기력 (M6-5). 탈 때 가득 찬다. 사이는 회복 공식으로 채운다 */
   stamina: Stamina;
   /** 다음에 빔을 쏠 수 있는 시각 */
@@ -1148,7 +1151,7 @@ export class VillageRoom {
         gifts.push({ id: g.id, name: g.name, message: g.message });
       }
     }
-    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0, equip: parseEquipment(saved?.equipment ?? null), bowReadyAt: 0, dragonHp: 0 };
+    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0, equip: parseEquipment(saved?.equipment ?? null), bowReadyAt: 0, dragonHp: 0, guardUntil: 0 };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     // 타고 있다가 나갔으면 다시 탄다 (#103, 아빠 요청). 드래곤이 없어졌거나 남이 타고 있으면 광장에서 (공중에 남지 않게)
@@ -1463,6 +1466,18 @@ export class VillageRoom {
     return null;
   }
 
+  /** 🛡️ 막기 (#118): 방패를 끼고 있을 때만. 켜면 GUARD_MAX_MS 뒤 저절로 풀린다(클라가 5초마다 다시 켠다) */
+  guard(idx: number, on: boolean, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (on && p.equip.shield === null) {
+      p.guardUntil = 0;
+      return 'NO_SHIELD';
+    }
+    p.guardUntil = on ? now + GUARD_MAX_MS : 0;
+    return null;
+  }
+
   /** 가방 slot 의 갑옷·방패를 입는다 (M8-2). 그 자리에 있던 것은 가방으로 */
   equip(idx: number, slot: number): string | null {
     const p = this.players.get(idx);
@@ -1530,7 +1545,7 @@ export class VillageRoom {
       this.hurtDragon(p, Math.floor(amount), cause, now);
       return;
     }
-    const n = finalDamage(COMBAT, p.equip, amount, cause);
+    const n = finalDamage(COMBAT, p.equip, amount, cause, p.guardUntil > now);
     if (n <= 0) {
       this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'blocked' }); // 방패가 전부 막았다
       return;

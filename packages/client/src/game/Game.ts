@@ -61,6 +61,7 @@ import {
   bowOf,
   equipSlotOf,
   sanitizeEquipment,
+  GUARD_RESEND_MS,
 } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
@@ -227,6 +228,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   );
   /** 내 장비 (M8-2): 서버가 준 것으로 시작, equip 이벤트로 바뀐다 */
   let myEquip: Equipment = sanitizeEquipment(COMBAT, welcome.spawn.equip ?? null);
+  /** 🛡️ 막기 (#118): 서버에 보낸 상태·시각 */
+  let guardSent = false;
+  let guardSentAt = 0;
+  let guarding = false;
   const mount = new MountView(scene);
   // 빔 (M6-5): 서버가 확정한 것만 그린다. 기력은 서버 값 사이를 회복 공식으로 채워 바가 부드럽게 찬다
   const beams = new BeamView(scene);
@@ -694,6 +699,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       }
       myEquip = sanitizeEquipment(COMBAT, m.parts);
       hud.setArmor(m.defense);
+      hud.setGuardAvailable(myEquip.shield !== null);
       bag.refresh();
     },
     onArrow: (m) => mobView.shot(m.from, m.to), // 스켈레톤·약탈자 화살
@@ -1077,6 +1083,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   hud.setHealth(hp, 20); // 하트 (M7-1) — welcome 값으로 시작
   hud.setArmor(armorTotals(COMBAT, myEquip).defense); // 방어 바 (M8-2)
   hud.setGuide(GUIDE_TEXT[guideStep] ?? null); // 첫 걸음 (M8-3)
+  hud.setGuardAvailable(myEquip.shield !== null); // 🛡️ 막기 버튼 (#118)
+  ctx.player.guardSlow = COMBAT.shield.guardSlow;
   if (myRiding) {
     // 타고 있던 채로 들어왔다 (#103): 드래곤·빔 버튼·기력을 바로 켠다 (mount 이벤트는 처음 탈 때만 온다)
     mount.set(myRiding.dragon);
@@ -1344,7 +1352,20 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     aimedMobNow = aimedMob;
     interaction.suppressPrimary = aimedMob !== null;
     interaction.suppressSecondary = aimedMob !== null;
-    if (aimedMob !== null && inp.primary && hitCooldown <= 0) {
+    // 🛡️ 막기 (#118): 방패를 끼고 버튼(X)을 누르는 동안. 서버엔 바뀔 때 + 5초마다
+    const wantGuard = inp.guard && myEquip.shield !== null && !myRiding && !anyPanelOpen();
+    if (wantGuard !== guarding) {
+      guarding = wantGuard;
+      hud.setGuarding(guarding);
+    }
+    if (started && (guarding !== guardSent || (guarding && now - guardSentAt >= GUARD_RESEND_MS))) {
+      guardSent = guarding;
+      guardSentAt = now;
+      net.sendGuard(guarding);
+    }
+    // 공격: 꾹 누르기(부수기와 같음) 또는 몹을 짧게 탭 (아빠 2026-09-28 — 폰에서 탭만으로). 동물은 탭이 먹이·길들이기라 꾹 눌러야 때린다
+    const tapAttack = inp.secondaryTap && aimedMob !== null && aimedMob < ANIMAL_ID_BASE;
+    if (aimedMob !== null && (inp.primary || tapAttack) && hitCooldown <= 0 && !guarding) {
       if (bow) {
         hitCooldown = bow.cooldownMs / 1000;
         net.sendShoot(aimedMob, hud.selectedIndex);
@@ -1453,7 +1474,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     ctx.portal.update(now / 1000);
     {
       const b = heldBlock();
-      if (b > 0) hand.setBlock(b);
+      if (guarding) hand.setItem('shield', iconOf('shield', 16)); // 막는 동안은 방패를 든다 (#118)
+      else if (b > 0) hand.setBlock(b);
       else hand.setItem(hud.selectedItem, hud.selectedItem ? iconOf(hud.selectedItem, 16) : null); // 도구·안장 같은 아이템도 손에 보인다 (#96) — 16픽셀을 세운 입체
     }
     if (started && hud.selectedItem !== sentHeld) {

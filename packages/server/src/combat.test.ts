@@ -1,4 +1,4 @@
-import { ANIMAL_ID_BASE, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, HP_MAX, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, give, type ServerBinary } from '@dragon-village/shared';
+import { ANIMAL_ID_BASE, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, HP_MAX, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, give, type ServerBinary, GUARD_MAX_MS } from '@dragon-village/shared';
 import { BLOCKS, MOBS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
 import { MobSystem } from './mobs';
@@ -90,6 +90,18 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
     expect(a.json.some((m) => m.t === 'health' && m.cause === 'blocked')).toBe(true);
     room.hurt(p, 5, 'vindicator', T0 + 6000);
     expect(p.hp).toBe(HP_MAX - 4 - 5); // 도끼는 방패를 무시
+    // 🛡️ 막기 (#118): 누르는 동안 근접 피해 전부 막음, 15초 지나면 저절로 풀려 절반, 방패 없으면 못 켠다
+    p.hp = HP_MAX;
+    expect(room.guard(ra.idx, true, T0 + 7000)).toBeNull();
+    room.hurt(p, 6, 'zombie', T0 + 8000);
+    expect(p.hp).toBe(HP_MAX);
+    room.hurt(p, 5, 'vindicator', T0 + 8500);
+    expect(p.hp).toBe(HP_MAX - 5); // 도끼는 막아도 뚫는다
+    room.hurt(p, 6, 'zombie', T0 + 7000 + GUARD_MAX_MS + 1);
+    expect(p.hp).toBe(HP_MAX - 5 - 3); // 시간이 지나 풀림 → 절반
+    expect(room.guard(ra.idx, false, T0 + 30_000)).toBeNull();
+    p.equip = { helmet: null, chestplate: null, leggings: null, boots: null, shield: null };
+    expect(room.guard(ra.idx, true, T0 + 31_000)).toBe('NO_SHIELD');
   });
 
   it('활: 활을 들고 화살이 있어야 하고, 24칸 안의 몹을 맞히면 화살 1개가 줄고 모두에게 shot 이 간다', () => {

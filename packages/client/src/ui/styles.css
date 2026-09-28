@@ -2049,3 +2049,15 @@ body {
   color: #fff;
   text-shadow: 1px 1px 0 #000;
 }
+
+/* ---------- 🛡️ 막기 버튼 (#118): ▼ 왼쪽 ---------- */
+.tbtn.guard {
+  right: calc(max(24px, env(safe-area-inset-right)) + 176px);
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 80px);
+  width: 64px;
+  height: 64px;
+  font-size: 26px;
+}
+.tbtn.guard.active {
+  background: rgba(255, 213, 79, 0.5);
+}

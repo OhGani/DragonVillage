@@ -18,6 +18,8 @@ export interface TouchUI {
   stickKnob: HTMLElement;
   jumpButton: HTMLElement;
   sneakButton: HTMLElement;
+  /** 🛡️ 막기 (#118) — 방패를 끼면 보인다 */
+  guardButton: HTMLElement;
   onSneakToggle?: (on: boolean) => void;
 }
 
@@ -106,6 +108,7 @@ export class TouchControls implements InputSource {
   private secondaryTap = false;
   private readonly jump: HoldButton;
   private readonly sneak: HoldButton;
+  private readonly guard: HoldButton;
   lastActive = 0;
 
   /** 스틱 원판 중심과, 그 근처(여유 포함)에 닿았는지 */
@@ -215,16 +218,27 @@ export class TouchControls implements InputSource {
     e.preventDefault();
     this.sneak.release(performance.now());
   };
+  private readonly onGuardStart = (e: Event) => {
+    e.preventDefault();
+    this.lastActive = performance.now();
+    this.guard.press(this.lastActive);
+  };
+  private readonly onGuardEnd = (e: Event) => {
+    e.preventDefault();
+    this.guard.release(performance.now());
+  };
 
   /** 잠긴 ▲▼ 를 모두 푼다 (세계 전환·내리기 등) */
   clearHolds(): void {
     this.jump.clear();
     this.sneak.clear();
+    this.guard.clear();
   }
 
   constructor(private readonly ui: TouchUI) {
     this.jump = new HoldButton(ui.jumpButton);
     this.sneak = new HoldButton(ui.sneakButton, (on) => ui.onSneakToggle?.(on));
+    this.guard = new HoldButton(ui.guardButton);
     const opt: AddEventListenerOptions = { passive: false };
     ui.surface.addEventListener('touchstart', this.onStart, opt);
     ui.surface.addEventListener('touchmove', this.onMove, opt);
@@ -236,6 +250,9 @@ export class TouchControls implements InputSource {
     ui.sneakButton.addEventListener('touchstart', this.onSneakStart, opt);
     ui.sneakButton.addEventListener('touchend', this.onSneakEnd, opt);
     ui.sneakButton.addEventListener('touchcancel', this.onSneakEnd, opt);
+    ui.guardButton.addEventListener('touchstart', this.onGuardStart, opt);
+    ui.guardButton.addEventListener('touchend', this.onGuardEnd, opt);
+    ui.guardButton.addEventListener('touchcancel', this.onGuardEnd, opt);
     ui.stickBase.hidden = false; // 고정 스틱은 항상 보인다
   }
 
@@ -268,6 +285,7 @@ export class TouchControls implements InputSource {
     this.secondaryTap = false;
     if (this.jump.on) out.jump = true;
     if (this.sneak.on) out.sneak = true;
+    if (this.guard.on) out.guard = true;
   }
 
   dispose(): void {
@@ -282,5 +300,8 @@ export class TouchControls implements InputSource {
     this.ui.sneakButton.removeEventListener('touchstart', this.onSneakStart);
     this.ui.sneakButton.removeEventListener('touchend', this.onSneakEnd);
     this.ui.sneakButton.removeEventListener('touchcancel', this.onSneakEnd);
+    this.ui.guardButton.removeEventListener('touchstart', this.onGuardStart);
+    this.ui.guardButton.removeEventListener('touchend', this.onGuardEnd);
+    this.ui.guardButton.removeEventListener('touchcancel', this.onGuardEnd);
   }
 }

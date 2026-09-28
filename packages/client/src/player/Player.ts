@@ -47,6 +47,9 @@ export class Player {
   pitch = 0;
   onGround = false;
   sneaking = false;
+  /** 🛡️ 막는 중 (#118): 걸음이 guardSlow 배 */
+  guarding = false;
+  guardSlow = 0.5;
   sprinting = false;
   inWater = false;
   /** 드래곤을 타고 있다 (M6-4): 중력 없음, 점프 = 상승, 웅크리기 = 하강. 충돌은 사람 몸 그대로 */
@@ -117,6 +120,7 @@ export class Player {
       vel = this.vel;
     this.inWater = this.isWaterAt(pos.x, pos.y + 0.2, pos.z) || this.isWaterAt(pos.x, pos.y + this.eyeHeight - 0.1, pos.z);
     this.sneaking = input.sneak && !this.inWater && !this.riding;
+    this.guarding = input.guard && !this.riding;
     this.sprinting = input.sprint && input.moveZ > 0.5 && !this.sneaking;
 
     // 원하는 수평 속도
@@ -129,7 +133,7 @@ export class Player {
       wx /= wl;
       wz /= wl;
     }
-    const speed = this.riding ? RIDE_SPEED : this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK;
+    const speed = (this.riding ? RIDE_SPEED : this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK) * (this.guarding ? this.guardSlow : 1);
     const accel = this.riding ? 8 : this.inWater ? 6 : this.onGround ? 18 : 3.5;
     const k = Math.min(1, accel * h);
     // 날 때 앞·뒤로 밀면 보는 쪽(위아래)으로 난다 (#97). 살짝 내려보는 건 수평으로 치고, 많이 기울일수록 가파르게

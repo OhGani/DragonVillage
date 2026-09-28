@@ -397,6 +397,10 @@ export class NetClient {
   sendShoot(id: number, slot: number): void {
     this.sendJson({ t: 'shoot', id, slot });
   }
+  /** 🛡️ 막기 (#118) */
+  sendGuard(on: boolean): void {
+    this.sendJson({ t: 'guard', on });
+  }
   /** 펫 이름 짓기 (#109) */
   sendNameMob(id: number, name: string): void {
     this.sendJson({ t: 'nameMob', id, name });

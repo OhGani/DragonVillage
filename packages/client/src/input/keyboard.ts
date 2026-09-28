@@ -137,6 +137,7 @@ export class KeyboardMouse implements InputSource {
     if (this.down('Space')) out.jump = true;
     if (this.down('ShiftLeft', 'ShiftRight')) out.sneak = true;
     if (this.down('ControlLeft', 'ControlRight')) out.sprint = true;
+    if (this.down('KeyX')) out.guard = true; // 🛡️ 막기 (#118)
     out.lookDX += this.lookDX;
     out.lookDY += this.lookDY;
     this.lookDX = 0;
