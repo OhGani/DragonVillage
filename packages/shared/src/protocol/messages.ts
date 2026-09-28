@@ -476,8 +476,8 @@ export type ClientJson =
   /** 장비 (M8-2): 가방 slot 의 갑옷·방패를 입는다 / part 를 벗어 가방으로 */
   | { t: 'equip'; slot: number }
   | { t: 'unequip'; part: string }
-  /** 활·쇠뇌로 노린 몹을 쏜다 (M8-2). slot = 활을 든 칸 */
-  | { t: 'shoot'; id: number; slot?: number }
+  /** 활·쇠뇌로 노린 몹을 쏜다 (M8-2). slot = 활을 든 칸, charge = 당긴 시간 ms (#119) */
+  | { t: 'shoot'; id: number; slot?: number; charge?: number }
   /** 🛡️ 막기 (#118): 누르는 동안 true, 놓으면 false. 방패를 끼고 있어야 한다 */
   | { t: 'guard'; on: boolean }
   /** 내 펫 이름 짓기 (M8-1 4차): pet-names.json 의 이름만 */

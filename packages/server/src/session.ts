@@ -469,7 +469,7 @@ export class Session {
       case 'shoot': {
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
         if (!Number.isInteger(msg.id)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
-        const err = this.room.shoot(this.idx, msg.id, typeof msg.slot === 'number' ? msg.slot : undefined);
+        const err = this.room.shoot(this.idx, msg.id, typeof msg.slot === 'number' ? msg.slot : undefined, Date.now(), typeof msg.charge === 'number' ? Math.max(0, Math.min(10_000, msg.charge)) : 0);
         if (err && err !== 'COOLDOWN') return this.error(err, SHOOT_ERROR_KO[err] ?? '지금은 쏠 수 없어요');
         return;
       }

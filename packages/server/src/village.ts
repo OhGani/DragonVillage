@@ -149,6 +149,7 @@ import {
   armorApplies,
   armorTotals,
   bowOf,
+  bowDamage,
   equipSlotOf,
   finalDamage,
   GUARD_MAX_MS,
@@ -1442,7 +1443,7 @@ export class VillageRoom {
   }
 
   /** 활·쇠뇌로 노린 몹을 쏜다 (M8-2): 든 칸이 활이고 화살이 있어야. 사거리·피해·간격은 combat.json. 화살 1개 소모, 모두에게 'shot' */
-  shoot(idx: number, mobId: number, slot: number | undefined, now = Date.now()): string | null {
+  shoot(idx: number, mobId: number, slot: number | undefined, now = Date.now(), chargeMs = 0): string | null {
     const p = this.players.get(idx);
     if (!p) return 'NOT_IN_VILLAGE';
     const held = slot !== undefined && slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
@@ -1452,10 +1453,11 @@ export class VillageRoom {
     if (now < p.bowReadyAt) return 'COOLDOWN';
     const me = { idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE };
     let err: string | null;
-    if (p.world === 'village' && mobId >= ANIMAL_ID_BASE) err = this.animals.hit({ ...me, token: p.token, held }, mobId, bow.damage, now, bow.range);
+    const dmg = bowDamage(bow, chargeMs); // 당긴 만큼 (#119)
+    if (p.world === 'village' && mobId >= ANIMAL_ID_BASE) err = this.animals.hit({ ...me, token: p.token, held }, mobId, dmg, now, bow.range);
     else {
       const sys = p.world === 'expedition' ? this.mobSys : (this.raid?.mobs ?? null);
-      err = sys ? sys.hit(me, mobId, bow.damage, now, bow.range) : 'NO_MOB';
+      err = sys ? sys.hit(me, mobId, dmg, now, bow.range) : 'NO_MOB';
     }
     if (err) return err;
     const changed = new Set<number>();

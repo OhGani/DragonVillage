@@ -39,6 +39,8 @@ export interface BowDef {
   readonly name: string;
   readonly damage: number;
   readonly cooldownMs: number;
+  /** 시위를 가득 당기는 데 걸리는 시간 (#119) */
+  readonly drawMs: number;
   readonly range: number;
 }
 export interface ShieldRule {
@@ -97,7 +99,7 @@ const RawCombat = z
     shield: z
       .object({ id: z.string(), name: z.string(), station: z.enum(['crafting_table', 'forge', 'inventory']), in: Count, meleeBlock: z.number().min(0).max(1), arrowBlock: z.number().min(0).max(1), guardBlock: z.number().min(0).max(1).optional(), guardSlow: z.number().min(0).max(1).optional(), ignoredBy: z.array(z.string()).optional() })
       .loose(),
-    bows: z.array(z.object({ id: z.string(), name: z.string(), station: z.enum(['crafting_table', 'forge', 'inventory']), in: Count, damage: z.number().positive(), cooldownMs: z.number().positive(), range: z.number().positive() }).loose()),
+    bows: z.array(z.object({ id: z.string(), name: z.string(), station: z.enum(['crafting_table', 'forge', 'inventory']), in: Count, damage: z.number().positive(), cooldownMs: z.number().positive(), drawMs: z.number().positive().optional(), range: z.number().positive() }).loose()),
     arrow: z.object({ id: z.string(), name: z.string(), station: z.enum(['crafting_table', 'forge', 'inventory']), in: Count, out: z.number().int().positive() }).loose(),
   })
   .loose();
@@ -136,13 +138,20 @@ export function parseCombat(raw: unknown, fileName = 'data/combat.json'): Combat
   recipes.push(recipe(shield.id, shield.name, d.shield.station, d.shield.in, { [shield.id]: 1 }));
   const bows = new Map<string, BowDef>();
   for (const b of d.bows) {
-    bows.set(b.id, { id: b.id, name: b.name, damage: b.damage, cooldownMs: b.cooldownMs, range: b.range });
+    bows.set(b.id, { id: b.id, name: b.name, damage: b.damage, cooldownMs: b.cooldownMs, drawMs: b.drawMs ?? 1000, range: b.range });
     names.set(b.id, b.name);
     recipes.push(recipe(b.id, b.name, b.station, b.in, { [b.id]: 1 }));
   }
   names.set(d.arrow.id, d.arrow.name);
   recipes.push(recipe(d.arrow.id, d.arrow.name, d.arrow.station, d.arrow.in, { [d.arrow.id]: d.arrow.out }));
   return { armor, shield, bows, arrow: { id: d.arrow.id, name: d.arrow.name }, recipes, itemNames: names };
+}
+
+/** 당긴 시간(ms)에 따른 화살 피해 (#119): 안 당기면 30%, drawMs 이상이면 100%. 최소 1 */
+export const DRAW_MIN_RATIO = 0.3;
+export function bowDamage(bow: BowDef, chargeMs: number): number {
+  const c = Math.max(0, Math.min(1, chargeMs / Math.max(1, bow.drawMs)));
+  return Math.max(1, Math.round(bow.damage * (DRAW_MIN_RATIO + (1 - DRAW_MIN_RATIO) * c)));
 }
 
 /** 이 아이템이 들어가는 장비 칸 (없으면 null) */

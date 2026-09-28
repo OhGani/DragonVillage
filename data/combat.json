@@ -98,9 +98,10 @@
       "station": "crafting_table",
       "in": { "stick": 3, "string": 3 },
       "damage": 6,
-      "cooldownMs": 1000,
+      "cooldownMs": 300,
+      "drawMs": 1000,
       "range": 24,
-      "_note": "몹을 노리고 탭하면 화살 1개를 쓴다. 24칸까지. 마인크래프트 6~11 중 기본 6"
+      "_note": "몹을 노리고 누르고 있으면 활시위를 당기고(drawMs 에 가득), 놓으면 쏜다(#119). 피해는 당긴 만큼 damage 의 30%~100% (짧게 탭 = 약한 화살). 24칸까지. 화살 1개"
     },
     {
       "id": "crossbow",
@@ -108,9 +109,10 @@
       "station": "forge",
       "in": { "stick": 3, "string": 2, "iron_ingot": 1 },
       "damage": 9,
-      "cooldownMs": 1250,
+      "cooldownMs": 300,
+      "drawMs": 1250,
       "range": 28,
-      "_note": "철사 덫 갈고리는 아직 없어 뺐다. 활보다 세고 느리다"
+      "_note": "철사 덫 갈고리는 아직 없어 뺐다. 활보다 세고 당기는 데 오래 걸린다 (drawMs)"
     }
   ],
   "arrow": {

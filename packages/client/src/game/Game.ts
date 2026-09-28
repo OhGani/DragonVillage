@@ -232,6 +232,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   let guardSent = false;
   let guardSentAt = 0;
   let guarding = false;
+  /** 활 당기기 (#119): 누르기 시작한 시각, 진행 0~1 */
+  let drawStart: number | null = null;
+  let drawProgress = 0;
   const mount = new MountView(scene);
   // 빔 (M6-5): 서버가 확정한 것만 그린다. 기력은 서버 값 사이를 회복 공식으로 채워 바가 부드럽게 찬다
   const beams = new BeamView(scene);
@@ -1350,7 +1353,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const bow = bowOf(COMBAT, hud.selectedItem);
     const aimedMob = mobView.count > 0 ? mobView.aim(player.eye, player.lookDir, bow ? bow.range : HIT_REACH + 1) : null;
     aimedMobNow = aimedMob;
-    interaction.suppressPrimary = aimedMob !== null;
+    interaction.suppressPrimary = aimedMob !== null || bow !== null; // 활을 들면 꾹 누르기는 당기기 (#119)
     interaction.suppressSecondary = aimedMob !== null;
     // 🛡️ 막기 (#118): 방패를 끼고 버튼(X)을 누르는 동안. 서버엔 바뀔 때 + 5초마다
     const wantGuard = inp.guard && myEquip.shield !== null && !myRiding && !anyPanelOpen();
@@ -1365,16 +1368,35 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
     // 공격: 꾹 누르기(부수기와 같음) 또는 몹을 짧게 탭 (아빠 2026-09-28 — 폰에서 탭만으로). 동물은 탭이 먹이·길들이기라 꾹 눌러야 때린다
     const tapAttack = inp.secondaryTap && aimedMob !== null && aimedMob < ANIMAL_ID_BASE;
-    if (aimedMob !== null && (inp.primary || tapAttack) && hitCooldown <= 0 && !guarding) {
-      if (bow) {
+    if (bow && !guarding) {
+      // 활·쇠뇌 (#119, 아빠): 누르고 있으면 시위를 당기고, 놓으면 쏜다. 짧게 탭하면 약한 화살
+      if (inp.primary) {
+        if (drawStart === null) drawStart = now;
+      } else if (drawStart !== null) {
+        const chargeMs = now - drawStart;
+        drawStart = null;
+        if (aimedMob !== null && hitCooldown <= 0) {
+          hitCooldown = bow.cooldownMs / 1000;
+          net.sendShoot(aimedMob, hud.selectedIndex, chargeMs);
+          hand.swing();
+        } else if (chargeMs > 300) hud.toast('몹을 노린 채 놓아야 화살이 나가요', 1200);
+      }
+      if (tapAttack && drawStart === null && hitCooldown <= 0) {
         hitCooldown = bow.cooldownMs / 1000;
-        net.sendShoot(aimedMob, hud.selectedIndex);
-      } else {
+        net.sendShoot(aimedMob!, hud.selectedIndex, 0);
+        hand.swing();
+      }
+      drawProgress = drawStart === null ? 0 : Math.min(1, (now - drawStart) / bow.drawMs);
+    } else {
+      drawStart = null;
+      drawProgress = 0;
+      if (aimedMob !== null && (inp.primary || tapAttack) && hitCooldown <= 0 && !guarding) {
         hitCooldown = HIT_COOLDOWN_MS / 1000;
         net.sendHit(aimedMob, hud.selectedIndex);
+        hand.swing();
       }
-      hand.swing();
     }
+    hand.setDraw(drawProgress);
     // 동물에게 손에 든 것 쓰기 (M8-1): 먹이·뼈·빈손(앉기)
     if (aimedMob !== null && inp.secondaryTap && aimedMob >= ANIMAL_ID_BASE) {
       net.sendUseMob(aimedMob, hud.selectedIndex);
@@ -1425,7 +1447,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       }
     } else highlight.clearTarget();
     particles.update(dt);
-    hud.setProgress(interaction.progress);
+    hud.setProgress(drawProgress > 0 ? drawProgress : interaction.progress); // 활 당김도 같은 고리로 (#119)
     {
       // 나침반 점: 마을에선 광장, 원정지에선 포탈 방향 (#103 — 마을이 넓어져 길을 잃지 않게)
       const goal =

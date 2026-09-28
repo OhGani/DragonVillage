@@ -123,14 +123,17 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
     give(p.inv, 'arrow', 4);
     const hp0 = cow.hp;
     a.clear();
-    expect(room.shoot(ra.idx, id, bowSlot, T0 + 1000)).toBeNull();
+    expect(room.shoot(ra.idx, id, bowSlot, T0 + 1000, 1000)).toBeNull(); // 가득 당김 (#119)
     expect(cow.hp).toBe(hp0 - 6);
     expect(countOf(p.inv, 'arrow')).toBe(3);
     expect(a.json.some((m) => m.t === 'shot' && m.id === id)).toBe(true);
-    expect(room.shoot(ra.idx, id, bowSlot, T0 + 1300)).toBe('COOLDOWN'); // 1초 간격
+    expect(room.shoot(ra.idx, id, bowSlot, T0 + 1100)).toBe('COOLDOWN'); // 0.3초 간격
+    expect(room.shoot(ra.idx, id, bowSlot, T0 + 2000, 0)).toBeNull(); // 안 당기고 탭 → 약한 화살 2
+    expect(cow.hp).toBe(hp0 - 6 - 2);
+    expect(countOf(p.inv, 'arrow')).toBe(2);
     cow.x = p.pos.x + 30;
     expect(room.shoot(ra.idx, id, bowSlot, T0 + 3000)).toBe('TOO_FAR');
-    expect(countOf(p.inv, 'arrow')).toBe(3); // 못 맞히면 화살도 안 쓴다
+    expect(countOf(p.inv, 'arrow')).toBe(2); // 못 맞히면 화살도 안 쓴다
   });
 
   it('스켈레톤·약탈자는 6칸에서 화살을 쏜다: 피해와 함께 arrow(몹 → 사람) 가 모두에게 간다, 좀비는 안 간다', () => {

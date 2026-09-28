@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BLOCKS, COMBAT, ITEM_NAMES, RECIPES } from './data';
-import { armorTotals, emptyEquipment, equipSlotOf, finalDamage, reduceDamage, sanitizeEquipment, shieldFactor } from './combat';
+import { armorTotals, bowDamage, emptyEquipment, equipSlotOf, finalDamage, reduceDamage, sanitizeEquipment, shieldFactor } from './combat';
 import { itemName } from './items';
 
 describe('전투 장비 (M8-2, combat.json)', () => {
@@ -71,6 +71,16 @@ describe('전투 장비 (M8-2, combat.json)', () => {
     expect(finalDamage(COMBAT, eq, 5, 'fall', true)).toBe(5);
     expect(finalDamage(COMBAT, emptyEquipment(), 5, 'zombie', true)).toBe(5);
     expect(COMBAT.shield.guardSlow).toBe(0.5);
+  });
+
+  it('활 당기기 (#119): 안 당기면 30%, 가득 당기면 100%, 넘게 당겨도 그대로', () => {
+    const bow = COMBAT.bows.get('bow')!;
+    expect(bow.drawMs).toBe(1000);
+    expect(bowDamage(bow, 0)).toBe(2);
+    expect(bowDamage(bow, 500)).toBe(4);
+    expect(bowDamage(bow, 1000)).toBe(6);
+    expect(bowDamage(bow, 5000)).toBe(6);
+    expect(bowDamage(COMBAT.bows.get('crossbow')!, 1250)).toBe(9);
   });
 
   it('저장된 장비 JSON 은 검사해서 읽는다 (모르는 것·엉뚱한 칸은 비움)', () => {

@@ -46,6 +46,8 @@ export class HandView {
   private readonly pivot = new THREE.Group();
   private mesh: THREE.Mesh | null = null;
   private swingT = 1;
+  /** 활 당김 0~1 (#119): 손이 뒤로 당겨진다 */
+  private draw = 0;
   private currentBlock = -1;
   private currentItem: string | null = null;
 
@@ -122,6 +124,10 @@ export class HandView {
     this.pivot.add(this.mesh);
   }
 
+  setDraw(v: number): void {
+    this.draw = Math.max(0, Math.min(1, v));
+  }
+
   swing(): void {
     if (this.swingT >= 1 || this.swingT > 0.5) this.swingT = 0;
   }
@@ -150,7 +156,11 @@ export class HandView {
       dx -= s * 0.12;
       rx -= s * 1.1;
     }
-    this.pivot.position.set(baseX + dx, baseY + dy, HAND_Z);
+    // 활 당기기: 손을 안쪽·위로 조금 당기고 살짝 기울인다
+    dx -= this.draw * 0.08;
+    dy += this.draw * 0.05;
+    rx += this.draw * 0.35;
+    this.pivot.position.set(baseX + dx, baseY + dy, HAND_Z + this.draw * 0.12);
     this.pivot.rotation.x = HAND_TILT + rx;
   }
 

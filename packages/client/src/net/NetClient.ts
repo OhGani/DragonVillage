@@ -394,8 +394,8 @@ export class NetClient {
     this.sendJson({ t: 'useMob', id, slot });
   }
   /** 활·쇠뇌로 쏘기 (M8-2) */
-  sendShoot(id: number, slot: number): void {
-    this.sendJson({ t: 'shoot', id, slot });
+  sendShoot(id: number, slot: number, charge = 0): void {
+    this.sendJson({ t: 'shoot', id, slot, charge: Math.round(charge) });
   }
   /** 🛡️ 막기 (#118) */
   sendGuard(on: boolean): void {
