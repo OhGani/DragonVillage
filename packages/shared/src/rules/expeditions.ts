@@ -4,6 +4,7 @@
  * 낮·저녁·밤 단계와 스카이라이트 배율은 순수 함수 — 클라(하늘·안개)와 서버(위험도, M7)가 같은 값을 쓴다.
  */
 import { z } from 'zod';
+import { hash3 } from '../math/prng';
 import { DataError, koreanizeMessage } from './blocks';
 
 const NAME_RE = /^[a-z0-9_]+$/;
@@ -30,7 +31,13 @@ const ExpeditionsFile = z
     returnGraceSec: z.number().int().min(0, '0 이상이어야 해요'),
     failedReturnKeepRatio: z.number().min(0, '0~1 사이여야 해요').max(1, '0~1 사이여야 해요'),
     minStartMarginMin: z.number().min(0, '0 이상이어야 해요'),
-    treasureChestGives: z.record(z.string(), z.number().int().min(1, '1 이상이어야 해요')).optional(),
+    treasureChestLoot: z
+      .object({
+        picks: z.number().int().min(1, '1 이상이어야 해요'),
+        pool: z.array(z.object({ item: z.string(), min: z.number().int().min(0), max: z.number().int().min(1), weight: z.number().positive() }).loose()).min(1, '보상이 하나는 있어야 해요'),
+      })
+      .loose()
+      .optional(),
     expeditions: z.array(RawExpedition).min(1, '원정지가 하나도 없어요'),
   })
   .loose();
@@ -71,8 +78,45 @@ export interface ExpeditionRules {
   readonly failedReturnKeepRatio: number;
   /** 원정 시간 + 이 여유(분)가 남아야 출발할 수 있다 (M5 시간 규칙) */
   readonly minStartMarginMin: number;
-  /** 보물 상자를 열면(부수면) 나오는 것 (M6-4 임시: 소가 없어 가죽은 여기서, 결정 #78) */
-  readonly treasureChestGives: Readonly<Record<string, number>>;
+  /** 보물 상자 랜덤 보상 (#117): pool 에서 picks 가지, 원정 시드·상자 번호로 결정론 */
+  readonly treasureChestLoot: TreasureLootRules;
+}
+
+export interface TreasureLootEntry {
+  readonly item: string;
+  readonly min: number;
+  readonly max: number;
+  readonly weight: number;
+}
+export interface TreasureLootRules {
+  readonly picks: number;
+  readonly pool: readonly TreasureLootEntry[];
+}
+
+/** 상자 index 의 보상 (결정론). 같은 종류는 한 번만, pool 이 모자라면 그만큼만 */
+export function treasureLoot(rules: TreasureLootRules, seed: number, index: number): { item: string; count: number }[] {
+  const out: { item: string; count: number }[] = [];
+  const used = new Set<number>();
+  const total = rules.pool.reduce((a, e) => a + e.weight, 0);
+  for (let k = 0; k < rules.picks && used.size < rules.pool.length; k++) {
+    let pick = -1;
+    for (let attempt = 0; attempt < 16 && pick < 0; attempt++) {
+      let r = hash3(index, k * 16 + attempt, 51, seed) * total;
+      for (let i = 0; i < rules.pool.length; i++) {
+        r -= rules.pool[i]!.weight;
+        if (r <= 0) {
+          if (!used.has(i)) pick = i;
+          break;
+        }
+      }
+    }
+    if (pick < 0) pick = rules.pool.findIndex((_, i) => !used.has(i));
+    used.add(pick);
+    const e = rules.pool[pick]!;
+    const count = e.min + Math.floor(hash3(index, k, 52, seed) * (Math.max(e.min, e.max) - e.min + 1));
+    if (count > 0) out.push({ item: e.item, count });
+  }
+  return out;
 }
 
 export type ExpeditionPhase = 'day' | 'evening' | 'night';
@@ -184,5 +228,8 @@ export function parseExpeditions(raw: unknown, fileName = 'data/expeditions.json
   });
   if (problems.length) throw new DataError(fileName, problems);
   const { returnGraceSec, failedReturnKeepRatio, minStartMarginMin } = result.data;
-  return new ExpeditionRegistry(defs, { returnGraceSec, failedReturnKeepRatio, minStartMarginMin, treasureChestGives: result.data.treasureChestGives ?? {} });
+  const loot = result.data.treasureChestLoot;
+  for (const e of loot?.pool ?? []) if (e.max < e.min) problems.push(`보물 '${e.item}' 의 max 가 min 보다 작아요`);
+  if (problems.length) throw new DataError(fileName, problems);
+  return new ExpeditionRegistry(defs, { returnGraceSec, failedReturnKeepRatio, minStartMarginMin, treasureChestLoot: loot ? { picks: loot.picks, pool: loot.pool.map((e) => ({ item: e.item, min: e.min, max: e.max, weight: e.weight })) } : { picks: 0, pool: [] } });
 }

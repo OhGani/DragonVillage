@@ -153,6 +153,10 @@ export interface NetEvents {
   onEquip(m: { idx: number; parts: Record<string, string | null>; defense: number; toughness: number }): void;
   /** 화살이 날아갔다 (M8-2) */
   onShot(m: { idx: number; id: number; from: { x: number; y: number; z: number } }): void;
+  /** 내 드래곤 체력 (#113) */
+  onDragonHp(m: { hp: number; max: number }): void;
+  /** 내 드래곤이 쓰러졌다 (#113) */
+  onDragonDown(m: { id: number; dragon: string; restUntil: number }): void;
   /** 펫 목록·이름 (#109) */
   onPets(list: { id: number; name: string | null; mine: boolean }[]): void;
   /** 몹이 쏜 화살 (M8-2 3차) */
@@ -569,6 +573,8 @@ export class NetClient {
     else if (msg.t === 'shot') ev.onShot(msg);
     else if (msg.t === 'arrow') ev.onArrow(msg);
     else if (msg.t === 'pets') ev.onPets(msg.list);
+    else if (msg.t === 'dragonHp') ev.onDragonHp(msg);
+    else if (msg.t === 'dragonDown') ev.onDragonDown(msg);
     else if (msg.t === 'raid') ev.onRaid(msg.raid);
     else if (msg.t === 'worldEnter') ev.onWorldEnter({ kind: msg.kind, expedition: msg.expedition, spawn: msg.spawn, players: msg.players, chunks: [] });
   }

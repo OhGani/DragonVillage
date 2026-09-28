@@ -285,6 +285,7 @@ export class Storage {
       listHatched: this.db.prepare("SELECT id, village, token, dragon, stage, slot, placed_at AS placedAt, hatched_at AS hatchedAt, fed, resting_until AS restingUntil FROM dragons WHERE village = ? AND stage != 'egg' ORDER BY id"),
       feedDragon: this.db.prepare('UPDATE dragons SET fed = ? WHERE id = ?'),
       growDragon: this.db.prepare("UPDATE dragons SET stage = 'adult' WHERE id = ?"),
+      restDragon: this.db.prepare('UPDATE dragons SET resting_until = ? WHERE id = ?'),
       addXpOffline: this.db.prepare('UPDATE players SET xp_total = xp_total + ? WHERE token = ?'),
       getChest: this.db.prepare('SELECT json FROM chests WHERE village = ? AND x = ? AND y = ? AND z = ?'),
       listChests: this.db.prepare('SELECT x, y, z FROM chests WHERE village = ?'),
@@ -568,6 +569,10 @@ export class Storage {
   }
   feedDragon(id: number, fed: number): void {
     this.stmts.feedDragon.run(fed, id);
+  }
+  /** 쓰러진 드래곤이 쉬는 시각 (#113) */
+  restDragon(id: number, until: number | null): void {
+    this.stmts.restDragon.run(until, id);
   }
   growDragon(id: number): void {
     this.stmts.growDragon.run(id);

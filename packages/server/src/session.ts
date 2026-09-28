@@ -87,6 +87,7 @@ const NEST_ERROR_KO: Record<string, string> = {
   NOT_FOOD: '그건 이 드래곤 먹이가 아니에요 (만들 때 쓴 재료를 줘요)',
   NO_ITEM: '그 먹이가 가방에 없어요',
   NOT_ADULT: '아기는 아직 못 타요 — 어른이 되면 탈 수 있어요',
+  RESTING: '드래곤이 쓰러져서 둥지에서 쉬고 있어요 (10분)',
   NO_SADDLE: '안장이 있어야 탈 수 있어요 (제작대: 가죽 5 + 철 2. 가죽은 원정 보물 상자에서)',
   TOO_FAR: '드래곤 가까이 가서 타요',
   ALREADY_RIDING: '이미 타고 있어요',

@@ -3,11 +3,23 @@
   "returnGraceSec": 60,
   "failedReturnKeepRatio": 0.5,
   "minStartMarginMin": 3,
-  "treasureChestGives": {
-    "leather": 2,
-    "carrot": 2
+  "treasureChestLoot": {
+    "_comment": "보물 상자를 처음 열 때 pool 에서 picks 가지를 뽑아 넣는다 (아빠 2026-09-28, #117: 가죽은 소에서 나오니 빼고 랜덤으로). weight 가 클수록 자주, min~max 개. 어느 상자에 뭐가 드는지는 원정 시드로 정해져 같은 원정에선 누가 열어도 같다. 아들이 항목·개수·확률을 바꿔도 된다.",
+    "picks": 3,
+    "pool": [
+      { "item": "carrot", "min": 1, "max": 3, "weight": 3, "_note": "돼지 먹이 (#110)" },
+      { "item": "iron_ingot", "min": 1, "max": 2, "weight": 3 },
+      { "item": "gold_ingot", "min": 1, "max": 1, "weight": 2 },
+      { "item": "diamond", "min": 1, "max": 1, "weight": 1, "_note": "드물게" },
+      { "item": "emerald", "min": 1, "max": 1, "weight": 1 },
+      { "item": "glowstone_dust", "min": 2, "max": 4, "weight": 2 },
+      { "item": "string", "min": 2, "max": 4, "weight": 2, "_note": "활 재료" },
+      { "item": "feather", "min": 1, "max": 3, "weight": 2, "_note": "화살 재료" },
+      { "item": "bone", "min": 1, "max": 2, "weight": 2, "_note": "강아지 길들이기" },
+      { "item": "apple", "min": 1, "max": 2, "weight": 2 },
+      { "item": "arrow", "min": 4, "max": 8, "weight": 2 }
+    ]
   },
-  "_treasureNote": "보물 상자를 열면(부수면) 안에서 나오는 것. 가죽 2개(안장·가죽 갑옷 재료 — 소가 생겼으니 아들이 뺄지 정한다)와 당근 2개(돼지 먹이, 2026-09-25 #110 — 당근 농사(v1.1) 전까지 상자가 유일한 출처). 아들이 종류·개수를 바꿔도 된다.",
   "expeditions": [
     {
       "id": "grass_island",

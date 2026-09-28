@@ -539,6 +539,10 @@ export type ServerJson =
   | { t: 'chest'; x: number; y: number; z: number; slots: ({ item: string; count: number } | null)[] }
   /** 누가 드래곤을 탔다/내렸다 (같은 세계 모두, 본인 포함) (M6-4) */
   | { t: 'mount'; idx: number; riding: RidingInfo }
+  /** 내가 탄 드래곤의 체력 (#113). 탈 때와 맞을 때 */
+  | { t: 'dragonHp'; hp: number; max: number }
+  /** 내 드래곤이 쓰러졌다 (#113): 내려지고 둥지에서 restUntil 까지 쉰다 */
+  | { t: 'dragonDown'; id: number; dragon: string; restUntil: number }
   | { t: 'dismount'; idx: number }
   | { t: 'held'; idx: number; item: string | null }
   /** 누가 장비를 바꿨다 (M8-2). 내 것이면 가방 장비 칸·방어 바를 고친다 */

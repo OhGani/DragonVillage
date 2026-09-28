@@ -14,8 +14,12 @@ import {
   OLD_SITES,
   buildingBlocks,
   isBuildingBuiltAt,
+  treasureLoot,
+  dragonMaxHp,
+  DRAGON_REST_MS,
+  HP_MAX,
 } from '@dragon-village/shared';
-import { BLOCKS } from '@dragon-village/shared/data';
+import { DRAGONS, EXPEDITIONS, BLOCKS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
 import { Storage } from './storage';
 import { RATE_PER_SEC, TICK_MS, VillageRoom } from './village';
@@ -526,6 +530,25 @@ describe('드래곤 탑승 (M6-4)', () => {
     b.clear();
     expect(room.ride(ra.idx, ironId)).toBeNull();
     expect(room.ride(ra.idx, ironId)).toBe('ALREADY_RIDING');
+    // 드래곤 피해 (#113): 타고 있으면 몹 피해는 드래곤이 맞고 사람은 안 아프다. 0 이 되면 내려지고 10분 쉰다
+    const rider = room.players.get(ra.idx)!;
+    const maxHp = dragonMaxHp(DRAGONS.require('iron').tier);
+    expect(rider.dragonHp).toBe(maxHp);
+    room.hurt(rider, 7, 'creeper', T0 + 62 * 60_000);
+    expect(rider.hp).toBe(HP_MAX);
+    expect(rider.dragonHp).toBe(maxHp - 7);
+    expect(a.json.some((m) => m.t === 'dragonHp' && m.hp === maxHp - 7)).toBe(true);
+    room.hurt(rider, 5, 'fall', T0 + 62 * 60_000); // 낙하는 사람 몫
+    expect(rider.hp).toBe(HP_MAX - 5);
+    a.clear();
+    room.hurt(rider, 999, 'zombie', T0 + 62 * 60_000);
+    expect(rider.riding).toBeNull();
+    expect(rider.hp).toBe(HP_MAX - 5);
+    expect(a.json.some((m) => m.t === 'dragonDown')).toBe(true);
+    expect(a.json.some((m) => m.t === 'dismount')).toBe(true);
+    expect(room.ride(ra.idx, ironId, T0 + 62 * 60_000 + 1000)).toBe('RESTING');
+    expect(room.ride(ra.idx, ironId, T0 + 62 * 60_000 + DRAGON_REST_MS + 1)).toBeNull(); // 다 쉬면 다시 탄다
+    expect(storage.getDragon(ironId)!.restingUntil).toBe(T0 + 62 * 60_000 + DRAGON_REST_MS);
     const mountMsg = { t: 'mount', idx: ra.idx, riding: { id: ironId, dragon: 'iron' } };
     expect(a.json.find((m) => m.t === 'mount')).toEqual(mountMsg);
     expect(b.json.find((m) => m.t === 'mount')).toEqual(mountMsg);
@@ -693,15 +716,13 @@ describe('상자 (#84)', () => {
     a.clear();
     expect(room.openChest(ra.idx, t.x, t.y, t.z, 2000)).toBeNull();
     const slots = json(a)!.slots.filter(Boolean);
-    expect(slots).toEqual([
-      { item: 'leather', count: 2 },
-      { item: 'carrot', count: 2 }, // 돼지 먹이 (#110)
-    ]);
+    const loot = treasureLoot(EXPEDITIONS.rules.treasureChestLoot, room.expedition!.seed, 0); // 랜덤 보상 (#117, 시드로 결정)
+    expect(slots).toEqual(loot);
     expect(a.bin.find((m) => m.type === MSG.XpGained)).toMatchObject({ msg: { amount: 5, source: 2 } });
     // 두 번 열어도 또 생기지는 않는다
     a.clear();
     expect(room.openChest(ra.idx, t.x, t.y, t.z, 2000)).toBeNull();
-    expect(json(a)!.slots.filter(Boolean)).toHaveLength(2); // 가죽·당근 그대로, 더 생기지 않는다
+    expect(json(a)!.slots.filter(Boolean)).toHaveLength(loot.length); // 그대로, 더 생기지 않는다
     expect(a.bin.find((m) => m.type === MSG.XpGained)).toBeUndefined();
   });
 });
@@ -983,19 +1004,20 @@ describe('원정 보물 상자에서 꺼낸 것도 정산에 들어간다 (아�
     room.onMove(ra.idx, { x: t.x + 0.5, y: t.y, z: t.z + 1.5, yaw: 0, pitch: 0, flags: 0 });
     expect(room.openChest(ra.idx, t.x, t.y, t.z, 2000)).toBeNull();
     expect(room.gainedOf(ra.idx)).toEqual([]); // 열기만 하면 아직 내 것이 아니다
-    // 상자 0번 칸(가죽 2) → 내 가방 첫 칸(이어 붙인 번호 27)
-    expect(room.chestMove(ra.idx, t.x, t.y, t.z, 0, 27, 2, 2000)).toBeNull();
-    expect(countOf(room.players.get(ra.idx)!.inv, 'leather')).toBe(2);
-    expect(room.gainedOf(ra.idx)).toEqual([{ id: 'leather', count: 2 }]);
+    // 상자 0번 칸(랜덤 보상 첫 가지, #117) → 내 가방 첫 칸(이어 붙인 번호 27)
+    const first = treasureLoot(EXPEDITIONS.rules.treasureChestLoot, room.expedition!.seed, 0)[0]!;
+    expect(room.chestMove(ra.idx, t.x, t.y, t.z, 0, 27, first.count, 2000)).toBeNull();
+    expect(countOf(room.players.get(ra.idx)!.inv, first.item)).toBe(first.count);
+    expect(room.gainedOf(ra.idx)).toEqual([{ id: first.item, count: first.count }]);
     // 하나를 다시 상자에 넣으면 모은 것도 하나 줄어든다
-    expect(room.chestMove(ra.idx, t.x, t.y, t.z, 27, 0, 1, 2000)).toBeNull(); // 0번 칸은 비었다 (1번은 당근)
-    expect(room.gainedOf(ra.idx)).toEqual([{ id: 'leather', count: 1 }]);
+    expect(room.chestMove(ra.idx, t.x, t.y, t.z, 27, 0, 1, 2000)).toBeNull(); // 0번 칸은 비었다
+    expect(room.gainedOf(ra.idx)).toEqual(first.count > 1 ? [{ id: first.item, count: first.count - 1 }] : []);
     // 포탈 안으로 걸어 들어가 마을로 돌아오면 결과에 가죽이 보인다
     const e = room.expedition!;
     room.onMove(ra.idx, { x: e.portal.x, y: e.portal.y + 1, z: e.portal.z + 0.5, yaw: 0, pitch: 0, flags: 0 });
     a.clear();
     expect(room.returnHome(ra.idx, 3000)).toBeNull();
-    expect(a.json.find((m) => m.t === 'expeditionResult')).toMatchObject({ items: [{ id: 'leather', count: 1 }] });
+    expect(a.json.find((m) => m.t === 'expeditionResult')).toMatchObject({ items: first.count > 1 ? [{ id: first.item, count: first.count - 1 }] : [] });
   });
 });
 

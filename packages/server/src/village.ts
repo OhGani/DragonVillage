@@ -141,8 +141,12 @@ import {
   RAID_AGGRO_R,
   WEEK_MS,
   attackDamageOf,
+  treasureLoot,
+  dragonMaxHp,
+  DRAGON_REST_MS,
   type Equipment,
   type EquipSlot,
+  armorApplies,
   armorTotals,
   bowOf,
   equipSlotOf,
@@ -206,6 +210,8 @@ export interface RoomPlayer {
   equip: Equipment;
   /** 다음에 활을 쏠 수 있는 시각 */
   bowReadyAt: number;
+  /** 타고 있는 드래곤의 체력 (#113). 안 탔으면 0 */
+  dragonHp: number;
   /** 탄 드래곤의 기력 (M6-5). 탈 때 가득 찬다. 사이는 회복 공식으로 채운다 */
   stamina: Stamina;
   /** 다음에 빔을 쏠 수 있는 시각 */
@@ -446,7 +452,7 @@ export class VillageRoom {
         c = emptyChest(paired);
         // 보물 상자는 처음 열 때 안에 물건이 들어 있다 (#84 — 전에는 부숴야 나왔다)
         if (this.expedition?.isTreasure(home.x, home.y, home.z)) {
-          for (const [item, n] of Object.entries(this.expeditions.rules.treasureChestGives)) give(c, item, n);
+          for (const l of treasureLoot(this.expeditions.rules.treasureChestLoot, this.expedition.seed, this.expedition.treasureIndex(home.x, home.y, home.z))) give(c, l.item, l.count);
           this.addXp(p, XP.ours.treasureChestOpen, XP_SOURCE.treasure, home.x + 0.5, home.y + 0.5, home.z + 0.5, now);
         }
         this.expeditionChests.set(this.chestKey(home), c);
@@ -674,7 +680,7 @@ export class VillageRoom {
     if (stored) {
       for (const s of resizeChest(stored, paired).chest) if (s) out.push({ ...s });
     } else if (p.world === 'expedition' && this.expedition?.isTreasure(home.x, home.y, home.z)) {
-      for (const [item, n] of Object.entries(this.expeditions.rules.treasureChestGives)) out.push({ item, count: n });
+      for (const l of treasureLoot(this.expeditions.rules.treasureChestLoot, this.expedition.seed, this.expedition.treasureIndex(home.x, home.y, home.z))) out.push({ item: l.item, count: l.count });
     }
     const base = prev.chest ? this.registry.get(prev.chest.base) : prev;
     if (base.drops) out.push({ item: base.drops, count: 1 });
@@ -850,6 +856,7 @@ export class VillageRoom {
         yaw: perchYaw(r.id),
         fed: r.fed,
         growAt: r.stage === 'baby' && r.hatchedAt !== null ? growAtOf(DRAGONS.rules, r.hatchedAt, r.fed) : null,
+        restingUntil: r.restingUntil,
       };
     });
   }
@@ -892,7 +899,7 @@ export class VillageRoom {
    * 타기 (M6-4): 내 어른 드래곤, 가방에 안장, 마을에서 드래곤 자리 RIDE_RANGE 안. 같은 세계 모두에게 mount, 둥지에서 빠진다.
    * 오류: ALREADY_RIDING·NO_DRAGON·NOT_ADULT·NO_SADDLE·TOO_FAR
    */
-  ride(idx: number, id: number): string | null {
+  ride(idx: number, id: number, now = Date.now()): string | null {
     const p = this.players.get(idx);
     if (!p) return 'NOT_IN_VILLAGE';
     if (!this.storage) return 'NO_STORAGE';
@@ -900,6 +907,7 @@ export class VillageRoom {
     const row = this.storage.getDragon(id);
     if (!row || row.village !== this.info.code || row.token !== p.token || row.stage === 'egg') return 'NO_DRAGON';
     if (row.stage !== 'adult') return 'NOT_ADULT';
+    if (row.restingUntil !== null && row.restingUntil > now) return 'RESTING'; // 쓰러져 쉬는 중 (#113)
     if (countOf(p.inv, SADDLE_ITEM) < 1) return 'NO_SADDLE';
     if (p.world !== 'village') return 'TOO_FAR';
     const i = this.storage.listHatched(this.info.code).findIndex((r) => r.id === id);
@@ -908,7 +916,9 @@ export class VillageRoom {
     p.riding = { id, dragon: row.dragon };
     p.stamina = { value: staminaMaxFor('adult'), at: Date.now() }; // 탈 때 기력 가득 (M6-5)
     p.beamReadyAt = 0;
+    p.dragonHp = dragonMaxHp(DRAGONS.require(row.dragon).tier); // 탈 때 체력 가득 (#113)
     this.broadcastJson({ t: 'mount', idx, riding: p.riding }, -1, p.world);
+    this.sendJson(p, { t: 'dragonHp', hp: p.dragonHp, max: p.dragonHp });
     this.broadcastNest();
     this.log(`마을 ${this.info.code}: ${p.nick} ${DRAGONS.require(row.dragon).name} 탑승`);
     return null;
@@ -1138,15 +1148,16 @@ export class VillageRoom {
         gifts.push({ id: g.id, name: g.name, message: g.message });
       }
     }
-    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0, equip: parseEquipment(saved?.equipment ?? null), bowReadyAt: 0 };
+    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0, equip: parseEquipment(saved?.equipment ?? null), bowReadyAt: 0, dragonHp: 0 };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     // 타고 있다가 나갔으면 다시 탄다 (#103, 아빠 요청). 드래곤이 없어졌거나 남이 타고 있으면 광장에서 (공중에 남지 않게)
     if (saved?.ridingDragon != null && this.storage) {
       const row = this.storage.getDragon(saved.ridingDragon);
-      if (row && row.village === this.info.code && row.token === token && row.stage === 'adult' && !this.riddenIds().has(row.id)) {
+      if (row && row.village === this.info.code && row.token === token && row.stage === 'adult' && !this.riddenIds().has(row.id) && !(row.restingUntil !== null && row.restingUntil > Date.now())) {
         player.riding = { id: row.id, dragon: row.dragon };
         player.stamina = { value: staminaMaxFor('adult'), at: Date.now() };
+        player.dragonHp = dragonMaxHp(DRAGONS.require(row.dragon).tier);
         this.log(`마을 ${this.info.code}: ${nick} ${DRAGONS.require(row.dragon).name}에 다시 탄 채로 들어옴`);
       } else player.pos = { x: this.spawn.x, y: this.spawn.y, z: this.spawn.z, yaw: this.spawn.yaw, pitch: 0, flags: FLAG_GROUND };
     }
@@ -1514,6 +1525,11 @@ export class VillageRoom {
   /** 다친다. 0 이 되면 죽는다. 방패·갑옷이 먼저 깎는다 (M8-2) — 낙하·독은 그대로 */
   hurt(p: RoomPlayer, amount: number, cause: string, now = Date.now()): void {
     if (p.hp <= 0 || amount <= 0) return;
+    // 타고 있으면 몹 피해는 드래곤이 대신 맞는다 (#113). 낙하·독은 사람 몫
+    if (p.riding && armorApplies(cause)) {
+      this.hurtDragon(p, Math.floor(amount), cause, now);
+      return;
+    }
     const n = finalDamage(COMBAT, p.equip, amount, cause);
     if (n <= 0) {
       this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'blocked' }); // 방패가 전부 막았다
@@ -1523,6 +1539,25 @@ export class VillageRoom {
     p.lastHurtAt = now;
     this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause });
     if (p.hp === 0) this.die(p, cause, now);
+  }
+
+  /** 드래곤이 맞는다 (#113). 0 이 되면 쓰러져 내려지고 둥지에서 10분 쉰다 — 드래곤은 사라지지 않는다(#25) */
+  private hurtDragon(p: RoomPlayer, amount: number, cause: string, now: number): void {
+    if (!p.riding || amount <= 0) return;
+    p.dragonHp = Math.max(0, p.dragonHp - amount);
+    const max = dragonMaxHp(DRAGONS.require(p.riding.dragon).tier);
+    this.sendJson(p, { t: 'dragonHp', hp: p.dragonHp, max });
+    if (p.dragonHp > 0) return;
+    const riding = p.riding;
+    const until = now + DRAGON_REST_MS;
+    this.storage?.restDragon(riding.id, until);
+    p.riding = null;
+    p.dragonHp = 0;
+    this.broadcastJson({ t: 'dismount', idx: p.idx }, -1, p.world);
+    this.sendJson(p, { t: 'dragonDown', id: riding.id, dragon: riding.dragon, restUntil: until });
+    this.broadcastNest();
+    this.savePlayer(p, now);
+    this.log(`마을 ${this.info.code}: ${p.nick}의 ${DRAGONS.require(riding.dragon).name}이(가) ${cause} 에 쓰러짐 — 둥지에서 ${Math.round(DRAGON_REST_MS / 60000)}분 쉼`);
   }
 
   /**

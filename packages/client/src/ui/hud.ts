@@ -136,6 +136,7 @@ export class Hud {
       <div class="skill-box" hidden>
         <button class="sbtn skill-btn" aria-label="빔 쏘기">✨ 빔</button>
         <div class="stamina-bar" aria-label="기력"><div class="stamina-fill"></div><div class="stamina-text"></div></div>
+        <div class="dragon-hp" aria-label="드래곤 체력"><div class="dragon-hp-fill"></div><div class="dragon-hp-text"></div></div>
       </div>
       <div class="touch-controls">
         <div class="stick-base" hidden><div class="stick-knob"></div></div>
@@ -603,6 +604,15 @@ export class Hud {
     }
     this.heartsEl.innerHTML = html;
     this.heartsEl.classList.toggle('low', hp <= 6);
+  }
+
+  /** 타고 있는 드래곤 체력 (#113): 기력 바 아래 붉은 바 */
+  setDragonHp(hp: number, max: number): void {
+    const fill = this.el.querySelector<HTMLElement>('.dragon-hp-fill')!;
+    const text = this.el.querySelector<HTMLElement>('.dragon-hp-text')!;
+    fill.style.width = `${Math.round((Math.max(0, hp) / Math.max(1, max)) * 100)}%`;
+    fill.classList.toggle('low', hp <= max * 0.3);
+    text.textContent = `🐉 ${Math.max(0, hp)} / ${max}`;
   }
 
   /** 첫 걸음 안내 줄 (M8-3): 화면 위에 남아 있는 한 줄. null 이면 숨김 */

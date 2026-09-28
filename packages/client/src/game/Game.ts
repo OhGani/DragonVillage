@@ -697,6 +697,12 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       bag.refresh();
     },
     onArrow: (m) => mobView.shot(m.from, m.to), // 스켈레톤·약탈자 화살
+    onDragonHp: (m) => hud.setDragonHp(m.hp, m.max),
+    onDragonDown: (m) => {
+      const name = DRAGONS.find(m.dragon)?.name ?? m.dragon;
+      hud.toast(`😵 ${name}이(가) 쓰러졌어요 — 둥지에서 ${Math.round((m.restUntil - (Date.now() + serverClockOffset)) / 60000)}분 쉬면 다시 탈 수 있어요`, 7000);
+      lose();
+    },
     onPets: (list) => {
       pets.clear();
       for (const p of list) pets.set(p.id, { name: p.name, mine: p.mine });
@@ -1228,6 +1234,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
             hud.hideAction();
           };
           if (d.stage !== 'adult') hud.showAction(`${name} (아기)`, '어른이 되면 탈 수 있어요 — 둥지 창에서 먹이를 주면 빨리 자라요', '알겠어요', dismiss);
+          else if (d.restingUntil && d.restingUntil > Date.now() + serverClockOffset) hud.showAction(`${name} 쉬는 중`, `쓰러져서 ${Math.max(1, Math.ceil((d.restingUntil - (Date.now() + serverClockOffset)) / 60000))}분 더 쉬어야 탈 수 있어요`, '알겠어요', dismiss);
           else if (!hasSaddle()) hud.showAction(`${name} 타기`, '안장이 있어야 해요 — 제작대: 가죽 5 + 철 2 (가죽은 원정 보물 상자)', '알겠어요', dismiss);
           else hud.showAction(`🐉 ${name} 타기`, isTouch ? '앞으로 밀면 보는 쪽으로 날아요 · ▲ 위로 · ▼ 아래로 · 🐉 버튼으로 내려요' : 'W 로 보는 쪽으로 날아요 · Space 위로 · Shift 아래로 · 🐉 버튼으로 내려요', '타기' + KEY_HINT, () => net.sendRide(d.id));
           return;

@@ -198,7 +198,12 @@ export class NestView {
       if (d.stage === 'adult' && d.mine) {
         const row = document.createElement('div');
         row.className = 'nest-feed';
-        if (this.countOf(SADDLE_ITEM) > 0) {
+        if (d.restingUntil && d.restingUntil > Date.now()) {
+          const hint = document.createElement('span');
+          hint.className = 'nest-hint';
+          hint.textContent = `😵 쓰러져서 쉬는 중 — ${Math.max(1, Math.ceil((d.restingUntil - Date.now()) / 60000))}분 뒤에 탈 수 있어요`;
+          row.appendChild(hint);
+        } else if (this.countOf(SADDLE_ITEM) > 0) {
           const btn = document.createElement('button');
           btn.className = 'big-btn nest-btn';
           btn.textContent = '🐉 타기';
@@ -207,7 +212,7 @@ export class NestView {
         } else {
           const hint = document.createElement('span');
           hint.className = 'nest-hint';
-          hint.textContent = '안장이 있으면 탈 수 있어요 (제작대: 가죽 5 + 철 2, 가죽은 원정 보물 상자)';
+          hint.textContent = '안장이 있으면 탈 수 있어요 (제작대: 가죽 5 + 철 2, 가죽은 소에서)';
           row.appendChild(hint);
         }
         li.appendChild(row);

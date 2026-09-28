@@ -286,6 +286,13 @@ export function perchYaw(id: number): number {
 
 /** 안장 아이템 (recipes.json saddle: 가죽 5 + 철 2, 제작대) */
 export const SADDLE_ITEM = 'saddle';
+/** 드래곤 체력 (#113, 아빠 2026-09-28): 타고 있는 동안 몹 피해는 드래곤이 대신 맞는다. 40 + 티어×5. 0 이 되면 쓰러져 둥지에서 DRAGON_REST_MS 쉰다(#25 '둥지 회복') */
+export const DRAGON_HP_BASE = 40;
+export const DRAGON_HP_PER_TIER = 5;
+export const DRAGON_REST_MS = 10 * 60_000;
+export function dragonMaxHp(tier: number): number {
+  return DRAGON_HP_BASE + DRAGON_HP_PER_TIER * Math.max(1, tier);
+}
 /** 탄 사람의 발은 드래곤 발보다 이만큼 위 (어른 등 높이 ≈ 12/16 블록) */
 export const RIDE_SEAT_Y = 0.75;
 /** 드래곤 자리에서 이 거리(블록) 안에 서 있어야 탄다 */
@@ -309,6 +316,8 @@ export interface NestDragonInfo {
   yaw: number;
   fed: number;
   growAt: number | null;
+  /** 쓰러져 쉬는 중이면 끝나는 시각 (#113) */
+  restingUntil?: number | null;
 }
 
 /** 둥지 자리 하나 (모두에게): 누구의 무슨 알인가 */

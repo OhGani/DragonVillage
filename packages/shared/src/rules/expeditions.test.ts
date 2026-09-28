@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DataError } from './blocks';
 import { EXPEDITIONS } from './data';
-import { EVENING_SEC, NIGHT_SKY, parseExpeditions, phaseAt, remainingSec, skyLightAt } from './expeditions';
+import { EVENING_SEC, NIGHT_SKY, parseExpeditions, phaseAt, remainingSec, skyLightAt, treasureLoot } from './expeditions';
 
 const small = {
   returnGraceSec: 60,
@@ -19,7 +19,7 @@ describe('parseExpeditions', () => {
     expect(reg.count).toBe(2);
     expect(reg.require('grass_island').release).toBe('v1');
     expect(reg.v1().map((d) => d.id)).toEqual(['grass_island']);
-    expect(reg.rules).toEqual({ returnGraceSec: 60, failedReturnKeepRatio: 0.5, minStartMarginMin: 3, treasureChestGives: {} });
+    expect(reg.rules).toEqual({ returnGraceSec: 60, failedReturnKeepRatio: 0.5, minStartMarginMin: 3, treasureChestLoot: { picks: 0, pool: [] } });
   });
 
   it('실제 data/expeditions.json 이 통과하고 v1 6곳이 순서대로 있다', () => {
@@ -79,5 +79,30 @@ describe('낮·저녁·밤', () => {
     expect(remainingSec(island, 0)).toBe(600);
     expect(remainingSec(island, 599.5)).toBe(0.5);
     expect(remainingSec(island, 700)).toBe(0);
+  });
+});
+
+describe('보물 상자 랜덤 보상 (#117)', () => {
+  it('같은 시드·번호면 같은 보상, picks 가지, 개수는 min~max, 같은 종류는 한 번만, 가죽은 없다', () => {
+    const rules = EXPEDITIONS.rules.treasureChestLoot;
+    expect(rules.picks).toBe(3);
+    const a = treasureLoot(rules, 12345, 0);
+    const b = treasureLoot(rules, 12345, 0);
+    expect(a).toEqual(b);
+    expect(a.length).toBe(3);
+    const seen = new Set<string>();
+    for (const l of a) {
+      const e = rules.pool.find((p) => p.item === l.item)!;
+      expect(e).toBeDefined();
+      expect(l.count).toBeGreaterThanOrEqual(e.min);
+      expect(l.count).toBeLessThanOrEqual(e.max);
+      expect(seen.has(l.item)).toBe(false);
+      seen.add(l.item);
+    }
+    // 다른 상자·다른 시드는 (대개) 다르다
+    const c = treasureLoot(rules, 12345, 1);
+    const d = treasureLoot(rules, 777, 0);
+    expect([JSON.stringify(c), JSON.stringify(d)].every((x) => x === JSON.stringify(a))).toBe(false);
+    for (let i = 0; i < 50; i++) expect(treasureLoot(rules, 99, i).some((l) => l.item === 'leather')).toBe(false);
   });
 });

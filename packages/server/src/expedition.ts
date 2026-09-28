@@ -71,6 +71,10 @@ export class Expedition {
   isTreasure(x: number, y: number, z: number): boolean {
     return this.treasureKeys.has(`${x},${y},${z}`);
   }
+  /** 몇 번째 보물 상자인가 (보상 결정용). 아니면 -1 */
+  treasureIndex(x: number, y: number, z: number): number {
+    return this.treasures.findIndex((t) => t.x === x && t.y === y && t.z === z);
+  }
 
   elapsedSec(now: number): number {
     return Math.max(0, (now - this.startedAt) / 1000);
