@@ -70,7 +70,7 @@ describe('전투 장비 (M8-2, combat.json)', () => {
     expect(finalDamage(COMBAT, eq, 5, 'vindicator', true)).toBe(5);
     expect(finalDamage(COMBAT, eq, 5, 'fall', true)).toBe(5);
     expect(finalDamage(COMBAT, emptyEquipment(), 5, 'zombie', true)).toBe(5);
-    expect(COMBAT.shield.guardSlow).toBe(0.5);
+    expect(COMBAT.shield.guardSlow).toBe(0.75); // 아들 13차: 살짝만 느리게 (2026-10-06)
   });
 
   it('활 당기기 (#119): 안 당기면 30%, 가득 당기면 100%, 넘게 당겨도 그대로', () => {

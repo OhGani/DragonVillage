@@ -198,6 +198,8 @@ export const ARROW_CAUSES: readonly string[] = ['pillager', 'skeleton'];
 /** 🛡️ 막기(#118)는 이만큼 지나면 서버가 저절로 푼다 (클라가 끊겨도 영원히 막지 않게). 클라는 누르는 동안 5초마다 다시 보낸다 */
 export const GUARD_MAX_MS = 15_000;
 export const GUARD_RESEND_MS = 5_000;
+/** 🛡️ 버튼을 한 번만 톡 눌러도 이만큼은 막는다 (아들 13차 답 2026-10-06: "한 번 누르면 그냥 막기, 두 번은 계속") */
+export const GUARD_TAP_MS = 1_500;
 
 /**
  * 방패가 있을 때 피해에 곱하는 값: 화살은 (1 − arrowBlock), 근접·폭발은 meleeBlock, 방패를 무시하는 몹(변명자)은 1.

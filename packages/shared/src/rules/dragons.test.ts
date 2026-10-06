@@ -101,8 +101,8 @@ describe('드래곤 16종 (M6-2)', () => {
     expect(perchYaw(1)).toBeLessThan(Math.PI + 0.5);
   });
 
-  it('탑승 (M6-4): 안장 레시피는 가죽 5 + 철 2, 가죽은 임시로 보물 상자에서 2개', () => {
-    expect(RECIPES.require('saddle')).toMatchObject({ station: 'crafting_table', in: { leather: 5, iron_ingot: 2 }, out: { saddle: 1 } });
+  it('탑승 (M6-4): 안장 레시피는 가죽 5 + 철 1 (아들 11차, #121), 가죽은 소에서', () => {
+    expect(RECIPES.require('saddle')).toMatchObject({ station: 'crafting_table', in: { leather: 5, iron_ingot: 1 }, out: { saddle: 1 } });
     expect(EXPEDITIONS.rules.treasureChestLoot.pool.some((e) => e.item === 'leather')).toBe(false); // 가죽은 소에서 (#117)
     expect(EXPEDITIONS.rules.treasureChestLoot.pool.some((e) => e.item === 'carrot')).toBe(true); // 당근은 돼지 먹이 (#110)
   });

@@ -255,8 +255,7 @@
       "level": 6,
       "cost": {
         "dragon_breath": 1,
-        "netherite": 2,
-        "echo_shard": 4
+        "netherite": 2
       },
       "footprint": [
         7,
@@ -267,7 +266,7 @@
         "expedition:ancient_castle"
       ],
       "release": "v1.2",
-      "_note": "네 왕의 고대성. 엔딩 원정"
+      "_note": "네 왕의 고대성. 엔딩 원정. 메아리 조각(echo_shard)은 아들 12차 답(2026-10-06)으로 뺌 — 어디서 구하는지 몰라서"
     }
   ]
 }

@@ -62,6 +62,7 @@ import {
   equipSlotOf,
   sanitizeEquipment,
   GUARD_RESEND_MS,
+  GUARD_TAP_MS,
 } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
@@ -232,6 +233,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   let guardSent = false;
   let guardSentAt = 0;
   let guarding = false;
+  /** 한 번 톡 누르면 이 시각까지는 막는다 (아들 13차, GUARD_TAP_MS) */
+  let guardTapUntil = 0;
+  let guardHeldPrev = false;
   /** 활 당기기 (#119): 누르기 시작한 시각, 진행 0~1 */
   let drawStart: number | null = null;
   let drawProgress = 0;
@@ -1355,8 +1359,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     aimedMobNow = aimedMob;
     interaction.suppressPrimary = aimedMob !== null || bow !== null; // 활을 들면 꾹 누르기는 당기기 (#119)
     interaction.suppressSecondary = aimedMob !== null;
-    // 🛡️ 막기 (#118): 방패를 끼고 버튼(X)을 누르는 동안. 서버엔 바뀔 때 + 5초마다
-    const wantGuard = inp.guard && myEquip.shield !== null && !myRiding && !anyPanelOpen();
+    // 🛡️ 막기 (#118): 방패를 끼고 버튼(X)을 누르는 동안 — 한 번 톡 눌러도 GUARD_TAP_MS 는 막는다(아들 13차). 폰은 두 번 톡톡 = 계속. 서버엔 바뀔 때 + 5초마다
+    if (inp.guard && !guardHeldPrev) guardTapUntil = now + GUARD_TAP_MS;
+    guardHeldPrev = inp.guard;
+    const wantGuard = (inp.guard || now < guardTapUntil) && myEquip.shield !== null && !myRiding && !anyPanelOpen();
     if (wantGuard !== guarding) {
       guarding = wantGuard;
       hud.setGuarding(guarding);

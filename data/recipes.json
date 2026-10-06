@@ -7,12 +7,12 @@
       "station": "crafting_table",
       "in": {
         "leather": 5,
-        "iron_ingot": 2
+        "iron_ingot": 1
       },
       "out": {
         "saddle": 1
       },
-      "_note": "안장을 만들면 드래곤을 탈 수 있다 (아들 답변 3). 가죽은 초원 섬 소"
+      "_note": "안장을 만들면 드래곤을 탈 수 있다 (아들 답변 3). 가죽 5 + 철 1 은 아들 11차 답(2026-10-06). 가죽은 소"
     },
     {
       "id": "bucket",

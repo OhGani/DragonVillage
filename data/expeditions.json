@@ -427,7 +427,6 @@
       "unlockedBy": "portal_4",
       "danger": 4,
       "materials": [
-        "echo_shard",
         "sculk",
         "diamond"
       ],

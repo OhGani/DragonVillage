@@ -9,7 +9,7 @@
  * - 거미 왕(M7-4, `bosses.json spider_king`): 동굴 거미 굴에서 잠자다 사람이 24칸 안에 오면 깨어난다. hp 200, 물면 4 + 독 4초, 8초마다 거미 둘 소환(최대 6).
  *   밀려나지 않는다. 죽으면 드롭은 **마을 창고**로, 경험치 80 은 원정에 있는 모두에게 (협동). 왕관은 아들 확인 뒤.
  * - 우민(M7-5, 마을 방어전): 변명자(도끼 5)·약탈자(석궁, 6칸)·소환사(보스 hp 150, 변명자 소환). 드롭은 bosses.json evoker.minionDrops/drops.
- * - 수치는 아빠 임시값 — `mobs.json` 에 hp/damage 가 생기면 그걸 읽는다.
+ * - 수치는 아빠 임시값 — `mobs.json` 에 hp/damage/speed 가 있으면 그걸 읽는다 (좀비·스켈레톤은 아들 13차 "더 무섭게", 2026-10-06).
  */
 import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
@@ -119,6 +119,7 @@ const MobFile = z
           name: z.string(),
           hp: z.number().optional(),
           damage: z.number().optional(),
+          speed: z.number().optional(),
           xp: z.number().optional(),
           drops: z.array(z.tuple([z.string(), z.tuple([z.number(), z.number()]), z.number()]).rest(z.unknown())).optional(),
         })
@@ -226,6 +227,7 @@ export function parseMobs(raw: unknown, xpByMob: ReadonlyMap<string, readonly [n
       name: src?.name ?? kind,
       hp: src?.hp ?? base.hp,
       damage: src?.damage ?? base.damage,
+      speed: src?.speed ?? base.speed,
       drops,
       xp: xpRange ? xpRange[0] : (src?.xp ?? 5),
       passive: false,

@@ -1453,7 +1453,7 @@ describe('원정 밤의 몹 (M7-2)', () => {
     }
   });
 
-  it('좀비는 다가와 물고(3), 때리면 맞고 죽으면 드롭·경험치가 온다. 빔은 길 위 몹을 맞춘다', () => {
+  it('좀비는 다가와 물고(4, 아들 13차 #123), 때리면 맞고 죽으면 드롭·경험치가 온다. 빔은 길 위 몹을 맞춘다', () => {
     const { room, a, ra, e, p } = goOut();
     room.tick(NIGHT); // 첫 스폰
     const sys = room.mobSys!;
@@ -1467,13 +1467,13 @@ describe('원정 밤의 몹 (M7-2)', () => {
     m.y = p.pos.y;
     a.clear();
     room.tick(NIGHT + 200);
-    expect(room.hpOf(ra.idx)).toBe(17);
-    expect(a.json.find((mm) => mm.t === 'health')).toMatchObject({ hp: 17, cause: 'zombie' });
+    expect(room.hpOf(ra.idx)).toBe(16);
+    expect(a.json.find((mm) => mm.t === 'health')).toMatchObject({ hp: 16, cause: 'zombie' });
     // 1.2초 안엔 다시 안 문다, 지나면 문다
     room.tick(NIGHT + 800);
-    expect(room.hpOf(ra.idx)).toBe(17);
+    expect(room.hpOf(ra.idx)).toBe(16);
     room.tick(NIGHT + 1500);
-    expect(room.hpOf(ra.idx)).toBe(14);
+    expect(room.hpOf(ra.idx)).toBe(12);
     // 때리기: 맨손 1, 0.45초 쿨. 멀면 TOO_FAR
     expect(room.hitMob(ra.idx, 999, undefined, NIGHT + 2000)).toBe('NO_MOB');
     expect(room.hitMob(ra.idx, m.id, undefined, NIGHT + 2000)).toBeNull();
@@ -1514,7 +1514,7 @@ describe('원정 밤의 몹 (M7-2)', () => {
     expect(sys.beam(eye, { x: 0, y: 0, z: -1 }, 24, 2, ra.idx, t)).toBe(1); // 길 위 하나만
     expect(z2.hp).toBe(12);
     expect(side.hp).toBe(20);
-    expect(room.hpOf(ra.idx)).toBe(14); // 사람은 안 맞는다
+    expect(room.hpOf(ra.idx)).toBe(12); // 사람은 안 맞는다
     expect(e.ended).toBe(false);
   });
 
