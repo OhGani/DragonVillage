@@ -1432,7 +1432,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       sendMove();
     }
     remote.update(dt, ctx.light, skyLevel); // 다른 사람도 주변 빛을 받는다 (#86)
-    nestDragons.update(dt);
+    nestDragons.update(dt, Date.now() + serverClockOffset);
     mount.update(player, dt);
     beams.update();
     orbView.update(dt);

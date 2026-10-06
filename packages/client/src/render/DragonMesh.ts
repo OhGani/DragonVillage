@@ -16,9 +16,14 @@ interface Entry {
   group: THREE.Group;
   mesh: THREE.Mesh;
   label: THREE.Sprite;
+  /** 쓰러져 쉴 때(#113) 머리 위 💤 */
+  zz: THREE.Sprite;
   phase: number;
   height: number;
 }
+
+/** 쉬는 동안 납작하게 엎드린 높이 비율 (아빠 2026-10-06) */
+const REST_FLAT = 0.55;
 
 const geomCache = new Map<string, THREE.BufferGeometry>();
 function geometryFor(dragon: string, stage: DragonStage): THREE.BufferGeometry {
@@ -127,29 +132,52 @@ export class NestDragons {
     const label = nameSprite(info.owner, info.mine ? 'rgba(40,120,40,0.55)' : 'rgba(0,0,0,0.45)', 0.28);
     label.position.y = height + 0.25;
     group.add(label);
+    const zz = nameSprite('💤', 'rgba(0,0,0,0)', 0.4);
+    zz.position.y = height * REST_FLAT + 0.35;
+    zz.visible = false;
+    group.add(zz);
     group.position.set(info.perch.x + 0.5, info.perch.y, info.perch.z + 0.5);
     group.rotation.y = info.yaw;
     this.group.add(group);
-    return { info, group, mesh, label, phase: (info.id * 1.7) % (Math.PI * 2), height };
+    return { info, group, mesh, label, zz, phase: (info.id * 1.7) % (Math.PI * 2), height };
   }
 
   private dispose(e: Entry): void {
     this.group.remove(e.group);
-    (e.label.material as THREE.SpriteMaterial).map?.dispose();
-    e.label.material.dispose();
+    for (const s of [e.label, e.zz]) {
+      (s.material as THREE.SpriteMaterial).map?.dispose();
+      s.material.dispose();
+    }
   }
 
-  /** 프레임마다: 숨쉬기(세로 2~3%), 가끔 콩콩, 천천히 둘러보기 */
-  update(dt: number): void {
+  /**
+   * 프레임마다: 숨쉬기(세로 2~3%), 가끔 콩콩, 천천히 둘러보기.
+   * 쓰러져 쉬는 중(#113, `restingUntil` > now)이면 납작하게 엎드려 느리게 숨쉬고 머리 위에 💤 — 콩콩·둘러보기 없음. `now` 는 서버 시각
+   */
+  update(dt: number, now: number): void {
     if (!this.group.visible || this.entries.size === 0) return;
     this.t += dt;
     for (const e of this.entries.values()) {
       const t = this.t + e.phase;
-      const breath = 1 + 0.025 * Math.sin(t * 1.6);
-      e.mesh.scale.set(1, breath, 1);
-      const hop = Math.max(0, Math.sin(t * 0.9)) ** 8; // 대부분 0, 가끔 살짝
-      e.group.position.y = e.info.perch.y + hop * (e.info.stage === 'adult' ? 0.12 : 0.08);
-      e.group.rotation.y = e.info.yaw + 0.18 * Math.sin(t * 0.35);
+      const resting = (e.info.restingUntil ?? 0) > now;
+      if (resting) {
+        const breath = 1 + 0.02 * Math.sin(t * 0.7);
+        e.mesh.scale.set(1.06, REST_FLAT * breath, 1.06);
+        e.mesh.rotation.z = 0.1; // 살짝 기운 채
+        e.group.position.y = e.info.perch.y;
+        e.group.rotation.y = e.info.yaw;
+        e.zz.position.y = e.height * REST_FLAT + 0.35 + 0.06 * Math.sin(t * 1.2);
+        e.label.position.y = e.height * REST_FLAT + 0.7;
+      } else {
+        const breath = 1 + 0.025 * Math.sin(t * 1.6);
+        e.mesh.scale.set(1, breath, 1);
+        e.mesh.rotation.z = 0;
+        const hop = Math.max(0, Math.sin(t * 0.9)) ** 8; // 대부분 0, 가끔 살짝
+        e.group.position.y = e.info.perch.y + hop * (e.info.stage === 'adult' ? 0.12 : 0.08);
+        e.group.rotation.y = e.info.yaw + 0.18 * Math.sin(t * 0.35);
+        e.label.position.y = e.height + 0.25;
+      }
+      e.zz.visible = resting;
     }
   }
 }
