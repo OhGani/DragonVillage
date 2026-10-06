@@ -1,5 +1,6 @@
 import {
   AIR_ID,
+  BUCKET,
   FLUID_FULL,
   type BlockDef,
   type BlockRegistry,
@@ -103,10 +104,12 @@ export class Interaction {
     }
   }
 
-  /** 공기가 아닌 블록은 전부 조준한다(횃불·꽃처럼 몸이 통과되는 것도 캘 수 있게). 액체는 물·용암을 들고 있을 때만(양동이처럼) */
+  /** 공기가 아닌 블록은 전부 조준한다(횃불·꽃처럼 몸이 통과되는 것도 캘 수 있게). 액체는 양동이(빈 것·물·용암)를 들고 있을 때만 */
   private readonly targetable = (id: number) => id !== AIR_ID && (this.bucketMode || !this.registry.isFluid(id));
 
+  /** 빈 양동이를 들면 물·용암을 떠내고(꾹), 물·용암 양동이를 들면 붓는다(탭). 아들 2026-10-06 "양동이로 용암이나 물 푸기" (#125) */
   get bucketMode(): boolean {
+    if (this.heldItem === BUCKET) return true;
     return this.selectedBlock > 0 && this.registry.get(this.selectedBlock).fluid !== null;
   }
 
@@ -138,7 +141,9 @@ export class Interaction {
       if (def.fluid) {
         // 양동이처럼 바로 떠낸다: 자연 원천(무한) 또는 고인 액체(얕은 웅덩이도 닦아낸다). 자연 흐름은 원천이 사라지면 저절로 마른다
         this.progress = 0;
-        if (this.cooldown <= 0 && (def.fluidLevel === 0 || def.fluidVolume > 0)) {
+        // 가득한 칸은 빈 양동이를 들고 있어야 뜬다(물·용암 양동이를 들고는 붓기만). 얕은 웅덩이는 그냥 닦인다
+        const canScoop = def.fluidLevel === 0 ? this.heldItem === BUCKET : def.fluidVolume > 0;
+        if (this.cooldown <= 0 && canScoop) {
           const res = this.world.setBlock(t.x, t.y, t.z, AIR_ID);
           if (res.changed) {
             this.events.onBlocksChanged(res.dirty);

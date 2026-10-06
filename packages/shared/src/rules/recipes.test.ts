@@ -24,6 +24,7 @@ describe('parseRecipes', () => {
     expect(RECIPES.count).toBeGreaterThan(60);
     expect(RECIPES.require('planks').out).toEqual({ planks: 4 });
     expect(RECIPES.require('oak_door').in).toEqual({ planks: 6 });
+    expect(RECIPES.require('stone')).toMatchObject({ station: 'crafting_table', in: { cobblestone: 4 }, out: { stone: 1 } }); // 아들 2026-10-06 (#125)
     expect(RECIPES.forStation('inventory').length).toBeGreaterThanOrEqual(9);
     expect(RECIPES.forStation('brewing')).toEqual([]); // 양조는 potions.json
     for (const r of RECIPES.craftable()) expect(r.release).toBe('v1');
