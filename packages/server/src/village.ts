@@ -1329,7 +1329,7 @@ export class VillageRoom {
   }
 
   private placeFlag(world: WorldKind | null): void {
-    this.placeBlocks(flagBlocks(GROUND_Y, this.level(), this.flagMark()), world);
+    this.placeBlocks(flagBlocks(GROUND_Y, this.level(), this.flagMark(), this.storage?.raidWins(this.info.code) ?? 0), world);
   }
 
   /** 깃대 옆(4칸)에 서 있나 */
@@ -1372,7 +1372,7 @@ export class VillageRoom {
         if (won) for (const q of this.playersIn('village')) this.addXp(q, RAIDS.xpEach, XP_SOURCE.boss, RAID_GOAL.x, RAID_GOAL.y, RAID_GOAL.z, t);
         this.log(`마을 ${this.info.code}: 방어전 ${won ? '승리' : '패배'} (파도 ${wave}/${RAIDS.waves})`);
         this.broadcastJson(
-          { t: 'error', code: won ? 'RAID_WON' : 'RAID_LOST', message: won ? `🏆 마을을 지켰다! 모두 경험치 ${RAIDS.xpEach} — 깃대에 금 깃발` : '💀 우민이 깃대를 차지했어요… 검은 깃발이 걸렸어요. 다음엔 꼭 지켜요' },
+          { t: 'error', code: won ? 'RAID_WON' : 'RAID_LOST', message: won ? `🏆 마을을 지켰다! 모두 경험치 ${RAIDS.xpEach} — 깃대에 금 깃발, 지금까지 ${this.storage?.raidWins(this.info.code) ?? 1}번 지켰어요` : '💀 우민이 깃대를 차지했어요… 검은 깃발이 걸렸어요. 다음엔 꼭 지켜요' },
           -1,
           'village',
         );

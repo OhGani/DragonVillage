@@ -279,9 +279,18 @@ export const FLAG_POLE = { x: 66, z: 52, height: 7 } as const;
 /** 마지막 방어전 결과 표시 (M7-5): 승리 = 금 깃발, 패배 = 검은 깃발(흑요석). 맨 위 깃발 한 칸이 바뀐다 */
 export type FlagMark = 'win' | 'loss' | null;
 
-export function flagBlocks(groundY: number, level: number, mark: FlagMark = null): Placed[] {
+/** 깃대 왼쪽(x−1)에 쌓이는 이긴 횟수 금 블록 최대 (아들 13차, #128) */
+export const FLAG_WINS_MAX = FLAG_POLE.height;
+
+/**
+ * 깃대 블록들: 가운데 원목 기둥, 오른쪽(x+1) 레벨 깃발(최대 6, 맨 위는 마지막 방어전 결과 금/흑요석),
+ * 왼쪽(x−1) 방어전 **이긴 횟수**만큼 금 블록(최대 FLAG_WINS_MAX, 아들 13차 답 2026-10-07 "이긴 횟수 표시")
+ */
+export function flagBlocks(groundY: number, level: number, mark: FlagMark = null, wins = 0): Placed[] {
   const out: Placed[] = [];
   for (let i = 1; i <= FLAG_POLE.height; i++) out.push({ x: FLAG_POLE.x, y: groundY + i, z: FLAG_POLE.z, id: 'log' });
+  const gold = Math.max(0, Math.min(FLAG_WINS_MAX, Math.floor(wins)));
+  for (let i = 1; i <= FLAG_POLE.height; i++) out.push({ x: FLAG_POLE.x - 1, y: groundY + i, z: FLAG_POLE.z, id: i <= gold ? 'gold_block' : 'air' });
   const flags = Math.max(0, Math.min(6, level));
   for (let i = 0; i < 6; i++) {
     let id = i < flags ? 'wool' : 'air';
@@ -293,7 +302,7 @@ export function flagBlocks(groundY: number, level: number, mark: FlagMark = null
 }
 
 export function flagContains(groundY: number, x: number, y: number, z: number): boolean {
-  return z === FLAG_POLE.z && (x === FLAG_POLE.x || x === FLAG_POLE.x + 1) && y > groundY && y <= groundY + FLAG_POLE.height;
+  return z === FLAG_POLE.z && x >= FLAG_POLE.x - 1 && x <= FLAG_POLE.x + 1 && y > groundY && y <= groundY + FLAG_POLE.height;
 }
 
 /** 창고 재고로 이 비용을 낼 수 있나. 모자란 것을 돌려준다 (비어 있으면 낼 수 있다) */

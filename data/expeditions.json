@@ -4,7 +4,7 @@
   "failedReturnKeepRatio": 0.5,
   "minStartMarginMin": 3,
   "treasureChestLoot": {
-    "_comment": "보물 상자를 처음 열 때 pool 에서 picks 가지를 뽑아 넣는다 (아빠 2026-09-28, #117: 가죽은 소에서 나오니 빼고 랜덤으로). weight 가 클수록 자주, min~max 개. 어느 상자에 뭐가 드는지는 원정 시드로 정해져 같은 원정에선 누가 열어도 같다. 아들이 항목·개수·확률을 바꿔도 된다.",
+    "_comment": "보물 상자를 처음 열 때 pool 에서 picks 가지를 뽑아 넣는다 (아빠 2026-09-28, #117: 가죽은 소에서 나오니 빼고 랜덤으로. 아들 13차 2026-10-07: 30가지). weight 가 클수록 자주, min~max 개. 어느 상자에 뭐가 드는지는 원정 시드로 정해져 같은 원정에선 누가 열어도 같다. 아들이 항목·개수·확률을 바꿔도 된다.",
     "picks": 3,
     "pool": [
       { "item": "carrot", "min": 1, "max": 3, "weight": 3, "_note": "돼지 먹이 (#110)" },
@@ -17,7 +17,26 @@
       { "item": "feather", "min": 1, "max": 3, "weight": 2, "_note": "화살 재료" },
       { "item": "bone", "min": 1, "max": 2, "weight": 2, "_note": "강아지 길들이기" },
       { "item": "apple", "min": 1, "max": 2, "weight": 2 },
-      { "item": "arrow", "min": 4, "max": 8, "weight": 2 }
+      { "item": "arrow", "min": 4, "max": 8, "weight": 2 },
+      { "item": "coal", "min": 2, "max": 5, "weight": 3, "_note": "아래 19가지는 아들 13차 답 \"30가지로 늘려줘\" (2026-10-07, #129)" },
+      { "item": "redstone", "min": 2, "max": 4, "weight": 2 },
+      { "item": "lapis", "min": 2, "max": 4, "weight": 2 },
+      { "item": "quartz", "min": 1, "max": 3, "weight": 2 },
+      { "item": "wheat", "min": 2, "max": 4, "weight": 2, "_note": "소 먹이" },
+      { "item": "wheat_seeds", "min": 2, "max": 4, "weight": 2, "_note": "닭 먹이" },
+      { "item": "potato", "min": 1, "max": 3, "weight": 2 },
+      { "item": "egg", "min": 1, "max": 2, "weight": 1 },
+      { "item": "flint", "min": 1, "max": 3, "weight": 2, "_note": "화살 재료" },
+      { "item": "torch", "min": 4, "max": 8, "weight": 2 },
+      { "item": "gunpowder", "min": 1, "max": 3, "weight": 2 },
+      { "item": "gold_nugget", "min": 2, "max": 5, "weight": 2 },
+      { "item": "obsidian", "min": 1, "max": 2, "weight": 1 },
+      { "item": "ender_pearl", "min": 1, "max": 1, "weight": 1, "_note": "텔레포트 드래곤 재료" },
+      { "item": "golden_apple", "min": 1, "max": 1, "weight": 1, "_note": "드물게" },
+      { "item": "saddle", "min": 1, "max": 1, "weight": 1, "_note": "드물게 — 안장을 주우면 바로 탈 수 있다" },
+      { "item": "snowball", "min": 4, "max": 8, "weight": 1 },
+      { "item": "slime_ball", "min": 1, "max": 2, "weight": 1 },
+      { "item": "sugar", "min": 1, "max": 3, "weight": 1 }
     ]
   },
   "expeditions": [

@@ -60,7 +60,7 @@ describe('마을 동물 (M8-1)', () => {
     expect(again.animals.wildCountOf('pig')).toBe(INITIAL_ANIMALS.pig);
     expect(again.animals.wildCountOf('dog')).toBe(INITIAL_ANIMALS.dog); // 길들인 것 빼고 목표만큼
     expect(again.animals.animals.size).toBe(total + 1);
-    // 돌아가는 중: 양을 다 지우면 10분 뒤 둘, 20분 뒤 셋
+    // 돌아가는 중: 양을 다 지우면 10분 뒤 둘, 20분 뒤 넷 (목표 5, #129)
     const a = inbox();
     const ra = again.join('a'.repeat(32), '아빠', 0, a.send)!;
     again.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
@@ -69,7 +69,7 @@ describe('마을 동물 (M8-1)', () => {
     for (let t = T0; t <= T0 + RESPAWN_EVERY_MS + 1000; t += 200) again.tick(t);
     expect(again.animals.wildCountOf('sheep')).toBe(RESPAWN_BATCH);
     for (let t = T0 + RESPAWN_EVERY_MS + 1000; t <= T0 + 2 * RESPAWN_EVERY_MS + 2000; t += 200) again.tick(t);
-    expect(again.animals.wildCountOf('sheep')).toBe(INITIAL_ANIMALS.sheep);
+    expect(again.animals.wildCountOf('sheep')).toBe(Math.min(INITIAL_ANIMALS.sheep!, 2 * RESPAWN_BATCH));
   });
 
   it('산책은 집 24칸 안에서, 마을 사람에게 MobsState 로 간다(id 는 100000 부터, 방어전 몹과 한 목록)', () => {

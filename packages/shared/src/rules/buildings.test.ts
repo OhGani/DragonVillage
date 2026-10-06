@@ -59,6 +59,13 @@ describe('마을 건물 (M6-6)', () => {
     expect(flagBlocks(40, 99).filter((b) => b.id === 'wool')).toHaveLength(6);
     for (const b of f) expect(flagContains(40, b.x, b.y, b.z)).toBe(true);
     expect(flagContains(40, 66, 40, 52)).toBe(false); // 바닥은 아니다
+    // 이긴 횟수 금 블록 (#128): 왼쪽 기둥에 아래부터, 최대 7, 나머지는 공기로 지운다
+    expect(flagBlocks(40, 3).filter((b) => b.id === 'gold_block')).toHaveLength(0);
+    const w3 = flagBlocks(40, 3, 'win', 3);
+    expect(w3.filter((b) => b.id === 'gold_block' && b.x === 65)).toHaveLength(3);
+    expect(w3.filter((b) => b.id === 'air' && b.x === 65)).toHaveLength(4);
+    expect(w3.filter((b) => b.id === 'gold_block' && b.x === 67)).toHaveLength(1); // 맨 위 금 깃발
+    expect(flagBlocks(40, 3, 'win', 50).filter((b) => b.id === 'gold_block' && b.x === 65)).toHaveLength(7);
   });
 
   it('원정지 열림: 1단계는 처음부터, 그 외는 포탈 건물을 지어야 (M7-3)', () => {

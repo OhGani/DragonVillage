@@ -74,7 +74,10 @@ export interface RaidStateInfo {
   capture: number;
 }
 
-/** 파도별 우민 — 사람이 많으면 변명자가 한 명당 하나 더 (기본 2명 기준) */
+/**
+ * 파도별 우민 — 사람이 많으면 변명자가 한 명당 하나 더 (기본 2명 기준).
+ * 아들 13차 답(2026-10-07, #128) "쉬웠음, 우민 수 늘려줘": 4·2 → 5·3 → 소환사 + 4·3 (전엔 3·1 → 3·2 → 소환사 + 2·2)
+ */
 export function raidWave(wave: number, waves: number, players: number): MobKind[] {
   const extra = Math.max(0, players - 2);
   const list: MobKind[] = [];
@@ -83,14 +86,14 @@ export function raidWave(wave: number, waves: number, players: number): MobKind[
   };
   if (wave >= waves) {
     push('evoker', 1);
-    push('vindicator', 2 + extra);
-    push('pillager', 2);
+    push('vindicator', 4 + extra);
+    push('pillager', 3);
   } else if (wave === 1) {
-    push('vindicator', 3 + extra);
-    push('pillager', 1);
+    push('vindicator', 4 + extra);
+    push('pillager', 2);
   } else {
-    push('vindicator', 3 + extra);
-    push('pillager', 2 + Math.floor(extra / 2));
+    push('vindicator', 5 + extra);
+    push('pillager', 3 + Math.floor(extra / 2));
   }
   return list;
 }

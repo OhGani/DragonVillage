@@ -229,6 +229,7 @@ export class Storage {
       deleteAnimal: this.db.prepare('DELETE FROM animals WHERE id = ?'),
       countRaidsSince: this.db.prepare('SELECT COUNT(*) AS n FROM raids WHERE village = ? AND started_at >= ?'),
       lastRaid: this.db.prepare('SELECT won, wave, started_at AS startedAt FROM raids WHERE village = ? ORDER BY started_at DESC LIMIT 1'),
+      countRaidsWon: this.db.prepare('SELECT COUNT(*) AS n FROM raids WHERE village = ? AND won = 1'),
       addCodex: this.db.prepare('INSERT OR IGNORE INTO codex(village, kind, id, token, at) VALUES (?, ?, ?, ?, ?)'),
       listCodex: this.db.prepare('SELECT id FROM codex WHERE village = ? AND kind = ? ORDER BY at'),
       getInventory: this.db.prepare('SELECT json FROM inventories WHERE token = ?'),
@@ -394,6 +395,10 @@ export class Storage {
   }
   countRaidsSince(code: string, since: number): number {
     return (this.stmts.countRaidsSince.get(code, since) as { n: number }).n;
+  }
+  /** 지금까지 이긴 방어전 수 (깃대 금 블록, #128) */
+  raidWins(code: string): number {
+    return (this.stmts.countRaidsWon.get(code) as { n: number }).n;
   }
   lastRaid(code: string): { won: boolean; wave: number; startedAt: number } | null {
     const r = this.stmts.lastRaid.get(code) as { won: number; wave: number; startedAt: number } | undefined;

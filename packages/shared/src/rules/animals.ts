@@ -40,8 +40,9 @@ export const WANDER_RANGE = 6;
 export const HOME_RANGE = 24;
 export const TAME_CHANCE = 0.34;
 /** 종류별 야생 목표 수 (처음 뿌리는 수 = 모자라면 채우는 기준. 길들인 것은 세지 않는다). 아빠 2026-09-24: 19 → "너무 많다" 11 → "안 보인다" 무리 16 */
-export const INITIAL_ANIMALS: Readonly<Partial<Record<MobKind, number>>> = { cow: 3, pig: 3, sheep: 3, chicken: 4, dog: 3 };
-export const ANIMALS_MAX = 28;
+/** 종류별 야생 목표 — 아들 13차 답(2026-10-07, #129) "25마리로 늘려줘" (전엔 3·3·3·4·3 = 16) */
+export const INITIAL_ANIMALS: Readonly<Partial<Record<MobKind, number>>> = { cow: 5, pig: 5, sheep: 5, chicken: 6, dog: 4 };
+export const ANIMALS_MAX = 40;
 /** 모자란 종류를 채우는 간격 · 한 번에 생기는 수 */
 export const RESPAWN_EVERY_MS = 10 * 60_000;
 export const RESPAWN_BATCH = 2;

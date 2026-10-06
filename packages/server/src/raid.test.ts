@@ -58,7 +58,7 @@ describe('마을 방어전 (M7-5)', () => {
     room.tick(T0 + RAID_WARNING_SEC * 1000 + 100);
     const sys = room.raid!.mobs;
     expect(room.raid!.phase).toBe('wave');
-    expect(sys.mobs.size).toBe(4); // 변명자 3 + 약탈자 1 (2명)
+    expect(sys.mobs.size).toBe(6); // 변명자 4 + 약탈자 2 (2명, #128)
     for (const m of sys.mobs.values()) {
       expect(['vindicator', 'pillager']).toContain(m.kind);
       expect(m.z).toBeLessThan(40); // 북쪽 둔치

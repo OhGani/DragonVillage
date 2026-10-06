@@ -104,5 +104,6 @@ describe('보물 상자 랜덤 보상 (#117)', () => {
     const d = treasureLoot(rules, 777, 0);
     expect([JSON.stringify(c), JSON.stringify(d)].every((x) => x === JSON.stringify(a))).toBe(false);
     for (let i = 0; i < 50; i++) expect(treasureLoot(rules, 99, i).some((l) => l.item === 'leather')).toBe(false);
+    expect(rules.pool).toHaveLength(30); // 아들 13차 "30가지로 늘려줘" (#129)
   });
 });

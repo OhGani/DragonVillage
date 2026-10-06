@@ -96,15 +96,30 @@ function spiderBodyVoxels(king = false): Voxel[] {
     return mottle(x, y, z, dark);
   });
   if (king) {
-    // 왕관: 머리 위 테(13) + 뿔 다섯(14), 앞 가운데 붉은 보석
-    const CROWN = ['x x x x ', 'xxxxxxxx'];
+    // 왕관 — 아들 그림(13차, 2026-10-07, #127): 금 테(13) + 앞쪽 뿔 셋(왼·가운데 2칸, 오른쪽이 제일 높다 3칸),
+    // 보석 여섯: 위에 초록·하늘·초록, 아래 파랑·빨강·파랑 (앞면에만)
+    const GEM: Record<string, number> = { g: 0x43d13a, c: 0x29e3ff, b: 0x1e3cff, r: 0xe53935 };
+    const FRONT_GEMS: Record<number, Record<number, string>> = { 13: { [-4]: 'b', 0: 'r', 3: 'b' }, 14: { [-3]: 'g', 0: 'c' }, 15: { 3: 'g' } };
+    const gemAt = (x: number, y: number, z: number) => (z === -11 ? FRONT_GEMS[y]?.[x] : undefined);
     for (let z = -11; z <= -6; z++)
       for (let x = -4; x <= 3; x++) {
         const edge = z === -11 || z === -6 || x === -4 || x === 3;
         if (!edge) continue;
-        out.push({ x, y: 13, z, c: css(GOLD) });
-        if (CROWN[0]![x + 4] === 'x' && (z === -11 || z === -6)) out.push({ x, y: 14, z, c: css(z === -11 && (x === -1 || x === 0) ? 0xe53935 : GOLD) });
+        const g = gemAt(x, 13, z);
+        out.push({ x, y: 13, z, c: css(g ? GEM[g]! : GOLD) });
       }
+    const SPIKES: readonly (readonly [number, number, number])[] = [
+      [-4, -3, 15],
+      [-1, 0, 15],
+      [2, 3, 16],
+    ]; // x0, x1, 꼭대기 y
+    for (const [x0, x1, top] of SPIKES)
+      for (let x = x0; x <= x1; x++)
+        for (let y = 14; y <= top; y++)
+          for (let z = -11; z <= -10; z++) {
+            const g = gemAt(x, y, z);
+            out.push({ x, y, z, c: css(g ? GEM[g]! : GOLD) });
+          }
   }
   return out;
 }
