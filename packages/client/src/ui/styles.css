@@ -2015,6 +2015,35 @@ body {
   border-color: #ff5252;
   animation: raid-blink 0.6s steps(2) infinite;
 }
+/* 원정 따라가기 띠 (M9-3): 방어전 띠 아래, 누를 수 있다 */
+.follow-bar {
+  position: absolute;
+  left: 50%;
+  top: calc(9% + 46px); /* 첫 걸음 안내(.guide, top 9%) 바로 아래 — 새로 온 친구 화면에서 겹치지 않게 */
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 6px 14px;
+  background: rgba(10, 30, 50, 0.7);
+  border: 2px solid rgba(120, 190, 255, 0.6);
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  pointer-events: auto;
+  max-width: calc(100vw - 32px);
+}
+.follow-bar[hidden] {
+  display: none;
+}
+.follow-bar .follow-btn {
+  margin: 0;
+  min-height: 36px;
+  background: rgba(58, 157, 58, 0.6);
+  border-color: rgba(125, 220, 125, 0.8);
+}
 @keyframes raid-blink {
   to {
     border-color: rgba(255, 82, 82, 0.2);

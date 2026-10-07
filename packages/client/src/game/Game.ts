@@ -327,6 +327,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const updateVillageInfo = () => {
     const exp = expeditionState ? ` · 원정 중: ${expeditionState.name} ${expeditionState.players}명` : '';
     hud.setVillageInfo(`마을 "${welcome.village.name}" 레벨 ${villageState.level} · 코드 ${welcome.village.code} · 지금 ${remote.count + 1}명${exp} (친구에게 코드를 알려 주면 같은 마을에 들어와요)`);
+    // 따라가기 띠 (M9-3, #150): 마을에 있고 누가 원정 중이며 1분 넘게 남았으면 포탈까지 안 가도 바로 따라간다
+    const s = expeditionState;
+    if (ctx.kind === 'village' && s && s.players > 0 && s.remainingSec > 60) hud.setFollow(`${s.name} 원정 중 · ${s.players}명 · 약 ${Math.max(1, Math.round(s.remainingSec / 60))}분 남음`, () => net.sendStartExpedition(s.id));
+    else hud.setFollow(null);
   };
 
   // ---- 가방 화면·채팅 (M4) ----
@@ -918,7 +922,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     onExpeditionState: (s) => {
       const wasActive = !!expeditionState;
       expeditionState = s;
-      if (!wasActive && s && ctx.kind === 'village') hud.toast(`${s.name} 원정이 시작됐어요! 포탈에서 따라갈 수 있어요`, 5000);
+      if (!wasActive && s && ctx.kind === 'village') hud.toast(`${s.name} 원정이 시작됐어요! 위의 🧭 따라가기를 누르면 바로 같이 가요`, 5000);
       updateVillageInfo();
     },
     onTimer: (m) => {

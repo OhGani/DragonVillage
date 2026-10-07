@@ -123,6 +123,7 @@ export class Hud {
       <div class="armor" aria-label="방어" hidden></div>
       <div class="hearts" aria-label="체력" hidden></div>
       <div class="raid-bar" hidden></div>
+      <div class="follow-bar" hidden><span class="follow-text"></span><button class="plain-btn follow-btn">🧭 따라가기</button></div>
       <div class="boss-bar" hidden><div class="boss-name"></div><div class="boss-track"><div class="boss-fill"></div></div><div class="boss-text"></div></div>
       <div class="hurt-vignette"></div>
       <div class="xp-bar" hidden><div class="xp-fill"></div><div class="xp-level"></div></div>
@@ -777,6 +778,20 @@ export class Hud {
 
   setVillageInfo(text: string): void {
     this.villageEl.textContent = text;
+  }
+
+  /** 원정 따라가기 띠 (M9-3): 마을에서 누가 원정 중이면 화면 위에 "○○ 원정 중 · N명 · 약 M분" + 🧭 따라가기 (포탈까지 안 가도). null 이면 숨김 */
+  setFollow(text: string | null, onFollow?: () => void): void {
+    const el = this.el.querySelector<HTMLElement>('.follow-bar')!;
+    if (text === null) {
+      el.hidden = true;
+      return;
+    }
+    el.hidden = false;
+    const t = el.querySelector<HTMLElement>('.follow-text')!;
+    if (t.textContent !== text) t.textContent = text;
+    const b = el.querySelector<HTMLButtonElement>('.follow-btn')!;
+    b.onclick = onFollow ? () => onFollow() : null;
   }
 
   /** 부수기 게이지 0..1 (0 이면 숨김) */
