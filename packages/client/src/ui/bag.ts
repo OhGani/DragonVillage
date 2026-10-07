@@ -15,6 +15,7 @@ import {
   canCraft,
   craftableTimes,
   gridLayout,
+  isEggItem,
   isPotionItem,
   matchGrid,
   missing,
@@ -389,14 +390,19 @@ export class BagView {
     this.side.appendChild(tip);
     const list = document.createElement('div');
     list.className = 'book-list';
-    for (const [st, title] of BOOK_GROUPS) {
-      const rows = all.filter((r) => r.station === st);
-      if (rows.length === 0) continue;
+    // 드래곤 알은 따로 한 묶음 (아빠 2026-10-07) — 제작대 묶음 바로 뒤에
+    const isEgg = (r: RecipeDef) => isEggItem(Object.keys(r.out)[0]!);
+    const addGroup = (title: string, rows: RecipeDef[]) => {
+      if (rows.length === 0) return;
       const head = document.createElement('div');
       head.className = 'book-head';
       head.textContent = `${title} · ${rows.length}`;
       list.appendChild(head);
       for (const r of rows) list.appendChild(this.bookRow(r));
+    };
+    for (const [st, title] of BOOK_GROUPS) {
+      addGroup(title, all.filter((r) => r.station === st && !isEgg(r)));
+      if (st === 'crafting_table') addGroup('🥚 드래곤 알 (제작대 옆에서)', all.filter(isEgg));
     }
     this.side.appendChild(list);
   }
