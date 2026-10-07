@@ -290,6 +290,8 @@ export const SADDLE_ITEM = 'saddle';
 export const DRAGON_HP_BASE = 40;
 export const DRAGON_HP_PER_TIER = 5;
 export const DRAGON_REST_MS = 10 * 60_000;
+/** 쉬는 어른 드래곤에게 먹이(만들 때 쓴 재료)를 주면 이만큼 빨리 회복한다 (#146) */
+export const FEED_REST_MS = 2 * 60_000;
 export function dragonMaxHp(tier: number): number {
   return DRAGON_HP_BASE + DRAGON_HP_PER_TIER * Math.max(1, tier);
 }

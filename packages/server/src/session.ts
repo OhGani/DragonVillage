@@ -83,7 +83,7 @@ const NEST_ERROR_KO: Record<string, string> = {
   BAD_SLOT: '그런 자리는 없어요',
   SLOT_TAKEN: '그 자리엔 이미 알이 있어요',
   NO_DRAGON: '그건 내 드래곤이 아니에요',
-  NOT_BABY: '이미 어른이에요',
+  NOT_BABY: '이미 어른이에요 (쓰러져 쉴 때는 먹이면 2분 빨리 나아요)',
   NOT_FOOD: '그건 이 드래곤 먹이가 아니에요 (만들 때 쓴 재료를 줘요)',
   NO_ITEM: '그 먹이가 가방에 없어요',
   NOT_ADULT: '아기는 아직 못 타요 — 어른이 되면 탈 수 있어요',

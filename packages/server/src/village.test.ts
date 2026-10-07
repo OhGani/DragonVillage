@@ -16,7 +16,7 @@ import {
   isBuildingBuiltAt,
   treasureLoot,
   dragonMaxHp,
-  DRAGON_REST_MS,
+  DRAGON_REST_MS, FEED_REST_MS,
   HP_MAX,
 } from '@dragon-village/shared';
 import { DRAGONS, EXPEDITIONS, BLOCKS } from '@dragon-village/shared/data';
@@ -549,8 +549,16 @@ describe('드래곤 탑승 (M6-4)', () => {
     expect(a.json.some((m) => m.t === 'dragonDown')).toBe(true);
     expect(a.json.some((m) => m.t === 'dismount')).toBe(true);
     expect(room.ride(ra.idx, ironId, T0 + 62 * 60_000 + 1000)).toBe('RESTING');
+    // 쉬는 동안 둥지에서 먹이면 2분 빨라진다 (#146). 먹이가 아니면 거절, 둥지 밖에서도 거절
+    room.onMove(ra.idx, { x: 63.5, y: GROUND_Y + 1, z: 84.5, yaw: 0, pitch: 0, flags: 0 }, T0 + 62 * 60_000 + 1500);
+    room.giveItems(ra.idx, 'iron_ingot', 2);
+    expect(room.feed(ra.idx, ironId, 'log', T0 + 62 * 60_000 + 2000)).toBe('NOT_FOOD');
+    expect(room.feed(ra.idx, ironId, 'iron_ingot', T0 + 62 * 60_000 + 2000)).toBeNull();
+    expect(storage.getDragon(ironId)!.restingUntil).toBe(T0 + 62 * 60_000 + DRAGON_REST_MS - FEED_REST_MS);
+    expect(room.ride(ra.idx, ironId, T0 + 62 * 60_000 + DRAGON_REST_MS - FEED_REST_MS + 1)).toBeNull(); // 2분 일찍 탄다
+    room.dismount(ra.idx);
+    expect(room.feed(ra.idx, ironId, 'iron_ingot', T0 + 62 * 60_000 + DRAGON_REST_MS + 2)).toBe('NOT_BABY'); // 다 나은 어른은 그냥 어른
     expect(room.ride(ra.idx, ironId, T0 + 62 * 60_000 + DRAGON_REST_MS + 1)).toBeNull(); // 다 쉬면 다시 탄다
-    expect(storage.getDragon(ironId)!.restingUntil).toBe(T0 + 62 * 60_000 + DRAGON_REST_MS);
     const mountMsg = { t: 'mount', idx: ra.idx, riding: { id: ironId, dragon: 'iron' } };
     expect(a.json.find((m) => m.t === 'mount')).toEqual(mountMsg);
     expect(b.json.find((m) => m.t === 'mount')).toEqual(mountMsg);

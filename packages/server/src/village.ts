@@ -148,6 +148,7 @@ import {
   treasureLoot,
   dragonMaxHp,
   DRAGON_REST_MS,
+  FEED_REST_MS,
   type Equipment,
   type EquipSlot,
   armorApplies,
@@ -888,8 +889,23 @@ export class VillageRoom {
     if (p.world !== 'village' || !nestContains(GROUND_Y, p.pos.x, p.pos.y, p.pos.z)) return 'NOT_AT_NEST';
     const row = this.storage.getDragon(id);
     if (!row || row.village !== this.info.code || row.token !== p.token || row.stage === 'egg') return 'NO_DRAGON';
-    if (row.stage !== 'baby') return 'NOT_BABY';
     const def = DRAGONS.require(row.dragon);
+    if (row.stage !== 'baby') {
+      // 쓰러져 쉬는 어른은 먹이로 회복을 앞당긴다 (#146): 먹이 하나 = FEED_REST_MS 만큼
+      if (row.stage !== 'adult' || row.restingUntil === null || row.restingUntil <= now) return 'NOT_BABY';
+      if (!feedItems(def).includes(item)) return 'NOT_FOOD';
+      if (countOf(p.inv, item) < 1) return 'NO_ITEM';
+      const changed = new Set<number>();
+      take(p.inv, item, 1, changed);
+      this.sendInv(p, changed);
+      this.storage.saveInventory(p.token, this.info.code, p.inv, now);
+      const until = row.restingUntil - FEED_REST_MS;
+      this.storage.restDragon(id, until <= now ? null : until);
+      this.log(`마을 ${this.info.code}: ${p.nick} 쉬는 ${def.name}에게 ${item} 먹임 (${until <= now ? '다 나음' : `${Math.ceil((until - now) / 60000)}분 남음`})`);
+      this.sendJson(p, { t: 'dragons', list: this.myDragons(p.token) });
+      this.broadcastNest();
+      return null;
+    }
     if (!feedItems(def).includes(item)) return 'NOT_FOOD';
     if (countOf(p.inv, item) < 1) return 'NO_ITEM';
     const changed = new Set<number>();

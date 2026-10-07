@@ -201,8 +201,20 @@ export class NestView {
         if (d.restingUntil && d.restingUntil > Date.now()) {
           const hint = document.createElement('span');
           hint.className = 'nest-hint';
-          hint.textContent = `😵 쓰러져서 쉬는 중 — ${Math.max(1, Math.ceil((d.restingUntil - Date.now()) / 60000))}분 뒤에 탈 수 있어요`;
+          hint.textContent = `😵 쓰러져서 쉬는 중 — ${Math.max(1, Math.ceil((d.restingUntil - Date.now()) / 60000))}분 뒤에 탈 수 있어요 · 먹이 하나에 2분 빨라져요`;
           row.appendChild(hint);
+          // 먹이로 회복 앞당기기 (#146): 아기 먹이와 같은 재료
+          if (def) {
+            for (const item of feedItems(def)) {
+              const have = this.countOf(item);
+              if (have <= 0) continue;
+              const btn = document.createElement('button');
+              btn.className = 'plain-btn nest-btn';
+              btn.textContent = `${this.deps.nameOf(item)} 먹이기 (${have})`;
+              btn.addEventListener('click', () => this.deps.onFeed(d.id, item));
+              row.appendChild(btn);
+            }
+          }
         } else if (this.countOf(SADDLE_ITEM) > 0) {
           const btn = document.createElement('button');
           btn.className = 'big-btn nest-btn';
