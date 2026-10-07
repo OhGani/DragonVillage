@@ -32,3 +32,18 @@ describe('Storage (SQLite 메모리)', () => {
     s.close();
   });
 });
+
+describe('마을 코드 바꾸기 (#153)', () => {
+  it('마을을 가리키는 표가 모두 새 코드로 옮겨진다', () => {
+    const st = new Storage(':memory:');
+    st.createVillage({ code: '111111', name: '테스트', seed: 1, genVersion: 1, createdAt: 1 });
+    st.addBuilding('111111', 'forge', 1);
+    st.setPlaced('111111', 1, 2, 3, 'a'.repeat(32), '아빠');
+    st.renameVillage('111111', '222222');
+    expect(st.getVillage('111111')).toBeUndefined();
+    expect(st.getVillage('222222')?.name).toBe('테스트');
+    expect(st.listBuildings('222222')).toEqual(['forge']);
+    expect(st.listPlaced('222222')).toHaveLength(1);
+    expect(st.listPlaced('111111')).toHaveLength(0);
+  });
+});

@@ -1128,6 +1128,12 @@ export class VillageRoom {
     return this.players.size;
   }
 
+  /** 마을 코드가 바뀌었다 (M9-4, #153): 안에 있는 사람들에게 알린다. 이미 들어와 있는 사람은 그대로 논다 */
+  renameCode(code: string): void {
+    this.info.code = code;
+    this.broadcastJson({ t: 'error', code: 'VILLAGE_CODE', message: `마을 코드가 ${code} 로 바뀌었어요. 다음부터는 새 코드로 들어와요 — 친구에게도 알려 주세요` });
+  }
+
   /** 입장 시 보낼 청크 수 */
   get modifiedCount(): number {
     return this.modified.size;

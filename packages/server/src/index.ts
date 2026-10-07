@@ -19,6 +19,7 @@ import { AccountService } from './accounts';
 import { FamilyService } from './family';
 import { handleFamilyHttp } from './familyHttp';
 import { RoomManager } from './rooms';
+import { Ops } from './ops';
 import { Session } from './session';
 import { serveStatic } from './static';
 import { Storage } from './storage';
@@ -31,9 +32,14 @@ const CLIENT_DIST = resolve(process.env.DV_CLIENT_DIST ?? join(here, '..', '..',
 const DB_PATH = join(DATA_DIR, 'dragoncraft.sqlite');
 const BACKUP_KEEP = 7;
 
-const log = (msg: string): void => console.log(`${new Date().toISOString().slice(11, 19)} ${msg}`);
-
 mkdirSync(DATA_DIR, { recursive: true });
+const ops = new Ops(DATA_DIR); // 운영 (M9-4, #153): 접속 로그 파일 + 죽음 감지
+const log = (msg: string): void => {
+  console.log(`${new Date().toISOString().slice(11, 19)} ${msg}`);
+  ops.note(msg);
+};
+const crash = ops.detectCrash();
+if (crash) log(`⚠️ ${crash}`);
 const storage = new Storage(DB_PATH);
 const rooms = new RoomManager(storage, BLOCKS, log);
 const accounts = new AccountService(storage);
@@ -41,14 +47,16 @@ const accounts = new AccountService(storage);
 const family = new FamilyService(storage, accounts, FAMILY_RULES, { enforceTime: process.env.DV_ENFORCE_TIME === '1' });
 const FAMILY_PAGE = join(here, '..', 'static', 'family.html');
 const home = rooms.ensureDefault(process.env.DV_DEFAULT_CODE);
-writeFileSync(join(DATA_DIR, 'default-village-code.txt'), `${home.info.code}\n`);
+const writeHomeCode = (code: string): void => writeFileSync(join(DATA_DIR, 'default-village-code.txt'), `${code}\n`);
+writeHomeCode(home.info.code);
+const opsExtras = { ops, rooms, homeCode: () => home.info.code, onCodeChanged: writeHomeCode };
 log(`기본 마을 "${home.info.name}" 코드 ${home.info.code} (저장 청크 ${home.modifiedCount}개)`);
 log(`가족 시간 제한: ${family.enforceTime ? '켬' : '끔 (남은 시간 표시만)'}`);
 if (!existsSync(join(CLIENT_DIST, 'index.html'))) log(`주의: 클라이언트 빌드가 없어요 (${CLIENT_DIST}). pnpm build 를 먼저 하세요`);
 
 const http = createServer((req, res) => {
   if (req.url === '/family' || req.url?.startsWith('/family/') || req.url?.startsWith('/api/family/')) {
-    handleFamilyHttp(req, res, family, FAMILY_PAGE).catch((e: unknown) => {
+    handleFamilyHttp(req, res, family, FAMILY_PAGE, opsExtras).catch((e: unknown) => {
       log(`가족 API 오류: ${(e as Error).message}`);
       if (!res.headersSent) res.writeHead(500).end();
     });
@@ -62,6 +70,8 @@ const http = createServer((req, res) => {
         players: rooms.playerCount,
         villages: rooms.all().map((r) => ({ code: r.info.code, name: r.info.name, players: r.playerCount, modifiedChunks: r.modifiedCount, stats: r.stats })),
         uptimeSec: Math.round(process.uptime()),
+        startedAt: ops.startedAt,
+        lastCrash: ops.status().lastCrash,
       }),
     );
     return;
@@ -124,6 +134,7 @@ function shutdown(sig: string): void {
   clearInterval(backupTimer);
   clearInterval(settleTimer);
   rooms.flushAll(Date.now());
+  if (sig !== 'uncaughtException') ops.markStopped(); // 깨끗이 끝남 — 다음에 켤 때 "죽음"으로 안 센다
   for (const ws of wss.clients) ws.close(1001, 'SERVER_SHUTDOWN');
   http.close(() => {
     storage.close();

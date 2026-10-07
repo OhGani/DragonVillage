@@ -14,7 +14,7 @@ import {
   isEquipSlot,
   sanitizeNick,
 } from '@dragon-village/shared';
-import { EXPEDITIONS, FAMILY_RULES, RAIDS } from '@dragon-village/shared/data';
+import { EXPEDITIONS, FAMILY_RULES, RAIDS, BANNED_WORDS } from '@dragon-village/shared/data';
 import { randomBytes } from 'node:crypto';
 import type { WebSocket } from 'ws';
 import { PIN_RE, type AccountService } from './accounts';
@@ -217,6 +217,7 @@ export class Session {
         if (this.room) return this.error('ALREADY_IN', '이미 마을에 있어요');
         const nick = sanitizeNick(msg.nick);
         if (!nick) return this.error('BAD_NICK', '이름을 1~8글자로 적어 주세요');
+        if (BANNED_WORDS.find(nick)) return this.error('BAD_NICK', '그 이름은 쓸 수 없어요. 다른 이름으로 해요'); // 금칙어 (#152)
         const color = Number.isInteger(msg.color) && msg.color >= 0 && msg.color < PLAYER_COLOR_COUNT ? msg.color : 0;
         // 이름은 서버 전체에서 하나 (#63): 다른 사람 것이면 PIN 으로 이어하거나 다른 이름을 써야 한다
         let needPin = false;
@@ -238,6 +239,7 @@ export class Session {
           }
         } else {
           const name = sanitizeNick(msg.name) ?? `${nick}의 마을`;
+          if (BANNED_WORDS.find(name)) return this.error('BAD_NICK', '그 마을 이름은 쓸 수 없어요'); // 금칙어 (#152)
           room = this.rooms.create(name);
         }
         const result = room.join(this.token, nick, color, this.send, (why) => {

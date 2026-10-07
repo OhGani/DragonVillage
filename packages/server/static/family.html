@@ -83,6 +83,21 @@
       <div id="ppErr" class="err"></div>
     </div>
 
+    <div class="card" id="opsCard" hidden>
+      <h2>🛠 서버·마을 (아빠만)</h2>
+      <div id="opsCrash" class="err" hidden></div>
+      <div class="muted" id="opsStatus"></div>
+      <div class="row" style="margin-top:8px"><b>마을 코드</b> <span id="opsCode" class="code" style="font-size:20px"></span></div>
+      <div class="row" style="margin-top:6px">
+        <input id="opsNewCode" inputmode="numeric" placeholder="새 코드 6자리 (비우면 무작위)" maxlength="6" style="max-width: 220px" />
+        <button id="opsChangeCode" class="plain small">코드 바꾸기</button>
+      </div>
+      <div class="muted" style="margin-top:4px">바꾸면 지금 들어와 있는 사람은 그대로 놀고, 다음부터 새 코드로 들어와요. 친구들에게 새 링크를 보내 주세요.</div>
+      <div id="opsErr" class="err"></div>
+      <h2 style="margin-top:12px">최근 접속 기록</h2>
+      <ul id="opsAccess" class="muted" style="font-size:13px; max-height: 220px; overflow:auto"></ul>
+    </div>
+
     <div class="card">
       <div class="row"><span id="email2" class="muted"></span><button id="logout" class="plain small">로그아웃</button></div>
       <div id="enforced" class="muted" style="margin-top:8px"></div>
@@ -313,7 +328,30 @@
   async function refresh() {
     if (document.hidden || !me) return;
     try { showHome(await api('me')); } catch { /* 잠깐 끊김은 무시 */ }
+    refreshOps();
   }
+  // 운영 카드 (M9-4, #153): 서버 상태·마을 코드·접속 기록
+  async function refreshOps() {
+    try {
+      const o = await api('ops');
+      $('#opsCard').hidden = false;
+      $('#opsCrash').hidden = !o.lastCrash;
+      $('#opsCrash').textContent = o.lastCrash ? '⚠️ ' + o.lastCrash : '';
+      $('#opsStatus').textContent = `서버 켜진 시각 ${o.startedAt}` + (o.village ? ` · 마을 "${o.village.name}" 지금 ${o.village.players}명` : '');
+      $('#opsCode').textContent = o.village ? o.village.code : '------';
+      const ul = $('#opsAccess');
+      ul.innerHTML = '';
+      for (const line of [...o.access].reverse()) { const li = document.createElement('li'); li.textContent = line; ul.appendChild(li); }
+      if (!o.access.length) { const li = document.createElement('li'); li.textContent = '아직 기록이 없어요'; ul.appendChild(li); }
+    } catch { $('#opsCard').hidden = true; }
+  }
+  $('#opsChangeCode').onclick = async () => {
+    $('#opsErr').textContent = '';
+    const code = $('#opsNewCode').value.trim();
+    if (!confirm(`마을 코드를 ${code || '무작위 숫자'} 로 바꿀까요? 친구들은 새 코드로 들어와야 해요.`)) return;
+    try { const r = await api('villageCode', { code }); $('#opsNewCode').value = ''; alert(`새 마을 코드: ${r.code}\n링크: ${location.origin}/?code=${r.code}`); refreshOps(); }
+    catch (e) { $('#opsErr').textContent = e.message; }
+  };
   async function act(action, body) {
     showHome(await api(action, body));
   }
@@ -325,7 +363,7 @@
   }
   async function submit(action) {
     $('#authErr').textContent = '';
-    try { showHome(await api(action, { email: $('#email').value, password: $('#pw').value })); }
+    try { showHome(await api(action, { email: $('#email').value, password: $('#pw').value })); refreshOps(); }
     catch (e) { $('#authErr').textContent = e.message; }
   }
   $('#login').onclick = () => submit('login');
@@ -338,7 +376,7 @@
     catch (e) { $('#ppErr').textContent = e.message; }
   };
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-  api('me').then(showHome).catch(showAuth);
+  api('me').then((m) => { showHome(m); refreshOps(); }).catch(showAuth);
 </script>
 </body>
 </html>

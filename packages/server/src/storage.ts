@@ -323,6 +323,14 @@ export class Storage {
   getVillage(code: string): VillageRow | undefined {
     return this.stmts.getVillage.get(code) as VillageRow | undefined;
   }
+  /** 마을 코드 바꾸기 (M9-4, #153): 마을을 가리키는 표 전부를 한 번에 */
+  renameVillage(oldCode: string, newCode: string): void {
+    const tables = ['villages', 'chunk_diffs', 'storage', 'players', 'inventories', 'dragons', 'chests', 'buildings', 'codex', 'placed', 'animals', 'raids'];
+    const tx = this.db.transaction(() => {
+      for (const t of tables) this.db.prepare(`UPDATE ${t} SET ${t === 'villages' ? 'code' : 'village'} = ? WHERE ${t === 'villages' ? 'code' : 'village'} = ?`).run(newCode, oldCode);
+    });
+    tx();
+  }
   listVillages(): VillageRow[] {
     return this.stmts.listVillages.all() as VillageRow[];
   }

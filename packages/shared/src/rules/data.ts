@@ -5,6 +5,7 @@
 import blocksJson from '../../../../data/blocks.json';
 import combatJson from '../../../../data/combat.json';
 import petNamesJson from '../../../../data/pet-names.json';
+import bannedWordsJson from '../../../../data/banned-words.json';
 import buildingsJson from '../../../../data/buildings.json';
 import bossesJson from '../../../../data/bosses.json';
 import mobsJson from '../../../../data/mobs.json';
@@ -22,6 +23,7 @@ import xpJson from '../../../../data/xp.json';
 import { parseBlocks } from './blocks';
 import { parseCombat } from './combat';
 import { parsePetNames } from './petNames';
+import { parseBannedWords } from './bannedWords';
 import { parseBuildings } from './buildings';
 import { parseMobs } from './mobs';
 import { parseRaid } from './raid';
@@ -48,6 +50,8 @@ export const EXPEDITIONS = parseExpeditions(expeditionsJson);
 export const DRAGONS = parseDragons(dragonsJson);
 /** 펫 이름 목록 (M8-1 4차, pet-names.json, #109) */
 export const PET_NAMES = parsePetNames(petNamesJson);
+/** 이름 금칙어 (M9-4, banned-words.json, #152) */
+export const BANNED_WORDS = parseBannedWords(bannedWordsJson);
 /** 전투 장비 — 갑옷·방패·활·화살 (M8-2, combat.json). 제작법도 여기서 나온다 */
 export const COMBAT = parseCombat(combatJson);
 /** 레시피 + 드래곤 알 레시피 16개(제작대) + 전투 장비 레시피 25개 */

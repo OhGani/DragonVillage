@@ -6,6 +6,16 @@ import { createReadStream, existsSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { TodoRepeat } from '@dragon-village/shared';
 import type { FamilyService, Parent } from './family';
+import type { Ops } from './ops';
+import type { RoomManager } from './rooms';
+
+/** 운영 기능 (M9-4, #153): 부모 페이지가 서버 상태·접속 기록을 보고 마을 코드를 바꾼다 */
+export interface OpsExtras {
+  ops: Ops;
+  rooms: RoomManager;
+  homeCode: () => string;
+  onCodeChanged: (code: string) => void;
+}
 
 const COOKIE = 'dv_parent';
 const MAX_BODY = 16 * 1024;
@@ -96,7 +106,7 @@ function meJson(family: FamilyService, parent: Parent) {
 /**
  * `/family`·`/api/family/*` 를 처리했으면 true. 아니면 false (정적 서빙으로 넘긴다)
  */
-export async function handleFamilyHttp(req: IncomingMessage, res: ServerResponse, family: FamilyService, pageFile: string): Promise<boolean> {
+export async function handleFamilyHttp(req: IncomingMessage, res: ServerResponse, family: FamilyService, pageFile: string, extras?: OpsExtras): Promise<boolean> {
   const url = new URL(req.url ?? '/', 'http://localhost');
   if (url.pathname === '/family' || url.pathname === '/family/') {
     if (!existsSync(pageFile)) {
@@ -114,6 +124,12 @@ export async function handleFamilyHttp(req: IncomingMessage, res: ServerResponse
   if (req.method === 'GET' && action === 'me') {
     if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
     return json(res, 200, meJson(family, parent)), true;
+  }
+  if (req.method === 'GET' && action === 'ops') {
+    if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
+    if (!extras) return json(res, 404, { error: 'NO_OPS' }), true;
+    const home = extras.rooms.get(extras.homeCode());
+    return json(res, 200, { ...extras.ops.status(), village: home ? { code: home.info.code, name: home.info.name, players: home.playerCount } : null }), true;
   }
   if (req.method !== 'POST') return json(res, 405, { error: 'METHOD' }), true;
   const body = await readBody(req);
@@ -200,6 +216,15 @@ export async function handleFamilyHttp(req: IncomingMessage, res: ServerResponse
       if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
       const ok = family.unlinkParentPlayer(parent.familyId, String(body.nick ?? ''));
       return json(res, ok ? 200 : 404, ok ? meJson(family, parent) : { error: 'NO_PLAYER', message: '그 플레이어가 없어요' }), true;
+    }
+    case 'villageCode': {
+      if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
+      if (!extras) return json(res, 404, { error: 'NO_OPS' }), true;
+      const r = extras.rooms.changeCode(extras.homeCode(), String(body.code ?? '').trim());
+      if (!r.ok) return json(res, 400, { error: r.reason, message: r.reason === 'BAD_CODE' ? '코드는 숫자 6자리예요 (비우면 무작위)' : r.reason === 'TAKEN' ? '이미 있는 코드예요' : '마을이 없어요' }), true;
+      extras.onCodeChanged(r.code);
+      extras.ops.note(`마을 코드 바꿈 → ${r.code} (부모 페이지)`);
+      return json(res, 200, { ok: true, code: r.code }), true;
     }
     default:
       return json(res, 404, { error: 'NO_ACTION' }), true;

@@ -60,6 +60,25 @@ export class RoomManager {
     return [...this.rooms.values()];
   }
 
+  /**
+   * 마을 코드 바꾸기 (M9-4, #153): 저장소의 표 전부와 룸 키를 바꾸고, 안에 있는 사람들에게 알린다.
+   * 새 코드가 비었으면(아빠가 안 적음) 무작위로. 오류면 코드 대신 이유를 돌려준다
+   */
+  changeCode(oldCode: string, newCode?: string): { ok: true; code: string } | { ok: false; reason: 'NO_VILLAGE' | 'BAD_CODE' | 'TAKEN' } {
+    const room = this.get(oldCode);
+    if (!room) return { ok: false, reason: 'NO_VILLAGE' };
+    const code = newCode && newCode.length > 0 ? newCode : this.newCode();
+    if (!/^\d{6}$/.test(code)) return { ok: false, reason: 'BAD_CODE' };
+    if (code === oldCode) return { ok: true, code };
+    if (this.storage.getVillage(code) || this.rooms.has(code)) return { ok: false, reason: 'TAKEN' };
+    this.storage.renameVillage(oldCode, code);
+    this.rooms.delete(oldCode);
+    room.renameCode(code);
+    this.rooms.set(code, room);
+    this.log(`마을 코드 바꿈: ${oldCode} → ${code}`);
+    return { ok: true, code };
+  }
+
   tick(now: number): void {
     for (const r of this.rooms.values()) r.tick(now);
   }
