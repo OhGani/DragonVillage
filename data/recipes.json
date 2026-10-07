@@ -521,7 +521,7 @@
     {
       "id": "stick",
       "name": "막대기",
-      "station": "crafting_table",
+      "station": "inventory",
       "pattern": ["p", "p"],
       "key": {"p": "planks"},
       "in": {

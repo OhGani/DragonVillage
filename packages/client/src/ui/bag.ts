@@ -50,7 +50,15 @@ const EQUIP_LABEL: Record<string, string> = { helmet: '투구', chestplate: '흉
 
 /** 근처에 있는 작업대 블록 */
 export type Stations = { crafting_table?: boolean; furnace?: boolean; brewing_stand?: boolean; forge?: boolean };
-type Tab = 'bag' | 'craft' | 'brew' | 'codex';
+type Tab = 'bag' | 'craft' | 'brew' | 'book' | 'codex';
+/** 📜 조합법 탭의 묶음 순서와 제목 (#133) */
+const BOOK_GROUPS: readonly [Station, string][] = [
+  ['inventory', '🎒 가방에서 (2×2) — 언제나'],
+  ['crafting_table', '🔨 제작대 옆에서 (3×3)'],
+  ['forge', '⚒️ 대장간 옆에서'],
+  ['furnace', '🔥 화로 옆에서'],
+  ['world', '🌍 놓아서 생기는 것 (만들기 아님)'],
+];
 
 export class BagView {
   readonly el: HTMLElement;
@@ -228,6 +236,7 @@ export class BagView {
       ['craft', '🔨 만들기'],
     ];
     if (this.stations.brewing_stand) tabs.push(['brew', '⚗️ 양조']);
+    tabs.push(['book', '📜 조합법']);
     tabs.push(['codex', '📖 도감']);
     this.tabs.innerHTML = '';
     for (const [id, label] of tabs) {
@@ -322,20 +331,113 @@ export class BagView {
     const card = this.el.querySelector<HTMLElement>('.bag-card');
     const keep = this.drawnTab === this.tab;
     const cardTop = keep ? (card?.scrollTop ?? 0) : 0;
-    const listTop = keep ? (this.side.querySelector<HTMLElement>('.craft-list, .codex-grid')?.scrollTop ?? 0) : 0;
+    const listTop = keep ? (this.side.querySelector<HTMLElement>('.craft-list, .codex-grid, .book-list')?.scrollTop ?? 0) : 0;
 
     this.side.innerHTML = '';
-    this.grid.hidden = this.tab === 'codex';
+    this.grid.hidden = this.tab === 'codex' || this.tab === 'book';
     if (this.tab === 'bag') this.renderBagSide();
     else if (this.tab === 'craft') this.renderCraftSide();
+    else if (this.tab === 'book') this.renderBook();
     else if (this.tab === 'codex') this.renderCodex();
     else this.renderBrewSide();
     this.drawnTab = this.tab;
 
     // 내용이 다시 채워진 뒤에 되돌려야 한다 (빈 동안은 브라우저가 0 으로 깎는다)
-    const list = this.side.querySelector<HTMLElement>('.craft-list, .codex-grid');
+    const list = this.side.querySelector<HTMLElement>('.craft-list, .codex-grid, .book-list');
     if (list && listTop > 0) list.scrollTop = listTop;
     if (card && cardTop > 0) card.scrollTop = cardTop;
+  }
+
+  /** 이 레시피의 작업대가 지금 옆에 있나 (가방은 언제나) */
+  private stationNear(st: Station): boolean {
+    return st === 'inventory' || (st === 'crafting_table' && !!this.stations.crafting_table) || (st === 'forge' && !!this.stations.forge) || (st === 'furnace' && !!this.stations.furnace);
+  }
+
+  /** 모양 축소판 (#133): 3×3(가방은 2×2) 작은 칸에 재료 아이콘. 모양 없는 조합은 재료를 순서대로 */
+  private patternThumb(r: RecipeDef): HTMLElement | null {
+    const w = r.station === 'inventory' ? 2 : 3;
+    const layout = gridLayout(r, w);
+    if (!layout) return null;
+    const box = document.createElement('div');
+    box.className = 'pattern-thumb';
+    box.style.gridTemplateColumns = `repeat(${w}, 18px)`;
+    for (const id of layout) {
+      const cell = document.createElement('span');
+      if (id) {
+        const icon = this.deps.icon(id, 16);
+        if (icon) cell.appendChild(icon);
+        cell.title = this.deps.nameOf(id);
+      }
+      box.appendChild(cell);
+    }
+    return box;
+  }
+
+  /**
+   * 📜 조합법 (#133, 아빠 2026-10-07 "만들 수 있는 모든 레시피를 게임에서 볼 수 있게"): v1 레시피 전부를 작업대별로.
+   * 줄마다 결과·재료·모양 축소판. 작업대가 옆에 있고 재료도 있으면 "만들기", 작업대가 옆에 있으면 탭해서 🔨 격자에 채우기
+   */
+  private renderBook(): void {
+    const all = this.deps.recipes.craftable().concat(this.deps.recipes.forStation('world'));
+    const h = document.createElement('div');
+    h.className = 'bag-title';
+    h.textContent = `📜 조합법 ${all.length}개`;
+    this.side.appendChild(h);
+    const tip = document.createElement('div');
+    tip.className = 'bag-tip';
+    tip.textContent = '초록 줄은 지금 만들 수 있는 것. 작업대 옆에서 줄을 탭하면 🔨 격자에 모양대로 채워져요';
+    this.side.appendChild(tip);
+    const list = document.createElement('div');
+    list.className = 'book-list';
+    for (const [st, title] of BOOK_GROUPS) {
+      const rows = all.filter((r) => r.station === st);
+      if (rows.length === 0) continue;
+      const head = document.createElement('div');
+      head.className = 'book-head';
+      head.textContent = `${title} · ${rows.length}`;
+      list.appendChild(head);
+      for (const r of rows) list.appendChild(this.bookRow(r));
+    }
+    this.side.appendChild(list);
+  }
+
+  private bookRow(r: RecipeDef): HTMLElement {
+    const near = this.stationNear(r.station);
+    const ok = r.station !== 'world' && near && canCraft(this.inv, r);
+    const row = document.createElement('div');
+    row.className = 'craft-row book-row' + (ok ? ' ok' : near || r.station === 'world' ? '' : ' far');
+    const outId = Object.keys(r.out)[0]!;
+    const icon = this.deps.icon(outId, 32);
+    if (icon) row.appendChild(icon);
+    const text = document.createElement('div');
+    text.className = 'craft-text';
+    const outCount = r.out[outId]!;
+    const need = Object.entries(r.in)
+      .map(([id, n]) => `${this.deps.nameOf(id)} ${n}`)
+      .join(' + ');
+    text.innerHTML = `<b>${r.name}${outCount > 1 ? ` ×${outCount}` : ''}</b><br><span class="craft-need">${need}</span>`;
+    row.appendChild(text);
+    const thumb = this.patternThumb(r);
+    if (thumb) row.appendChild(thumb);
+    if (r.station !== 'world') {
+      if (near) {
+        row.title = '탭하면 🔨 격자에 모양대로 채워요';
+        row.addEventListener('click', (e) => {
+          if ((e.target as HTMLElement).closest('button')) return;
+          this.tab = 'craft';
+          this.selected = -1;
+          this.fillCraftGrid(r);
+          this.renderAll();
+        });
+        if (ok) row.appendChild(this.button('만들기', 'big-btn small', () => this.deps.onCraft(r.id)));
+      } else {
+        const where = document.createElement('span');
+        where.className = 'craft-station';
+        where.textContent = `${this.deps.nameOf(r.station)} 옆에서`;
+        row.appendChild(where);
+      }
+    }
+    return row;
   }
 
   /** 도감: 드래곤 16종. 얻은 것은 색, 아직이면 회색 + 재료 */

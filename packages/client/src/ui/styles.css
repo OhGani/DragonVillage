@@ -1172,6 +1172,48 @@ body {
 .craft-row {
   cursor: pointer;
 }
+/* 📜 조합법 (#133) */
+.book-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 68vh;
+  overflow: auto;
+}
+.book-head {
+  font-weight: 700;
+  font-size: 14px;
+  margin-top: 8px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+}
+.book-row.ok {
+  background: rgba(58, 157, 58, 0.28);
+}
+.book-row.far {
+  cursor: default;
+}
+.pattern-thumb {
+  display: grid;
+  gap: 1px;
+  padding: 2px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+.pattern-thumb span {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.09);
+}
+.pattern-thumb canvas {
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
 .craft-list {
   display: flex;
   flex-direction: column;
