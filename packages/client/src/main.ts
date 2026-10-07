@@ -30,8 +30,23 @@ async function boot(): Promise<void> {
   }
 
   const { NetClient } = await import('./net/NetClient');
+  // 끊겼다 다시 잇기 (#155): 게임이 새로고침 전에 표시를 남겨 두면 로비를 거치지 않고 바로 들어간다
+  let autoJoin = false;
+  try {
+    autoJoin = sessionStorage.getItem('dv.autojoin') === '1';
+    sessionStorage.removeItem('dv.autojoin');
+  } catch {
+    /* 무시 */
+  }
   for (;;) {
-    const choice = await lobby.waitChoice();
+    const choicePromise = lobby.waitChoice();
+    let wasAuto = false;
+    if (autoJoin) {
+      autoJoin = false;
+      wasAuto = lobby.tryAutoJoin();
+      if (wasAuto) lobby.setStatus('다시 잇는 중…');
+    }
+    const choice = await choicePromise;
     const net = new NetClient();
     try {
       lobby.setStatus('서버에 연결하는 중…');
@@ -56,7 +71,8 @@ async function boot(): Promise<void> {
         await net.resume(choice.nick, pin);
         welcome = await enter();
       }
-      if (welcome.needPin) {
+      if (welcome.needPin && !wasAuto) {
+        // (다시 잇는 중이면 PIN 묻기는 건너뛴다 — 다음에 들어올 때 묻는다, #155)
         // 처음 쓰는 이름: PIN 을 정해 두면 다른 폰에서도 이 계정으로 들어올 수 있다
         const pin = await askPin(root!, 'PIN 정하기', `"${choice.nick}" 은 이제 네 이름이에요.\n다른 폰에서도 쓰려면 숫자 4자리 PIN 을 정해요. 잊지 마세요!`, '정하기', null);
         if (pin) await net.setPin(pin);

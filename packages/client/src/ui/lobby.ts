@@ -19,6 +19,8 @@ export interface LobbyChoice {
 export interface LobbyHandle {
   /** 사용자가 버튼을 누르면. 실패하면 setError 뒤 다시 기다린다 (resolve 는 매번 새 Promise) */
   waitChoice(): Promise<LobbyChoice>;
+  /** 끊겼다 다시 이을 때 (#155): 기억된 이름·코드가 있으면 버튼을 누른 것처럼 바로 들어간다. 됐으면 true */
+  tryAutoJoin(): boolean;
   setStatus(msg: string): void;
   setError(msg: string): void;
   /** 입력을 막고 안내만 보인다 (예: HTTPS 페이지에서 서버 연결 불가) */
@@ -181,6 +183,11 @@ export function showLobby(root: HTMLElement): LobbyHandle {
         setBusy(false);
         resolveChoice = resolve;
       }),
+    tryAutoJoin: () => {
+      if (!resolveChoice || !nickEl.value.trim() || !VILLAGE_CODE_RE.test(codeEl.value.trim())) return false;
+      submit(false);
+      return true;
+    },
     setStatus(msg) {
       statusEl.textContent = msg;
       statusEl.hidden = !msg;

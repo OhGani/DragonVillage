@@ -909,7 +909,14 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       input.paused = true;
       kbm.enabled = false;
       if (endedByTime) return; // 시간 종료 화면을 그대로 둔다
-      hud.showOverlay('서버와 연결이 끊어졐어요', reason + '\n다시 들어가려면 아래를 눌러요.', '다시 연결');
+      // 서버가 보낸 이유(대문자 코드: KICKED·TIME_UP·NO_PLAY_TODAY…)면 사람이 눌러야 하고, 네트워크·서버 재시작이면 저절로 다시 잇는다 (#155)
+      const policy = /^[A-Z_]+$/.test(reason) && reason !== 'SERVER_SHUTDOWN';
+      if (policy) {
+        hud.showOverlay('서버와 연결이 끊어졌어요', reason + '\n다시 들어가려면 아래를 눌러요.', '다시 연결');
+        return;
+      }
+      hud.showOverlay('연결이 끊어졌어요', '서버가 다시 보이면 저절로 이어요… (바로 하려면 아래를 눌러요)', '다시 연결');
+      reconnectWhenUp();
     },
     onWorldEnter: enterWorld,
     onExpeditionResult: (m) => {
@@ -1174,8 +1181,39 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
   });
 
+  /** 끊긴 뒤 서버 /health 가 살아나면 새로고침 — 로비는 dv.autojoin 표시를 보고 바로 들어간다 (#155) */
+  let reconnecting = false;
+  const reconnectWhenUp = () => {
+    if (reconnecting) return;
+    reconnecting = true;
+    let tries = 0;
+    const poll = async () => {
+      tries++;
+      try {
+        const r = await fetch('/health', { cache: 'no-store' });
+        if (r.ok) {
+          try {
+            sessionStorage.setItem('dv.autojoin', '1');
+          } catch {
+            /* 무시 */
+          }
+          window.location.reload();
+          return;
+        }
+      } catch {
+        /* 아직 안 살아남 */
+      }
+      setTimeout(poll, Math.min(10_000, 1500 + tries * 500));
+    };
+    setTimeout(poll, 1500);
+  };
   hud.onOverlayClick = () => {
     if (disconnected) {
+      try {
+        sessionStorage.setItem('dv.autojoin', '1');
+      } catch {
+        /* 무시 */
+      }
       window.location.reload();
       return;
     }
