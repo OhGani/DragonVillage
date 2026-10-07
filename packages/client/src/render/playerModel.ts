@@ -14,15 +14,18 @@ import type { Voxel } from './voxelGeometry';
 /** 복셀 한 칸의 크기 (블록). 32칸 = 1.8 = 몸 판정 키 */
 export const VOXEL = 1.8 / 32;
 
-/** 얼굴 앞면 8×8 (위 → 아래). h 머리카락 · s 피부 · n 코 · w 흰자 · e 눈동자 · m 입 */
+/**
+ * 얼굴 앞면 8×8 (위 → 아래) — 마인크래프트 스티브 얼굴과 같은 배치(#140, 아빠 2026-10-07 "마인크래프트 캐릭터랑 비슷하게"):
+ * 앞머리 3줄, 눈은 흰자 바깥·눈동자 안쪽, 코 2칸, 입은 4칸 일자, 그 아래 턱 2칸. h 머리카락 · s 피부 · n 코 · w 흰자 · e 눈동자 · m 입 · b 턱
+ */
 export const FACE: readonly string[] = [
   'hhhhhhhh',
   'hhhhhhhh',
   'hhhhhhhh',
   'swessews',
   'sssnnsss',
-  'ssmssmss',
-  'sssmmsss',
+  'ssmmmmss',
+  'sssbbsss',
   'ssssssss',
 ];
 
@@ -33,19 +36,21 @@ export interface SkinPalette {
   hair: number;
   pants: number;
   shoes: number;
+  /** 눈동자 (스티브는 파랑). 없으면 EYE_DARK — 몹 인형(MobView)은 안 준다 */
+  eyes?: number;
 }
 
 /**
  * 색 16가지마다 다른 캐릭터. 셔츠는 고른 색 그대로이고 나머지만 여기서 정한다.
  * 얼굴·머리 모양을 바꾸고 싶으면 위의 FACE 를, 색을 바꾸고 싶으면 이 표를 고치면 된다.
  */
-const CHARACTERS: readonly { skin: number; hair: number; pants: number; shoes: number }[] = [
+const CHARACTERS: readonly { skin: number; hair: number; pants: number; shoes: number; eyes?: number }[] = [
   { skin: 0xf2cfa9, hair: 0xe3c46a, pants: 0x3c4b7d, shoes: 0x5a3a22 }, // 하양
   { skin: 0xe0ac7e, hair: 0x5c3a1e, pants: 0x3a3f46, shoes: 0x2a2420 }, // 주황
   { skin: 0xf2cfa9, hair: 0x7a4fa3, pants: 0x46325e, shoes: 0x2a2430 }, // 자홍
-  { skin: 0xc68642, hair: 0x1b1512, pants: 0x2f5d86, shoes: 0x23323f }, // 하늘
+  { skin: 0xb4896b, hair: 0x2d1b0e, pants: 0x3b3b8f, shoes: 0x6c6c6c, eyes: 0x4a3fa8 }, // 하늘 = 스티브 (피부 황갈·머리 짙은 갈색·남색 바지·회색 신발·파란 눈, #140)
   { skin: 0xe0ac7e, hair: 0x8c4a26, pants: 0x6a5426, shoes: 0x3a2c18 }, // 노랑
-  { skin: 0xf2cfa9, hair: 0xd1620f, pants: 0x4a5230, shoes: 0x32341f }, // 연두
+  { skin: 0xf2cfa9, hair: 0xd1620f, pants: 0x4a5230, shoes: 0x32341f, eyes: 0x3f7a3a }, // 연두 = 알렉스 (주황 머리·초록 눈, #140)
   { skin: 0xf7d9b8, hair: 0xf0dfa0, pants: 0x8a5a74, shoes: 0x4a3040 }, // 분홍
   { skin: 0x8d5524, hair: 0x1b1512, pants: 0x2b2f33, shoes: 0x1a1d20 }, // 회색
   { skin: 0xe0ac7e, hair: 0x9a9a9a, pants: 0x4a4a46, shoes: 0x2e2e2c }, // 연회색
@@ -114,7 +119,7 @@ const css = (hex: number): string => '#' + hex.toString(16).padStart(6, '0');
 
 export function paletteFor(colorIdx: number): SkinPalette {
   const c = CHARACTERS[((colorIdx % CHARACTERS.length) + CHARACTERS.length) % CHARACTERS.length]!;
-  return { shirt: colorHex(colorIdx), skin: c.skin, hair: c.hair, pants: c.pants, shoes: c.shoes };
+  return { shirt: colorHex(colorIdx), skin: c.skin, hair: c.hair, pants: c.pants, shoes: c.shoes, eyes: c.eyes ?? EYE_DARK };
 }
 
 /** 얼굴 글자 → 색 */
@@ -127,9 +132,11 @@ function faceColor(ch: string, p: SkinPalette): number {
     case 'w':
       return EYE_WHITE;
     case 'e':
-      return EYE_DARK;
+      return p.eyes ?? EYE_DARK;
     case 'm':
       return shade(p.skin, 0.62);
+    case 'b':
+      return shade(p.skin, 0.86);
     default:
       return p.skin;
   }
@@ -183,7 +190,7 @@ function headVoxels(p: SkinPalette): Voxel[] {
   return head;
 }
 
-/** 몸통 8×12×4: 셔츠, 맨 아랫줄은 허리(바지색), 앞 가운데 위는 목(깃). 팔 옆은 겨드랑이 그늘 */
+/** 몸통 8×12×4: 셔츠, 맨 아랫줄은 허리(바지색). 팔 옆은 겨드랑이 그늘. (목 살 패치는 스티브에 없어 뺌, #140) */
 function torsoVoxels(p: SkinPalette): Voxel[] {
   return fill(
     -4,
@@ -192,16 +199,15 @@ function torsoVoxels(p: SkinPalette): Voxel[] {
     11,
     -2,
     1,
-    (x, y, z) => {
+    (_x, y) => {
       if (y === 0) return p.pants;
-      if (z === -2 && y === 11 && (x === -1 || x === 0)) return p.skin;
       return p.shirt;
     },
     (x, y) => (y >= 8 && (x <= -3 || x >= 2) ? 0.9 : 1),
   );
 }
 
-/** 팔 4×12×4: 어깨가 회전축(y 0)이라 아래로 자란다. 끝 세 칸은 손. 어깨 쪽은 그늘 */
+/** 팔 4×12×4: 어깨가 회전축(y 0)이라 아래로 자란다. 소매 8칸 + 손 4칸(스티브와 같게, #140). 어깨 쪽은 그늘 */
 function armVoxels(p: SkinPalette): Voxel[] {
   return fill(
     -2,
@@ -210,7 +216,7 @@ function armVoxels(p: SkinPalette): Voxel[] {
     -1,
     -2,
     1,
-    (_x, y) => (y <= -10 ? p.skin : p.shirt),
+    (_x, y) => (y <= -9 ? p.skin : p.shirt),
     (_x, y) => (y >= -2 ? 0.92 : 1),
   );
 }

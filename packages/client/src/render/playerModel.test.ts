@@ -27,19 +27,21 @@ describe('플레이어 인형 (#86)', () => {
     for (const p of px) expect(at.get(`${-1 - p.x},${p.y}`)).toBe(p.c); // 거울처럼 대칭
   });
 
-  it('얼굴이 있다 — 앞머리·눈 한 쌍·웃는 입, 좌우 대칭', () => {
+  it('얼굴이 있다 — 앞머리·눈 한 쌍·일자 입(스티브, #140), 좌우 대칭', () => {
     expect(FACE).toHaveLength(8);
     for (const row of FACE) expect(row).toHaveLength(8);
     for (const row of FACE) expect([...row].reverse().join('')).toBe(row); // 거울 대칭
     const all = FACE.join('');
     expect([...all].filter((c) => c === 'w')).toHaveLength(2); // 흰자 둘
     expect([...all].filter((c) => c === 'e')).toHaveLength(2); // 눈동자 둘
-    expect([...all].filter((c) => c === 'm')).toHaveLength(4); // ∪ 모양 입
+    expect([...all].filter((c) => c === 'm')).toHaveLength(4); // 4칸 일자 입
+    expect([...all].filter((c) => c === 'b')).toHaveLength(2); // 턱
     expect(FACE[0]).toBe('hhhhhhhh'); // 맨 위는 머리카락
     const eyeRow = FACE.findIndex((r) => r.includes('e'));
     const mouthRow = FACE.findIndex((r) => r.includes('m'));
     expect(eyeRow).toBeLessThan(mouthRow); // 눈이 입보다 위
-    expect(FACE[mouthRow]!.indexOf('m')).toBeLessThan(FACE[mouthRow + 1]!.indexOf('m')); // 입꼬리가 더 바깥 = 웃는 모양
+    expect(FACE[mouthRow]).toBe('ssmmmmss'); // 스티브처럼 한 줄 일자
+    expect(FACE[mouthRow + 1]).toBe('sssbbsss'); // 그 아래 턱
   });
 
   it('코는 얼굴 그림으로만 — 머리 앞면(z -4)보다 튀어나온 칸이 없다 (아빠 2026-09-23, #96)', () => {
