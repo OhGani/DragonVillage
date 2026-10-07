@@ -170,6 +170,9 @@ CREATE TABLE IF NOT EXISTS buildings(
   village TEXT NOT NULL, id TEXT NOT NULL, built_at INTEGER NOT NULL, PRIMARY KEY(village, id));
 CREATE TABLE IF NOT EXISTS codex(
   village TEXT NOT NULL, kind TEXT NOT NULL, id TEXT NOT NULL, token TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY(village, kind, id));
+CREATE TABLE IF NOT EXISTS placed(
+  village TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL, token TEXT NOT NULL, nick TEXT NOT NULL,
+  PRIMARY KEY(village, x, y, z));
 CREATE TABLE IF NOT EXISTS gifts_given(
   token TEXT NOT NULL, gift TEXT NOT NULL, given_at INTEGER NOT NULL, PRIMARY KEY(token, gift));
 CREATE TABLE IF NOT EXISTS animals(
@@ -232,6 +235,9 @@ export class Storage {
       countRaidsWon: this.db.prepare('SELECT COUNT(*) AS n FROM raids WHERE village = ? AND won = 1'),
       addCodex: this.db.prepare('INSERT OR IGNORE INTO codex(village, kind, id, token, at) VALUES (?, ?, ?, ?, ?)'),
       listCodex: this.db.prepare('SELECT id FROM codex WHERE village = ? AND kind = ? ORDER BY at'),
+      setPlaced: this.db.prepare('INSERT OR REPLACE INTO placed(village, x, y, z, token, nick) VALUES (?, ?, ?, ?, ?, ?)'),
+      delPlaced: this.db.prepare('DELETE FROM placed WHERE village = ? AND x = ? AND y = ? AND z = ?'),
+      listPlaced: this.db.prepare('SELECT x, y, z, token, nick FROM placed WHERE village = ?'),
       getInventory: this.db.prepare('SELECT json FROM inventories WHERE token = ?'),
       getAccountByNick: this.db.prepare('SELECT nick_key AS nickKey, nick, token, pin_hash AS pinHash, created_at AS createdAt FROM accounts WHERE nick_key = ?'),
       getAccountByToken: this.db.prepare('SELECT nick_key AS nickKey, nick, token, pin_hash AS pinHash, created_at AS createdAt FROM accounts WHERE token = ?'),
@@ -410,6 +416,16 @@ export class Storage {
   }
   listCodex(code: string, kind: string): string[] {
     return (this.stmts.listCodex.all(code, kind) as { id: string }[]).map((r) => r.id);
+  }
+  /** 남의 집 보호 (#151): 사람이 놓은 블록의 주인 */
+  setPlaced(code: string, x: number, y: number, z: number, token: string, nick: string): void {
+    this.stmts.setPlaced.run(code, x, y, z, token, nick);
+  }
+  delPlaced(code: string, x: number, y: number, z: number): void {
+    this.stmts.delPlaced.run(code, x, y, z);
+  }
+  listPlaced(code: string): { x: number; y: number; z: number; token: string; nick: string }[] {
+    return this.stmts.listPlaced.all(code) as { x: number; y: number; z: number; token: string; nick: string }[];
   }
   getStorage(code: string): { item: string; count: number }[] {
     return this.stmts.getStorage.all(code) as { item: string; count: number }[];

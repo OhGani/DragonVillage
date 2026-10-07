@@ -356,6 +356,7 @@ export class VillageRoom {
       log: (msg) => this.log(`마을 ${this.info.code}: ${msg}`),
     });
     this.animals.load(Date.now());
+    for (const r of this.storage?.listPlaced(this.info.code) ?? []) this.placed.set(`${r.x},${r.y},${r.z}`, { token: r.token, nick: r.nick }); // 남의 집 보호 (#151)
     this.repairChests();
   }
 
@@ -1361,6 +1362,8 @@ export class VillageRoom {
   /** 마을 동물 (M8-1) */
   animals!: AnimalSystem;
   private lastCreatureCount = 0;
+  /** 사람이 놓은 블록의 주인 (M9-3 남의 집 보호, #151): 놓은 사람만 부순다. 자연 블록·액체는 누구나. 마을에서만 */
+  readonly placed = new Map<string, { token: string; nick: string }>();
 
   /** 마지막 방어전 결과 → 깃대 맨 위 깃발 색 */
   private flagMark(): FlagMark {
@@ -1690,6 +1693,12 @@ export class VillageRoom {
     if (!def) return REJECT.INVALID;
     if (p.world === 'village' && this.isProtected(x, y, z)) return REJECT.PROTECTED; // 마을 건물·둥지·깃대 (M6-6)
     const cur = this.registry.get(world.getBlock(x, y, z));
+    // 남의 집 보호 (#151): 다른 사람이 놓은 블록을 부수거나(공기로) 덮어쓰는 건 그 사람만. 문 열고 닫기는 아래에서 먼저 허용된다
+    if (p.world === 'village' && cur.num !== AIR_ID && !cur.fluid) {
+      const owner = this.placed.get(`${x},${y},${z}`);
+      const toggle = def.door && cur.door && def.door.base === cur.door.base && def.door.open !== cur.door.open;
+      if (owner && owner.token !== p.token && !toggle) return REJECT.OWNED;
+    }
     // 문 열고 닫기 (#71): 같은 문·같은 방향·같은 반쪽에서 열림만 뒤집는 요청. 가방과 무관, 아무나 가능
     if (def.door && cur.door && def.door.base === cur.door.base && def.door.facing === cur.door.facing && def.door.hinge === cur.door.hinge && def.door.upper === cur.door.upper && def.door.open !== cur.door.open) {
       if (def.door.open) return null;
@@ -1794,6 +1803,21 @@ export class VillageRoom {
       }
     }
     const isToggle = def.door !== null && prev.door !== null;
+    // 남의 집 보호 (#151): 마을에서 놓은 블록은 내 것으로 적고, 부수면 지운다 (액체는 흐르니 안 적는다). 문은 두 칸 다
+    if (p.world === 'village' && !isToggle) {
+      const cells: number[] = [req.y];
+      if (def.door) cells.push(def.door.upper ? req.y - 1 : req.y + 1);
+      else if (prev.door) cells.push(prev.door.upper ? req.y - 1 : req.y + 1);
+      for (const cy of cells) {
+        const key = `${req.x},${cy},${req.z}`;
+        if (num === AIR_ID || def.fluid) {
+          if (this.placed.delete(key)) this.storage?.delPlaced(this.info.code, req.x, cy, req.z);
+        } else {
+          this.placed.set(key, { token: p.token, nick: p.nick });
+          this.storage?.setPlaced(this.info.code, req.x, cy, req.z, p.token, p.nick);
+        }
+      }
+    }
     // 가방 (M4): 놓으면 나가고, 부수면 들어온다. 문 열고 닫기는 가방과 무관
     const changed = new Set<number>();
     if (isToggle) {

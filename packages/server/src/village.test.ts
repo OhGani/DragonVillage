@@ -135,6 +135,32 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(room.world.getBlock(66, GROUND_Y, 66)).toBe(0);
   });
 
+  it('남의 집 보호 (#151): 내가 놓은 블록은 친구가 못 부수고(OWNED), 나는 부술 수 있고, 자연 블록은 누구나. 저장돼서 다시 켜도 그대로', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox(),
+      b = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const rb = room.join('b'.repeat(32), '아들', 1, b.send)!;
+    kit(room, ra.idx);
+    for (const r of [ra, rb]) room.onMove(r.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 1, x: 66, y: GROUND_Y + 1, z: 64, id: 'stone' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 64)).id).toBe('stone');
+    room.onBlockChange(rb.idx, { seq: 2, x: 66, y: GROUND_Y + 1, z: 64, id: 'air' }, 1100);
+    expect(rejected(b)).toEqual([{ seq: 2, reason: REJECT.OWNED }]);
+    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 64)).id).toBe('stone');
+    room.onBlockChange(rb.idx, { seq: 3, x: 66, y: GROUND_Y, z: 66, id: 'air' }, 1200); // 자연 땅은 된다
+    expect(rejected(b)).toHaveLength(1);
+    // 다시 켜도 기억한다
+    const again = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    expect(again.placed.get(`66,${GROUND_Y + 1},64`)).toEqual({ token: 'a'.repeat(32), nick: '아빠' });
+    // 내가 부수면 되고, 그러면 기록도 지워져 그 자리는 다시 누구나
+    room.onBlockChange(ra.idx, { seq: 4, x: 66, y: GROUND_Y + 1, z: 64, id: 'air' }, 1300);
+    expect(rejected(a)).toEqual([]);
+    expect(room.placed.has(`66,${GROUND_Y + 1},64`)).toBe(false);
+    expect(storage.listPlaced(INFO.code)).toEqual([]);
+  });
+
   it('공기를 부수기·모르는 블록·흐르는 물 단계 놓기는 INVALID', () => {
     const { room, a, ia } = setup();
     room.onBlockChange(ia, { seq: 5, x: 66, y: GROUND_Y + 3, z: 64, id: 'air' }, 1000);
