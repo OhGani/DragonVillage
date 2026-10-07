@@ -2056,8 +2056,8 @@ export class VillageRoom {
       const chunk = e.world.getChunk(c.cx, c.cy, c.cz);
       if (chunk) p.send(encodeChunkData({ cx: c.cx, cy: c.cy, cz: c.cz, bytes: this.encode(chunk) }));
     }
-    this.broadcastCompanions(); // 새로 온 사람도, 이미 있던 사람도 같은 목록 (#145) — ready 보다 먼저
     this.sendJson(p, { t: 'ready' });
+    this.broadcastCompanions(); // 새로 온 사람도, 이미 있던 사람도 같은 목록 (#145). 클라는 ready 때 세계를 바꾸며 목록을 비우므로 그 뒤에
     this.broadcastJson({ t: 'expeditionState', expedition: this.expeditionState(now) }, -1, 'village');
   }
 

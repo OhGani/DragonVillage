@@ -258,6 +258,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       }
       c.y = companionGround(c.x, c.z, o.y);
     }
+    // MobsState 가 안 와도(원정에 몹이 없을 때) 인형이 따라오게 목표를 직접 준다
+    for (const [id, c] of companions) mobView.moveFigure(id, c.x, c.y, c.z, c.yaw);
   };
   let aimedMobNow: number | null = null;
   const petNamer = new PetNamePicker(

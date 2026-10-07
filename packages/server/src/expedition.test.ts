@@ -43,7 +43,8 @@ describe('원정 시작·합류', () => {
     expect(info).toMatchObject({ id: 'grass_island', seed: 777, startedAt: T0, durationSec: ISLAND.durationSec });
     expect(info.genVersion).toBeGreaterThan(0);
     expect((enter.spawn as { x: number; z: number }).x).toBe(128.5);
-    expect(a.json.at(-1)).toMatchObject({ t: 'ready' });
+    expect(a.json.at(-2)).toMatchObject({ t: 'ready' });
+    expect(a.json.at(-1)).toMatchObject({ t: 'companions', list: [] }); // 따라온 펫 목록은 ready 뒤에 (#145)
     expect(b.json.find((m) => m.t === 'playerLeft')).toMatchObject({ idx: ia });
     expect(b.json.find((m) => m.t === 'expeditionState')).toMatchObject({ expedition: { id: 'grass_island', players: 1 } });
     expect(room.expedition!.members.has(ia)).toBe(true);

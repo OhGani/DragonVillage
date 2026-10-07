@@ -591,6 +591,12 @@ export class MobView {
     return best;
   }
 
+  /** 인형 하나의 목표 자리를 직접 옮긴다 — 원정에 따라온 펫처럼 서버 목록에 없이 클라가 움직이는 것 (#145) */
+  moveFigure(id: number, x: number, y: number, z: number, yaw: number): void {
+    const f = this.figures.get(id);
+    if (f) f.target = { x, y, z, yaw };
+  }
+
   aim(eye: { x: number; y: number; z: number }, dir: { x: number; y: number; z: number }, maxDist: number): number | null {
     let best: number | null = null;
     let bestT = maxDist;
