@@ -7,7 +7,7 @@
  * 거미 왕(M7-4)은 같은 거미 복셀을 2.2배로, 자줏빛 몸에 금 왕관. 잠들었을 땐 낮게 웅크리고, 소환할 땐 몸을 든다.
  * 동물(M8-1)은 `animalModel.ts` — 마인크래프트 비율·색 변종, 머리·다리·꼬리·날개를 따로 움직인다(걷기·풀 뜯기·꼬리·날개). 아기는 머리가 크다.
  */
-import { ANIMAL_FLAG, MOB_KIND_OF, MOB_STATE, type MobEntry, mobSize } from '@dragon-village/shared';
+import { ANIMAL_FLAG, MOB_KIND_OF, MOB_STATE, type MobEntry, mobSize, ANIMAL_ID_BASE } from '@dragon-village/shared';
 import { MOBS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { PLAYER_SHADES, type SkinPalette, VOXEL, playerVoxels } from './playerModel';
@@ -567,6 +567,30 @@ export class MobView {
   }
 
   /** 조준선이 닿는 몹 (가장 가까운 것). 눈에서 maxDist 안 */
+  /**
+   * 조준하지 않아도 앞쪽 원뿔(시선과 각도 cos ≥ minCos) 안, reach 안에서 가장 가까운 몹 (#141 — 검을 들고 탭하면 휘두르기).
+   * hostileOnly 면 동물(ANIMAL_ID_BASE 이상)은 뺀다 — 동물은 노려서 탭해야 먹이·길들이기와 안 헷갈린다
+   */
+  nearestInCone(eye: { x: number; y: number; z: number }, dir: { x: number; y: number; z: number }, reach: number, minCos: number, hostileOnly: boolean): number | null {
+    let best: number | null = null;
+    let bestD = reach;
+    for (const [id, f] of this.figures) {
+      if (hostileOnly && id >= ANIMAL_ID_BASE) continue;
+      const c = f.cur;
+      const size = mobSize(f.kind);
+      const dx = c.x - eye.x,
+        dy = c.y + size.h * 0.5 - eye.y,
+        dz = c.z - eye.z;
+      const d = Math.hypot(dx, dy, dz);
+      if (d <= 1e-6 || d - size.w * 0.5 > bestD) continue;
+      const cos = (dx * dir.x + dy * dir.y + dz * dir.z) / d;
+      if (cos < minCos) continue;
+      bestD = Math.max(0, d - size.w * 0.5);
+      best = id;
+    }
+    return best;
+  }
+
   aim(eye: { x: number; y: number; z: number }, dir: { x: number; y: number; z: number }, maxDist: number): number | null {
     let best: number | null = null;
     let bestT = maxDist;

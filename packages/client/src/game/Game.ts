@@ -6,6 +6,7 @@ import {
   type RidingInfo,
   HIT_COOLDOWN_MS,
   HIT_REACH,
+  toolOf,
   STORAGE_REACH,
   beamOf,
   siteCenter,
@@ -64,7 +65,7 @@ import {
   GUARD_RESEND_MS,
   GUARD_TAP_MS,
 } from '@dragon-village/shared';
-import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, XP } from '@dragon-village/shared/data';
+import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { beam as beamSound, bell, ding, explosion as explosionSound, hit as hitSound, hurt as hurtSound, levelUp, lose, roar } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
@@ -1385,7 +1386,18 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       net.sendGuard(guarding);
     }
     // 공격: 꾹 누르기(부수기와 같음) 또는 몹을 짧게 탭 (아빠 2026-09-28 — 폰에서 탭만으로). 동물은 탭이 먹이·길들이기라 꾹 눌러야 때린다
-    const tapAttack = inp.secondaryTap && aimedMob !== null && aimedMob < ANIMAL_ID_BASE;
+    // 검·도끼·곡괭이를 들고 탭 = 휘두르기 (아빠 2026-10-07, #141): 조준 안 해도 앞 범위 안의 몹을 때리고, 블록이면 한 번 캔다(톡톡 치면 깨진다), 아무것도 없으면 허공에
+    const heldTool = toolOf(TOOLS, hud.selectedItem);
+    let swingMob: number | null = null;
+    if (inp.secondaryTap && heldTool !== null && !bow && !guarding && !anyPanelOpen()) {
+      swingMob = aimedMob !== null && aimedMob < ANIMAL_ID_BASE ? aimedMob : aimedMob === null ? mobView.nearestInCone(player.eye, player.lookDir, HIT_REACH, SWING_CONE_COS, true) : null;
+      if (swingMob === null && aimedMob === null) {
+        const tdef = interaction.target ? registry.get(interaction.target.id) : null;
+        if (tdef && !tdef.door && !tdef.chest) interaction.swingBurst(SWING_BURST_SEC);
+        hand.swing();
+      }
+    }
+    const tapAttack = inp.secondaryTap && ((aimedMob !== null && aimedMob < ANIMAL_ID_BASE) || swingMob !== null);
     if (bow && !guarding) {
       // 활·쇠뇌 (#119, 아빠): 누르고 있으면 시위를 당기고, 놓으면 쏜다. 짧게 탭하면 약한 화살
       if (inp.primary) {
@@ -1408,9 +1420,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     } else {
       drawStart = null;
       drawProgress = 0;
-      if (aimedMob !== null && (inp.primary || tapAttack) && hitCooldown <= 0 && !guarding) {
+      const meleeTarget = tapAttack ? (swingMob ?? aimedMob) : inp.primary ? aimedMob : null;
+      if (meleeTarget !== null && hitCooldown <= 0 && !guarding) {
         hitCooldown = HIT_COOLDOWN_MS / 1000;
-        net.sendHit(aimedMob, hud.selectedIndex);
+        net.sendHit(meleeTarget, hud.selectedIndex);
         hand.swing();
       }
     }
@@ -1659,6 +1672,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     },
   };
 }
+
+/** 탭 휘두르기 (#141): 시선에서 이 각도(cos) 안의 몹은 조준 안 해도 맞는다 (약 43°), 블록은 이만큼 캔 것으로 */
+const SWING_CONE_COS = Math.cos(0.75);
+const SWING_BURST_SEC = 0.4;
 
 /** 방위각(북 0, 시계 방향 도) → 여덟 방향 한국어 */
 function compassWord(bearing: number): string {

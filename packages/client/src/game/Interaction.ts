@@ -19,7 +19,9 @@ import { TOOLS } from '@dragon-village/shared/data';
 import type { InputState } from '../input/InputState';
 import { PLAYER_SIZE, type Player } from '../player/Player';
 
-export const REACH = 5;
+export /** 손을 뗀 뒤 부수기 진행이 남는 시간 (초) — 탭 휘두르기로 톡톡 쳐서 캐기 (#141) */
+const BREAK_GRACE = 0.8;
+const REACH = 5;
 const BREAK_COOLDOWN = 0.3; // 마인크래프트: 부순 뒤 5틱 대기
 const PLACE_REPEAT = 0.25; // 우클릭 유지 시 반복 간격
 
@@ -46,6 +48,10 @@ export class Interaction {
   /** 몹을 조준 중이면 놓기도 막는다 (동물 먹이 주기, M8-1) */
   suppressSecondary = false;
   private breakingKey = -1;
+  /** 탭 휘두르기(#141): 이 시간 동안은 꾹 누른 것으로 친다 */
+  private burst = 0;
+  /** 손을 뗀 뒤 이만큼은 부수기 진행이 남는다 — 톡톡 쳐서 캐기 */
+  private graceLeft = 0;
   private cooldown = 0;
   private placeTimer = 0;
   private swingTimer = 0;
@@ -108,6 +114,11 @@ export class Interaction {
   private readonly targetable = (id: number) => id !== AIR_ID && (this.bucketMode || !this.registry.isFluid(id));
 
   /** 빈 양동이를 들면 물·용암을 떠내고(꾹), 물·용암 양동이를 들면 붓는다(탭). 아들 2026-10-06 "양동이로 용암이나 물 푸기" (#125) */
+  /** 검·도끼·곡괭이로 한 번 휘두르기 (#141): sec 동안 꾹 누른 것처럼 캔다. 같은 블록을 톡톡 치면 진행이 이어진다 */
+  swingBurst(sec: number): void {
+    this.burst = Math.max(this.burst, sec);
+  }
+
   get bucketMode(): boolean {
     if (this.heldItem === BUCKET) return true;
     return this.selectedBlock > 0 && this.registry.get(this.selectedBlock).fluid !== null;
@@ -120,18 +131,21 @@ export class Interaction {
 
     this.cooldown = Math.max(0, this.cooldown - dt);
 
-    // ---- 부수기 (꾹) ----
+    // ---- 부수기 (꾹, 또는 탭 휘두르기 #141) ----
+    this.burst = Math.max(0, this.burst - dt);
     if (this.suppressPrimary) {
       this.breakingKey = -1;
       this.progress = 0;
+      this.burst = 0;
     }
-    if (input.primary && this.target && !this.suppressPrimary) {
+    if ((input.primary || this.burst > 0) && this.target && !this.suppressPrimary) {
       const t = this.target;
       const key = ((t.x * 1024 + t.y) * 1024 + t.z) | 0;
       if (key !== this.breakingKey) {
         this.breakingKey = key;
         this.progress = 0;
       }
+      this.graceLeft = BREAK_GRACE;
       this.swingTimer -= dt;
       if (this.swingTimer <= 0) {
         this.events.onSwing();
@@ -183,6 +197,10 @@ export class Interaction {
           this.cooldown = BREAK_COOLDOWN;
         }
       }
+    } else if (this.graceLeft > 0 && this.progress > 0) {
+      // 손을 뗐지만 잠깐은 진행을 남긴다 — 톡톡 치면 이어서 캐진다 (#141)
+      this.graceLeft -= dt;
+      this.swingTimer = 0;
     } else {
       this.progress = 0;
       this.breakingKey = -1;
