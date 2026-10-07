@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DataError } from './blocks';
 import { RECIPES } from './data';
-import { emptyInventory, give } from './inventory';
-import { canCraft, craft, craftableTimes, gridLayout, gridMatches, matchGrid, parseRecipes } from './recipes';
+import { countOf, emptyInventory, give } from './inventory';
+import { canCraft, craft, craftableTimes, emptiedBuckets, gridLayout, gridMatches, matchGrid, parseRecipes } from './recipes';
 
 const small = {
   recipes: [
@@ -145,5 +145,27 @@ describe('제작 격자 (#132, 마인크래프트 제작대와 같게)', () => {
     expect(() => parseRecipes({ recipes: [{ id: 'x', name: 'x', station: 'crafting_table', in: { planks: 2 }, out: { x: 1 }, pattern: ['pq'], key: { p: 'planks' } }] })).toThrow(/'q' 가 key 에 없어요/);
     expect(() => parseRecipes({ recipes: [{ id: 'x', name: 'x', station: 'crafting_table', in: { planks: 2 }, out: { x: 1 }, pattern: ['ppp'], key: { p: 'planks' } }] })).toThrow(/모양\(pattern\)에서 센 재료/);
     expect(() => parseRecipes({ recipes: [{ id: 'x', name: 'x', station: 'inventory', in: { planks: 3 }, out: { x: 1 }, pattern: ['ppp'], key: { p: 'planks' } }] })).toThrow(/2줄·2글자까지/);
+  });
+});
+
+describe('찬 양동이는 재료로 써도 빈 양동이로 돌아온다 (#137)', () => {
+  it('워터 드래곤 알(물 양동이 1)·케이크(우유 3)를 만들면 빈 양동이가 남고, 빈 양동이 자리도 없으면 안 만든다', () => {
+    const egg = RECIPES.require('egg_water');
+    expect(egg.in.water_bucket).toBe(1);
+    expect(emptiedBuckets(egg)).toBe(1);
+    expect(emptiedBuckets(RECIPES.require('cake'))).toBe(3);
+    expect(emptiedBuckets(RECIPES.require('planks'))).toBe(0);
+    const inv = emptyInventory();
+    for (const [item, n] of Object.entries(egg.in)) give(inv, item, n);
+    expect(craft(inv, egg)).toEqual({ ok: true });
+    expect(countOf(inv, 'water_bucket')).toBe(0);
+    expect(countOf(inv, 'bucket')).toBe(1);
+    // 가방이 꽉 차서 빈 양동이가 들어갈 칸이 없으면 만들지 않는다 (재료 그대로)
+    const full = emptyInventory();
+    for (const [item, n] of Object.entries(egg.in)) give(full, item, item === 'water_bucket' ? n : n + 1); // 다른 재료 칸은 하나씩 남아 안 비고
+    for (let i = 0; i < full.length; i++) if (!full[i]) full[i] = { item: 'dirt', count: 64 };
+    // 물 양동이 칸 하나만 비는데 알이 거기 들어가면 빈 양동이 자리가 없다
+    expect(craft(full, egg)).toEqual({ ok: false, bagFull: true });
+    expect(countOf(full, 'water_bucket')).toBe(1);
   });
 });

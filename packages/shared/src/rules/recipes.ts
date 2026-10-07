@@ -216,14 +216,24 @@ export interface CraftResult {
  * 만든다: 재료를 빼고 결과를 넣는다. 재료가 모자라면 아무것도 안 바꾸고 missing. 바뀐 칸은 changed 에.
  * 결과가 가방에 다 들어가지 않으면 **아무것도 안 바꾸고** bagFull (#95 — 예전엔 재료만 빠지고 결과가 사라졐다). 아이템 엔티티가 없다(#66).
  */
+/** 재료로 쓴 찬 양동이(물·용암·우유)는 빈 양동이로 돌아온다 (#137, 마인크래프트와 같게 — 양동이는 일회용이 아니다) */
+export function emptiedBuckets(recipe: RecipeDef): number {
+  let n = 0;
+  for (const [item, count] of Object.entries(recipe.in)) if (item.endsWith('_bucket')) n += count;
+  return n;
+}
+
 export function craft(inv: Inventory, recipe: RecipeDef, changed?: Set<number>): CraftResult {
   if (!hasAll(inv, recipe.in)) return { ok: false, missing: missing(inv, recipe.in) };
+  const buckets = emptiedBuckets(recipe);
   // 먼저 복사본에서 해 보고, 다 들어갈 때만 진짜로
   const trial = cloneInventory(inv);
   for (const [item, n] of Object.entries(recipe.in)) take(trial, item, n);
   for (const [item, n] of Object.entries(recipe.out)) if (give(trial, item, n) > 0) return { ok: false, bagFull: true };
+  if (buckets > 0 && give(trial, 'bucket', buckets) > 0) return { ok: false, bagFull: true };
   for (const [item, n] of Object.entries(recipe.in)) take(inv, item, n, changed);
   for (const [item, n] of Object.entries(recipe.out)) give(inv, item, n, changed);
+  if (buckets > 0) give(inv, 'bucket', buckets, changed);
   return { ok: true };
 }
 

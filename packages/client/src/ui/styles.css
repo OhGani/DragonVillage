@@ -1716,9 +1716,9 @@ body {
   display: none;
 }
 .hud.touch .skill-box {
-  /* ▲▼🛡️ 줄(bottom +80, 높이 72) 바로 위, 오른쪽 끝에 맞춘다 — 🛡️(#118)가 같은 줄에 생겨 겹치던 것 (아빠 폰 스크린샷 2026-10-07) */
-  right: max(24px, env(safe-area-inset-right));
-  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 80px + 72px + 14px);
+  /* 🎒💬(오른쪽 끝, bottom +178) 바로 왼쪽, 같은 높이 — 🛡️(#118)가 ▼ 옆에 생겨 아래 줄이 꽉 찼고, 🎒💬 아래에 두면 그것과 겹친다 (아빠 폰 스크린샷 2026-10-07 ×2) */
+  right: calc(max(10px, env(safe-area-inset-right)) + 46px + 12px);
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 178px);
 }
 .sbtn.skill-btn {
   width: auto !important;
