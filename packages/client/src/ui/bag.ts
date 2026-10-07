@@ -78,6 +78,8 @@ export class BagView {
    * 제작 격자 (#132, 마인크래프트 제작대와 같게): 가방 2×2 또는 제작대·대장간 옆 3×3. 가방 물건을 "놓아 둔" 것처럼 보이지만
    * 실제로는 만들기를 누를 때 서버가 가방에서 뺀다(서버가 진실). ghost 는 조합법 책에서 고른 모양 중 가방에 없는 재료
    */
+  /** 📜 조합법에서 펴 둔 묶음 (#143). null 이면 아직 안 열어 봄 → 처음엔 옆에 있는 작업대 묶음만 */
+  private bookOpen: Set<string> | null = null;
   private craftCells: GridCell[] = new Array(9).fill(null);
   private craftGhost: (string | null)[] = new Array(9).fill(null);
   private craftWidth = 0;
@@ -392,17 +394,29 @@ export class BagView {
     list.className = 'book-list';
     // 드래곤 알은 따로 한 묶음 (아빠 2026-10-07) — 제작대 묶음 바로 뒤에
     const isEgg = (r: RecipeDef) => isEggItem(Object.keys(r.out)[0]!);
-    const addGroup = (title: string, rows: RecipeDef[]) => {
+    // 묶음 접기/펴기 (#143): 처음 열면 지금 옆에 있는 작업대 묶음만 펴 두고, 제목을 탭하면 토글. 열어 둔 상태는 가방을 닫아도 남는다
+    if (this.bookOpen === null) {
+      this.bookOpen = new Set<string>();
+      for (const [st] of BOOK_GROUPS) if (this.stationNear(st)) this.bookOpen.add(st);
+    }
+    const open = this.bookOpen;
+    const addGroup = (key: string, title: string, rows: RecipeDef[]) => {
       if (rows.length === 0) return;
-      const head = document.createElement('div');
-      head.className = 'book-head';
-      head.textContent = `${title} · ${rows.length}`;
+      const head = document.createElement('button');
+      head.className = 'book-head' + (open.has(key) ? ' open' : '');
+      const craftableNow = rows.filter((r) => r.station !== 'world' && this.stationNear(r.station) && canCraft(this.inv, r)).length;
+      head.innerHTML = `<span class="book-caret">${open.has(key) ? '▾' : '▸'}</span> ${title} · ${rows.length}${craftableNow ? ` <span class="book-now">지금 ${craftableNow}</span>` : ''}`;
+      head.addEventListener('click', () => {
+        if (open.has(key)) open.delete(key);
+        else open.add(key);
+        this.renderSide();
+      });
       list.appendChild(head);
-      for (const r of rows) list.appendChild(this.bookRow(r));
+      if (open.has(key)) for (const r of rows) list.appendChild(this.bookRow(r));
     };
     for (const [st, title] of BOOK_GROUPS) {
-      addGroup(title, all.filter((r) => r.station === st && !isEgg(r)));
-      if (st === 'crafting_table') addGroup('🥚 드래곤 알 (제작대 옆에서)', all.filter(isEgg));
+      addGroup(st, title, all.filter((r) => r.station === st && !isEgg(r)));
+      if (st === 'crafting_table') addGroup('egg', '🥚 드래곤 알 (제작대 옆에서)', all.filter(isEgg));
     }
     this.side.appendChild(list);
   }

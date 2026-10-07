@@ -1183,9 +1183,32 @@ body {
 .book-head {
   font-weight: 700;
   font-size: 14px;
+  font-family: inherit;
+  color: #fff;
+  text-align: left;
   margin-top: 8px;
-  padding-bottom: 3px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 8px 6px;
+  min-height: 40px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.book-head.open {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.book-caret {
+  display: inline-block;
+  width: 14px;
+  opacity: 0.8;
+}
+.book-now {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9ff09f;
 }
 .book-row.ok {
   background: rgba(58, 157, 58, 0.28);
