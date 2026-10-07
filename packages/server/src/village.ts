@@ -220,6 +220,8 @@ export interface RoomPlayer {
   dragonHp: number;
   /** 🛡️ 막기 (#118): 이 시각까지 막는 중. 0 = 아님 */
   guardUntil: number;
+  /** 남들에게 마지막으로 알린 막기 상태 (#144) */
+  guardShown: boolean;
   /** 탄 드래곤의 기력 (M6-5). 탈 때 가득 찬다. 사이는 회복 공식으로 채운다 */
   stamina: Stamina;
   /** 다음에 빔을 쏠 수 있는 시각 */
@@ -1168,7 +1170,7 @@ export class VillageRoom {
         gifts.push({ id: g.id, name: g.name, message: g.message });
       }
     }
-    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0, equip: parseEquipment(saved?.equipment ?? null), bowReadyAt: 0, dragonHp: 0, guardUntil: 0 };
+    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0, equip: parseEquipment(saved?.equipment ?? null), bowReadyAt: 0, dragonHp: 0, guardUntil: 0, guardShown: false };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     // 타고 있다가 나갔으면 다시 탄다 (#103, 아빠 요청). 드래곤이 없어졌거나 남이 타고 있으면 광장에서 (공중에 남지 않게)
@@ -1493,6 +1495,11 @@ export class VillageRoom {
       return 'NO_SHIELD';
     }
     p.guardUntil = on ? now + GUARD_MAX_MS : 0;
+    // 다른 사람 인형이 방패를 올리게 (#144): 마지막으로 알린 상태와 다를 때만 (5초마다 오는 재전송은 조용히, 15초 지나 저절로 풀려도 끌 때 꼭 알린다)
+    if (p.guardShown !== on) {
+      p.guardShown = on;
+      this.broadcastJson({ t: 'guard', idx: p.idx, on }, -1, p.world);
+    }
     return null;
   }
 

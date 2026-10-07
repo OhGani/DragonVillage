@@ -153,6 +153,8 @@ export interface NetEvents {
   onEquip(m: { idx: number; parts: Record<string, string | null>; defense: number; toughness: number }): void;
   /** 화살이 날아갔다 (M8-2) */
   onShot(m: { idx: number; id: number; from: { x: number; y: number; z: number } }): void;
+  /** 누가 🛡️ 막기를 켜고 껐다 (#144) */
+  onGuard(m: { idx: number; on: boolean }): void;
   /** 내 드래곤 체력 (#113) */
   onDragonHp(m: { hp: number; max: number }): void;
   /** 내 드래곤이 쓰러졌다 (#113) */
@@ -575,6 +577,7 @@ export class NetClient {
     else if (msg.t === 'held') ev.onHeld(msg.idx, msg.item);
     else if (msg.t === 'equip') ev.onEquip(msg);
     else if (msg.t === 'shot') ev.onShot(msg);
+    else if (msg.t === 'guard') ev.onGuard(msg);
     else if (msg.t === 'arrow') ev.onArrow(msg);
     else if (msg.t === 'pets') ev.onPets(msg.list);
     else if (msg.t === 'dragonHp') ev.onDragonHp(msg);

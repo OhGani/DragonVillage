@@ -734,6 +734,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       for (const p of list) pets.set(p.id, { name: p.name, mine: p.mine });
       mobView.setPetNames(list);
     },
+    onGuard: (m) => {
+      if (m.idx !== myIdx) remote.setGuarding(m.idx, m.on);
+    },
     onShot: (m) => {
       const to = mobView.positionOf(m.id);
       if (!to) return;

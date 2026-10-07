@@ -30,6 +30,8 @@ interface Figure {
   /** 입은 갑옷 껍질·방패 (M8-2). 부위 메시의 자식 */
   armor: THREE.Mesh[];
   walk: number;
+  /** 🛡️ 막는 중 (#144): 왼팔을 앞으로 올려 방패가 몸 앞에 온다 */
+  guarding: boolean;
   lastMove: number;
   bubble: { sprite: THREE.Sprite; until: number } | null;
   /** 타고 있는 드래곤 (M6-4) */
@@ -144,6 +146,7 @@ export class RemotePlayers {
       target: { x: info.x, y: info.y, z: info.z, yaw: info.yaw, pitch: info.pitch, flags: 0 },
       cur: { x: info.x, y: info.y, z: info.z, yaw: info.yaw },
       walk: 0,
+      guarding: false,
       lastMove: 0,
       bubble: null,
       mount: null,
@@ -156,6 +159,12 @@ export class RemotePlayers {
   }
 
   /** 입은 갑옷·방패 (M8-2): 부위마다 한 칸 두께 껍질을 자식으로 붙인다 (같은 재질 → 빛도 같이) */
+  /** 🛡️ 막기 켜고 끄기 (#144) */
+  setGuarding(idx: number, on: boolean): void {
+    const f = this.figures.get(idx);
+    if (f) f.guarding = on;
+  }
+
   setEquip(idx: number, parts: Record<string, string | null>): void {
     const f = this.figures.get(idx);
     if (!f) return;
@@ -317,7 +326,9 @@ export class RemotePlayers {
       const swing = speed > 0.3 && !riding ? Math.sin(f.walk) * 0.55 : 0; // 어깨·엉덩이가 축이라 전보다 작게
       f.legL.rotation.x = swing;
       f.legR.rotation.x = -swing;
-      f.armL.rotation.x = -swing;
+      // 막는 중이면 왼팔을 앞으로 올려 방패를 세운다 (#144)
+      f.armL.rotation.x = f.guarding ? -1.3 : -swing;
+      f.armL.rotation.y = f.guarding ? 0.35 : 0;
       f.armR.rotation.x = swing;
       const sneak = (t.flags & FLAG_SNEAK) !== 0;
       f.body.scale.y = sneak ? 0.85 : 1;

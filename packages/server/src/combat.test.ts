@@ -92,7 +92,12 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
     expect(p.hp).toBe(HP_MAX - 4 - 5); // 도끼는 방패를 무시
     // 🛡️ 막기 (#118): 누르는 동안 근접 피해 전부 막음, 15초 지나면 저절로 풀려 절반, 방패 없으면 못 켠다
     p.hp = HP_MAX;
+    a.clear();
     expect(room.guard(ra.idx, true, T0 + 7000)).toBeNull();
+    expect(a.json.filter((m) => m.t === 'guard')).toEqual([{ t: 'guard', idx: ra.idx, on: true }]); // 모두에게 (#144)
+    expect(room.guard(ra.idx, true, T0 + 7500)).toBeNull(); // 5초마다 다시 보내는 건 조용히 (시간은 연장된다)
+    expect(a.json.filter((m) => m.t === 'guard')).toHaveLength(1);
+    p.guardUntil = T0 + 7000 + GUARD_MAX_MS; // 아래 '15초 지나면 풀림' 검사를 위해 연장은 되돌린다
     room.hurt(p, 6, 'zombie', T0 + 8000);
     expect(p.hp).toBe(HP_MAX);
     room.hurt(p, 5, 'vindicator', T0 + 8500);
@@ -100,6 +105,7 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
     room.hurt(p, 6, 'zombie', T0 + 7000 + GUARD_MAX_MS + 1);
     expect(p.hp).toBe(HP_MAX - 5 - 3); // 시간이 지나 풀림 → 절반
     expect(room.guard(ra.idx, false, T0 + 30_000)).toBeNull();
+    expect(a.json.filter((m) => m.t === 'guard').at(-1)).toEqual({ t: 'guard', idx: ra.idx, on: false });
     p.equip = { helmet: null, chestplate: null, leggings: null, boots: null, shield: null };
     expect(room.guard(ra.idx, true, T0 + 31_000)).toBe('NO_SHIELD');
   });

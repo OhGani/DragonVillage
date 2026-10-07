@@ -551,6 +551,8 @@ export type ServerJson =
   | { t: 'equip'; idx: number; parts: Record<string, string | null>; defense: number; toughness: number }
   /** 화살이 날아갔다 (M8-2): from(눈) → 몹 id 쪽으로 */
   | { t: 'shot'; idx: number; id: number; from: { x: number; y: number; z: number } }
+  /** 누가 🛡️ 막기를 켜고 껐다 (#144) — 다른 사람 인형이 방패를 올린다 */
+  | { t: 'guard'; idx: number; on: boolean }
   /** 펫 목록 (M8-1 4차): 길들인 동물의 이름과 내 것인지. 들어올 때와 바뀔 때 (받는 사람마다 mine 이 다르다) */
   | { t: 'pets'; list: { id: number; name: string | null; mine: boolean }[] }
   /** 몹(스켈레톤·약탈자)이 쏜 화살: from(몹) → to(사람 가슴) (M8-2 3차) */
