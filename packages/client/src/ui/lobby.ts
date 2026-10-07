@@ -2,9 +2,12 @@
  * 로비: 이름·색·마을 코드 → 들어가기 / 새 마을 만들기. 전부 DOM, 초5가 읽을 말로.
  * 마지막 값은 localStorage 에 기억한다. 주소 ?code=123456 이 있으면 코드 칸을 미리 채운다.
  */
-import { PLAYER_COLOR_COUNT, VILLAGE_CODE_RE } from '@dragon-village/shared';
+import { type Equipment, PLAYER_COLOR_COUNT, VILLAGE_CODE_RE, sanitizeEquipment } from '@dragon-village/shared';
 import { PLAYER_COLORS, colorCss } from '../net/colors';
-import { frontPixels, paletteFor } from '../render/playerModel';
+import { type PartOverlay, frontPixels, paletteFor } from '../render/playerModel';
+
+/** 갑옷 그리기는 data/*.json 을 읽는 모듈이라 늦게 불러온다 — 데이터가 깨져도 로비는 뜨고, 게임 쪽에서 친절한 에러를 낸다 */
+type ArmorMods = { armorVoxels: typeof import('../render/armorModel').armorVoxels; shieldVoxels: typeof import('../render/armorModel').shieldVoxels; COMBAT: typeof import('@dragon-village/shared/data').COMBAT };
 
 export interface LobbyChoice {
   nick: string;
@@ -56,7 +59,7 @@ export function showLobby(root: HTMLElement): LobbyHandle {
       <label class="lobby-label">내 이름 <span class="lobby-hint">(8글자까지)</span></label>
       <input class="lobby-input lobby-nick" type="text" maxlength="8" autocomplete="nickname" placeholder="예: 아들" value="${escapeAttr(nick0)}" />
       <label class="lobby-label">내 캐릭터</label>
-      <canvas class="lobby-avatar" width="64" height="128" aria-label="내 캐릭터 미리보기"></canvas>
+      <canvas class="lobby-avatar" width="80" height="160" aria-label="내 캐릭터 미리보기"></canvas>
       <div class="lobby-colors"></div>
       <label class="lobby-label">마을 코드 <span class="lobby-hint">(숫자 6자리)</span></label>
       <input class="lobby-input lobby-code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="예: 482913" value="${escapeAttr(code0)}" />
@@ -77,18 +80,46 @@ export function showLobby(root: HTMLElement): LobbyHandle {
   const errorEl = q<HTMLElement>('.lobby-error');
 
   let color = color0;
-  /** 고른 색의 캐릭터를 앞에서 본 모습 (한 칸 4px, 16×32칸) */
+  let mods: ArmorMods | null = null;
+  /** 이 이름으로 마지막에 입고 있던 장비 (게임이 `dv.equip:<이름>` 에 기억해 둔다, #139). 없으면 null */
+  const equipFor = (nick: string): Equipment | null => {
+    if (!mods || !nick) return null;
+    try {
+      const raw = localStorage.getItem(`dv.equip:${nick}`);
+      if (!raw) return null;
+      const eq = sanitizeEquipment(mods.COMBAT, JSON.parse(raw));
+      return Object.values(eq).some((v) => v !== null) ? eq : null;
+    } catch {
+      return null;
+    }
+  };
+  /** 고른 색의 캐릭터를 앞에서 본 모습 (한 칸 4px, 20×40칸 — 갑옷·방패가 몸 밖으로 한 칸 나온다) + 입고 있던 갑옷·방패 */
   const drawAvatar = () => {
     const ctx = avatarEl.getContext('2d');
     if (!ctx) return;
     const px = 4;
     ctx.clearRect(0, 0, avatarEl.width, avatarEl.height);
-    for (const p of frontPixels(paletteFor(color))) {
+    let overlay: PartOverlay | undefined;
+    const eq = equipFor(nickEl.value.trim());
+    if (eq && mods) {
+      const a = mods.armorVoxels(eq);
+      overlay = { ...a, armL: eq.shield ? [...a.armL, ...mods.shieldVoxels()] : a.armL };
+    }
+    for (const p of frontPixels(paletteFor(color), overlay)) {
       ctx.fillStyle = p.c;
-      ctx.fillRect((p.x + 8) * px, (31 - p.y) * px, px, px); // y 는 위아래가 뒤집힌다
+      ctx.fillRect((p.x + 10) * px, (35 - p.y) * px, px, px); // y 는 위아래가 뒤집힌다
     }
   };
   drawAvatar();
+  Promise.all([import('../render/armorModel'), import('@dragon-village/shared/data')])
+    .then(([am, data]) => {
+      mods = { armorVoxels: am.armorVoxels, shieldVoxels: am.shieldVoxels, COMBAT: data.COMBAT };
+      drawAvatar();
+    })
+    .catch(() => {
+      /* 데이터 에러는 게임 쪽에서 알린다 */
+    });
+  nickEl.addEventListener('input', drawAvatar);
   const swatches: HTMLButtonElement[] = [];
   PLAYER_COLORS.forEach((c, i) => {
     const b = document.createElement('button');

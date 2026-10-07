@@ -84,3 +84,19 @@ describe('플레이어 인형 (#86)', () => {
     expect(paletteFor(19)).toEqual(paletteFor(3)); // 번호가 넘치면 돌아온다
   });
 });
+
+describe('로비 미리보기 갑옷 (#139)', () => {
+  it('덧입힌 복셀은 몸 앞에 보이고, 없으면 그대로', () => {
+    const p = paletteFor(0);
+    const plain = frontPixels(p);
+    const at = (list: { x: number; y: number; c: string }[], x: number, y: number) => list.find((q) => q.x === x && q.y === y)?.c;
+    // 머리 앞면 한 칸(z −5, 머리 앞 z −4 보다 앞) 을 금색으로 덧입히면 그 칸이 금색, 윗판(y 8)은 새로 생긴다
+    const gold = '#f2c94c';
+    const over = frontPixels(p, { head: [{ x: 0, y: 3, z: -5, c: gold }, { x: 0, y: 8, z: 0, c: gold }] });
+    expect(at(over, 0, 24 + 3)).toBe(gold);
+    expect(at(plain, 0, 24 + 3)).not.toBe(gold);
+    expect(at(over, 0, 24 + 8)).toBe(gold);
+    expect(at(plain, 0, 24 + 8)).toBeUndefined();
+    expect(over.length).toBe(plain.length + 1);
+  });
+});

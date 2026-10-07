@@ -244,8 +244,11 @@ export const PART_AT = {
   legR: [2, 12],
 } as const;
 
-/** 정면에서 보이는 칸 (x, y, 색) — 같은 x·y 면 가장 앞(z 가 작은) 칸. 로비 미리보기가 쓴다 */
-export function frontPixels(p: SkinPalette): { x: number; y: number; c: string }[] {
+/** 부위별 덧입히는 복셀 (갑옷·방패, 부위 기준 좌표) — 로비 미리보기 (#139) */
+export type PartOverlay = Partial<Record<keyof typeof PART_AT, readonly Voxel[]>>;
+
+/** 정면에서 보이는 칸 (x, y, 색) — 같은 x·y 면 가장 앞(z 가 작은) 칸. 로비 미리보기가 쓴다. overlay 는 몸 위에 덧입힌다(갑옷은 한 칸 바깥이라 앞에 보인다) */
+export function frontPixels(p: SkinPalette, overlay?: PartOverlay): { x: number; y: number; c: string }[] {
   const v = playerVoxels(p);
   const best = new Map<string, { x: number; y: number; z: number; c: string }>();
   // 팔은 살짝 어둡게 — 정면에서 몸통과 같은 색이면 한 덩어리로 보인다 (미리보기에서만)
@@ -264,5 +267,6 @@ export function frontPixels(p: SkinPalette): { x: number; y: number; c: string }
   add(v.arm, PART_AT.armL[0], PART_AT.armL[1], 0.9);
   add(v.arm, PART_AT.armR[0], PART_AT.armR[1], 0.9);
   add(v.head, PART_AT.head[0], PART_AT.head[1]);
+  if (overlay) for (const part of Object.keys(PART_AT) as (keyof typeof PART_AT)[]) if (overlay[part]) add(overlay[part], PART_AT[part][0], PART_AT[part][1]);
   return [...best.values()].map((q) => ({ x: q.x, y: q.y, c: q.c }));
 }

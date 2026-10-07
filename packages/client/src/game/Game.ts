@@ -229,6 +229,15 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   );
   /** 내 장비 (M8-2): 서버가 준 것으로 시작, equip 이벤트로 바뀐다 */
   let myEquip: Equipment = sanitizeEquipment(COMBAT, welcome.spawn.equip ?? null);
+  /** 로비 미리보기가 다음에 입은 갑옷을 그리도록 이 기기에 기억 (#139). 이름마다 따로 */
+  const rememberEquip = () => {
+    try {
+      localStorage.setItem(`dv.equip:${welcome.spawn.nick}`, JSON.stringify(myEquip));
+    } catch {
+      /* 무시 */
+    }
+  };
+  rememberEquip();
   /** 🛡️ 막기 (#118): 서버에 보낸 상태·시각 */
   let guardSent = false;
   let guardSentAt = 0;
@@ -707,6 +716,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         return;
       }
       myEquip = sanitizeEquipment(COMBAT, m.parts);
+      rememberEquip();
       hud.setArmor(m.defense);
       hud.setGuardAvailable(myEquip.shield !== null);
       bag.refresh();
