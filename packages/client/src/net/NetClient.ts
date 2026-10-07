@@ -161,6 +161,8 @@ export interface NetEvents {
   onDragonDown(m: { id: number; dragon: string; restUntil: number }): void;
   /** 펫 목록·이름 (#109) */
   onPets(list: { id: number; name: string | null; mine: boolean }[]): void;
+  /** 원정에 따라온 펫 (#145) */
+  onCompanions(list: { id: number; kind: number; name: string | null; owner: number }[]): void;
   /** 몹이 쏜 화살 (M8-2 3차) */
   onArrow(m: { from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number } }): void;
   /** 마을 방어전 상태 (M7-5). null = 끝/없음 */
@@ -580,6 +582,7 @@ export class NetClient {
     else if (msg.t === 'guard') ev.onGuard(msg);
     else if (msg.t === 'arrow') ev.onArrow(msg);
     else if (msg.t === 'pets') ev.onPets(msg.list);
+    else if (msg.t === 'companions') ev.onCompanions(msg.list);
     else if (msg.t === 'dragonHp') ev.onDragonHp(msg);
     else if (msg.t === 'dragonDown') ev.onDragonDown(msg);
     else if (msg.t === 'raid') ev.onRaid(msg.raid);

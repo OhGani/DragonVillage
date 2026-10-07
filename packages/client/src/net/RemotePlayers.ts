@@ -159,6 +159,12 @@ export class RemotePlayers {
   }
 
   /** 입은 갑옷·방패 (M8-2): 부위마다 한 칸 두께 껍질을 자식으로 붙인다 (같은 재질 → 빛도 같이) */
+  /** 그 사람 인형의 지금 자리 (보간된 값). 없으면 null — 펫이 주인을 따라가게 (#145) */
+  positionOf(idx: number): { x: number; y: number; z: number } | null {
+    const f = this.figures.get(idx);
+    return f ? { x: f.cur.x, y: f.cur.y, z: f.cur.z } : null;
+  }
+
   /** 🛡️ 막기 켜고 끄기 (#144) */
   setGuarding(idx: number, on: boolean): void {
     const f = this.figures.get(idx);

@@ -177,6 +177,8 @@ export const REACH = 6.5;
 /** 초당 블록 변경 상한 */
 export const RATE_PER_SEC = 12;
 /** 액체 틱 간격 (20Hz) */
+/** 펫 원정 동행 (#145): 출발할 때 주인에게서 이 거리 안에 있는 펫만 */
+const PET_ALONG_RANGE = 24;
 export const TICK_MS = 50;
 /** 저장 주기 */
 export const FLUSH_MS = 30_000;
@@ -1232,8 +1234,11 @@ export class VillageRoom {
       this.endIfEmpty(Date.now());
       this.broadcastJson({ t: 'expeditionState', expedition: this.expeditionState() }, -1, 'village');
     }
-    // 마을 저장 위치는 항상 마을 좌표 (원정 중에 나갔으면 광장)
-    if (p.world === 'expedition') p.pos = { x: this.spawn.x, y: this.spawn.y, z: this.spawn.z, yaw: this.spawn.yaw, pitch: 0, flags: FLAG_GROUND };
+    // 마을 저장 위치는 항상 마을 좌표 (원정 중에 나갔으면 광장). 따라갔던 펫도 광장으로 (#145)
+    if (p.world === 'expedition') {
+      p.pos = { x: this.spawn.x, y: this.spawn.y, z: this.spawn.z, yaw: this.spawn.yaw, pitch: 0, flags: FLAG_GROUND };
+      if (this.animals.bringBack(p.token, p.pos.x, p.pos.y, p.pos.z) > 0) this.broadcastCompanions();
+    }
     this.savePlayer(p);
     this.storage?.saveInventory(p.token, this.info.code, p.inv);
     this.broadcastJson({ t: 'playerLeft', idx }, -1, p.world);
@@ -2008,8 +2013,24 @@ export class VillageRoom {
     return null;
   }
 
+  /** 원정에 가 있는 펫 목록 (#145): 주인이 원정에 있는 것만, 주인은 idx 로 */
+  private companionList(): { id: number; kind: number; name: string | null; owner: number }[] {
+    const out: { id: number; kind: number; name: string | null; owner: number }[] = [];
+    for (const c of this.animals.awayPets()) {
+      const owner = this.playersIn('expedition').find((q) => q.token === c.owner);
+      if (owner) out.push({ id: c.id, kind: c.kind, name: c.name, owner: owner.idx });
+    }
+    return out;
+  }
+  private broadcastCompanions(): void {
+    this.broadcastJson({ t: 'companions', list: this.companionList() }, -1, 'expedition');
+  }
+
   private moveToExpedition(p: RoomPlayer, e: Expedition, now: number): void {
     this.broadcastJson({ t: 'playerLeft', idx: p.idx }, p.idx, 'village');
+    // 펫 원정 동행 (#145): 포탈 24칸 안에서 앉아 있지 않은 내 펫은 같이 간다
+    const taken = this.animals.takeAlong(p.token, p.pos.x, p.pos.z, PET_ALONG_RANGE);
+    if (taken.length) this.log(`마을 ${this.info.code}: ${p.nick} 의 펫 ${taken.length}마리가 원정에 따라감`);
     p.world = 'expedition';
     p.pos = { x: e.spawn.x, y: e.spawn.y, z: e.spawn.z, yaw: e.spawn.yaw, pitch: 0, flags: FLAG_GROUND };
     p.recent = [];
@@ -2035,6 +2056,7 @@ export class VillageRoom {
       const chunk = e.world.getChunk(c.cx, c.cy, c.cz);
       if (chunk) p.send(encodeChunkData({ cx: c.cx, cy: c.cy, cz: c.cz, bytes: this.encode(chunk) }));
     }
+    this.broadcastCompanions(); // 새로 온 사람도, 이미 있던 사람도 같은 목록 (#145) — ready 보다 먼저
     this.sendJson(p, { t: 'ready' });
     this.broadcastJson({ t: 'expeditionState', expedition: this.expeditionState(now) }, -1, 'village');
   }
@@ -2067,6 +2089,7 @@ export class VillageRoom {
     p.world = 'village';
     p.pos = { x: this.spawn.x, y: this.spawn.y, z: this.spawn.z, yaw: this.spawn.yaw, pitch: 0, flags: FLAG_GROUND };
     p.recent = [];
+    if (this.animals.bringBack(p.token, p.pos.x, p.pos.y, p.pos.z) > 0) this.broadcastCompanions(); // 펫도 같이 돌아온다 (#145)
     const me = this.toInfo(p);
     const others = this.playersIn('village').filter((o) => o.idx !== idx).map((o) => this.toInfo(o));
     this.broadcastJson({ t: 'playerJoined', player: me }, idx, 'village');

@@ -72,6 +72,41 @@ describe('마을 동물 (M8-1)', () => {
     expect(again.animals.wildCountOf('sheep')).toBe(Math.min(INITIAL_ANIMALS.sheep!, 2 * RESPAWN_BATCH));
   });
 
+  it('펫 원정 동행 (#145): 출발하면 가까운 내 펫이 같이 가고(마을 목록에서 빠짐, 원정 사람들에게 companions), 돌아오면 옆에 온다', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 44.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    const dogs = [...room.animals.animals.values()].filter((d) => d.kind === 'dog');
+    const near = dogs[0]!,
+      far = dogs[1]!,
+      sitting = dogs[2]!;
+    for (const d of [near, far, sitting]) d.owner = p.token;
+    near.x = p.pos.x + 2;
+    near.z = p.pos.z;
+    far.x = p.pos.x + 60;
+    far.z = p.pos.z;
+    sitting.x = p.pos.x - 2;
+    sitting.z = p.pos.z;
+    sitting.sitting = true;
+    a.clear();
+    expect(room.startExpedition(ra.idx, 'grass_island', T0)).toBeNull();
+    expect(near.away).toBe(true);
+    expect(far.away).toBe(false); // 멀리 있던 건 안 따라온다
+    expect(sitting.away).toBe(false); // 앉아 있으면 집 지킨다
+    const comp = a.json.filter((m) => m.t === 'companions').at(-1) as unknown as { list: { id: number; owner: number }[] };
+    expect(comp.list).toEqual([{ id: ANIMAL_ID_BASE + near.id, kind: expect.any(Number), name: null, owner: ra.idx }]);
+    expect(room.animals.entries(T0).some((m) => m.id === ANIMAL_ID_BASE + near.id)).toBe(false); // 마을에선 안 보인다
+    room.animals.tick(T0 + 1000);
+    // 돌아오면 (늦은 귀환으로 포탈 조건 생략) 주인 옆에
+    expect(room.returnHome(ra.idx, T0 + 5000, true)).toBeNull();
+    expect(near.away).toBe(false);
+    expect(Math.hypot(near.x - p.pos.x, near.z - p.pos.z)).toBeLessThan(3);
+    expect(room.animals.entries(T0 + 5000).some((m) => m.id === ANIMAL_ID_BASE + near.id)).toBe(true);
+  });
+
   it('산책은 집 24칸 안에서, 마을 사람에게 MobsState 로 간다(id 는 100000 부터, 방어전 몹과 한 목록)', () => {
     const storage = new Storage(':memory:');
     const room = makeRoom(storage);

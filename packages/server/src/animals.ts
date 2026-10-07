@@ -111,6 +111,8 @@ interface Animal extends AnimalRow {
   tameAttempts: number;
   /** 양털 깎은 횟수 (수 결정용) */
   shearCount: number;
+  /** 주인 따라 원정에 가 있다 (#145): 마을에선 안 보이고 안 움직인다. 저장 안 함 — 서버가 다시 켜지면 마을로 */
+  away: boolean;
   dirty: boolean;
 }
 
@@ -150,7 +152,7 @@ export class AnimalSystem {
 
   private wrap(r: AnimalRow): Animal {
     const def = this.defs.get(r.kind);
-    return { ...r, hp: animalMaxHp(def.hp, r.kind, r.owner !== null), yaw: 0, target: null, pauseUntil: 0, turn: 0, loveUntil: 0, breedCooldownUntil: 0, tameAttempts: 0, shearCount: 0, dirty: false };
+    return { ...r, hp: animalMaxHp(def.hp, r.kind, r.owner !== null), yaw: 0, target: null, pauseUntil: 0, turn: 0, loveUntil: 0, breedCooldownUntil: 0, tameAttempts: 0, shearCount: 0, away: false, dirty: false };
   }
 
   /** 발 높이 (그 자리 근처 층). 못 서면 null */
@@ -232,6 +234,7 @@ export class AnimalSystem {
   entries(now: number): MobEntry[] {
     const out: MobEntry[] = [];
     for (const a of this.animals.values()) {
+      if (a.away) continue; // 원정에 가 있다 (#145)
       const moving = a.target !== null && !a.sitting;
       out.push({ id: ANIMAL_ID_BASE + a.id, kind: MOB_KIND_NUM[a.kind], x: a.x, y: a.y, z: a.z, yaw: a.yaw, hp: a.hp, state: (moving ? MOB_STATE.walk : 0) | this.flags(a, now) });
     }
@@ -243,7 +246,7 @@ export class AnimalSystem {
     const dt = Math.min(1, (now - (this.lastStepAt || now - STEP_MS)) / 1000);
     this.lastStepAt = now;
     const players = this.hooks.players();
-    for (const a of [...this.animals.values()]) this.step(a, players, dt, now);
+    for (const a of [...this.animals.values()]) if (!a.away) this.step(a, players, dt, now);
     // 야생이 목표보다 줄면 다시 생긴다 (10분마다, 가장 모자란 종류를 둘씩 무리로) (#106)
     if (this.lastRespawnAt > now) this.lastRespawnAt = now; // 시계가 거꾸로면(테스트·시간 조정) 지금부터
     if (now - this.lastRespawnAt >= RESPAWN_EVERY_MS && this.animals.size < ANIMALS_MAX) {
@@ -497,6 +500,49 @@ export class AnimalSystem {
   }
 
   /** 길들인 동물 목록 (이름·내 것인지) — 받는 사람 토큰 기준 */
+  /**
+   * 펫 원정 동행 (#145): 이 사람의 펫 중 앉아 있지 않고 maxDist 안에 있는 것을 데려간다 → 마을에서 사라지고 원정에선 클라가 주인을 따라다니게 그린다.
+   * 데려간 것들의 목록을 돌려준다
+   */
+  takeAlong(token: string, x: number, z: number, maxDist: number): { id: number; kind: number; name: string | null }[] {
+    const out: { id: number; kind: number; name: string | null }[] = [];
+    for (const a of this.animals.values()) {
+      if (a.owner !== token || a.sitting || a.away) continue;
+      if (Math.hypot(a.x - x, a.z - z) > maxDist) continue;
+      a.away = true;
+      a.target = null;
+      this.hooks.json({ t: 'mob', ev: 'spawn', id: ANIMAL_ID_BASE + a.id, mob: a.kind, x: a.x, y: a.y, z: a.z }); // 마을 목록에서 빠지는 건 다음 MobsState 가 처리
+      out.push({ id: ANIMAL_ID_BASE + a.id, kind: MOB_KIND_NUM[a.kind], name: a.name });
+    }
+    return out;
+  }
+
+  /** 원정에서 돌아온 사람의 펫을 그 사람 옆에 둔다 (#145). 돌아온 수 */
+  bringBack(token: string, x: number, y: number, z: number): number {
+    let n = 0;
+    for (const a of this.animals.values()) {
+      if (a.owner !== token || !a.away) continue;
+      a.away = false;
+      const ang = (n / 4) * Math.PI * 2;
+      a.x = x + Math.cos(ang) * 1.5;
+      a.z = z + Math.sin(ang) * 1.5;
+      a.y = this.groundAt(a.x, a.z, y) ?? y;
+      a.homeX = a.x;
+      a.homeZ = a.z;
+      a.target = null;
+      a.dirty = true;
+      n++;
+    }
+    return n;
+  }
+
+  /** 지금 원정에 가 있는 펫 전부 (주인 token 별) */
+  awayPets(): { id: number; kind: number; name: string | null; owner: string }[] {
+    const out: { id: number; kind: number; name: string | null; owner: string }[] = [];
+    for (const a of this.animals.values()) if (a.away && a.owner !== null) out.push({ id: ANIMAL_ID_BASE + a.id, kind: MOB_KIND_NUM[a.kind], name: a.name, owner: a.owner });
+    return out;
+  }
+
   petsFor(token: string): { id: number; name: string | null; mine: boolean }[] {
     const out: { id: number; name: string | null; mine: boolean }[] = [];
     for (const a of this.animals.values()) if (a.owner !== null) out.push({ id: ANIMAL_ID_BASE + a.id, name: a.name, mine: a.owner === token });
