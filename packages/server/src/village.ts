@@ -1253,8 +1253,10 @@ export class VillageRoom {
     if (p.world === 'expedition' && this.expedition) {
       this.expedition.members.delete(idx);
       if (this.mobSys && this.mobSys.removeCompanionsOf(idx) > 0) this.mobSys.broadcastState(); // 펫도 목록에서 (#147)
-      // 원정 중에 끊기면 모은 것의 절반만 (늦은 귀환과 같은 규칙)
-      this.loseGained(p, this.expeditions.rules.failedReturnKeepRatio);
+      // 원정 중에 끊기면 모은 것은 그대로 (아빠 2026-10-08, #154 — 네트워크 탓에 잃는 건 억울하다). 늦은 귀환(시간 종료)만 절반
+      const kept = [...p.gained.values()].reduce((a, b) => a + b, 0);
+      p.gained.clear();
+      if (kept > 0) this.log(`마을 ${this.info.code}: ${p.nick} 원정 중 끊김 — 모은 ${kept}개는 그대로`);
       this.endIfEmpty(Date.now());
       this.broadcastJson({ t: 'expeditionState', expedition: this.expeditionState() }, -1, 'village');
     }

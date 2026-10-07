@@ -214,13 +214,17 @@ describe('귀환·정산·종료', () => {
     expect(room.expedition!.ended).toBe(false);
   });
 
-  it('원정 중에 연결이 끊기면 모은 것의 절반만 남고 마을 스폰 위치로 저장된다', () => {
+  it('원정 중에 연결이 끊기면 모은 것은 그대로 남고(#154) 마을 스폰 위치로 저장된다', () => {
     const storage = new Storage(':memory:');
     storage.createVillage({ ...INFO, createdAt: 1 });
     const { room, ia, b } = setup(storage);
     room.startExpedition(ia, 'grass_island', T0);
+    room.giveItems(ia, 'iron_ingot', 4);
+    room.players.get(ia)!.gained.set('iron_ingot', 4); // 원정에서 모은 것처럼
     b.clear();
     room.leave(ia);
+    const inv = storage.getInventory('a'.repeat(32))!;
+    expect(inv.filter((s) => s?.item === 'iron_ingot').reduce((n, s) => n + (s?.count ?? 0), 0)).toBe(4); // 절반이 아니라 전부
     expect(room.expedition!.members.size).toBe(0);
     expect(b.json.find((m) => m.t === 'expeditionState')).toMatchObject({ expedition: null });
     expect(storage.getPlayer('a'.repeat(32))).toMatchObject({ x: 64.5, y: GROUND_Y + 1 });
