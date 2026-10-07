@@ -1048,16 +1048,16 @@ describe('체력·낙하·죽음·구슬 (M7-1)', () => {
     move(room, ra.idx, 64.5, y0 - 1, 64.5, FLAG_WATER);
     move(room, ra.idx, 64.5, y0 - 1, 64.5, FLAG_GROUND | FLAG_WATER);
     expect(room.hpOf(ra.idx)).toBe(11);
-    // 회복: 4초 뒤부터 1.5초마다 1 (#131, 전엔 5초·3초)
+    // 회복: 3초 뒤부터 1초마다 1 (#142, 전엔 4초·1.5초)
     const p = room.players.get(ra.idx)!;
     const t0 = p.lastHurtAt;
-    room.tick(t0 + 3000);
+    room.tick(t0 + 2000);
     expect(room.hpOf(ra.idx)).toBe(11);
+    room.tick(t0 + 3000);
+    expect(room.hpOf(ra.idx)).toBe(12);
+    room.tick(t0 + 3500);
+    expect(room.hpOf(ra.idx)).toBe(12);
     room.tick(t0 + 4000);
-    expect(room.hpOf(ra.idx)).toBe(12);
-    room.tick(t0 + 5000);
-    expect(room.hpOf(ra.idx)).toBe(12);
-    room.tick(t0 + 5500);
     expect(room.hpOf(ra.idx)).toBe(13);
     expect(a.json.filter((m) => m.t === 'health').at(-1)).toMatchObject({ hp: 13, cause: 'regen' });
   });

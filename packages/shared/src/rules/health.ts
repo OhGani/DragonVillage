@@ -11,10 +11,10 @@ import { levelFromTotalXp } from './xp';
 export const HP_MAX = 20;
 /** 이 높이(칸)까지는 낙하 피해 없음 */
 export const FALL_SAFE = 3;
-/** 맞은 뒤 이만큼 지나야 회복이 시작된다 (ms). 아빠 2026-10-07 "너무 빨리 죽는다"(#131): 5초 → 4초 */
-export const REGEN_DELAY_MS = 4000;
-/** 회복 간격 (ms) — 1 씩. 3초 → 1.5초 (#131): 다 차는 데 1분 → 30초 */
-export const REGEN_EVERY_MS = 1500;
+/** 맞은 뒤 이만큼 지나야 회복이 시작된다 (ms). 아빠 2026-10-07 "너무 빨리 죽는다"(#131): 5초 → 4초 → 3초(#142) */
+export const REGEN_DELAY_MS = 3000;
+/** 회복 간격 (ms) — 1 씩. 3초 → 1.5초(#131) → 1초(#142): 다 차는 데 1분 → 20초 */
+export const REGEN_EVERY_MS = 1000;
 /** 구슬을 되찾는 거리 (칸) */
 export const ORB_PICKUP_RANGE = 1.4;
 
