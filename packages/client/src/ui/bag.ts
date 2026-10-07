@@ -449,7 +449,17 @@ export class BagView {
           this.fillCraftGrid(r);
           this.renderAll();
         });
-        if (ok) row.appendChild(this.button('만들기', 'big-btn small', () => this.deps.onCraft(r.id)));
+        if (ok)
+          row.appendChild(
+            this.button('만들기', 'big-btn small', () => {
+              // 만들고 나서 🔨 탭으로 넘어가 그 모양을 격자에 채워 둔다 — 한 번 더 만들려면 결과 칸만 탭 (#148)
+              this.deps.onCraft(r.id);
+              this.tab = 'craft';
+              this.selected = -1;
+              this.fillCraftGrid(r);
+              this.renderAll();
+            }),
+          );
       } else {
         const where = document.createElement('span');
         where.className = 'craft-station';

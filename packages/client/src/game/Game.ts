@@ -56,7 +56,6 @@ import {
   RAID_CAPTURE_SEC,
   type RaidStateInfo,
   ANIMAL_FLAG,
-  type MobEntry,
   ANIMAL_ID_BASE,
   type Equipment,
   armorTotals,
@@ -219,48 +218,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   };
   /** 펫 목록 (#109): id → {이름, 내 것}. 조준하면 카드로 이름 짓기 */
   const pets = new Map<number, { name: string | null; mine: boolean }>();
-  /**
-   * 원정에 따라온 펫 (#145): 서버는 "누구의 어느 펫이 같이 왔다"만 알려 주고, 따라다니는 건 여기서 흉내 낸다(싸우지도 맞지도 않는다).
-   * MobsState 가 올 때마다 몹 목록 뒤에 붙여 MobView 가 같은 인형으로 그린다
-   */
-  const companions = new Map<number, { kind: number; name: string | null; owner: number; x: number; y: number; z: number; yaw: number }>();
-  let lastMobList: MobEntry[] = [];
-  const companionEntries = (): MobEntry[] => [...companions.entries()].map(([id, c]) => ({ id, kind: c.kind, x: c.x, y: c.y, z: c.z, yaw: c.yaw, hp: 8, state: ANIMAL_FLAG.tamed }));
-  const pushMobs = () => mobView.setState([...lastMobList, ...companionEntries()]);
+  /** 원정에 따라온 펫 (#145·#147): 서버가 몹 목록에 같이 실어 움직이고 물게 한다. 여기선 이름표·토스트만 */
+  const companions = new Map<number, { name: string | null; owner: number }>();
   const refreshPetNames = () => mobView.setPetNames([...[...pets.entries()].map(([id, p]) => ({ id, name: p.name, mine: p.mine })), ...[...companions.entries()].map(([id, c]) => ({ id, name: c.name, mine: c.owner === myIdx }))]);
-  /** 펫이 설 바닥: 주인 높이 근처에서 아래로 단단한 칸을 찾는다 */
-  const companionGround = (x: number, z: number, nearY: number): number => {
-    const bx = Math.floor(x),
-      bz = Math.floor(z);
-    for (let y = Math.floor(nearY) + 2; y >= Math.floor(nearY) - 4; y--) {
-      if (!ctx.world.inBounds(bx, y, bz)) continue;
-      if (registry.get(ctx.world.getBlock(bx, y, bz)).solid) return y + 1;
-    }
-    return nearY;
-  };
-  const stepCompanions = (dt: number) => {
-    if (companions.size === 0) return;
-    for (const c of companions.values()) {
-      const o = c.owner === myIdx ? ctx.player.pos : remote.positionOf(c.owner);
-      if (!o) continue;
-      const dx = o.x - c.x,
-        dz = o.z - c.z;
-      const d = Math.hypot(dx, dz);
-      if (d > 14) {
-        // 너무 멀어지면 옆에 나타난다 (마을의 PET_TELEPORT_RANGE 처럼)
-        c.x = o.x - 1.2;
-        c.z = o.z;
-      } else if (d > 2.2) {
-        const step = Math.min(d - 1.6, 3.2 * dt);
-        c.x += (dx / d) * step;
-        c.z += (dz / d) * step;
-        c.yaw = Math.atan2(-dx, -dz);
-      }
-      c.y = companionGround(c.x, c.z, o.y);
-    }
-    // MobsState 가 안 와도(원정에 몹이 없을 때) 인형이 따라오게 목표를 직접 준다
-    for (const [id, c] of companions) mobView.moveFigure(id, c.x, c.y, c.z, c.yaw);
-  };
   let aimedMobNow: number | null = null;
   const petNamer = new PetNamePicker(
     root,
@@ -592,7 +552,6 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     disposeWorld(ctx);
     pending.clear();
     companions.clear(); // 세계가 바뀌면 따라온 펫 목록은 서버가 다시 준다 (#145)
-    lastMobList = [];
     ctx = buildWorld(w.kind, w.expedition, { ...w.spawn }, w.chunks);
     // 그 세계에 있는 사람들만 보인다
     for (const idx of remote.indices()) remote.remove(idx);
@@ -784,19 +743,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       const seen = new Set<number>();
       for (const c of list) {
         seen.add(c.id);
-        const cur = companions.get(c.id);
-        if (cur) {
-          cur.name = c.name;
-          cur.owner = c.owner;
-          continue;
-        }
-        const o = c.owner === myIdx ? ctx.player.pos : remote.positionOf(c.owner);
-        companions.set(c.id, { kind: c.kind, name: c.name, owner: c.owner, x: (o?.x ?? ctx.player.pos.x) - 1.2, y: o?.y ?? ctx.player.pos.y, z: o?.z ?? ctx.player.pos.z, yaw: 0 });
-        if (c.owner === myIdx) hud.toast(`🐾 ${c.name ?? '강아지'}이(가) 따라왔어요`, 2500);
+        if (!companions.has(c.id) && c.owner === myIdx) hud.toast(`🐾 ${c.name ?? '강아지'}이(가) 따라왔어요 — 가까운 몹을 물어요`, 3000);
+        companions.set(c.id, { name: c.name, owner: c.owner });
       }
       for (const id of [...companions.keys()]) if (!seen.has(id)) companions.delete(id);
       refreshPetNames();
-      pushMobs();
     },
     onGuard: (m) => {
       if (m.idx !== myIdx) remote.setGuarding(m.idx, m.on);
@@ -898,8 +849,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       hud.toast(m.dropped > 0 ? `💀 쓰러졌어요… 경험치 구슬 ${m.dropped}개가 그 자리에 남았어요. 가서 되찾아요!` : '💀 쓰러졌어요… 다시 일어났어요', 6000);
     },
     onMobs: (list) => {
-      lastMobList = list;
-      pushMobs();
+      mobView.setState(list);
       const boss = list.find((m) => MOB_KIND_OF[m.kind] === BOSS_KIND);
       bossInfo = boss ? { x: boss.x, z: boss.z, hp: boss.hp } : null; // 바 글자(방향·거리)는 프레임마다 아래에서
       if (!boss) hud.hideBoss();
@@ -1496,7 +1446,6 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       }
     }
     hand.setDraw(drawProgress);
-    stepCompanions(dt); // 따라온 펫이 주인을 따라간다 (#145)
     // 동물에게 손에 든 것 쓰기 (M8-1): 먹이·뼈·빈손(앉기). 원정에 따라온 펫은 못 만진다
     if (aimedMob !== null && inp.secondaryTap && aimedMob >= ANIMAL_ID_BASE && ctx.kind === 'village') {
       net.sendUseMob(aimedMob, hud.selectedIndex);

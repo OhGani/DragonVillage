@@ -1245,6 +1245,7 @@ export class VillageRoom {
     this.players.delete(idx);
     if (p.world === 'expedition' && this.expedition) {
       this.expedition.members.delete(idx);
+      if (this.mobSys && this.mobSys.removeCompanionsOf(idx) > 0) this.mobSys.broadcastState(); // 펫도 목록에서 (#147)
       // 원정 중에 끊기면 모은 것의 절반만 (늦은 귀환과 같은 규칙)
       this.loseGained(p, this.expeditions.rules.failedReturnKeepRatio);
       this.endIfEmpty(Date.now());
@@ -2049,6 +2050,11 @@ export class VillageRoom {
     if (taken.length) this.log(`마을 ${this.info.code}: ${p.nick} 의 펫 ${taken.length}마리가 원정에 따라감`);
     p.world = 'expedition';
     p.pos = { x: e.spawn.x, y: e.spawn.y, z: e.spawn.z, yaw: e.spawn.yaw, pitch: 0, flags: FLAG_GROUND };
+    if (taken.length) {
+      // 서버가 따라다니게·물게 한다 (#147): 원정 몹 목록에 같이 실린다
+      if (!this.mobSys) this.mobSys = this.makeMobSystem(e);
+      for (const t of taken) this.mobSys.addCompanion({ id: t.id, kind: t.kindName, owner: p.idx, name: t.name, x: p.pos.x - 1.2, y: p.pos.y, z: p.pos.z });
+    }
     p.recent = [];
     const others = this.playersIn('expedition').filter((o) => o.idx !== p.idx).map((o) => this.toInfo(o));
     e.members.add(p.idx);
@@ -2090,6 +2096,7 @@ export class VillageRoom {
     p.gained.clear();
     e.members.delete(idx);
     this.mobSys?.poisoned.delete(idx); // 마을로 오면 독이 풀린다 (M7-3)
+    if (this.mobSys && this.mobSys.removeCompanionsOf(idx) > 0) this.mobSys.broadcastState(); // 펫도 목록에서 (#147)
     this.broadcastJson({ t: 'playerLeft', idx }, idx, 'expedition');
     if (!late) this.endIfEmpty(now);
     this.broadcastJson({ t: 'expeditionState', expedition: this.expeditionState(now) }, -1, 'village');

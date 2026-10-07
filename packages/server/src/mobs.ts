@@ -12,6 +12,7 @@
  * 드롭은 마을 창고로, 경험치는 그 세계에 있는 모두에게. 방어전 소환사도 같은 보스 규칙(잠들지 않고, 변명자를 부른다).
  */
 import {
+  ANIMAL_FLAG,
   BOSS_AGGRO_RANGE,
   BOSS_KIND,
   BOSS_MINIONS_MAX,
@@ -96,6 +97,29 @@ export interface MobHooks {
 const STEP_MS = 100;
 /** 맞으면 밀려나는 거리 */
 const KNOCKBACK = 0.7;
+
+/** 원정 동행 펫 (#147): 주인을 따라다니다 주인(또는 자기) 6칸 안에 몹이 오면 달려가 문다. 맞지는 않는다 (초5에게 펫이 죽는 건 억울하다) */
+const PET_SPEED = 3.2;
+const PET_FOLLOW_STOP = 1.6;
+const PET_TELEPORT = 14;
+const PET_AGGRO = 6;
+const PET_REACH = 1.8;
+const PET_BITE_MS = 1000;
+const PET_DAMAGE = 3;
+
+export interface Companion {
+  /** ANIMAL_ID_BASE + 동물 id (마을 동물과 같은 번호) */
+  id: number;
+  kind: MobKind;
+  /** 주인 플레이어 idx — 물어 잡으면 드롭·경험치는 주인에게 */
+  owner: number;
+  name: string | null;
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  nextBiteAt: number;
+}
 const DEFAULT_OPTS: MobSystemOptions = { autoSpawn: true, aggroRange: 40, goal: null, quiet: false };
 
 export class MobSystem {
@@ -114,6 +138,8 @@ export class MobSystem {
   private lastSummonAt = 0;
   /** 보스가 소환한 부하 id */
   readonly minions = new Set<number>();
+  /** 원정에 따라온 펫 (#147) */
+  readonly companions = new Map<number, Companion>();
   readonly opts: MobSystemOptions;
 
   constructor(
@@ -209,10 +235,11 @@ export class MobSystem {
     }
     this.tickBoss(players, now);
     this.tickPoison(players, now);
-    if (this.mobs.size === 0) return;
+    if (this.mobs.size === 0 && this.companions.size === 0) return;
     if (now - this.lastStepAt >= STEP_MS) {
       const dt = Math.min(0.5, (now - (this.lastStepAt || now - STEP_MS)) / 1000);
       this.lastStepAt = now;
+      this.stepCompanions(players, dt, now);
       for (const m of [...this.mobs.values()]) {
         if (m === this.boss && !this.bossAwake) continue; // 잠든 보스는 안 움직인다
         const def = this.defs.get(m.kind);
@@ -310,7 +337,71 @@ export class MobSystem {
   }
 
   entries(): MobEntry[] {
-    return [...this.mobs.values()].map((m) => ({ id: m.id, kind: MOB_KIND_NUM[m.kind], x: m.x, y: m.y, z: m.z, yaw: m.yaw, hp: m.hp, state: m.state }));
+    const out: MobEntry[] = [...this.mobs.values()].map((m) => ({ id: m.id, kind: MOB_KIND_NUM[m.kind], x: m.x, y: m.y, z: m.z, yaw: m.yaw, hp: m.hp, state: m.state }));
+    for (const c of this.companions.values()) out.push({ id: c.id, kind: MOB_KIND_NUM[c.kind], x: c.x, y: c.y, z: c.z, yaw: c.yaw, hp: 8, state: ANIMAL_FLAG.tamed });
+    return out;
+  }
+
+  // ---------------------------------------------------------------- 원정 동행 펫 (#147)
+
+  addCompanion(c: { id: number; kind: MobKind; owner: number; name: string | null; x: number; y: number; z: number }): void {
+    this.companions.set(c.id, { ...c, yaw: 0, nextBiteAt: 0 });
+  }
+
+  /** 이 사람의 펫을 전부 뺀다 (돌아가거나 끊겼을 때). 뺀 수 */
+  removeCompanionsOf(owner: number): number {
+    let n = 0;
+    for (const [id, c] of this.companions) if (c.owner === owner) {
+        this.companions.delete(id);
+        n++;
+      }
+    return n;
+  }
+
+  private stepCompanions(players: MobTarget[], dt: number, now: number): void {
+    for (const c of this.companions.values()) {
+      const owner = players.find((p) => p.idx === c.owner);
+      if (!owner) continue;
+      // 주인 근처(또는 내 근처) 가장 가까운 몹 — 잠든 보스는 건드리지 않는다
+      let prey: MobState | null = null;
+      let best = PET_AGGRO;
+      for (const m of this.mobs.values()) {
+        if (m === this.boss && !this.bossAwake) continue;
+        const d = Math.min(Math.hypot(m.x - owner.x, m.z - owner.z), Math.hypot(m.x - c.x, m.z - c.z));
+        if (d < best) {
+          best = d;
+          prey = m;
+        }
+      }
+      const goal = prey ? { x: prey.x, z: prey.z, stop: PET_REACH } : { x: owner.x, z: owner.z, stop: PET_FOLLOW_STOP };
+      const dOwner = Math.hypot(owner.x - c.x, owner.z - c.z);
+      if (dOwner > PET_TELEPORT) {
+        c.x = owner.x - 1.2;
+        c.z = owner.z;
+        c.y = this.groundAt(c.x, c.z, owner.y) ?? owner.y;
+        continue;
+      }
+      const dx = goal.x - c.x,
+        dz = goal.z - c.z;
+      const d = Math.hypot(dx, dz);
+      if (d > goal.stop) {
+        const step = Math.min(d - goal.stop, PET_SPEED * dt);
+        const nx = c.x + (dx / d) * step,
+          nz = c.z + (dz / d) * step;
+        const gy = this.groundAt(nx, nz, c.y);
+        if (gy !== null && Math.abs(gy - c.y) <= 1.2) {
+          c.x = nx;
+          c.z = nz;
+          c.y = gy;
+        }
+        c.yaw = Math.atan2(-dx, -dz);
+      }
+      if (prey && Math.hypot(prey.x - c.x, prey.z - c.z) <= PET_REACH + 0.4 && now >= c.nextBiteAt) {
+        c.nextBiteAt = now + PET_BITE_MS;
+        const pd = Math.hypot(prey.x - c.x, prey.z - c.z) || 1;
+        this.damage(prey, PET_DAMAGE, c.owner, now, { x: (prey.x - c.x) / pd, z: (prey.z - c.z) / pd });
+      }
+    }
   }
 
   /** 때리기. 오류: NO_MOB · TOO_FAR · COOLDOWN. 보스는 몸이 커서 한 칸 더 멀리서도 닿는다 */

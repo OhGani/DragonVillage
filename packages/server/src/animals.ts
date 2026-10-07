@@ -504,15 +504,15 @@ export class AnimalSystem {
    * 펫 원정 동행 (#145): 이 사람의 펫 중 앉아 있지 않고 maxDist 안에 있는 것을 데려간다 → 마을에서 사라지고 원정에선 클라가 주인을 따라다니게 그린다.
    * 데려간 것들의 목록을 돌려준다
    */
-  takeAlong(token: string, x: number, z: number, maxDist: number): { id: number; kind: number; name: string | null }[] {
-    const out: { id: number; kind: number; name: string | null }[] = [];
+  takeAlong(token: string, x: number, z: number, maxDist: number): { id: number; kind: number; kindName: MobKind; name: string | null }[] {
+    const out: { id: number; kind: number; kindName: MobKind; name: string | null }[] = [];
     for (const a of this.animals.values()) {
       if (a.owner !== token || a.sitting || a.away) continue;
       if (Math.hypot(a.x - x, a.z - z) > maxDist) continue;
       a.away = true;
       a.target = null;
       this.hooks.json({ t: 'mob', ev: 'spawn', id: ANIMAL_ID_BASE + a.id, mob: a.kind, x: a.x, y: a.y, z: a.z }); // 마을 목록에서 빠지는 건 다음 MobsState 가 처리
-      out.push({ id: ANIMAL_ID_BASE + a.id, kind: MOB_KIND_NUM[a.kind], name: a.name });
+      out.push({ id: ANIMAL_ID_BASE + a.id, kind: MOB_KIND_NUM[a.kind], kindName: a.kind, name: a.name });
     }
     return out;
   }

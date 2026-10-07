@@ -100,8 +100,19 @@ describe('마을 동물 (M8-1)', () => {
     expect(comp.list).toEqual([{ id: ANIMAL_ID_BASE + near.id, kind: expect.any(Number), name: null, owner: ra.idx }]);
     expect(room.animals.entries(T0).some((m) => m.id === ANIMAL_ID_BASE + near.id)).toBe(false); // 마을에선 안 보인다
     room.animals.tick(T0 + 1000);
+    // 원정에서는 서버가 몹 목록에 실어 따라다니게 하고, 주인 옆에 온 좀비를 문다 (#147)
+    const sys = room.mobSys!;
+    expect(sys.companions.size).toBe(1);
+    expect(sys.entries().some((m) => m.id === ANIMAL_ID_BASE + near.id)).toBe(true);
+    sys.spawnKind('zombie', p.pos.x + 2.5, p.pos.y, p.pos.z);
+    const zombie = [...sys.mobs.values()].find((m) => m.kind === 'zombie')!;
+    for (let t = T0 + 100; t <= T0 + 4000; t += 100) room.tick(t);
+    expect(zombie.hp).toBeLessThan(20); // 펫이 물었다
+    const pet = sys.companions.get(ANIMAL_ID_BASE + near.id)!;
+    expect(Math.hypot(pet.x - p.pos.x, pet.z - p.pos.z)).toBeLessThan(6); // 주인 곁에 있다
     // 돌아오면 (늦은 귀환으로 포탈 조건 생략) 주인 옆에
     expect(room.returnHome(ra.idx, T0 + 5000, true)).toBeNull();
+    expect(sys.companions.size).toBe(0); // 원정 목록에서도 빠진다
     expect(near.away).toBe(false);
     expect(Math.hypot(near.x - p.pos.x, near.z - p.pos.z)).toBeLessThan(3);
     expect(room.animals.entries(T0 + 5000).some((m) => m.id === ANIMAL_ID_BASE + near.id)).toBe(true);
