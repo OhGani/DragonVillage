@@ -1,10 +1,12 @@
 {
-  "_comment": "제작 레시피. 드래곤 재료 중 '제작'으로 얻는 것들과 안장·도구. station = 어디서 만드나(inventory 가방 안 2×2 칸 / crafting_table 제작대 3×3 / forge 대장간 / brewing 양조기 / furnace 화로). 개수는 아빠 임시값, 아들이 바꿔도 됨. 아들 3차 디테일(2026-09-12)의 제작 사슬(종이→책→책장→인챈트 테이블)과 도구·장식 레시피 추가. 6차(2026-09-13): 가방 2×2 칸 레시피(판자·제작대·양털·염료·염색). release 없는 것은 v1. 도끼 6종(2026-09-21, 아빠 — 마인크래프트 값): 핵심 재료 3 + 막대기 2, 네더라이트만 다이아몬드 도끼 + 네더라이트(대장간). 곡괭이와 같게 나무·돌은 제작대, 쇠붙이는 대장간(M6-6). 8차(2026-09-18): 양조 물약은 data/potions.json 으로 옮겼다(양조 규칙이 따로 있어서). 여기에는 양조기와 물약 재료 만드는 법만 — water_bottle·brewing_stand·blaze_powder·fermented_spider_eye·glistering_melon·gold_nugget·magma_cream·turtle_shell(v1.1)·slime_block(v2).",
+  "_comment": "제작 레시피. 드래곤 재료 중 '제작'으로 얻는 것들과 안장·도구. station = 어디서 만드나(inventory 가방 안 2×2 칸 / crafting_table 제작대 3×3 / forge 대장간 / brewing 양조기 / furnace 화로). 개수는 아빠 임시값, 아들이 바꿔도 됨. 아들 3차 디테일(2026-09-12)의 제작 사슬(종이→책→책장→인챈트 테이블)과 도구·장식 레시피 추가. 6차(2026-09-13): 가방 2×2 칸 레시피(판자·제작대·양털·염료·염색). release 없는 것은 v1. 도끼 6종(2026-09-21, 아빠 — 마인크래프트 값): 핵심 재료 3 + 막대기 2, 네더라이트만 다이아몬드 도끼 + 네더라이트(대장간). 곡괭이와 같게 나무·돌은 제작대, 쇠붙이는 대장간(M6-6). 8차(2026-09-18): 양조 물약은 data/potions.json 으로 옮겼다(양조 규칙이 따로 있어서). 여기에는 양조기와 물약 재료 만드는 법만 — water_bottle·brewing_stand·blaze_powder·fermented_spider_eye·glistering_melon·gold_nugget·magma_cream·turtle_shell(v1.1)·slime_block(v2). | 모양(pattern/key, #132 2026-10-07): 마인크래프트 제작대처럼 3×3 격자에 놓는 모양. 줄마다 글자, 빈칸은 공백, key 는 글자 → 재료. 모양에서 센 개수는 in 과 같아야 한다. pattern 이 없으면 개수만 맞으면 된다(모양 없는 조합).",
   "recipes": [
     {
       "id": "saddle",
       "name": "안장",
       "station": "crafting_table",
+      "pattern": ["lll", "lil"],
+      "key": {"l": "leather", "i": "iron_ingot"},
       "in": {
         "leather": 5,
         "iron_ingot": 1
@@ -18,6 +20,8 @@
       "id": "bucket",
       "name": "양동이",
       "station": "crafting_table",
+      "pattern": ["i i", " i "],
+      "key": {"i": "iron_ingot"},
       "in": {
         "iron_ingot": 3
       },
@@ -29,6 +33,8 @@
       "id": "glass_bottle",
       "name": "유리병",
       "station": "crafting_table",
+      "pattern": ["g g", " g "],
+      "key": {"g": "glass"},
       "in": {
         "glass": 3
       },
@@ -41,6 +47,8 @@
       "id": "cake",
       "name": "케이크",
       "station": "crafting_table",
+      "pattern": ["mmm", "ses", "www"],
+      "key": {"m": "milk_bucket", "s": "sugar", "e": "egg", "w": "wheat"},
       "in": {
         "wheat": 3,
         "sugar": 2,
@@ -67,6 +75,8 @@
       "id": "golden_apple",
       "name": "황금 사과",
       "station": "crafting_table",
+      "pattern": ["ggg", "gag", "ggg"],
+      "key": {"g": "gold_ingot", "a": "apple"},
       "in": {
         "apple": 1,
         "gold_ingot": 8
@@ -80,6 +90,8 @@
       "id": "golden_carrot",
       "name": "황금 당근",
       "station": "crafting_table",
+      "pattern": ["ggg", "gcg", "ggg"],
+      "key": {"g": "gold_ingot", "c": "carrot"},
       "in": {
         "carrot": 1,
         "gold_ingot": 8
@@ -93,6 +105,8 @@
       "id": "clock",
       "name": "시계",
       "station": "crafting_table",
+      "pattern": [" g ", "grg", " g "],
+      "key": {"g": "gold_ingot", "r": "redstone"},
       "in": {
         "gold_ingot": 4,
         "redstone": 1
@@ -105,6 +119,8 @@
       "id": "tnt",
       "name": "TNT",
       "station": "crafting_table",
+      "pattern": ["gsg", "sgs", "gsg"],
+      "key": {"g": "gunpowder", "s": "sand"},
       "in": {
         "gunpowder": 5,
         "sand": 4
@@ -117,6 +133,8 @@
       "id": "snow_block",
       "name": "눈 블록",
       "station": "crafting_table",
+      "pattern": ["ss", "ss"],
+      "key": {"s": "snowball"},
       "in": {
         "snowball": 4
       },
@@ -164,6 +182,8 @@
       "id": "wooden_pickaxe",
       "name": "나무 곡괭이",
       "station": "crafting_table",
+      "pattern": ["ppp", " s ", " s "],
+      "key": {"p": "planks", "s": "stick"},
       "in": {
         "planks": 3,
         "stick": 2
@@ -177,6 +197,8 @@
       "id": "stone",
       "name": "돌",
       "station": "crafting_table",
+      "pattern": ["cc", "cc"],
+      "key": {"c": "cobblestone"},
       "in": {
         "cobblestone": 4
       },
@@ -189,6 +211,8 @@
       "id": "stone_pickaxe",
       "name": "돌 곡괭이",
       "station": "crafting_table",
+      "pattern": ["ccc", " s ", " s "],
+      "key": {"c": "cobblestone", "s": "stick"},
       "in": {
         "cobblestone": 3,
         "stick": 2
@@ -202,6 +226,8 @@
       "id": "iron_pickaxe",
       "name": "철 곡괭이",
       "station": "forge",
+      "pattern": ["iii", " s ", " s "],
+      "key": {"i": "iron_ingot", "s": "stick"},
       "in": {
         "iron_ingot": 3,
         "stick": 2
@@ -215,6 +241,8 @@
       "id": "golden_pickaxe",
       "name": "금 곡괭이",
       "station": "forge",
+      "pattern": ["ggg", " s ", " s "],
+      "key": {"g": "gold_ingot", "s": "stick"},
       "in": {
         "gold_ingot": 3,
         "stick": 2
@@ -228,6 +256,8 @@
       "id": "diamond_pickaxe",
       "name": "다이아몬드 곡괭이",
       "station": "forge",
+      "pattern": ["ddd", " s ", " s "],
+      "key": {"d": "diamond", "s": "stick"},
       "in": {
         "diamond": 3,
         "stick": 2
@@ -254,6 +284,8 @@
       "id": "wooden_axe",
       "name": "나무 도끼",
       "station": "crafting_table",
+      "pattern": ["pp", "ps", " s"],
+      "key": {"p": "planks", "s": "stick"},
       "in": {
         "planks": 3,
         "stick": 2
@@ -267,6 +299,8 @@
       "id": "stone_axe",
       "name": "돌 도끼",
       "station": "crafting_table",
+      "pattern": ["cc", "cs", " s"],
+      "key": {"c": "cobblestone", "s": "stick"},
       "in": {
         "cobblestone": 3,
         "stick": 2
@@ -280,6 +314,8 @@
       "id": "iron_axe",
       "name": "철 도끼",
       "station": "forge",
+      "pattern": ["ii", "is", " s"],
+      "key": {"i": "iron_ingot", "s": "stick"},
       "in": {
         "iron_ingot": 3,
         "stick": 2
@@ -293,6 +329,8 @@
       "id": "golden_axe",
       "name": "황금 도끼",
       "station": "forge",
+      "pattern": ["gg", "gs", " s"],
+      "key": {"g": "gold_ingot", "s": "stick"},
       "in": {
         "gold_ingot": 3,
         "stick": 2
@@ -306,6 +344,8 @@
       "id": "diamond_axe",
       "name": "다이아몬드 도끼",
       "station": "forge",
+      "pattern": ["dd", "ds", " s"],
+      "key": {"d": "diamond", "s": "stick"},
       "in": {
         "diamond": 3,
         "stick": 2
@@ -332,6 +372,8 @@
       "id": "wooden_sword",
       "name": "나무 검",
       "station": "crafting_table",
+      "pattern": ["p", "p", "s"],
+      "key": {"p": "planks", "s": "stick"},
       "in": {
         "planks": 2,
         "stick": 1
@@ -345,6 +387,8 @@
       "id": "stone_sword",
       "name": "돌 검",
       "station": "crafting_table",
+      "pattern": ["c", "c", "s"],
+      "key": {"c": "cobblestone", "s": "stick"},
       "in": {
         "cobblestone": 2,
         "stick": 1
@@ -358,6 +402,8 @@
       "id": "iron_sword",
       "name": "철 검",
       "station": "forge",
+      "pattern": ["i", "i", "s"],
+      "key": {"i": "iron_ingot", "s": "stick"},
       "in": {
         "iron_ingot": 2,
         "stick": 1
@@ -371,6 +417,8 @@
       "id": "golden_sword",
       "name": "황금 검",
       "station": "forge",
+      "pattern": ["g", "g", "s"],
+      "key": {"g": "gold_ingot", "s": "stick"},
       "in": {
         "gold_ingot": 2,
         "stick": 1
@@ -384,6 +432,8 @@
       "id": "diamond_sword",
       "name": "다이아몬드 검",
       "station": "forge",
+      "pattern": ["d", "d", "s"],
+      "key": {"d": "diamond", "s": "stick"},
       "in": {
         "diamond": 2,
         "stick": 1
@@ -458,6 +508,8 @@
       "id": "crafting_table",
       "name": "제작대",
       "station": "inventory",
+      "pattern": ["pp", "pp"],
+      "key": {"p": "planks"},
       "in": {
         "planks": 4
       },
@@ -470,6 +522,8 @@
       "id": "stick",
       "name": "막대기",
       "station": "crafting_table",
+      "pattern": ["p", "p"],
+      "key": {"p": "planks"},
       "in": {
         "planks": 2
       },
@@ -481,6 +535,8 @@
       "id": "paper",
       "name": "종이",
       "station": "crafting_table",
+      "pattern": ["sss"],
+      "key": {"s": "sugar_cane"},
       "in": {
         "sugar_cane": 3
       },
@@ -519,6 +575,8 @@
       "id": "bookshelf",
       "name": "책장",
       "station": "crafting_table",
+      "pattern": ["ppp", "bbb", "ppp"],
+      "key": {"p": "planks", "b": "book"},
       "in": {
         "planks": 6,
         "book": 3
@@ -531,6 +589,8 @@
       "id": "enchanting_table",
       "name": "인챈트 테이블",
       "station": "crafting_table",
+      "pattern": [" b ", "dod", "ooo"],
+      "key": {"b": "book", "d": "diamond", "o": "obsidian"},
       "in": {
         "obsidian": 4,
         "diamond": 2,
@@ -559,6 +619,8 @@
       "id": "oak_stairs",
       "name": "계단",
       "station": "crafting_table",
+      "pattern": ["p  ", "pp ", "ppp"],
+      "key": {"p": "planks"},
       "in": {
         "planks": 6
       },
@@ -570,6 +632,8 @@
       "id": "oak_door",
       "name": "문",
       "station": "crafting_table",
+      "pattern": ["pp", "pp", "pp"],
+      "key": {"p": "planks"},
       "in": {
         "planks": 6
       },
@@ -582,6 +646,8 @@
       "id": "oak_trapdoor",
       "name": "다락문",
       "station": "crafting_table",
+      "pattern": ["ppp", "ppp"],
+      "key": {"p": "planks"},
       "in": {
         "planks": 6
       },
@@ -593,6 +659,8 @@
       "id": "oak_fence",
       "name": "울타리",
       "station": "crafting_table",
+      "pattern": ["psp", "psp"],
+      "key": {"p": "planks", "s": "stick"},
       "in": {
         "planks": 4,
         "stick": 2
@@ -605,6 +673,8 @@
       "id": "sign",
       "name": "표지판",
       "station": "crafting_table",
+      "pattern": ["ppp", "ppp", " s "],
+      "key": {"p": "planks", "s": "stick"},
       "in": {
         "planks": 6,
         "stick": 1
@@ -629,6 +699,8 @@
       "id": "bed",
       "name": "침대",
       "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "wool", "p": "planks"},
       "in": {
         "wool": 3,
         "planks": 3
@@ -641,6 +713,8 @@
       "id": "torch",
       "name": "횃불",
       "station": "crafting_table",
+      "pattern": ["c", "s"],
+      "key": {"c": "coal", "s": "stick"},
       "in": {
         "coal": 1,
         "stick": 1
@@ -653,6 +727,8 @@
       "id": "chest",
       "name": "상자",
       "station": "crafting_table",
+      "pattern": ["ppp", "p p", "ppp"],
+      "key": {"p": "planks"},
       "in": {
         "planks": 8
       },
@@ -664,6 +740,8 @@
       "id": "furnace",
       "name": "화로",
       "station": "crafting_table",
+      "pattern": ["ccc", "c c", "ccc"],
+      "key": {"c": "cobblestone"},
       "in": {
         "cobblestone": 8
       },
@@ -675,6 +753,8 @@
       "id": "bow",
       "name": "활",
       "station": "crafting_table",
+      "pattern": [" st", "s t", " st"],
+      "key": {"s": "stick", "t": "string"},
       "in": {
         "stick": 3,
         "string": 3
@@ -687,6 +767,8 @@
       "id": "arrow",
       "name": "화살",
       "station": "crafting_table",
+      "pattern": ["f", "s", "e"],
+      "key": {"f": "flint", "s": "stick", "e": "feather"},
       "in": {
         "flint": 1,
         "stick": 1,
@@ -700,6 +782,8 @@
       "id": "iron_chestplate",
       "name": "철 흉갑",
       "station": "forge",
+      "pattern": ["i i", "iii", "iii"],
+      "key": {"i": "iron_ingot"},
       "in": {
         "iron_ingot": 8
       },
@@ -711,6 +795,8 @@
       "id": "iron_hoe",
       "name": "철 괭이",
       "station": "forge",
+      "pattern": ["ii", " s", " s"],
+      "key": {"i": "iron_ingot", "s": "stick"},
       "in": {
         "iron_ingot": 2,
         "stick": 2
@@ -723,6 +809,8 @@
       "id": "iron_shovel",
       "name": "철 삽",
       "station": "forge",
+      "pattern": ["i", "s", "s"],
+      "key": {"i": "iron_ingot", "s": "stick"},
       "in": {
         "iron_ingot": 1,
         "stick": 2
@@ -747,6 +835,8 @@
       "id": "fishing_rod",
       "name": "낚싯대",
       "station": "crafting_table",
+      "pattern": ["  s", " st", "s t"],
+      "key": {"s": "stick", "t": "string"},
       "in": {
         "stick": 3,
         "string": 2
@@ -759,6 +849,8 @@
       "id": "compass",
       "name": "나침반",
       "station": "crafting_table",
+      "pattern": [" i ", "iri", " i "],
+      "key": {"i": "iron_ingot", "r": "redstone"},
       "in": {
         "iron_ingot": 4,
         "redstone": 1
@@ -772,6 +864,8 @@
       "id": "shears",
       "name": "가위",
       "station": "crafting_table",
+      "pattern": [" i", "i "],
+      "key": {"i": "iron_ingot"},
       "in": {
         "iron_ingot": 2
       },
@@ -796,6 +890,8 @@
       "id": "jack_o_lantern",
       "name": "잭오랜턴",
       "station": "crafting_table",
+      "pattern": ["p", "t"],
+      "key": {"p": "carved_pumpkin", "t": "torch"},
       "in": {
         "carved_pumpkin": 1,
         "torch": 1
@@ -808,6 +904,8 @@
       "id": "iron_block",
       "name": "철 블록",
       "station": "crafting_table",
+      "pattern": ["iii", "iii", "iii"],
+      "key": {"i": "iron_ingot"},
       "in": {
         "iron_ingot": 9
       },
@@ -819,6 +917,8 @@
       "id": "gold_block",
       "name": "금 블록",
       "station": "crafting_table",
+      "pattern": ["ggg", "ggg", "ggg"],
+      "key": {"g": "gold_ingot"},
       "in": {
         "gold_ingot": 9
       },
@@ -830,6 +930,8 @@
       "id": "quartz_block",
       "name": "석영 블록",
       "station": "crafting_table",
+      "pattern": ["qq", "qq"],
+      "key": {"q": "quartz"},
       "in": {
         "quartz": 4
       },
@@ -841,6 +943,8 @@
       "id": "netherite_block",
       "name": "네더라이트 블록",
       "station": "forge",
+      "pattern": ["nnn", "nnn", "nnn"],
+      "key": {"n": "netherite"},
       "in": {
         "netherite": 9
       },
@@ -852,6 +956,8 @@
       "id": "emerald_block",
       "name": "에메랄드 블록",
       "station": "crafting_table",
+      "pattern": ["eee", "eee", "eee"],
+      "key": {"e": "emerald"},
       "in": {
         "emerald": 9
       },
@@ -863,6 +969,8 @@
       "id": "diamond_block",
       "name": "다이아몬드 블록",
       "station": "crafting_table",
+      "pattern": ["ddd", "ddd", "ddd"],
+      "key": {"d": "diamond"},
       "in": {
         "diamond": 9
       },
@@ -874,6 +982,8 @@
       "id": "hay_bale",
       "name": "건초 더미",
       "station": "crafting_table",
+      "pattern": ["www", "www", "www"],
+      "key": {"w": "wheat"},
       "in": {
         "wheat": 9
       },
@@ -952,6 +1062,8 @@
       "id": "wool_from_string",
       "name": "양털 (거미줄)",
       "station": "inventory",
+      "pattern": ["tt", "tt"],
+      "key": {"t": "string"},
       "in": {
         "string": 4
       },
@@ -1000,6 +1112,8 @@
       "id": "shield",
       "name": "방패",
       "station": "crafting_table",
+      "pattern": ["pip", "ppp", " p "],
+      "key": {"p": "planks", "i": "iron_ingot"},
       "in": {
         "planks": 6,
         "iron_ingot": 1
@@ -1013,6 +1127,8 @@
       "id": "boat",
       "name": "보트",
       "station": "crafting_table",
+      "pattern": ["p p", "ppp"],
+      "key": {"p": "planks"},
       "in": {
         "planks": 5
       },
@@ -1026,6 +1142,8 @@
       "id": "minecart",
       "name": "수레",
       "station": "forge",
+      "pattern": ["i i", "iii"],
+      "key": {"i": "iron_ingot"},
       "in": {
         "iron_ingot": 5
       },
@@ -1038,6 +1156,8 @@
       "id": "rail",
       "name": "철도",
       "station": "forge",
+      "pattern": ["i i", "isi", "i i"],
+      "key": {"i": "iron_ingot", "s": "stick"},
       "in": {
         "iron_ingot": 6,
         "stick": 1
@@ -1052,6 +1172,8 @@
       "id": "spear",
       "name": "창",
       "station": "forge",
+      "pattern": ["i", "s", "s"],
+      "key": {"i": "iron_ingot", "s": "stick"},
       "in": {
         "iron_ingot": 1,
         "stick": 2
@@ -1078,6 +1200,8 @@
       "id": "brewing_stand",
       "name": "양조기",
       "station": "crafting_table",
+      "pattern": [" b ", "ccc"],
+      "key": {"b": "blaze_rod", "c": "cobblestone"},
       "in": {
         "blaze_rod": 1,
         "cobblestone": 3
@@ -1117,6 +1241,8 @@
       "id": "glistering_melon",
       "name": "반짝이는 수박 조각",
       "station": "crafting_table",
+      "pattern": ["ggg", "gmg", "ggg"],
+      "key": {"g": "gold_nugget", "m": "melon_slice"},
       "in": {
         "melon_slice": 1,
         "gold_nugget": 8
@@ -1155,6 +1281,8 @@
       "id": "turtle_shell",
       "name": "거북 등딱지",
       "station": "crafting_table",
+      "pattern": ["sss", "s s"],
+      "key": {"s": "scute"},
       "in": {
         "scute": 5
       },
@@ -1168,6 +1296,8 @@
       "id": "slime_block",
       "name": "슬라임 블록",
       "station": "crafting_table",
+      "pattern": ["sss", "sss", "sss"],
+      "key": {"s": "slime_ball"},
       "in": {
         "slime_ball": 9
       },

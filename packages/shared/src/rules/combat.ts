@@ -104,8 +104,28 @@ const RawCombat = z
   })
   .loose();
 
-function recipe(id: string, name: string, station: Station, input: Readonly<Record<string, number>>, out: Readonly<Record<string, number>>): RecipeDef {
-  return { id, name, station, in: input, out, toolTier: 0, release: 'v1' };
+function recipe(id: string, name: string, station: Station, input: Readonly<Record<string, number>>, out: Readonly<Record<string, number>>, pattern?: readonly string[], key?: Readonly<Record<string, string>>): RecipeDef {
+  const def: RecipeDef = { id, name, station, in: input, out, toolTier: 0, release: 'v1' };
+  return pattern ? { ...def, pattern, key: key ?? {} } : def;
+}
+
+/** 마인크래프트 갑옷 모양 (#132): m = 재료. 개수는 combat.json slots.pieces(5·8·7·4)와 같다 */
+const ARMOR_PATTERN: Record<EquipSlot, readonly string[]> = {
+  helmet: ['mmm', 'm m'],
+  chestplate: ['m m', 'mmm', 'mmm'],
+  leggings: ['mmm', 'm m', 'm m'],
+  boots: ['m m', 'm m'],
+  shield: [],
+};
+
+/** 모양의 재료 개수가 in 과 같을 때만 모양을 붙인다 (아들이 combat.json 개수를 바꾸면 모양 없는 조합으로) */
+function shaped(station: Station, input: Readonly<Record<string, number>>, pattern: readonly string[], key: Readonly<Record<string, string>>): [readonly string[] | undefined, Readonly<Record<string, string>> | undefined] {
+  // 가방(2×2)에서 만드는 것이면 2줄·2글자를 넘는 모양은 못 쓴다 (combat.json 의 화살이 inventory 면 모양 없이)
+  if (station === 'inventory' && (pattern.length > 2 || pattern.some((r) => r.length > 2))) return [undefined, undefined];
+  const counts: Record<string, number> = {};
+  for (const row of pattern) for (const ch of row) if (ch !== ' ' && key[ch]) counts[key[ch]!] = (counts[key[ch]!] ?? 0) + 1;
+  const same = Object.keys(input).length === Object.keys(counts).length && Object.entries(input).every(([k, v]) => counts[k] === v);
+  return same ? [pattern, key] : [undefined, undefined];
 }
 
 export function parseCombat(raw: unknown, fileName = 'data/combat.json'): CombatRules {
@@ -125,7 +145,8 @@ export function parseCombat(raw: unknown, fileName = 'data/combat.json'): Combat
       armor.set(id, { id, name, slot, tier: t.id, defense: t.defense[slot], toughness: t.toughness, knockbackResist: t.knockbackResist ?? 0, durability: t.durability[slot] });
       names.set(id, name);
       const input = t.upgradeFrom ? { [`${t.upgradeFrom}_${slot}`]: 1, [t.material]: 1 } : { [t.material]: d.armor.slots[slot].pieces };
-      recipes.push(recipe(id, name, t.station, input, { [id]: 1 }));
+      const [pat, key] = t.upgradeFrom ? [undefined, undefined] : shaped(t.station, input, ARMOR_PATTERN[slot], { m: t.material });
+      recipes.push(recipe(id, name, t.station, input, { [id]: 1 }, pat, key));
     }
   }
   for (const e of d.armor.extra ?? []) {
@@ -135,15 +156,17 @@ export function parseCombat(raw: unknown, fileName = 'data/combat.json'): Combat
   }
   const shield: ShieldRule = { id: d.shield.id, name: d.shield.name, meleeBlock: d.shield.meleeBlock, arrowBlock: d.shield.arrowBlock, guardBlock: d.shield.guardBlock ?? 1, guardSlow: d.shield.guardSlow ?? 0.5, ignoredBy: d.shield.ignoredBy ?? [] };
   names.set(shield.id, shield.name);
-  recipes.push(recipe(shield.id, shield.name, d.shield.station, d.shield.in, { [shield.id]: 1 }));
+  recipes.push(recipe(shield.id, shield.name, d.shield.station, d.shield.in, { [shield.id]: 1 }, ...shaped(d.shield.station, d.shield.in, ['pip', 'ppp', ' p '], { p: 'planks', i: 'iron_ingot' })));
   const bows = new Map<string, BowDef>();
   for (const b of d.bows) {
     bows.set(b.id, { id: b.id, name: b.name, damage: b.damage, cooldownMs: b.cooldownMs, drawMs: b.drawMs ?? 1000, range: b.range });
     names.set(b.id, b.name);
-    recipes.push(recipe(b.id, b.name, b.station, b.in, { [b.id]: 1 }));
+    // 쇠뇌는 마인크래프트의 철사 덫 갈고리 대신 철 주괴 (combat.json): 막대기 3·실 2·철 1
+    const bowShape = b.id === 'crossbow' ? shaped(b.station, b.in, ['sis', 't t', ' s '], { s: 'stick', i: 'iron_ingot', t: 'string' }) : shaped(b.station, b.in, [' st', 's t', ' st'], { s: 'stick', t: 'string' });
+    recipes.push(recipe(b.id, b.name, b.station, b.in, { [b.id]: 1 }, ...bowShape));
   }
   names.set(d.arrow.id, d.arrow.name);
-  recipes.push(recipe(d.arrow.id, d.arrow.name, d.arrow.station, d.arrow.in, { [d.arrow.id]: d.arrow.out }));
+  recipes.push(recipe(d.arrow.id, d.arrow.name, d.arrow.station, d.arrow.in, { [d.arrow.id]: d.arrow.out }, ...shaped(d.arrow.station, d.arrow.in, ['f', 's', 'e'], { f: 'flint', s: 'stick', e: 'feather' })));
   return { armor, shield, bows, arrow: { id: d.arrow.id, name: d.arrow.name }, recipes, itemNames: names };
 }
 

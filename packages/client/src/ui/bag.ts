@@ -7,13 +7,16 @@ import {
   type DragonRegistry,
   type Inventory,
   type PotionRegistry,
+  type GridCell,
   type RecipeDef,
   type RecipeRegistry,
   STACK,
   type Station,
   canCraft,
   craftableTimes,
+  gridLayout,
   isPotionItem,
+  matchGrid,
   missing,
   potionFromItemId,
 } from '@dragon-village/shared';
@@ -62,6 +65,13 @@ export class BagView {
   /** 양조 모드: 고른 병 칸들과 재료 칸 */
   private bottles: number[] = [];
   private ingredient = -1;
+  /**
+   * 제작 격자 (#132, 마인크래프트 제작대와 같게): 가방 2×2 또는 제작대·대장간 옆 3×3. 가방 물건을 "놓아 둔" 것처럼 보이지만
+   * 실제로는 만들기를 누를 때 서버가 가방에서 뺀다(서버가 진실). ghost 는 조합법 책에서 고른 모양 중 가방에 없는 재료
+   */
+  private craftCells: GridCell[] = new Array(9).fill(null);
+  private craftGhost: (string | null)[] = new Array(9).fill(null);
+  private craftWidth = 0;
   private readonly grid: HTMLElement;
   private readonly side: HTMLElement;
   private readonly tabs: HTMLElement;
@@ -113,16 +123,86 @@ export class BagView {
     this.selected = -1;
     this.confirmDrop = false;
     this.drawnTab = null; // 새로 열 때는 맨 위부터
+    this.clearCraftGrid();
     this.el.hidden = false;
     this.renderAll();
   }
   hide(): void {
     this.el.hidden = true;
+    this.clearCraftGrid();
   }
 
   setInventory(inv: Inventory): void {
     this.inv = inv;
+    this.clampCraftGrid();
     if (this.visible) this.renderAll();
+  }
+
+  // ---------------------------------------------------------------- 제작 격자 (#132)
+
+  /** 지금 격자 크기: 제작대·대장간 옆이면 3, 아니면 가방 2×2 */
+  private craftW(): number {
+    return this.stations.crafting_table || this.stations.forge ? 3 : 2;
+  }
+  private clearCraftGrid(): void {
+    this.craftCells.fill(null);
+    this.craftGhost.fill(null);
+  }
+  /** 가방에 있는 개수에서 격자에 놓아 둔 것을 뺀 나머지 */
+  private craftAvailable(item: string): number {
+    let have = 0;
+    for (const s of this.inv) if (s && s.item === item) have += s.count;
+    for (const c of this.craftCells) if (c && c.item === item) have -= c.count;
+    return have;
+  }
+  /** 가방이 바뀌었으면(만들었거나 버렸거나) 격자에 놓아 둔 개수를 가방에 맞게 줄인다 */
+  private clampCraftGrid(): void {
+    const have: Record<string, number> = {};
+    for (const s of this.inv) if (s) have[s.item] = (have[s.item] ?? 0) + s.count;
+    for (let i = 0; i < this.craftCells.length; i++) {
+      const c = this.craftCells[i];
+      if (!c) continue;
+      const left = have[c.item] ?? 0;
+      const take = Math.min(c.count, left);
+      have[c.item] = left - take;
+      this.craftCells[i] = take > 0 ? { item: c.item, count: take } : null;
+    }
+  }
+  /** 조합법 책에서 고른 레시피를 격자에 채운다. 가방에 없는 재료는 ghost(흐리게)로 */
+  private fillCraftGrid(r: RecipeDef): void {
+    const w = this.craftW();
+    const layout = gridLayout(r, w);
+    this.clearCraftGrid();
+    if (!layout) return;
+    for (let i = 0; i < layout.length; i++) {
+      const item = layout[i];
+      if (!item) continue;
+      if (this.craftAvailable(item) > 0) this.craftCells[i] = { item, count: 1 };
+      else this.craftGhost[i] = item;
+    }
+  }
+  /** 격자 칸 탭: 고른 가방 물건이 있으면 하나 놓고, 없으면 그 칸을 비운다(물건은 가방에 그대로) */
+  private tapCraftCell(i: number): void {
+    const sel = this.selected >= 0 ? this.inv[this.selected] : null;
+    const cur = this.craftCells[i];
+    if (sel && (!cur || cur.item === sel.item)) {
+      if (this.craftAvailable(sel.item) > 0) {
+        this.craftCells[i] = { item: sel.item, count: (cur?.count ?? 0) + 1 };
+        this.craftGhost[i] = null;
+      }
+    } else if (cur) {
+      this.craftCells[i] = null;
+    } else if (this.craftGhost[i] && this.craftAvailable(this.craftGhost[i]!) > 0) {
+      this.craftCells[i] = { item: this.craftGhost[i]!, count: 1 };
+      this.craftGhost[i] = null;
+    }
+    this.renderGrid();
+    this.renderSide();
+  }
+  /** 격자에 맞는 레시피 (근처 작업대에서 만들 수 있는 것 중) */
+  private craftMatch(recipes: readonly RecipeDef[]): RecipeDef | null {
+    const w = this.craftW();
+    return matchGrid(recipes, this.craftCells.slice(0, w * w), w);
   }
   /** 장비가 바뀌었다 (M8-2) — 열려 있으면 다시 그린다 */
   refresh(): void {
@@ -210,6 +290,13 @@ export class BagView {
       return;
     }
     this.confirmDrop = false;
+    if (this.tab === 'craft') {
+      // 만들기 탭에서는 가방 칸은 고르기만 (옮기기는 가방 탭에서). 고른 채로 격자 칸을 탭하면 하나씩 놓인다 (#132)
+      this.selected = this.selected === i ? -1 : s ? i : this.selected;
+      this.renderGrid();
+      this.renderSide();
+      return;
+    }
     if (this.selected < 0) {
       if (s) this.selected = i;
     } else if (this.selected === i) {
@@ -383,19 +470,27 @@ export class BagView {
   }
 
   private renderCraftSide(): void {
-    const list = document.createElement('div');
-    list.className = 'craft-list';
     const stations: Station[] = ['inventory'];
     if (this.stations.crafting_table) stations.push('crafting_table');
     if (this.stations.furnace) stations.push('furnace');
     if (this.stations.forge) stations.push('forge');
     const recipes: RecipeDef[] = stations.flatMap((st) => this.deps.recipes.forStation(st));
+    this.renderCraftGrid(recipes);
+    const list = document.createElement('div');
+    list.className = 'craft-list';
     // 만들 수 있는 것 먼저
     recipes.sort((a, b) => Number(canCraft(this.inv, b)) - Number(canCraft(this.inv, a)));
     for (const r of recipes) {
       const ok = canCraft(this.inv, r);
       const row = document.createElement('div');
       row.className = 'craft-row' + (ok ? '' : ' no');
+      row.title = '탭하면 격자에 모양대로 채워요';
+      row.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('button')) return; // 만들기 버튼은 따로
+        this.fillCraftGrid(r);
+        this.renderGrid();
+        this.renderSide();
+      });
       const outId = Object.keys(r.out)[0];
       const icon = this.deps.icon(outId, 32);
       if (icon) row.appendChild(icon);
@@ -417,6 +512,93 @@ export class BagView {
     }
     if (recipes.length === 0) list.textContent = '만들 수 있는 것이 없어요';
     this.side.appendChild(list);
+  }
+
+  /** 제작 격자 + 결과 칸 (#132): 마인크래프트 제작대 화면처럼 격자 → 화살표 → 결과 */
+  private renderCraftGrid(recipes: readonly RecipeDef[]): void {
+    const w = this.craftW();
+    if (w !== this.craftWidth) {
+      this.craftWidth = w;
+      this.clearCraftGrid();
+    }
+    const area = document.createElement('div');
+    area.className = 'craft-area';
+    const grid = document.createElement('div');
+    grid.className = 'craft-grid';
+    grid.style.gridTemplateColumns = `repeat(${w}, 42px)`;
+    for (let i = 0; i < w * w; i++) {
+      const c = document.createElement('button');
+      const cell = this.craftCells[i];
+      const ghost = cell ? null : this.craftGhost[i];
+      c.className = 'bag-cell craft-cell' + (ghost ? ' ghost' : '');
+      c.title = cell ? `${this.deps.nameOf(cell.item)} ×${cell.count}` : ghost ? `${this.deps.nameOf(ghost)} (가방에 없어요)` : '';
+      const shown = cell?.item ?? ghost;
+      if (shown) {
+        const icon = this.deps.icon(shown, 36);
+        if (icon) c.appendChild(icon);
+        if (cell && cell.count > 1) {
+          const n = document.createElement('span');
+          n.className = 'bag-count';
+          n.textContent = String(cell.count);
+          c.appendChild(n);
+        }
+      }
+      c.addEventListener('click', () => this.tapCraftCell(i));
+      grid.appendChild(c);
+    }
+    area.appendChild(grid);
+    const arrow = document.createElement('div');
+    arrow.className = 'craft-arrow';
+    arrow.textContent = '➜';
+    area.appendChild(arrow);
+    const match = this.craftMatch(recipes);
+    const result = document.createElement('button');
+    result.className = 'bag-cell craft-result' + (match ? ' ok' : '');
+    if (match) {
+      const outId = Object.keys(match.out)[0]!;
+      const icon = this.deps.icon(outId, 36);
+      if (icon) result.appendChild(icon);
+      const n = match.out[outId]!;
+      if (n > 1) {
+        const cnt = document.createElement('span');
+        cnt.className = 'bag-count';
+        cnt.textContent = String(n);
+        result.appendChild(cnt);
+      }
+      result.title = `${match.name} 만들기`;
+      result.addEventListener('click', () => {
+        this.deps.onCraft(match.id);
+        // 격자에서 칸마다 하나씩 쓴 것으로 (서버가 가방에서 빼면 clamp 로 한 번 더 맞춘다)
+        for (let i = 0; i < this.craftCells.length; i++) {
+          const c = this.craftCells[i];
+          if (c) this.craftCells[i] = c.count > 1 ? { item: c.item, count: c.count - 1 } : null;
+        }
+        this.renderGrid();
+        this.renderSide();
+      });
+    } else {
+      result.disabled = true;
+      result.title = '격자에 재료를 모양대로 놓으면 여기에 결과가 나와요';
+    }
+    area.appendChild(result);
+    const name = document.createElement('div');
+    name.className = 'craft-result-name';
+    name.textContent = match ? `${match.name} — 탭해서 만들기` : this.craftCells.some(Boolean) ? '이 모양으로는 아무것도 안 돼요' : w === 3 ? '제작대 3×3' : '가방 2×2 (제작대 옆에서는 3×3)';
+    area.appendChild(name);
+    if (this.craftCells.some(Boolean) || this.craftGhost.some(Boolean)) {
+      area.appendChild(
+        this.button('비우기', 'plain-btn craft-clear', () => {
+          this.clearCraftGrid();
+          this.renderGrid();
+          this.renderSide();
+        }),
+      );
+    }
+    this.side.appendChild(area);
+    const hint = document.createElement('div');
+    hint.className = 'bag-tip';
+    hint.textContent = this.selected >= 0 && this.inv[this.selected] ? `${this.deps.nameOf(this.inv[this.selected]!.item)} 을(를) 골랐어요 — 격자 칸을 탭하면 하나씩 놓여요` : '가방 칸을 탭해 고르고 격자에 놓거나, 아래 조합법을 탭하면 모양대로 채워져요';
+    this.side.appendChild(hint);
   }
 
   private renderBrewSide(): void {

@@ -1125,6 +1125,53 @@ body {
   margin: 0;
   width: 100%;
 }
+/* 제작 격자 (#132): 격자 → 화살표 → 결과, 마인크래프트 제작대 화면처럼 */
+.craft-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+}
+.craft-grid {
+  display: grid;
+  gap: 3px;
+}
+.craft-cell.ghost canvas {
+  opacity: 0.35;
+}
+.craft-arrow {
+  font-size: 26px;
+  opacity: 0.8;
+}
+.craft-result {
+  width: 52px;
+  height: 52px;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.craft-result.ok {
+  border-color: #7ddc7d;
+  background: rgba(58, 157, 58, 0.35);
+  box-shadow: 0 0 8px rgba(125, 220, 125, 0.6);
+}
+.craft-result:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.craft-result-name {
+  flex: 1 1 120px;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.craft-clear {
+  width: auto !important;
+}
+.craft-row {
+  cursor: pointer;
+}
 .craft-list {
   display: flex;
   flex-direction: column;
