@@ -33,6 +33,7 @@ import {
   type RecipeRegistry,
   type StarterKit,
   BUCKET,
+  CHUNK_SIZE,
   WATER_BUCKET,
   LAVA_BUCKET,
   cloneInventory,
@@ -1087,7 +1088,19 @@ export class VillageRoom {
       for (const id of res.unknownIds) unknown.add(id);
       this.modified.set(chunkKey(r.cx, r.cy, r.cz), { cx: r.cx, cy: r.cy, cz: r.cz });
     }
-    if (rows.length) this.log(`마을 ${this.info.code}: 저장 청크 ${rows.length}개 불러옴${unknown.size ? ` (모르는 블록 ${[...unknown].join(', ')} → 공기)` : ''}`);
+    // 저장된 고인 액체는 깨워 둔다 — 자연 물 위에 얹힌 것이 재시작 뒤에도 그대로 남지 않게 (#136)
+    let woke = 0;
+    for (const c of this.modified.values())
+      for (let y = c.cy * CHUNK_SIZE; y < (c.cy + 1) * CHUNK_SIZE; y++)
+        for (let z = c.cz * CHUNK_SIZE; z < (c.cz + 1) * CHUNK_SIZE; z++)
+          for (let x = c.cx * CHUNK_SIZE; x < (c.cx + 1) * CHUNK_SIZE; x++) {
+            const d = this.registry.get(this.world.getBlock(x, y, z));
+            if (d.fluid && d.fluidVolume > 0) {
+              this.fluids.touch(x, y, z);
+              woke++;
+            }
+          }
+    if (rows.length) this.log(`마을 ${this.info.code}: 저장 청크 ${rows.length}개 불러옴${unknown.size ? ` (모르는 블록 ${[...unknown].join(', ')} → 공기)` : ''}${woke ? `, 고인 액체 ${woke}칸 깨움` : ''}`);
   }
 
   get playerCount(): number {

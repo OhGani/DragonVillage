@@ -305,3 +305,28 @@ describe('레지스트리 액체 변형', () => {
     );
   });
 });
+
+describe('자연 물 위에 부은 물 (#136, 아빠 2026-10-07)', () => {
+  const FULL = registry.fluidFinite(WATER, 8);
+  const volume = (w: VoxelWorld): number => {
+    let n = 0;
+    for (let x = 0; x < 32; x++) for (let y = 0; y < 16; y++) for (let z = 0; z < 32; z++) n += registry.get(w.getBlock(x, y, z)).fluidVolume;
+    return n;
+  };
+  it('호수 표면 위에 놓인 고인 물은 삼켜져 표면이 평평하다, 옆 땅에 부은 물은 그대로 퍼진다', () => {
+    const w = flatWorld();
+    for (let x = 12; x <= 20; x++) for (let z = 12; z <= 20; z++) w.setBlock(x, 1, z, WATER); // 9×9 호수
+    w.setBlock(16, 2, 16, FULL); // 호수 한가운데 표면 위에 양동이를 부음
+    const sim = new FluidSim(w, registry);
+    sim.touch(16, 2, 16);
+    run(sim, 20);
+    for (let x = 12; x <= 20; x++) for (let z = 12; z <= 20; z++) expect(w.getBlock(x, 2, z)).toBe(0); // 표면 위는 전부 공기
+    expect(registry.get(w.getBlock(16, 1, 16)).fluidVolume).toBe(0); // 호수는 자연 물 그대로
+    expect(volume(w)).toBe(0);
+    // 호숫가 땅(y=1, x=24)에 부은 물은 평소처럼 옆으로 퍼진다
+    w.setBlock(24, 1, 16, FULL);
+    sim.touch(24, 1, 16);
+    run(sim, 20);
+    expect(volume(w)).toBe(8);
+  });
+});

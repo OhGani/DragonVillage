@@ -271,6 +271,13 @@ export class FluidSim {
     const source = def.fluidSource;
     let v = def.fluidVolume;
 
+    // 0) 자연 액체 위에 얹힌 고인 액체는 삼켜진다 — 강·호수는 무한이라 위로 안 올라온다
+    //    (아빠 폰 스크린샷 2026-10-07: 물 위에 양동이를 부으니 표면에 층이 생겼다, #136)
+    if (y > 0 && this.natural(world.getBlock(x, y - 1, z), kind)) {
+      this.setFinite(x, y, z, source, 0);
+      return;
+    }
+
     // 1) 아래로 먼저 — 아래 칸이 찰 만큼만
     if (y > 0) {
       const belowId = world.getBlock(x, y - 1, z);
