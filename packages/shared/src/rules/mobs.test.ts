@@ -9,11 +9,11 @@ function mob(kind: MobKind, x: number, z: number): MobState {
 }
 
 describe('원정 밤의 몹 (M7-2)', () => {
-  it('mobs.json 에서 이름·드롭·경험치·hp·피해·속도를 읽고 나머지는 기본값 (좀비는 아들 13차 #123 로 24·4)', () => {
+  it('mobs.json 에서 이름·드롭·경험치·hp·피해·속도를 읽고 나머지는 기본값 (좀비는 #123·#131 로 24·3)', () => {
     const z = MOBS.get('zombie');
     expect(z.name).toBe('좀비');
     expect(z.hp).toBe(24);
-    expect(z.damage).toBe(4);
+    expect(z.damage).toBe(3);
     expect(z.xp).toBe(5);
     expect(z.drops.map((d) => d.item)).toContain('rotten_flesh');
     const c = MOBS.get('creeper');
@@ -171,8 +171,9 @@ describe('거미와 원정지별 몹 (M7-3)', () => {
     expect(MOBS.get('skeleton').reach).toBe(6);
     expect(MOBS.get('zombie').passive).toBe(false);
     // 아들 13차 "좀비·스켈레톤 더 무섭게"(2026-10-06): mobs.json 의 hp·damage·speed 가 코드 기본값을 덮는다
-    expect(MOBS.get('zombie')).toMatchObject({ hp: 24, damage: 4, speed: 2.7 });
-    expect(MOBS.get('skeleton')).toMatchObject({ hp: 20, damage: 4, speed: 2.5 });
+    expect(MOBS.get('zombie')).toMatchObject({ hp: 24, damage: 3, speed: 2.7 }); // 피해는 아빠 2026-10-07 로 다시 3 (#131)
+    expect(MOBS.get('skeleton')).toMatchObject({ hp: 20, damage: 3, speed: 2.5 });
+    expect(MOBS.get('vindicator').damage).toBe(4);
     expect(MOBS.get('creeper').damage).toBe(7);
     expect(spawnKinds(['spider', 'cow', 'skeleton'])).toEqual(['spider', 'skeleton']);
     expect(mobSize('chicken').h).toBeLessThan(1);

@@ -1046,16 +1046,16 @@ describe('체력·낙하·죽음·구슬 (M7-1)', () => {
     move(room, ra.idx, 64.5, y0 - 1, 64.5, FLAG_WATER);
     move(room, ra.idx, 64.5, y0 - 1, 64.5, FLAG_GROUND | FLAG_WATER);
     expect(room.hpOf(ra.idx)).toBe(11);
-    // 회복: 5초 뒤부터 3초마다 1
+    // 회복: 4초 뒤부터 1.5초마다 1 (#131, 전엔 5초·3초)
     const p = room.players.get(ra.idx)!;
     const t0 = p.lastHurtAt;
-    room.tick(t0 + 4000);
+    room.tick(t0 + 3000);
     expect(room.hpOf(ra.idx)).toBe(11);
+    room.tick(t0 + 4000);
+    expect(room.hpOf(ra.idx)).toBe(12);
     room.tick(t0 + 5000);
     expect(room.hpOf(ra.idx)).toBe(12);
-    room.tick(t0 + 6000);
-    expect(room.hpOf(ra.idx)).toBe(12);
-    room.tick(t0 + 8000);
+    room.tick(t0 + 5500);
     expect(room.hpOf(ra.idx)).toBe(13);
     expect(a.json.filter((m) => m.t === 'health').at(-1)).toMatchObject({ hp: 13, cause: 'regen' });
   });
@@ -1254,7 +1254,7 @@ describe('탑승 유지 (#103)', () => {
 });
 
 describe('검·대장간 제작 (2026-09-24)', () => {
-  it('대장간 레시피는 대장간을 짓고 그 옆에서만. 철 검은 몹을 6 만큼 때린다', () => {
+  it('대장간 레시피는 대장간을 짓고 그 옆에서만. 철 검은 몹을 7 만큼 때린다 (#131)', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 777, starterKit: null, gifts: [] });
     const a = inbox();
@@ -1284,7 +1284,7 @@ describe('검·대장간 제작 (2026-09-24)', () => {
     m.z = q.pos.z;
     const slot = q.inv.findIndex((s) => s?.item === 'iron_sword');
     expect(room.hitMob(ra.idx, m.id, slot, 2000 + 362_000)).toBeNull();
-    expect(m.hp).toBe(14);
+    expect(m.hp).toBe(13);
   });
 });
 
@@ -1453,7 +1453,7 @@ describe('원정 밤의 몹 (M7-2)', () => {
     }
   });
 
-  it('좀비는 다가와 물고(4, 아들 13차 #123), 때리면 맞고 죽으면 드롭·경험치가 온다. 빔은 길 위 몹을 맞춘다', () => {
+  it('좀비는 다가와 물고(3), 때리면 맞고 죽으면 드롭·경험치가 온다. 빔은 길 위 몹을 맞춘다', () => {
     const { room, a, ra, e, p } = goOut();
     room.tick(NIGHT); // 첫 스폰
     const sys = room.mobSys!;
@@ -1467,13 +1467,13 @@ describe('원정 밤의 몹 (M7-2)', () => {
     m.y = p.pos.y;
     a.clear();
     room.tick(NIGHT + 200);
-    expect(room.hpOf(ra.idx)).toBe(16);
-    expect(a.json.find((mm) => mm.t === 'health')).toMatchObject({ hp: 16, cause: 'zombie' });
+    expect(room.hpOf(ra.idx)).toBe(17);
+    expect(a.json.find((mm) => mm.t === 'health')).toMatchObject({ hp: 17, cause: 'zombie' });
     // 1.2초 안엔 다시 안 문다, 지나면 문다
     room.tick(NIGHT + 800);
-    expect(room.hpOf(ra.idx)).toBe(16);
+    expect(room.hpOf(ra.idx)).toBe(17);
     room.tick(NIGHT + 1500);
-    expect(room.hpOf(ra.idx)).toBe(12);
+    expect(room.hpOf(ra.idx)).toBe(14);
     // 때리기: 맨손 1, 0.45초 쿨. 멀면 TOO_FAR
     expect(room.hitMob(ra.idx, 999, undefined, NIGHT + 2000)).toBe('NO_MOB');
     expect(room.hitMob(ra.idx, m.id, undefined, NIGHT + 2000)).toBeNull();
@@ -1514,7 +1514,7 @@ describe('원정 밤의 몹 (M7-2)', () => {
     expect(sys.beam(eye, { x: 0, y: 0, z: -1 }, 24, 2, ra.idx, t)).toBe(1); // 길 위 하나만
     expect(z2.hp).toBe(12);
     expect(side.hp).toBe(20);
-    expect(room.hpOf(ra.idx)).toBe(12); // 사람은 안 맞는다
+    expect(room.hpOf(ra.idx)).toBe(14); // 사람은 안 맞는다
     expect(e.ended).toBe(false);
   });
 

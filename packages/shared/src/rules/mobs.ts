@@ -8,7 +8,7 @@
  * - 거미(M7-3): 빠르고(3.4칸/초) 낮다. 물면 2 + 독 3초(초당 1). 벽 타기는 없다. 어느 원정지에 어떤 몹이 나오는지는 `expeditions.json nightMobs`.
  * - 거미 왕(M7-4, `bosses.json spider_king`): 동굴 거미 굴에서 잠자다 사람이 24칸 안에 오면 깨어난다. hp 200, 물면 4 + 독 4초, 8초마다 거미 둘 소환(최대 6).
  *   밀려나지 않는다. 죽으면 드롭은 **마을 창고**로, 경험치 80 은 원정에 있는 모두에게 (협동). 왕관은 아들 확인 뒤.
- * - 우민(M7-5, 마을 방어전): 변명자(도끼 5)·약탈자(석궁, 6칸)·소환사(보스 hp 150, 변명자 소환). 드롭은 bosses.json evoker.minionDrops/drops.
+ * - 우민(M7-5, 마을 방어전): 변명자(도끼 4, #131)·약탈자(석궁, 6칸)·소환사(보스 hp 150, 변명자 소환). 드롭은 bosses.json evoker.minionDrops/drops.
  * - 수치는 아빠 임시값 — `mobs.json` 에 hp/damage/speed 가 있으면 그걸 읽는다 (좀비·스켈레톤은 아들 13차 "더 무섭게", 2026-10-06).
  */
 import { z } from 'zod';
@@ -84,7 +84,7 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   spider: { id: 'spider', hp: 16, damage: 2, speed: 3.4, reach: 1.9, attackEveryMs: 1000, fuseMs: 0, explodeRadius: 0, poisonMs: 3000 },
   spider_king: { id: 'spider_king', hp: 200, damage: 4, speed: 2.4, reach: 2.8, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 4000 },
   // 우민 (M7-5): 변명자는 도끼(세다), 약탈자는 석궁(6칸에서 쏜다, 화살 연출은 클라), 소환사는 보스 — 변명자를 부른다
-  vindicator: { id: 'vindicator', hp: 24, damage: 5, speed: 2.6, reach: 1.8, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  vindicator: { id: 'vindicator', hp: 24, damage: 4, speed: 2.6, reach: 1.8, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   pillager: { id: 'pillager', hp: 24, damage: 3, speed: 2.4, reach: 6, attackEveryMs: 2000, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   evoker: { id: 'evoker', hp: 150, damage: 3, speed: 2.2, reach: 2.0, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   // 스켈레톤 (M8-1): 활 — 6칸에서 쏜다(약탈자처럼). 뼈를 떨군다 → 강아지 길들이기
@@ -407,7 +407,7 @@ export function hitDamage(toolTier: number | null): number {
   return Math.floor(1 + (toolTier ?? 0) * 1.5);
 }
 
-/** 손에 든 도구의 공격력: 검은 tools.json damage(나무 4 · 돌 5 · 철 6 · 금 4 · 다이아 7 · 네더라이트 8), 곡괭이·도끼는 등급으로, 맨손 1 */
+/** 손에 든 도구의 공격력: 검은 tools.json damage(나무 5 · 돌 6 · 철 7 · 금 5 · 다이아 8 · 네더라이트 9, #131), 곡괭이·도끼는 등급으로, 맨손 1 */
 export function attackDamageOf(tool: { kind: string; tier: number; damage: number | null } | null): number {
   if (tool?.kind === 'sword' && tool.damage !== null) return Math.floor(tool.damage);
   return hitDamage(tool ? tool.tier : null);

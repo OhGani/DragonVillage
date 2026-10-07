@@ -101,10 +101,10 @@ describe('도끼 (아빠 2026-09-21, #80)', () => {
 
   it('검 6종 (2026-09-24): 공격력 나무 4 · 돌 5 · 철 6 · 금 4 · 다이아 7 · 네더라이트 8, 블록은 맨손 속도, 레시피는 재료 2 + 막대기 1', () => {
     expect(TOOLS.swords.size).toBe(6);
-    expect([...TOOLS.swords.values()].map((s) => s.damage)).toEqual([4, 5, 6, 4, 7, 8]);
+    expect([...TOOLS.swords.values()].map((s) => s.damage)).toEqual([5, 6, 7, 5, 8, 9]); // 아빠 2026-10-07 +1 (#131)
     expect(swordOf(TOOLS, 'iron_sword')?.kind).toBe('sword');
-    expect(toolOf(TOOLS, 'diamond_sword')?.damage).toBe(7);
-    expect(attackDamageOf(toolOf(TOOLS, 'iron_sword'))).toBe(6);
+    expect(toolOf(TOOLS, 'diamond_sword')?.damage).toBe(8);
+    expect(attackDamageOf(toolOf(TOOLS, 'iron_sword'))).toBe(7);
     expect(attackDamageOf(toolOf(TOOLS, 'iron_pickaxe'))).toBe(4); // 곡괭이는 등급(2)으로 1 + 3
     expect(attackDamageOf(null)).toBe(1);
     const stone = BLOCKS.get(BLOCKS.numOf('stone'));

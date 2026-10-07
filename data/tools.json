@@ -52,12 +52,12 @@
     }
   ],
   "swords": [
-    { "id": "wooden_sword", "name": "나무 검", "tier": 0, "speed": 1, "damage": 4, "durability": 59, "_note": "판자 2 + 막대기 1. 공격력 4 (마인크래프트 값, 아빠 2026-09-24)" },
-    { "id": "stone_sword", "name": "돌 검", "tier": 1, "speed": 1, "damage": 5, "durability": 131, "_note": "조약돌 2 + 막대기 1" },
-    { "id": "iron_sword", "name": "철 검", "tier": 2, "speed": 1, "damage": 6, "durability": 250, "_note": "철 주괴 2 + 막대기 1 (대장간)" },
-    { "id": "golden_sword", "name": "황금 검", "tier": 2, "speed": 1, "damage": 4, "durability": 32, "_note": "금 주괴 2 + 막대기 1 (대장간). 나무 검과 같은 힘, 금방 닳는다" },
-    { "id": "diamond_sword", "name": "다이아몬드 검", "tier": 3, "speed": 1, "damage": 7, "durability": 1561, "_note": "다이아몬드 2 + 막대기 1 (대장간)" },
-    { "id": "netherite_sword", "name": "네더라이트 검", "tier": 4, "speed": 1, "damage": 8, "durability": 2031, "_note": "다이아몬드 검 1 + 네더라이트 주괴 1 (대장간)" }
+    { "id": "wooden_sword", "name": "나무 검", "tier": 0, "speed": 1, "damage": 5, "durability": 59, "_note": "판자 2 + 막대기 1. 공격력은 마인크래프트보다 1 세다 (아빠 2026-10-07 #131: 나무 5·돌 6·철 7·금 5·다이아 8·네더 9 — 전엔 4·5·6·4·7·8)" },
+    { "id": "stone_sword", "name": "돌 검", "tier": 1, "speed": 1, "damage": 6, "durability": 131, "_note": "조약돌 2 + 막대기 1" },
+    { "id": "iron_sword", "name": "철 검", "tier": 2, "speed": 1, "damage": 7, "durability": 250, "_note": "철 주괴 2 + 막대기 1 (대장간)" },
+    { "id": "golden_sword", "name": "황금 검", "tier": 2, "speed": 1, "damage": 5, "durability": 32, "_note": "금 주괴 2 + 막대기 1 (대장간). 나무 검과 같은 힘, 금방 닳는다" },
+    { "id": "diamond_sword", "name": "다이아몬드 검", "tier": 3, "speed": 1, "damage": 8, "durability": 1561, "_note": "다이아몬드 2 + 막대기 1 (대장간)" },
+    { "id": "netherite_sword", "name": "네더라이트 검", "tier": 4, "speed": 1, "damage": 9, "durability": 2031, "_note": "다이아몬드 검 1 + 네더라이트 주괴 1 (대장간)" }
   ],
   "pickaxes": [
     {
