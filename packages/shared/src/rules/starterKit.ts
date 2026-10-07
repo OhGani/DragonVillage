@@ -4,7 +4,7 @@
  */
 import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
-import { INV_SLOTS, STACK } from './inventory';
+import { INV_SLOTS, stackOf } from './inventory';
 
 const KitFile = z
   .object({
@@ -22,7 +22,7 @@ export function parseStarterKit(raw: unknown, fileName = 'data/starter-kit.json'
   }
   const items = result.data.items;
   let slots = 0;
-  for (const n of Object.values(items)) slots += Math.ceil(n / STACK);
+  for (const [item, n] of Object.entries(items)) slots += Math.ceil(n / stackOf(item));
   if (slots > INV_SLOTS) throw new DataError(fileName, [`시작 키트가 가방(${INV_SLOTS}칸)보다 커요 (${slots}칸 필요)`]);
   return items;
 }

@@ -48,7 +48,9 @@ function makeRoom(storage: Storage | null = null) {
 }
 /** M4: 블록이 유한하므로 시험 전에 손에 쥐어 준다 */
 function kit(room: VillageRoom, idx: number) {
-  for (const item of ['stone', 'glowstone', 'planks', 'water_bucket', 'bucket']) room.giveItems(idx, item, 64);
+  for (const item of ['stone', 'glowstone', 'planks']) room.giveItems(idx, item, 64);
+  room.giveItems(idx, 'water_bucket', 4); // 찬 양동이는 한 칸에 하나 (#135) — 64개면 가방이 넘친다
+  room.giveItems(idx, 'bucket', 16);
 }
 
 describe('VillageRoom 입장·퇴장', () => {

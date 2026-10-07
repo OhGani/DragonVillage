@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { INV_SLOTS, STACK, countOf, emptyInventory, give, hasAll, isValidInventory, missing, move, take, takeFromSlot } from './inventory';
+import { INV_SLOTS, STACK, countOf, emptyInventory, give, hasAll, isValidInventory, missing, move, take, takeFromSlot, fits, normalizeStacks, stackOf } from './inventory';
 
 describe('가방', () => {
   it('넣기: 같은 아이템 칸부터 채우고, 빈 칸, 넘치면 남는다', () => {
@@ -70,5 +70,39 @@ describe('가방', () => {
     expect(isValidInventory(bad)).toBe(false);
     bad[0] = { item: 'dirt', count: 65 };
     expect(isValidInventory(bad)).toBe(false);
+  });
+});
+
+describe('양동이 겹침 (#135, 마인크래프트와 같게)', () => {
+  it('빈 양동이는 16개, 찬 양동이는 한 칸에 하나, 나머지는 64', () => {
+    expect(stackOf('bucket')).toBe(16);
+    expect(stackOf('water_bucket')).toBe(1);
+    expect(stackOf('lava_bucket')).toBe(1);
+    expect(stackOf('milk_bucket')).toBe(1);
+    expect(stackOf('dirt')).toBe(64);
+    const inv = emptyInventory();
+    expect(give(inv, 'bucket', 17)).toBe(0);
+    expect(inv[0]).toEqual({ item: 'bucket', count: 16 });
+    expect(inv[1]).toEqual({ item: 'bucket', count: 1 });
+    expect(give(inv, 'water_bucket', 3)).toBe(0);
+    expect(inv.slice(2, 5)).toEqual([{ item: 'water_bucket', count: 1 }, { item: 'water_bucket', count: 1 }, { item: 'water_bucket', count: 1 }]);
+    expect(move(inv, 3, 2, 1)).toBe(false); // 물 양동이끼리는 안 합쳐진다
+    // 가방이 거의 차면 물 양동이는 빈 칸이 있어야 들어간다
+    for (let i = 5; i < inv.length; i++) inv[i] = { item: 'dirt', count: 64 };
+    expect(fits(inv, [{ item: 'water_bucket', count: 1 }])).toBe(false);
+    expect(fits(inv, [{ item: 'bucket', count: 1 }])).toBe(true); // 16 → 17 은 둘째 칸(1개)에
+  });
+
+  it('옛 저장본: 한 칸에 물 양동이 3개면 빈 칸으로 나눈다, 빈 칸이 없으면 그대로', () => {
+    const inv = emptyInventory();
+    inv[0] = { item: 'water_bucket', count: 3 };
+    normalizeStacks(inv);
+    expect(inv[0]).toEqual({ item: 'water_bucket', count: 1 });
+    expect(inv[1]).toEqual({ item: 'water_bucket', count: 1 });
+    expect(inv[2]).toEqual({ item: 'water_bucket', count: 1 });
+    const full = emptyInventory().map(() => ({ item: 'dirt', count: 64 }));
+    full[0] = { item: 'lava_bucket', count: 2 };
+    normalizeStacks(full);
+    expect(full[0]).toEqual({ item: 'lava_bucket', count: 2 }); // 잃지 않는다
   });
 });

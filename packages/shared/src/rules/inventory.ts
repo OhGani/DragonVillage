@@ -9,6 +9,16 @@ export const BAG_SLOTS = 27;
 export const INV_SLOTS = HOTBAR_SLOTS + BAG_SLOTS; // 37
 export const STACK = 64;
 
+/**
+ * 아이템별 한 칸 최대 (#135, 마인크래프트와 같게): 빈 양동이 16, 찬 양동이(물·용암·우유) 1 — "1양동이 = 1물", 나머지 STACK.
+ * 물 3개를 들고 가려면 빈 양동이 3개 + 가방 3칸
+ */
+export function stackOf(item: string): number {
+  if (item === 'bucket') return 16;
+  if (item.endsWith('_bucket')) return 1;
+  return STACK;
+}
+
 export interface Slot {
   item: string;
   count: number;
@@ -36,10 +46,11 @@ export function countOf(inv: Inventory, item: string): number {
  */
 export function give(inv: Inventory, item: string, count: number, changed?: Set<number>): number {
   let left = count;
+  const max = stackOf(item);
   for (let i = 0; i < inv.length && left > 0; i++) {
     const s = inv[i];
-    if (s && s.item === item && s.count < STACK) {
-      const add = Math.min(STACK - s.count, left);
+    if (s && s.item === item && s.count < max) {
+      const add = Math.min(max - s.count, left);
       s.count += add;
       left -= add;
       changed?.add(i);
@@ -47,7 +58,7 @@ export function give(inv: Inventory, item: string, count: number, changed?: Set<
   }
   for (let i = 0; i < inv.length && left > 0; i++) {
     if (inv[i] === null) {
-      const add = Math.min(STACK, left);
+      const add = Math.min(max, left);
       inv[i] = { item, count: add };
       left -= add;
       changed?.add(i);
@@ -96,7 +107,7 @@ export function move(inv: Inventory, from: number, to: number, count: number, ch
     a.count -= count;
     if (a.count === 0) inv[from] = null;
   } else if (b.item === a.item) {
-    const add = Math.min(STACK - b.count, count);
+    const add = Math.min(stackOf(b.item) - b.count, count);
     if (add <= 0) return false;
     b.count += add;
     a.count -= add;
@@ -109,6 +120,23 @@ export function move(inv: Inventory, from: number, to: number, count: number, ch
   changed?.add(from);
   changed?.add(to);
   return true;
+}
+
+/**
+ * 한 칸 최대를 넘는 칸을 나눈다 (#135 전에 저장된 가방: 물 양동이 여러 개가 한 칸에). 빈 칸이 모자라면 그대로 둔다(잃지 않게)
+ */
+export function normalizeStacks(inv: Inventory): Inventory {
+  for (let i = 0; i < inv.length; i++) {
+    const s = inv[i];
+    if (!s) continue;
+    const max = stackOf(s.item);
+    if (s.count <= max) continue;
+    const extra = s.count - max;
+    s.count = max;
+    const left = give(inv, s.item, extra);
+    if (left > 0) s.count += left;
+  }
+  return inv;
 }
 
 /** 이 물건들을 지금 가방에 다 넣을 수 있나 (넣어 보지는 않는다) */

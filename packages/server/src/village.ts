@@ -33,6 +33,9 @@ import {
   type RecipeRegistry,
   type StarterKit,
   BUCKET,
+  WATER_BUCKET,
+  LAVA_BUCKET,
+  cloneInventory,
   countOf,
   craft,
   dropOf,
@@ -1659,6 +1662,12 @@ export class VillageRoom {
         if (cur.fluidLevel !== 0 && cur.fluidVolume === 0) return REJECT.INVALID;
         // 가득한 칸을 떠내려면 빈 양동이 (얕은 웅덩이 닦기는 그냥)
         if (cur.fluidLevel === 0 && countOf(p.inv, BUCKET) < 1) return REJECT.NO_ITEM;
+        // 빈 양동이 하나를 빼고 찬 양동이(한 칸에 하나, #135)가 들어갈 자리가 있어야 한다 — 양동이가 여러 개 겹쳐 있으면 칸이 안 비니까
+        if (cur.fluidLevel === 0) {
+          const trial = cloneInventory(p.inv);
+          take(trial, BUCKET, 1);
+          if (!fits(trial, [{ item: cur.fluid === 'water' ? WATER_BUCKET : LAVA_BUCKET, count: 1 }])) return REJECT.BAG_FULL;
+        }
         return null;
       }
       if (cur.hardness === null) return REJECT.UNBREAKABLE;

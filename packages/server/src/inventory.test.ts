@@ -73,6 +73,24 @@ describe('가방과 블록 (M4, #66)', () => {
     expect(rejected(a).at(-1)).toMatchObject({ seq: 5, reason: REJECT.NO_ITEM });
   });
 
+  it('양동이가 겹쳐 있고 가방이 꽉 차면 물을 못 뜬다 — 찬 양동이가 들어갈 칸이 없으니까 (#135)', () => {
+    const { room, a, ia, p } = setup();
+    room.giveItems(ia, 'water_bucket', 1);
+    room.onBlockChange(ia, { seq: 1, ...FRONT, id: 'water%8' }, 1000);
+    room.giveItems(ia, 'bucket', 1); // 빈 양동이 2개가 한 칸에
+    expect(p.inv.filter((s) => s?.item === 'bucket')).toEqual([{ item: 'bucket', count: 2 }]);
+    for (let i = 0; i < p.inv.length; i++) if (!p.inv[i]) p.inv[i] = { item: 'dirt', count: 64 };
+    room.onBlockChange(ia, { seq: 2, ...FRONT, id: 'air' }, 1100);
+    expect(rejected(a).at(-1)).toMatchObject({ seq: 2, reason: REJECT.BAG_FULL });
+    expect(countOf(p.inv, 'bucket')).toBe(2);
+    expect(BLOCKS.get(room.world.getBlock(FRONT.x, FRONT.y, FRONT.z)).id).toBe('water%8');
+    // 칸을 하나 비우면 된다
+    p.inv[p.inv.findIndex((s) => s?.item === 'dirt')] = null;
+    room.onBlockChange(ia, { seq: 3, ...FRONT, id: 'air' }, 1200);
+    expect(countOf(p.inv, 'water_bucket')).toBe(1);
+    expect(countOf(p.inv, 'bucket')).toBe(1);
+  });
+
   it('옮기기·버리기·저장 라운드트립', () => {
     const storage = new Storage(':memory:');
     storage.createVillage({ ...INFO, createdAt: 1 });

@@ -2,7 +2,7 @@
  * SQLite 저장 (better-sqlite3). 마을·바뀐 청크·플레이어. ARCHITECTURE.md '저장' 절의 M2 부분.
  * 청크 blob 은 shared/chunk/serialize 의 형식(문자열 팔레트 + RLE) 그대로.
  */
-import { type Inventory, type TodoStatus, isValidChest, isValidInventory } from '@dragon-village/shared';
+import { type Inventory, type TodoStatus, isValidChest, isValidInventory, normalizeStacks } from '@dragon-village/shared';
 import Database from 'better-sqlite3';
 import type { AnimalRow } from './animals';
 import { copyFileSync } from 'node:fs';
@@ -421,7 +421,7 @@ export class Storage {
     if (!row) return null;
     try {
       const v: unknown = JSON.parse(row.json);
-      return isValidInventory(v) ? v : null;
+      return isValidInventory(v) ? normalizeStacks(v) : null; // #135: 옛 저장본의 찬 양동이 여러 개 칸을 나눈다
     } catch {
       return null;
     }

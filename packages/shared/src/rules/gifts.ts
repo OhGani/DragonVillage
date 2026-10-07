@@ -5,7 +5,7 @@
  */
 import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
-import { STACK } from './inventory';
+import { stackOf } from './inventory';
 
 const GiftFile = z
   .object({
@@ -49,7 +49,7 @@ export function parseGifts(raw: unknown, fileName = 'data/gifts.json'): GiftDef[
     if (seen.has(g.id)) problems.push(`선물 '${g.id}' 가 두 번 나와요`);
     seen.add(g.id);
     let slots = 0;
-    for (const n of Object.values(g.items)) slots += Math.ceil(n / STACK);
+    for (const [item, n] of Object.entries(g.items)) slots += Math.ceil(n / stackOf(item));
     if (slots > 9) problems.push(`선물 '${g.id}'(${g.name})가 너무 커요 — 가방 ${slots}칸이 필요해요 (9칸까지)`);
     if (Object.keys(g.items).length === 0) problems.push(`선물 '${g.id}'(${g.name})에 아이템이 없어요`);
     return { id: g.id, name: g.name, message: g.message ?? `선물이 왔어요: ${g.name}`, items: g.items };
