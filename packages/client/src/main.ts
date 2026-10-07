@@ -19,6 +19,20 @@ function showError(title: string, detail: string): void {
   root!.appendChild(box);
 }
 
+/** 세계를 만드는 몇 초 동안 보여 주는 팁 (M9-5, #156). 분마다 바뀐다 */
+const LOADING_TIPS: readonly string[] = [
+  '검·도끼·곡괭이를 들고 화면을 탭하면 휘둘러요 — 앞의 몹은 맞고, 블록은 톡톡 치면 캐져요',
+  '누가 원정 중이면 화면 위 🧭 따라가기를 눌러 바로 같이 갈 수 있어요',
+  '친구가 놓은 블록은 그 친구만 부술 수 있어요. 내 집은 안전!',
+  '길들인 강아지가 앉아 있지 않으면 원정에 따라와서 몹을 물어요',
+  '빈 양동이를 들고 물을 꾹 누르면 떠요. 양동이 하나엔 물 하나',
+  '📜 조합법 탭에 만들 수 있는 것 전부가 모양과 함께 있어요',
+  '밤이 오면 좀비·크리퍼가 나와요. 포탈 근처에 횃불을 두면 덜 무서워요',
+  '쓰러진 드래곤은 둥지 창에서 먹이를 주면 2분씩 빨리 나아요',
+  '와이파이가 끊겨도 서버가 보이면 저절로 다시 들어와요',
+  '아이폰은 사파리 공유(⬆️) → "홈 화면에 추가"로 열면 전체화면이 돼요',
+];
+
 async function boot(): Promise<void> {
   const lobby = showLobby(root!);
 
@@ -77,7 +91,7 @@ async function boot(): Promise<void> {
         const pin = await askPin(root!, 'PIN 정하기', `"${choice.nick}" 은 이제 네 이름이에요.\n다른 폰에서도 쓰려면 숫자 4자리 PIN 을 정해요. 잊지 마세요!`, '정하기', null);
         if (pin) await net.setPin(pin);
       }
-      lobby.setStatus(`세계를 만드는 중… (마을 코드 ${welcome.village.code})`);
+      lobby.setStatus(`세계를 만드는 중… (마을 코드 ${welcome.village.code})\n💡 ${LOADING_TIPS[(Date.now() / 60_000) % LOADING_TIPS.length | 0]}`);
       try {
         localStorage.setItem('dv.code', welcome.village.code);
       } catch {

@@ -10,7 +10,7 @@
  * 실행: pnpm --filter @dragon-village/server start  (tsx 가 TS 를 바로 돈다)
  */
 import { BLOCKS, FAMILY_RULES } from '@dragon-village/shared/data';
-import { existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +31,9 @@ const DATA_DIR = resolve(process.env.DV_DATA_DIR ?? join(here, '..', 'data'));
 const CLIENT_DIST = resolve(process.env.DV_CLIENT_DIST ?? join(here, '..', '..', 'client', 'dist'));
 const DB_PATH = join(DATA_DIR, 'dragoncraft.sqlite');
 const BACKUP_KEEP = 7;
+/** 주 1회 복사본 (M9-5, #156): 매일 백업과 다른 폴더에 8개(약 두 달) 보관. DV_WEEKLY_BACKUP_DIR 로 다른 드라이브를 줄 수 있다 */
+const WEEKLY_DIR = resolve(process.env.DV_WEEKLY_BACKUP_DIR ?? join(process.env.DV_DATA_DIR ?? join(here, '..', 'data'), 'backup-weekly'));
+const WEEKLY_KEEP = 8;
 
 mkdirSync(DATA_DIR, { recursive: true });
 const ops = new Ops(DATA_DIR); // 운영 (M9-4, #153): 접속 로그 파일 + 죽음 감지
@@ -107,8 +110,27 @@ function backup(): void {
         .filter((f) => /^backup-\d{4}-\d{2}-\d{2}\.sqlite$/.test(f))
         .sort();
       for (const f of old.slice(0, Math.max(0, old.length - BACKUP_KEEP))) unlinkSync(join(DATA_DIR, f));
+      weeklyCopy(dest, stamp);
     })
     .catch((e: unknown) => log(`백업 실패: ${(e as Error).message}`));
+}
+/** 마지막 주간 복사본이 6.5일보다 오래됐으면 오늘 백업을 주간 폴더에 복사 (#156) */
+function weeklyCopy(dailyFile: string, stamp: string): void {
+  try {
+    mkdirSync(WEEKLY_DIR, { recursive: true });
+    const files = readdirSync(WEEKLY_DIR)
+      .filter((f) => /^weekly-\d{4}-\d{2}-\d{2}\.sqlite$/.test(f))
+      .sort();
+    const last = files.at(-1);
+    const lastAt = last ? new Date(last.slice(7, 17)).getTime() : 0;
+    if (Date.now() - lastAt < 6.5 * 24 * 60 * 60 * 1000) return;
+    const dest = join(WEEKLY_DIR, `weekly-${stamp}.sqlite`);
+    copyFileSync(dailyFile, dest);
+    log(`주간 백업 복사 ${dest}`);
+    for (const f of [...files, `weekly-${stamp}.sqlite`].sort().slice(0, Math.max(0, files.length + 1 - WEEKLY_KEEP))) unlinkSync(join(WEEKLY_DIR, f));
+  } catch (e) {
+    log(`주간 백업 실패: ${(e as Error).message}`);
+  }
 }
 const backupTimer = setInterval(backup, 24 * 60 * 60 * 1000);
 

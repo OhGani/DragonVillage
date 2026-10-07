@@ -190,6 +190,7 @@ export function showLobby(root: HTMLElement): LobbyHandle {
     },
     setStatus(msg) {
       statusEl.textContent = msg;
+      statusEl.style.whiteSpace = 'pre-line'; // 팁 줄바꿈 (#156)
       statusEl.hidden = !msg;
     },
     setError(msg) {

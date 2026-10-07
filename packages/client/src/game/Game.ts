@@ -993,7 +993,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     (navigator as Navigator & { standalone?: boolean }).standalone === true;
   // 아이폰 사파리는 전체화면 API 가 없다 → 홈 화면 추가 안내
   const fullscreenAvailable = !!document.fullscreenEnabled && typeof document.documentElement.requestFullscreen === 'function';
-  const IOS_HINT = '이 브라우저는 전체화면이 안 돼요.\n공유 버튼 → "홈 화면에 추가" 로 열면 전체화면이 돼요.';
+  const IOS_HINT = '아이폰 사파리는 전체화면이 안 돼요.\n아래 가운데 공유(⬆️) 버튼 → "홈 화면에 추가" → 홈 화면의 드래곤 크래프트 아이콘으로 열면 전체화면이 돼요.';
 
   const updateFullscreenButton = () => {
     if (standalone) hud.setFullscreen('hidden');
