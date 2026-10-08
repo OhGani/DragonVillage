@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DataError } from './blocks';
 import { EXPEDITIONS } from './data';
-import { EVENING_SEC, NIGHT_SKY, parseExpeditions, phaseAt, remainingSec, skyLightAt, treasureLoot } from './expeditions';
+import { EVENING_SEC, NIGHT_SKY, parseExpeditions, phaseAt, remainingSec, skyLightAt, treasureLoot, treasureLootFor } from './expeditions';
 
 const small = {
   returnGraceSec: 60,
@@ -105,5 +105,25 @@ describe('보물 상자 랜덤 보상 (#117)', () => {
     expect([JSON.stringify(c), JSON.stringify(d)].every((x) => x === JSON.stringify(a))).toBe(false);
     for (let i = 0; i < 50; i++) expect(treasureLoot(rules, 99, i).some((l) => l.item === 'leather')).toBe(false);
     expect(rules.pool).toHaveLength(30); // 아들 13차 "30가지로 늘려줘" (#129)
+  });
+
+  it('원정지 보너스 (#159): 사막 상자는 4가지 + 금 1~2 꼭, 초원 섬은 공용 그대로', () => {
+    const rules = EXPEDITIONS.rules.treasureChestLoot;
+    const island = EXPEDITIONS.require('grass_island');
+    expect(island.treasureBonus).toBeNull();
+    expect(treasureLootFor(rules, island, 12345, 0)).toEqual(treasureLoot(rules, 12345, 0));
+    const desert = EXPEDITIONS.require('desert');
+    expect(desert.treasureBonus).toEqual({ extraPicks: 1, always: [{ item: 'gold_ingot', min: 1, max: 2 }] });
+    for (let i = 0; i < 20; i++) {
+      const loot = treasureLootFor(rules, desert, 777, i);
+      expect(loot.length).toBeGreaterThanOrEqual(4);
+      expect(loot.length).toBeLessThanOrEqual(5);
+      const gold = loot.find((l) => l.item === 'gold_ingot')!;
+      expect(gold).toBeDefined();
+      expect(gold.count).toBeGreaterThanOrEqual(1);
+      expect(gold.count).toBeLessThanOrEqual(3); // 랜덤 금 1 + 꼭 넣는 금 2 까지
+      expect(new Set(loot.map((l) => l.item)).size).toBe(loot.length);
+    }
+    expect(treasureLootFor(rules, desert, 777, 3)).toEqual(treasureLootFor(rules, desert, 777, 3));
   });
 });

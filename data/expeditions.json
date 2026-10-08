@@ -195,6 +195,17 @@
         "desert_pyramid"
       ],
       "_note": "TNT용 모래, 피라미드 상자 금, 밤 엔더맨",
+  "treasureBonus": {
+   "_comment": "사막 상자는 조금 더 (아빠 2026-10-08, #159): 공용 3가지에 1가지 더 뽑고, 금 1~2 는 꼭 들어간다",
+   "extraPicks": 1,
+   "always": [
+    {
+     "item": "gold_ingot",
+     "min": 1,
+     "max": 2
+    }
+   ]
+  },
       "sonDetails": {
         "details": [
           "작은 사막 마을",

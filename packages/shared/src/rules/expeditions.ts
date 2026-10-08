@@ -22,6 +22,14 @@ const RawExpedition = z
     danger: z.number().int().min(0, '0 이상이어야 해요').max(10, '0~10 사이여야 해요'),
     materials: z.array(z.string()),
     release: z.string().optional(),
+    /** 이 원정지만의 상자 보너스 (#159): extraPicks 번 더 뽑고, always 는 상자마다 꼭 들어간다 */
+    treasureBonus: z
+      .object({
+        extraPicks: z.number().int().min(0, '0 이상이어야 해요').optional(),
+        always: z.array(z.object({ item: z.string(), min: z.number().int().min(0), max: z.number().int().min(1) }).loose()).optional(),
+      })
+      .loose()
+      .optional(),
   })
   .loose(); // 아들 디테일(sonDetails 등)은 그대로 통과
 
@@ -66,6 +74,8 @@ export interface ExpeditionDef {
   readonly unlockedBy: string;
   /** 밤에 나오는 몹 (mobs.ts 가 아는 것만 쓴다 — 첫째가 셋에 둘, 나머지가 셋에 하나) */
   readonly nightMobs: readonly string[];
+  /** 상자 보너스 (#159, 사막) — 없으면 공용 규칙만 */
+  readonly treasureBonus: TreasureBonus | null;
   readonly danger: number;
   readonly materials: readonly string[];
   readonly release: string;
@@ -92,13 +102,17 @@ export interface TreasureLootRules {
   readonly picks: number;
   readonly pool: readonly TreasureLootEntry[];
 }
+export interface TreasureBonus {
+  readonly extraPicks: number;
+  readonly always: readonly { item: string; min: number; max: number }[];
+}
 
 /** 상자 index 의 보상 (결정론). 같은 종류는 한 번만, pool 이 모자라면 그만큼만 */
-export function treasureLoot(rules: TreasureLootRules, seed: number, index: number): { item: string; count: number }[] {
+export function treasureLoot(rules: TreasureLootRules, seed: number, index: number, picks = rules.picks): { item: string; count: number }[] {
   const out: { item: string; count: number }[] = [];
   const used = new Set<number>();
   const total = rules.pool.reduce((a, e) => a + e.weight, 0);
-  for (let k = 0; k < rules.picks && used.size < rules.pool.length; k++) {
+  for (let k = 0; k < picks && used.size < rules.pool.length; k++) {
     let pick = -1;
     for (let attempt = 0; attempt < 16 && pick < 0; attempt++) {
       let r = hash3(index, k * 16 + attempt, 51, seed) * total;
@@ -116,6 +130,21 @@ export function treasureLoot(rules: TreasureLootRules, seed: number, index: numb
     const count = e.min + Math.floor(hash3(index, k, 52, seed) * (Math.max(e.min, e.max) - e.min + 1));
     if (count > 0) out.push({ item: e.item, count });
   }
+  return out;
+}
+
+/** 원정지 보너스까지 더한 상자 보상 (#159): extraPicks 만큼 더 뽑고, always 는 꼭 넣는다(이미 뽑힌 것이면 개수를 더한다) */
+export function treasureLootFor(rules: TreasureLootRules, def: Pick<ExpeditionDef, 'treasureBonus'>, seed: number, index: number): { item: string; count: number }[] {
+  const bonus = def.treasureBonus;
+  if (!bonus) return treasureLoot(rules, seed, index);
+  const out = treasureLoot(rules, seed, index, rules.picks + bonus.extraPicks);
+  bonus.always.forEach((a, j) => {
+    const count = a.min + Math.floor(hash3(index, 100 + j, 53, seed) * (Math.max(a.min, a.max) - a.min + 1));
+    if (count <= 0) return;
+    const have = out.find((l) => l.item === a.item);
+    if (have) have.count += count;
+    else out.push({ item: a.item, count });
+  });
   return out;
 }
 
@@ -224,6 +253,7 @@ export function parseExpeditions(raw: unknown, fileName = 'data/expeditions.json
       danger: e.danger,
       materials: e.materials,
       release: e.release ?? 'v1',
+      treasureBonus: e.treasureBonus ? { extraPicks: e.treasureBonus.extraPicks ?? 0, always: (e.treasureBonus.always ?? []).map((a) => ({ item: a.item, min: a.min, max: a.max })) } : null,
     };
   });
   if (problems.length) throw new DataError(fileName, problems);

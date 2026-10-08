@@ -145,7 +145,7 @@ import {
   RAID_AGGRO_R,
   WEEK_MS,
   attackDamageOf,
-  treasureLoot,
+  treasureLootFor,
   dragonMaxHp,
   DRAGON_REST_MS,
   FEED_REST_MS,
@@ -466,7 +466,7 @@ export class VillageRoom {
         c = emptyChest(paired);
         // 보물 상자는 처음 열 때 안에 물건이 들어 있다 (#84 — 전에는 부숴야 나왔다)
         if (this.expedition?.isTreasure(home.x, home.y, home.z)) {
-          for (const l of treasureLoot(this.expeditions.rules.treasureChestLoot, this.expedition.seed, this.expedition.treasureIndex(home.x, home.y, home.z))) give(c, l.item, l.count);
+          for (const l of treasureLootFor(this.expeditions.rules.treasureChestLoot, this.expedition.def, this.expedition.seed, this.expedition.treasureIndex(home.x, home.y, home.z))) give(c, l.item, l.count);
           this.addXp(p, XP.ours.treasureChestOpen, XP_SOURCE.treasure, home.x + 0.5, home.y + 0.5, home.z + 0.5, now);
         }
         this.expeditionChests.set(this.chestKey(home), c);
@@ -694,7 +694,7 @@ export class VillageRoom {
     if (stored) {
       for (const s of resizeChest(stored, paired).chest) if (s) out.push({ ...s });
     } else if (p.world === 'expedition' && this.expedition?.isTreasure(home.x, home.y, home.z)) {
-      for (const l of treasureLoot(this.expeditions.rules.treasureChestLoot, this.expedition.seed, this.expedition.treasureIndex(home.x, home.y, home.z))) out.push({ item: l.item, count: l.count });
+      for (const l of treasureLootFor(this.expeditions.rules.treasureChestLoot, this.expedition.def, this.expedition.seed, this.expedition.treasureIndex(home.x, home.y, home.z))) out.push({ item: l.item, count: l.count });
     }
     const base = prev.chest ? this.registry.get(prev.chest.base) : prev;
     if (base.drops) out.push({ item: base.drops, count: 1 });
