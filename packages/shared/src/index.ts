@@ -33,6 +33,7 @@ export * from './light/lightEngine';
 export * from './worldgen/village';
 export * from './worldgen/island';
 export * from './worldgen/cave';
+export * from './worldgen/desert';
 export * from './worldgen/expedition';
 export * from './worldgen/fingerprint';
 export * from './protocol/bytes';

@@ -23,6 +23,9 @@ const HUMANOID: Partial<Record<string, SkinPalette>> = {
   pillager: { shirt: 0x5a4632, skin: 0x9aa3a9, hair: 0x2a2a2a, pants: 0x3a2f24, shoes: 0x1a1a1a },
   evoker: { shirt: 0x1c1c22, skin: 0x9aa3a9, hair: 0x111111, pants: 0x1c1c22, shoes: 0x111111 },
   skeleton: { shirt: 0xdcdcdc, skin: 0xd8d8d8, hair: 0xbdbdbd, pants: 0xcfcfcf, shoes: 0x9e9e9e },
+  // 사막 (v1.1-1): 허스크는 모래색 좀비, 엔더맨은 새까맣고 보랏빛 눈 — 몸을 1.5배 키운다
+  husk: { shirt: 0x7a6b45, skin: 0xa89a62, hair: 0x5e5233, pants: 0x6a5c3c, shoes: 0x3f3624 },
+  enderman: { shirt: 0x141414, skin: 0x161616, hair: 0x101010, pants: 0x141414, shoes: 0x0e0e0e, eyes: 0xd36cff },
 };
 
 const CREEPER_GREEN = 0x4caf50;
@@ -329,7 +332,7 @@ export class MobView {
       legR = at(partMesh(v.leg, material), [2, 12]);
       armL = at(partMesh(v.arm, material), [-6, 24]);
       armR = at(partMesh(v.arm, material), [6, 24]);
-      if (kindName === 'zombie') armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.15; // 좀비 팔은 앞으로
+      if (kindName === 'zombie' || kindName === 'husk') armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.15; // 좀비 팔은 앞으로
       else if (kindName === 'evoker') armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.6; // 소환사는 손을 든다
       body.add(torso, head, legL, legR, armL, armR);
     } else if (MOB_KIND_OF[m.kind] === 'spider' || MOB_KIND_OF[m.kind] === 'spider_king') {
@@ -376,6 +379,7 @@ export class MobView {
     const king = MOB_KIND_OF[m.kind] === 'spider_king';
     const baseScale = king ? 2.2 : 1;
     body.scale.setScalar(baseScale);
+    if (kindName === 'enderman') body.scale.set(0.8, 1.5, 0.8); // 키 3칸, 홀쭉하게
     const bar = canvasSprite(128, 28, king ? 2.2 : 1.1, king ? 0.4 : 0.24);
     bar.sprite.position.set(0, mobSize(m.kind).h + (king ? 0.7 : 0.35), 0);
     drawHpBar(bar.ctx, bar.tex, m.hp, maxHp);

@@ -617,6 +617,15 @@
       "texture": "dried_ghast",
       "release": "v1.2",
       "_note": "네더 바닥에 있다. 캐서 물에 불리면 해피 가스트가 된다 (아들 6차). 해피 가스트 탑승은 v1.2"
+    },
+    {
+      "id": "sandstone",
+      "name": "사암",
+      "hardness": 0.8,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "sandstone",
+      "_note": "사막 모래 아래 3겹, 피라미드·사막 마을 집 (v1.1-1, #157)"
     }
   ]
 }
