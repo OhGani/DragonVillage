@@ -1262,7 +1262,21 @@
       "out": {
         "gold_nugget": 9
       },
-      "_note": "금 주괴 1 → 금 조각 9. 반대로 조각 9 → 주괴 1 도 됨"
+      "_note": "금 주괴 1 → 금 조각 9. 반대는 아래 gold_ingot_from_nuggets"
+    },
+    {
+      "id": "gold_ingot_from_nuggets",
+      "name": "금 (조각 9개)",
+      "station": "crafting_table",
+      "pattern": ["nnn", "nnn", "nnn"],
+      "key": {"n": "gold_nugget"},
+      "in": {
+        "gold_nugget": 9
+      },
+      "out": {
+        "gold_ingot": 1
+      },
+      "_note": "금 조각 9 → 금 1 (마인크래프트와 같음). 아빠 2026-10-08. 조각은 보물 상자·좀비 피글린에서"
     },
     {
       "id": "magma_cream",
