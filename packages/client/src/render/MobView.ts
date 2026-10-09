@@ -26,6 +26,8 @@ const HUMANOID: Partial<Record<string, SkinPalette>> = {
   // 사막 (v1.1-1): 허스크는 모래색 좀비, 엔더맨은 새까맣고 보랏빛 눈 — 몸을 1.5배 키운다
   husk: { shirt: 0x7a6b45, skin: 0xa89a62, hair: 0x5e5233, pants: 0x6a5c3c, shoes: 0x3f3624 },
   enderman: { shirt: 0x141414, skin: 0x161616, hair: 0x101010, pants: 0x141414, shoes: 0x0e0e0e, eyes: 0xd36cff },
+  // 설원 (v1.1-2): 스트레이는 푸르스름한 스켈레톤에 눈 덮인 머리
+  stray: { shirt: 0xb9c6cf, skin: 0xc8d3da, hair: 0xeef4f8, pants: 0xaab8c2, shoes: 0x8a98a2 },
 };
 
 const CREEPER_GREEN = 0x4caf50;

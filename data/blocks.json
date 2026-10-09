@@ -626,6 +626,15 @@
       "lightEmit": 0,
       "texture": "sandstone",
       "_note": "사막 모래 아래 3겹, 피라미드·사막 마을 집 (v1.1-1, #157)"
+    },
+    {
+      "id": "snow_block",
+      "name": "눈 블록",
+      "hardness": 0.2,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "snow",
+      "_note": "설원 땅 위 2겹·이글루·눈 골렘 (v1.1-2, #160). 아이스 드래곤 재료. 눈덩이 4개로도 만든다"
     }
   ]
 }

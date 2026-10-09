@@ -112,6 +112,7 @@ describe('거미와 원정지별 몹 (M7-3)', () => {
     expect(spawnKinds(['spider', 'zombie', 'skeleton'])).toEqual(['spider', 'zombie', 'skeleton']); // 스켈레톤은 M8-1 부터 진짜 몹
     expect(spawnKinds(['zombie', 'creeper', 'enderman'])).toEqual(['zombie', 'creeper', 'enderman']); // 엔더맨·허스크는 v1.1-1 부터 진짜 몹
     expect(spawnKinds(['husk', 'creeper', 'enderman'])).toEqual(['husk', 'creeper', 'enderman']);
+    expect(spawnKinds(['stray', 'zombie'])).toEqual(['stray', 'zombie']); // 설원 (v1.1-2)
     expect(spawnKinds(['ghast'])).toEqual(['zombie', 'creeper']);
     expect(spawnKinds(undefined)).toEqual(['zombie', 'creeper']);
     const picks = Array.from({ length: 9 }, (_, i) => pickKind(['spider', 'zombie'], i + 1));
