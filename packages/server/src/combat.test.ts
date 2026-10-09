@@ -159,4 +159,30 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
     expect(arrows.length).toBe(hurt.filter((c) => c === 'skeleton').length); // 화살 하나 = 스켈레톤 공격 하나
     expect(arrows[0]!.from.z).toBeLessThan(arrows[0]!.to.z); // 몹에서 사람 쪽으로
   });
+
+  it('네더 (v1.1-3, #161): 좀비 피글린은 때리기 전엔 안 덤비고 맞으면 20초 화난다, 가스트는 떠서 14칸에서 쏜다', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const json: { t: string; [k: string]: unknown }[] = [];
+    const hurt: string[] = [];
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 64.5, eyeY: GROUND_Y + 1 + 1.6 };
+    const arena = { world: room.world, seed: 5, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0 };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: (_i, _a, cause) => hurt.push(cause), broadcast: () => {}, json: (o) => json.push(o as { t: string }), reward: () => {}, bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 24, goal: null, quiet: true });
+    const pig = sys.spawnKind('zombified_piglin', 64.5, GROUND_Y + 1, 65.8); // 붙어 있음
+    for (let t = T0; t < T0 + 5000; t += 100) sys.tick(t);
+    expect(hurt).toEqual([]); // 중립: 가만히
+    expect(sys.hit(me, pig.id, 1, T0 + 5000)).toBeNull();
+    for (let t = T0 + 5100; t < T0 + 10000; t += 100) sys.tick(t);
+    expect(hurt.filter((c) => c === 'zombified_piglin').length).toBeGreaterThanOrEqual(2); // 맞으니 문다
+    const n = hurt.length;
+    for (let t = T0 + 10000; t < T0 + 40000; t += 100) sys.tick(t); // 20초 지나면 다시 가만히
+    const after = hurt.length - n;
+    expect(after).toBeLessThan(25); // 30초 내내 물었으면 25번
+    // 가스트: 땅 12칸 앞에 넣으면 사람 위 6칸으로 떠올라 14칸 안에서 쏜다 (arrow 연출)
+    const ghast = sys.spawnKind('ghast', 64.5, GROUND_Y + 1, 52.5);
+    const before = json.filter((m) => m.t === 'arrow').length;
+    for (let t = T0 + 40000; t < T0 + 50000; t += 100) sys.tick(t);
+    expect(ghast.y).toBeGreaterThan(GROUND_Y + 4);
+    expect(hurt).toContain('ghast');
+    expect(json.filter((m) => m.t === 'arrow').length).toBeGreaterThan(before);
+  });
 });

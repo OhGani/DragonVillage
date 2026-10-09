@@ -266,6 +266,13 @@
       "treasures": 3,
       "unlockedBy": "portal_4",
       "danger": 4,
+      "nightMobs": [
+        "zombified_piglin",
+        "wither_skeleton",
+        "blaze",
+        "ghast"
+      ],
+      "_nightMobsNote": "항상 어두워서 처음부터 나온다. 첫째(좀비 피글린)가 셋에 둘, 나머지가 셋에 하나씩 나눠 가진다 (v1.1-3, #161)",
       "materials": [
         "lava_bucket",
         "blaze_rod",

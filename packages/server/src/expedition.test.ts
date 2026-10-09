@@ -67,7 +67,7 @@ describe('원정 시작·합류', () => {
     const { room: r2, ia: i2 } = setup();
     expect(r2.startExpedition(i2, 'moon', T0)).toBe('BAD_EXPEDITION');
     expect(r2.startExpedition(i2, 'cave', T0)).toBe('LOCKED'); // 포탈 2단계를 지어야 (M7-3)
-    expect(r2.startExpedition(i2, 'nether', T0)).toBe('NOT_YET'); // 네더 생성기는 아직 없다 (포탈 단계보다 먼저 본다). 사막·설원은 v1.1 부터 있다
+    expect(r2.startExpedition(i2, 'the_end', T0)).toBe('NOT_YET'); // 엔드 생성기는 아직 없다 (포탈 단계보다 먼저 본다). 사막·설원·네더는 v1.1 부터 있다
   });
 
   it('입장 welcome 에 진행 중인 원정이 실려 온다', () => {

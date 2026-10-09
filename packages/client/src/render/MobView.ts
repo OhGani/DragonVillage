@@ -28,6 +28,9 @@ const HUMANOID: Partial<Record<string, SkinPalette>> = {
   enderman: { shirt: 0x141414, skin: 0x161616, hair: 0x101010, pants: 0x141414, shoes: 0x0e0e0e, eyes: 0xd36cff },
   // 설원 (v1.1-2): 스트레이는 푸르스름한 스켈레톤에 눈 덮인 머리
   stray: { shirt: 0xb9c6cf, skin: 0xc8d3da, hair: 0xeef4f8, pants: 0xaab8c2, shoes: 0x8a98a2 },
+  // 네더 (v1.1-3): 좀비 피글린은 분홍 살에 썩은 초록, 위더 스켈레톤은 새까맣고 키가 크다(1.3배)
+  zombified_piglin: { shirt: 0x6b8a4a, skin: 0xf0a8a0, hair: 0xd98080, pants: 0x4a3b7a, shoes: 0x3a2a2a },
+  wither_skeleton: { shirt: 0x262626, skin: 0x2b2b2b, hair: 0x1c1c1c, pants: 0x222222, shoes: 0x171717, eyes: 0x8a8a8a },
 };
 
 const CREEPER_GREEN = 0x4caf50;
@@ -39,6 +42,46 @@ const GOLD = 0xffd54f;
 
 function css(hex: number): string {
   return '#' + hex.toString(16).padStart(6, '0');
+}
+
+/** 가스트 복셀 (v1.1-3): 하얀 상자 16×16×16(앞면에 감은 눈·입) + 아래로 늘어진 촉수 아홉. MobView 에서 4.4배로 키운다. 앞이 −z */
+function ghastVoxels(): Voxel[] {
+  const out: Voxel[] = [];
+  const add = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, color: (x: number, y: number, z: number) => number) => {
+    for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) out.push({ x, y, z, c: css(color(x, y, z)) });
+  };
+  const pale = (x: number, y: number, z: number) => {
+    const h = (x * 73856093) ^ (y * 19349663) ^ (z * 83492791);
+    const k = 0.9 + (((h >>> 0) % 100) / 100) * 0.1;
+    const v = Math.min(255, Math.round(0xe2 * k));
+    return (v << 16) | (v << 8) | Math.min(255, v + 6);
+  };
+  const FACE = ['                ', '                ', '                ', '                ', '    xx    xx    ', '     xx  xx     ', '                ', '                ', '                ', '     xxxxxx     ', '    xx    xx    ', '                ', '                ', '                ', '                ', '                '];
+  add(-8, 7, 9, 24, -8, 7, (x, y, z) => (z === -8 && FACE[24 - y]![x + 8] === 'x' ? 0x202020 : pale(x, y, z)));
+  for (let i = 0; i < 9; i++) {
+    const tx = -6 + (i % 3) * 5,
+      tz = -6 + Math.floor(i / 3) * 5;
+    const len = 5 + ((i * 7) % 4);
+    add(tx, tx + 1, 9 - len, 8, tz, tz + 1, pale);
+  }
+  return out;
+}
+
+/** 블레이즈 복셀 (v1.1-3): 어두운 노란 머리 8×8×8(얼굴은 밝은 눈) + 둘레를 도는 불 막대 8개(2×6×2) 두 층. 앞이 −z */
+function blazeVoxels(): Voxel[] {
+  const out: Voxel[] = [];
+  const add = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, color: (x: number, y: number, z: number) => number) => {
+    for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) out.push({ x, y, z, c: css(color(x, y, z)) });
+  };
+  add(-4, 3, 18, 25, -4, 3, (x, y, z) => (z === -4 && y === 22 && (x === -3 || x === -2 || x === 1 || x === 2) ? 0xfff2a0 : 0x5a4210));
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const rx = Math.round(Math.cos(a) * 5),
+      rz = Math.round(Math.sin(a) * 5);
+    const y0 = i % 2 === 0 ? 10 : 4;
+    add(rx - 1, rx, y0, y0 + 5, rz - 1, rz, (_x, y) => (y % 3 === 0 ? 0xffd54f : 0xf2a21a));
+  }
+  return out;
 }
 
 /** 크리퍼 복셀: 머리 8×8×8 (앞면에 검은 얼굴), 몸 4×12×4, 다리 4개 4×6×4. 앞이 −z */
@@ -334,7 +377,7 @@ export class MobView {
       legR = at(partMesh(v.leg, material), [2, 12]);
       armL = at(partMesh(v.arm, material), [-6, 24]);
       armR = at(partMesh(v.arm, material), [6, 24]);
-      if (kindName === 'zombie' || kindName === 'husk') armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.15; // 좀비 팔은 앞으로
+      if (kindName === 'zombie' || kindName === 'husk' || kindName === 'zombified_piglin') armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.15; // 좀비 팔은 앞으로
       else if (kindName === 'evoker') armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.6; // 소환사는 손을 든다
       body.add(torso, head, legL, legR, armL, armR);
     } else if (MOB_KIND_OF[m.kind] === 'spider' || MOB_KIND_OF[m.kind] === 'spider_king') {
@@ -372,6 +415,10 @@ export class MobView {
         body.add(mesh);
       }
       babyHead = parts.babyHead;
+    } else if (kindName === 'ghast') {
+      body.add(partMesh(ghastVoxels(), material));
+    } else if (kindName === 'blaze') {
+      body.add(partMesh(blazeVoxels(), material));
     } else {
       body.add(partMesh(creeperVoxels(), material));
     }
@@ -382,6 +429,8 @@ export class MobView {
     const baseScale = king ? 2.2 : 1;
     body.scale.setScalar(baseScale);
     if (kindName === 'enderman') body.scale.set(0.8, 1.5, 0.8); // 키 3칸, 홀쭉하게
+    else if (kindName === 'wither_skeleton') body.scale.set(1.1, 1.3, 1.1);
+    else if (kindName === 'ghast') body.scale.setScalar(4.4); // 네 칸짜리 상자
     const bar = canvasSprite(128, 28, king ? 2.2 : 1.1, king ? 0.4 : 0.24);
     bar.sprite.position.set(0, mobSize(m.kind).h + (king ? 0.7 : 0.35), 0);
     drawHpBar(bar.ctx, bar.tex, m.hp, maxHp);

@@ -113,7 +113,8 @@ describe('거미와 원정지별 몹 (M7-3)', () => {
     expect(spawnKinds(['zombie', 'creeper', 'enderman'])).toEqual(['zombie', 'creeper', 'enderman']); // 엔더맨·허스크는 v1.1-1 부터 진짜 몹
     expect(spawnKinds(['husk', 'creeper', 'enderman'])).toEqual(['husk', 'creeper', 'enderman']);
     expect(spawnKinds(['stray', 'zombie'])).toEqual(['stray', 'zombie']); // 설원 (v1.1-2)
-    expect(spawnKinds(['ghast'])).toEqual(['zombie', 'creeper']);
+    expect(spawnKinds(['zombified_piglin', 'wither_skeleton', 'blaze', 'ghast'])).toEqual(['zombified_piglin', 'wither_skeleton', 'blaze', 'ghast']); // 네더 (v1.1-3)
+    expect(spawnKinds(['witch'])).toEqual(['zombie', 'creeper']); // 아직 없는 몹만 적혀 있으면 기본
     expect(spawnKinds(undefined)).toEqual(['zombie', 'creeper']);
     const picks = Array.from({ length: 9 }, (_, i) => pickKind(['spider', 'zombie'], i + 1));
     expect(picks.filter((k) => k === 'spider').length).toBe(6);

@@ -13,6 +13,10 @@ export const ITEM_FALLBACK_KO: Readonly<Record<string, string>> = {
   emerald: '에메랄드',
   lapis: '청금석',
   quartz: '석영',
+  blaze_rod: '블레이즈 막대기',
+  ghast_tear: '가스트의 눈물',
+  wither_skeleton_skull: '위더 스켈레톤 머리',
+  gold_nugget: '금 조각',
   apple: '사과',
   redstone: '레드스톤 가루',
   // 레시피 재료 (recipes.json in)

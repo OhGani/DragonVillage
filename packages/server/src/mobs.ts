@@ -32,6 +32,7 @@ import {
   POISON_EVERY_MS,
   SPAWN_EVERY_MS,
   type VoxelWorld,
+  ANGRY_MS,
   beamHitsMob,
   bossMinionKind,
   encodeMobsState,
@@ -253,6 +254,7 @@ export class MobSystem {
           }
         }
         if (best > this.opts.aggroRange) target = null; // 너무 멀면 서성이거나 goal 로
+        if (def.neutral && (m.angryUntil ?? 0) < now) target = null; // 중립(좀비 피글린): 맞기 전엔 가만히 (#161)
         if (target) {
           const ev = stepMob(m, def, target, dt, now, this.groundAt);
           if (ev === 'attack') {
@@ -436,6 +438,7 @@ export class MobSystem {
   private damage(m: MobState, amount: number, byIdx: number, now: number, push?: { x: number; z: number }): void {
     const dealt = Math.floor(amount);
     m.hp = Math.max(0, m.hp - dealt);
+    m.angryUntil = now + ANGRY_MS; // 중립 몹은 맞으면 화난다 (#161)
     if (m === this.boss && !this.bossAwake) this.wake(m, now);
     if (m.hp > 0) {
       if (push && !isBoss(m.kind)) {

@@ -15,10 +15,10 @@ import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
 import { hash3 } from '../math/prng';
 
-export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray';
-export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray'];
-export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15 };
-export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray'];
+export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast';
+export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast'];
+export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19 };
+export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast'];
 /** 순한 동물 (마을, M8-1). 규칙은 animals.ts */
 const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog'];
 
@@ -68,6 +68,10 @@ export interface MobDef {
   readonly explodeRadius: number;
   /** 거미만: 물면 이만큼 독 (초당 1) */
   readonly poisonMs: number;
+  /** 가스트만 (#161): 땅과 상관없이 사람 위 이만큼 높이에 떠서 다가온다. 없으면 걷는다 */
+  readonly hover?: number;
+  /** 좀비 피글린 (#161): 중립 — 누가 때리기 전엔 안 덤빈다 (맞으면 20초 화남, MobState.angryUntil) */
+  readonly neutral?: boolean;
   readonly drops: readonly MobDrop[];
   readonly xp: number;
   /** 순한 동물인가 (때리지 않으면 안 덤빈다) */
@@ -100,6 +104,11 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   enderman: { id: 'enderman', hp: 40, damage: 4, speed: 3.0, reach: 1.8, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   // 설원 (v1.1-2, #160): 스트레이는 눈 덮인 스켈레톤 — 활은 같고 조금 느리다
   stray: { id: 'stray', hp: 20, damage: 3, speed: 2.0, reach: 6, attackEveryMs: 2000, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  // 네더 (v1.1-3, #161): 좀비 피글린(금 칼, 금 조각 드롭)·블레이즈(8칸에서 불을 쏜다, 막대기)·위더 스켈레톤(세고 키 큼, 머리 5%)·가스트(떠다니며 14칸에서 쏜다, 눈물)
+  zombified_piglin: { id: 'zombified_piglin', hp: 20, damage: 3, speed: 2.4, reach: 1.6, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0, neutral: true },
+  blaze: { id: 'blaze', hp: 20, damage: 3, speed: 2.0, reach: 8, attackEveryMs: 2500, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  wither_skeleton: { id: 'wither_skeleton', hp: 20, damage: 4, speed: 2.3, reach: 1.9, attackEveryMs: 1300, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  ghast: { id: 'ghast', hp: 10, damage: 5, speed: 1.4, reach: 14, attackEveryMs: 3000, fuseMs: 0, explodeRadius: 0, poisonMs: 0, hover: 6 },
 };
 
 const RawPassive = z
@@ -266,6 +275,10 @@ export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = {
   husk: MOB_SIZE,
   enderman: { w: 0.6, h: 2.9 },
   stray: MOB_SIZE,
+  zombified_piglin: MOB_SIZE,
+  blaze: MOB_SIZE,
+  wither_skeleton: { w: 0.7, h: 2.4 },
+  ghast: { w: 4, h: 6 },
 };
 export function mobSize(kind: MobKind | number): { w: number; h: number } {
   return MOB_SIZES[typeof kind === 'number' ? (MOB_KIND_OF[kind] ?? 'zombie') : kind];
@@ -278,6 +291,8 @@ export function isRangedMob(def: { reach: number }): boolean {
 /** 독: 초당 1 */
 export const POISON_EVERY_MS = 1000;
 export const POISON_DAMAGE = 1;
+/** 중립 몹이 맞고 화나 있는 시간 (#161) */
+export const ANGRY_MS = 20_000;
 
 /** 이 원정지에 나오는 몹 — expeditions.json nightMobs 중 아는 것만(보스 제외). 하나도 없으면 좀비·크리퍼 */
 export function spawnKinds(nightMobs: readonly string[] | undefined): MobKind[] {
@@ -310,6 +325,8 @@ export interface MobState {
   /** 크리퍼: 부풀기 시작 시각 (0 = 아님) */
   fuseAt: number;
   lastAttackAt: number;
+  /** 중립 몹(좀비 피글린): 이 시각까지 화나 있다 — 맞으면 20초 (#161) */
+  angryUntil?: number;
 }
 
 /** 통신용 (MobsState) */
@@ -357,6 +374,26 @@ export function stepMob(m: MobState, def: MobDef, target: { x: number; y: number
     dz = target.z - m.z;
   const dist = Math.hypot(dx, dz);
   m.yaw = Math.atan2(-dx, -dz); // 플레이어 인형과 같은 규약: yaw 0 = -z 를 본다
+  if (def.hover) {
+    // 가스트 (#161): 땅을 안 본다. 사람 위 hover 칸 높이로 천천히 오르내리며 다가가고, 3차원 거리가 reach 안이면 쏜다
+    const wantY = target.y + def.hover;
+    m.y += Math.max(-2 * dt, Math.min(2 * dt, wantY - m.y));
+    if (Math.hypot(dx, target.y - m.y, dz) <= def.reach) {
+      m.state = MOB_STATE.attack;
+      if (now - m.lastAttackAt >= def.attackEveryMs) {
+        m.lastAttackAt = now;
+        return 'attack';
+      }
+      return null;
+    }
+    m.state = MOB_STATE.walk;
+    if (dist > 0.01) {
+      const step = Math.min(dist, def.speed * dt);
+      m.x += (dx / dist) * step;
+      m.z += (dz / dist) * step;
+    }
+    return null;
+  }
   if (def.fuseMs > 0) {
     // 크리퍼
     if (dist <= def.reach && Math.abs(target.y - m.y) < 3) {

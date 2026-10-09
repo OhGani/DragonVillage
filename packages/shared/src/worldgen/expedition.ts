@@ -1,12 +1,13 @@
 /**
  * 원정지 생성기 고르기 (M7-3). `expeditions.json generator` 이름 → 생성기. 서버(Expedition)와 클라(buildWorld)가 같은 함수를 부른다.
- * 아직 없는 생성기(nether·end)는 hasGenerator 가 false — 출발 카드에 안 나오고 서버는 NOT_YET. 사막(desert)은 v1.1-1 (#157), 설원(snow)은 v1.1-2 (#160).
+ * 아직 없는 생성기(end)는 hasGenerator 가 false — 출발 카드에 안 나오고 서버는 NOT_YET. 사막(desert) v1.1-1 (#157), 설원(snow) v1.1-2 (#160), 네더(nether) v1.1-3 (#161).
  */
 import type { VoxelWorld } from '../chunk/world';
 import type { BlockRegistry } from '../rules/blocks';
 import type { ExpeditionDef } from '../rules/expeditions';
 import { CAVE_GEN_VERSION, generateCave } from './cave';
 import { DESERT_GEN_VERSION, generateDesert } from './desert';
+import { NETHER_GEN_VERSION, generateNether } from './nether';
 import { SNOW_GEN_VERSION, generateSnow } from './snow';
 import { ISLAND_GEN_VERSION, generateIsland } from './island';
 import type { SpawnPoint } from './village';
@@ -40,6 +41,10 @@ const GENERATORS: Record<string, (registry: BlockRegistry, seed: number, treasur
   snow: (registry, seed, treasures) => {
     const g = generateSnow(registry, seed, treasures);
     return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: null, genVersion: SNOW_GEN_VERSION, ms: g.ms };
+  },
+  nether: (registry, seed, treasures) => {
+    const g = generateNether(registry, seed, treasures);
+    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: null, genVersion: NETHER_GEN_VERSION, ms: g.ms };
   },
 };
 
