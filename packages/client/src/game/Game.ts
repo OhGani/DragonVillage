@@ -200,7 +200,14 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     1: '① 나침반의 금색 점을 따라 북쪽 포탈로 가요',
     2: '② 포탈 안에 서서 "원정 출발" 을 눌러요',
     3: '③ 블록을 꾹 눌러 모아요 · 6분 뒤엔 밤! 가운데 포탈로 돌아와요',
+    // 첫 원정 뒤 (M9-2 마무리, #164): 창고 → 둥지 → 동물
+    4: '④ 나침반을 따라 광장 동쪽 창고로 — 모은 걸 넣고 🏗️ 탭에서 건물을 지어요',
+    5: '⑤ 📜 조합법에서 드래곤 알을 만들고, 광장 남쪽 둥지에 놓아요',
+    6: '⑥ 숲의 동물을 보면 안내가 떠요 — 밀·당근으로 먹이고, 강아지는 뼈로 길들여요',
   };
+  /** 첫 걸음 ④⑤ 나침반 목표: 창고 자리·둥지 자리 가운데 */
+  const STORAGE_C = siteCenter(siteOf('storage')!);
+  const NEST_C = siteCenter(siteOf('dragon_nest_2')!);
   let guideStep = (() => {
     try {
       const v = localStorage.getItem(GUIDE_KEY);
@@ -926,8 +933,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     onExpeditionResult: (m) => {
       showResult(m);
       if (guideStep === 3) {
-        setGuideStep(0);
-        setTimeout(() => hud.toast('🎉 첫 원정 끝! 가져온 걸로 마을을 꾸며 봐요 — 게임 방법(?)에 더 많은 게 있어요', 7000), 1500);
+        setGuideStep(4);
+        setTimeout(() => hud.toast('🎉 첫 원정 끝! 가져온 걸로 마을을 꾸며 봐요', 6000), 1500);
       }
     },
     onExpeditionState: (s) => {
@@ -1066,6 +1073,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   let pendingStorageOpen = false;
   const openStorage = () => {
     if (anyPanelOpen() || !started || disconnected) return;
+    if (guideStep === 4) setGuideStep(5); // 첫 걸음 ④ → ⑤
     pendingStorageOpen = true;
     net.sendOpenStorage();
   };
@@ -1117,6 +1125,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   // 둥지 창 (M6-2)
   const openNest = () => {
     if (anyPanelOpen()) return;
+    if (guideStep === 5) setGuideStep(6); // 첫 걸음 ⑤ → ⑥
     nest.setXp(xpTotal);
     nest.setInventory(inv);
     nest.show();
@@ -1502,6 +1511,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       aimHintFor = aimedMob;
       const f = aimedMob !== null ? mobView.figureOf(aimedMob) : undefined;
       if (f && aimedMob !== null && aimedMob >= ANIMAL_ID_BASE) {
+        if (guideStep === 6) {
+          setGuideStep(0); // 첫 걸음 끝
+          setTimeout(() => hud.toast('🎉 첫 걸음을 다 뗐어요! 더 많은 건 게임 방법(?)에 있어요', 7000), 3200);
+        }
         const def = MOBS.get(MOB_KIND_OF[f.kind] ?? 'cow');
         const baby = (f.state & ANIMAL_FLAG.baby) !== 0;
         const tamed = (f.state & ANIMAL_FLAG.tamed) !== 0;
@@ -1550,7 +1563,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         ctx.kind === 'village'
           ? guideStep === 1
             ? { x: ctx.portalPos.x + 0.5, z: ctx.portalPos.z + 0.5, name: '포탈', near: 3 } // 첫 걸음: 포탈까지 안내
-            : { x: 64.5, z: 64.5, name: '광장', near: 24 }
+            : guideStep === 4
+              ? { x: STORAGE_C.x, z: STORAGE_C.z, name: '창고', near: 4 } // 첫 걸음 ④
+              : guideStep === 5
+                ? { x: NEST_C.x, z: NEST_C.z, name: '둥지', near: 5 } // 첫 걸음 ⑤
+                : { x: 64.5, z: 64.5, name: '광장', near: 24 }
           : bossInfo
             ? { x: bossInfo.x, z: bossInfo.z, name: bossName, near: 5 }
             : { x: ctx.portalPos.x, z: ctx.portalPos.z + 0.5, name: '포탈', near: 12 };
