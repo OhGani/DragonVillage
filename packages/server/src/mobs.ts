@@ -54,8 +54,10 @@ export interface MobArena {
   /** 밤 시작 초 (0 = 항상 어두움). 방어전은 0 */
   readonly nightStartsAt: number;
   readonly nightMobs: readonly string[];
-  /** 보스 굴 바닥 가운데 (있으면 시작 때 잠든 보스) */
+  /** 보스 자리 (있으면 시작 때 보스를 세운다 — 거미 왕은 잠들어서, 엔더 드래곤은 깨어서 떠 있다) */
   readonly den: { x: number; y: number; z: number } | null;
+  /** 보스 종류 (expeditions.json boss.id). 없으면 거미 왕 */
+  readonly boss?: MobKind | null;
   readonly ended: boolean;
   elapsedSec(now: number): number;
 }
@@ -153,8 +155,10 @@ export class MobSystem {
     this.opts = { ...DEFAULT_OPTS, ...opts };
     this.kinds = spawnKinds(e.nightMobs);
     if (e.den) {
-      const y = this.groundAt(e.den.x + 0.5, e.den.z + 0.5, e.den.y) ?? e.den.y;
-      this.spawnBoss(BOSS_KIND, e.den.x + 0.5, y, e.den.z + 0.5, false);
+      const kind = e.boss ?? BOSS_KIND;
+      const hover = this.defs.get(kind).hover ?? 0;
+      const y = (this.groundAt(e.den.x + 0.5, e.den.z + 0.5, e.den.y) ?? e.den.y) + hover;
+      this.spawnBoss(kind, e.den.x + 0.5, y, e.den.z + 0.5, false); // 24칸 안에 사람이 오면 깬다 (거미 왕·엔더 드래곤 같음)
     }
   }
 
@@ -293,7 +297,7 @@ export class MobSystem {
         const a = (i / 8) * Math.PI * 2 + this.turn;
         const x = Math.floor(b.x + Math.cos(a) * 3) + 0.5,
           z = Math.floor(b.z + Math.sin(a) * 3) + 0.5;
-        const y = this.groundAt(x, z, b.y);
+        const y = this.groundAt(x, z, b.y - (this.defs.get(b.kind).hover ?? 0)); // 떠 있는 보스(드래곤)는 그 아래 땅에 부하를 세운다
         if (y === null) continue;
         const m = this.spawnKind(kind, x, y, z);
         this.minions.add(m.id);

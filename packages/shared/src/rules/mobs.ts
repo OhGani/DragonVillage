@@ -15,22 +15,25 @@ import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
 import { hash3 } from '../math/prng';
 
-export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast';
-export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast'];
-export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19 };
-export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast'];
+export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon';
+export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon'];
+export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20 };
+export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon'];
 /** 순한 동물 (마을, M8-1). 규칙은 animals.ts */
 const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog'];
 
 /** 굴 보스 (M7-4, 거미 왕). 보스는 밤 스폰 목록에 안 들어가고, 원정지 구조물(거미 굴)에 하나만. 소환사(M7-5)는 방어전 마지막 파도의 보스 */
 export const BOSS_KIND: MobKind = 'spider_king';
-export const BOSS_KINDS: readonly MobKind[] = ['spider_king', 'evoker'];
+export const BOSS_KINDS: readonly MobKind[] = ['spider_king', 'evoker', 'ender_dragon'];
 export function isBoss(kind: MobKind): boolean {
   return BOSS_KINDS.includes(kind);
 }
+/** 원정지 보스(보스 바·나침반이 가리키는 것). 소환사는 마을 방어전 보스라 뺀다 (#162) */
+export const EXPEDITION_BOSS_KINDS: readonly MobKind[] = ['spider_king', 'ender_dragon'];
+export const BOSS_EMOJI: Partial<Record<MobKind, string>> = { spider_king: '🕷️', ender_dragon: '🐲', evoker: '🧙' };
 /** 보스가 부르는 부하 */
 export function bossMinionKind(kind: MobKind): MobKind {
-  return kind === 'evoker' ? 'vindicator' : 'spider';
+  return kind === 'evoker' ? 'vindicator' : kind === 'ender_dragon' ? 'enderman' : 'spider';
 }
 /** 우민 (마을 방어전 M7-5) */
 export const RAIDER_KINDS: readonly MobKind[] = ['vindicator', 'pillager', 'evoker'];
@@ -72,6 +75,8 @@ export interface MobDef {
   readonly hover?: number;
   /** 좀비 피글린 (#161): 중립 — 누가 때리기 전엔 안 덤빈다 (맞으면 20초 화남, MobState.angryUntil) */
   readonly neutral?: boolean;
+  /** 엔더 드래곤 (#162): hover 높이가 이 주기(ms)로 0 ~ hover 사이를 오르내린다 — 낮게 내려올 때 물고, 그때 칼이 닿는다 */
+  readonly swoop?: number;
   readonly drops: readonly MobDrop[];
   readonly xp: number;
   /** 순한 동물인가 (때리지 않으면 안 덤빈다) */
@@ -101,7 +106,7 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   dog: { id: 'dog', hp: 8, damage: 0, speed: 2.6, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   // 사막 (v1.1-1, #157): 허스크는 모래색 좀비(조금 느리다). 엔더맨은 키 크고 빠르지만 순간이동은 없다 — 엔더 진주 출처
   husk: { id: 'husk', hp: 20, damage: 3, speed: 2.1, reach: 1.6, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
-  enderman: { id: 'enderman', hp: 40, damage: 4, speed: 3.0, reach: 1.8, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  enderman: { id: 'enderman', hp: 40, damage: 4, speed: 3.0, reach: 1.8, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0, neutral: true }, // 중립 (#162): 엔드 도착하자마자 죽던 것
   // 설원 (v1.1-2, #160): 스트레이는 눈 덮인 스켈레톤 — 활은 같고 조금 느리다
   stray: { id: 'stray', hp: 20, damage: 3, speed: 2.0, reach: 6, attackEveryMs: 2000, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   // 네더 (v1.1-3, #161): 좀비 피글린(금 칼, 금 조각 드롭)·블레이즈(8칸에서 불을 쏜다, 막대기)·위더 스켈레톤(세고 키 큼, 머리 5%)·가스트(떠다니며 14칸에서 쏜다, 눈물)
@@ -109,6 +114,8 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   blaze: { id: 'blaze', hp: 20, damage: 3, speed: 2.0, reach: 8, attackEveryMs: 2500, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   wither_skeleton: { id: 'wither_skeleton', hp: 20, damage: 4, speed: 2.3, reach: 1.9, attackEveryMs: 1300, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   ghast: { id: 'ghast', hp: 10, damage: 5, speed: 1.4, reach: 14, attackEveryMs: 3000, fuseMs: 0, explodeRadius: 0, poisonMs: 0, hover: 6 },
+  // 엔드 (v1.1-4, #162): 엔더 드래곤 — 사람 위 7칸에서 5초마다 내려꽂히며 문다(6). 엔더맨을 부른다. hp·xp·드롭은 bosses.json
+  ender_dragon: { id: 'ender_dragon', hp: 200, damage: 6, speed: 6, reach: 3.5, attackEveryMs: 2000, fuseMs: 0, explodeRadius: 0, poisonMs: 0, hover: 7, swoop: 5000 },
 };
 
 const RawPassive = z
@@ -142,29 +149,27 @@ const MobFile = z
   })
   .loose();
 
-/** bosses.json 에서 읽는 것 (midBosses 의 id·name·hp·drops·xp) */
+/** bosses.json 에서 읽는 것 (midBosses·finalBosses 의 id·name·hp·drops·xp) */
+const BossEntry = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    hp: z.number().optional(),
+    xp: z.number().optional(),
+    drops: z.array(z.object({ material: z.string(), count: z.number().int().min(1), chance: z.number().min(0).max(1) }).loose()).optional(),
+    /** 부하 드롭 (소환사의 minionDrops: 우민 종류 → 드롭 표). _comment 같은 글도 섞여 있어 배열만 골라 쓴다 */
+    minionDrops: z.record(z.string(), z.unknown()).optional(),
+  })
+  .loose();
 const BossFile = z
   .object({
-    midBosses: z
-      .array(
-        z
-          .object({
-            id: z.string(),
-            name: z.string(),
-            hp: z.number().optional(),
-            xp: z.number().optional(),
-            drops: z.array(z.object({ material: z.string(), count: z.number().int().min(1), chance: z.number().min(0).max(1) }).loose()).optional(),
-            /** 부하 드롭 (소환사의 minionDrops: 우민 종류 → 드롭 표). _comment 같은 글도 섞여 있어 배열만 골라 쓴다 */
-            minionDrops: z.record(z.string(), z.unknown()).optional(),
-          })
-          .loose(),
-      )
-      .optional(),
+    midBosses: z.array(BossEntry).optional(),
+    finalBosses: z.array(BossEntry).optional(),
   })
   .loose();
 
-const BOSS_NAME_KO: Partial<Record<MobKind, string>> = { spider_king: '거미 왕', evoker: '소환사' };
-const BOSS_XP: Partial<Record<MobKind, number>> = { spider_king: 80, evoker: 100 };
+const BOSS_NAME_KO: Partial<Record<MobKind, string>> = { spider_king: '거미 왕', evoker: '소환사', ender_dragon: '엔더 드래곤' };
+const BOSS_XP: Partial<Record<MobKind, number>> = { spider_king: 80, evoker: 100, ender_dragon: 500 };
 
 function dropsFromRaw(raw: unknown): MobDrop[] {
   if (!Array.isArray(raw)) return [];
@@ -196,7 +201,7 @@ export function parseMobs(raw: unknown, xpByMob: ReadonlyMap<string, readonly [n
   if (bossesRaw !== null) {
     const b = BossFile.safeParse(bossesRaw);
     if (!b.success) throw new DataError('data/bosses.json', b.error.issues.map((i) => `${i.path.map(String).join('.')}: ${koreanizeMessage(i.message)}`));
-    bosses = b.data.midBosses ?? [];
+    bosses = [...(b.data.midBosses ?? []), ...(b.data.finalBosses ?? [])];
   }
   const defs = {} as Record<MobKind, MobDef>;
   for (const kind of MOB_KINDS) {
@@ -279,6 +284,7 @@ export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = {
   blaze: MOB_SIZE,
   wither_skeleton: { w: 0.7, h: 2.4 },
   ghast: { w: 4, h: 6 },
+  ender_dragon: { w: 5, h: 3 },
 };
 export function mobSize(kind: MobKind | number): { w: number; h: number } {
   return MOB_SIZES[typeof kind === 'number' ? (MOB_KIND_OF[kind] ?? 'zombie') : kind];
@@ -376,8 +382,11 @@ export function stepMob(m: MobState, def: MobDef, target: { x: number; y: number
   m.yaw = Math.atan2(-dx, -dz); // 플레이어 인형과 같은 규약: yaw 0 = -z 를 본다
   if (def.hover) {
     // 가스트 (#161): 땅을 안 본다. 사람 위 hover 칸 높이로 천천히 오르내리며 다가가고, 3차원 거리가 reach 안이면 쏜다
-    const wantY = target.y + def.hover;
-    m.y += Math.max(-2 * dt, Math.min(2 * dt, wantY - m.y));
+    // 드래곤(swoop)은 높이가 주기로 오르내린다: 꼭대기에선 못 닿고, 내려올 때 물린다
+    const hover = def.swoop ? def.hover * (0.5 + 0.5 * Math.cos(((now % def.swoop) / def.swoop) * Math.PI * 2)) : def.hover;
+    const wantY = target.y + hover;
+    const rate = def.swoop ? 4 : 2;
+    m.y += Math.max(-rate * dt, Math.min(rate * dt, wantY - m.y));
     if (Math.hypot(dx, target.y - m.y, dz) <= def.reach) {
       m.state = MOB_STATE.attack;
       if (now - m.lastAttackAt >= def.attackEveryMs) {

@@ -116,7 +116,7 @@
       "hp": 200,
       "drops": [
         { "material": "dragon_egg", "name": "드래곤 알", "count": 1, "chance": 1.0 },
-        { "material": "dragon_breath", "name": "드래곤의 숨결", "count": null, "chance": null, "_note": "전투 중 바닥 숨결을 유리병으로 채집" }
+        { "material": "dragon_breath", "name": "드래곤의 숨결", "count": 2, "chance": 1.0, "_note": "원래는 전투 중 바닥 숨결을 유리병으로 채집(아들). 아빠 2026-10-10 #162: 병 채집은 아직 없어서 우선 처치 때 2개 — 아들 14차 8번" }
       ],
       "_dropsNote": "아들(2026-09-13) 재확인: 드래곤 알",
       "xp": 500,

@@ -342,6 +342,12 @@
       "treasures": 2,
       "unlockedBy": "portal_5",
       "danger": 5,
+      "skyLight": 0.5,
+      "_skyLightNote": "엔드는 캄캄하지 않고 어둑하다 (0.22 가 한밤, 1 이 낮)",
+      "nightMobs": [
+        "enderman"
+      ],
+      "_nightMobsNote": "항상 어둑해서 처음부터 엔더맨이 나온다 (v1.1-4, #162). 엔더 드래곤은 boss 로 따로",
       "materials": [
         "dragon_breath",
         "dragon_egg",

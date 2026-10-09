@@ -23,6 +23,10 @@ const RawExpedition = z
     materials: z.array(z.string()),
     release: z.string().optional(),
     /** 이 원정지만의 상자 보너스 (#159): extraPicks 번 더 뽑고, always 는 상자마다 꼭 들어간다 */
+    /** 항상 어두운 곳(nightStartsAt 0)의 바탕 빛 0~1 — 엔드는 0.5 로 어둑하게, 동굴·네더는 안 적으면 한밤(0.22) (#162) */
+    skyLight: z.number().min(0, '0~1 사이여야 해요').max(1, '0~1 사이여야 해요').optional(),
+    /** 이 원정지의 보스 (bosses.json id). 생성기가 자리(den)를 주면 서버가 거기에 세운다 (#162) */
+    boss: z.object({ id: z.string() }).loose().optional(),
     treasureBonus: z
       .object({
         extraPicks: z.number().int().min(0, '0 이상이어야 해요').optional(),
@@ -76,6 +80,10 @@ export interface ExpeditionDef {
   readonly nightMobs: readonly string[];
   /** 상자 보너스 (#159, 사막) — 없으면 공용 규칙만 */
   readonly treasureBonus: TreasureBonus | null;
+  /** 보스 몹 id (expeditions.json boss.id). 없으면 null */
+  readonly bossId: string | null;
+  /** 항상 어두운 곳의 바탕 빛 (없으면 NIGHT_SKY) */
+  readonly skyLight: number | null;
   readonly danger: number;
   readonly materials: readonly string[];
   readonly release: string;
@@ -195,9 +203,9 @@ export function phaseAt(def: Pick<ExpeditionDef, 'nightStartsAt'>, elapsedSec: n
  * 경과 초 → 스카이라이트 배율 0.22~1. 낮 1, 저녁 동안 0.6 까지, 밤 시작 뒤 NIGHT_FADE_SEC 동안 0.22 까지.
  * 항상 어두운 원정지(nightStartsAt 0)는 0.22 고정. 셰이더 uSkyLight 와 안개에 그대로 곱한다.
  */
-export function skyLightAt(def: Pick<ExpeditionDef, 'nightStartsAt'>, elapsedSec: number): number {
+export function skyLightAt(def: Pick<ExpeditionDef, 'nightStartsAt'> & { skyLight?: number | null }, elapsedSec: number): number {
   const n = def.nightStartsAt;
-  if (n <= 0) return NIGHT_SKY;
+  if (n <= 0) return Math.max(NIGHT_SKY, def.skyLight ?? NIGHT_SKY); // 엔드는 0.5 (#162)
   if (elapsedSec <= n - EVENING_SEC) return 1;
   if (elapsedSec < n) {
     const t = (elapsedSec - (n - EVENING_SEC)) / EVENING_SEC;
@@ -254,6 +262,8 @@ export function parseExpeditions(raw: unknown, fileName = 'data/expeditions.json
       materials: e.materials,
       release: e.release ?? 'v1',
       treasureBonus: e.treasureBonus ? { extraPicks: e.treasureBonus.extraPicks ?? 0, always: (e.treasureBonus.always ?? []).map((a) => ({ item: a.item, min: a.min, max: a.max })) } : null,
+      bossId: e.boss?.id ?? null,
+      skyLight: e.skyLight ?? null,
     };
   });
   if (problems.length) throw new DataError(fileName, problems);

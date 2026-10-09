@@ -185,4 +185,31 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
     expect(hurt).toContain('ghast');
     expect(json.filter((m) => m.t === 'arrow').length).toBeGreaterThan(before);
   });
+
+  it('엔드 (v1.1-4, #162): 엔더 드래곤은 bosses.json 대로 hp 200·경험치 500·알 드롭, 떠서 내려꽂히며 물고, 엔더맨을 부른다', () => {
+    expect(MOBS.get('ender_dragon')).toMatchObject({ name: '엔더 드래곤', hp: 200, xp: 500 });
+    expect(MOBS.get('ender_dragon').drops.map((d) => d.item)).toEqual(['dragon_egg', 'dragon_breath']);
+    const room = makeRoom(new Storage(':memory:'));
+    const json: { t: string; [k: string]: unknown }[] = [];
+    const hurt: string[] = [];
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 64.5, eyeY: GROUND_Y + 1 + 1.6 };
+    const arena = { world: room.world, seed: 5, nightStartsAt: 0, nightMobs: [], den: { x: 64, y: GROUND_Y + 1, z: 58 }, boss: 'ender_dragon' as const, ended: false, elapsedSec: () => 0 };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: (_i, _a, cause) => hurt.push(cause), broadcast: () => {}, json: (o) => json.push(o as { t: string }), reward: () => {}, bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 24, goal: null, quiet: true });
+    const d = sys.boss!;
+    expect(d.kind).toBe('ender_dragon');
+    expect(sys.bossAwake).toBe(false); // 24칸 안에 오면 깬다 (여기선 9칸 → 첫 틱에)
+    expect(d.y).toBeCloseTo(GROUND_Y + 1 + 7, 0); // 자리 위 7칸에 떠 있다
+    let maxY = 0,
+      minY = 99;
+    for (let t = T0; t < T0 + 20000; t += 100) {
+      sys.tick(t);
+      if (t === T0) expect(sys.bossAwake).toBe(true);
+      maxY = Math.max(maxY, d.y);
+      minY = Math.min(minY, d.y);
+    }
+    expect(maxY - minY).toBeGreaterThan(4); // 오르내린다
+    expect(hurt.filter((c) => c === 'ender_dragon').length).toBeGreaterThanOrEqual(2); // 내려올 때 문다
+    expect(sys.minions.size).toBeGreaterThan(0);
+    expect([...sys.mobs.values()].some((m) => m.kind === 'enderman')).toBe(true);
+  });
 });

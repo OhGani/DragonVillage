@@ -171,13 +171,14 @@ describe('generateCave 배치', () => {
 });
 
 describe('generateExpedition 분배', () => {
-  it('island·cave·desert·snow·nether 는 있고 엔드만 아직 없다. 동굴 원정지는 동굴을 만든다', () => {
+  it('원정지 여섯 곳 생성기가 다 있다. 동굴 원정지는 동굴을 만든다', () => {
     expect(hasGenerator('island')).toBe(true);
     expect(hasGenerator('cave')).toBe(true);
     expect(hasGenerator('desert')).toBe(true); // v1.1-1 (#157)
     expect(hasGenerator('snow')).toBe(true); // v1.1-2 (#160)
     expect(hasGenerator('nether')).toBe(true); // v1.1-3 (#161)
-    expect(hasGenerator('end')).toBe(false);
+    expect(hasGenerator('end')).toBe(true); // v1.1-4 (#162)
+    expect(hasGenerator('moon')).toBe(false);
     const cave = EXPEDITIONS.require('cave');
     const g = generateExpedition(cave, BLOCKS, SEED);
     expect(g.portal).toEqual(layout.portal);

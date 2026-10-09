@@ -16,6 +16,8 @@ import {
   phaseAt,
   portalContains,
   remainingSec,
+  isMobKind,
+  type MobKind,
 } from '@dragon-village/shared';
 
 export interface Spawn {
@@ -45,8 +47,10 @@ export class Expedition {
   /** 보물 오두막 상자 자리 (열면 = 부수면 경험치, M6-1) */
   readonly treasures: readonly { x: number; y: number; z: number }[];
   private readonly treasureKeys: Set<string>;
-  /** 보스 굴 바닥 가운데 (동굴 거미 왕, M7-4). 없으면 null */
+  /** 보스 자리 (동굴 거미 왕 굴, 엔드 기반암 분수). 없으면 null */
   readonly den: { x: number; y: number; z: number } | null;
+  /** 보스 종류 — 자리가 있고 expeditions.json boss.id 가 아는 몹이면 (#162) */
+  readonly bossKind: MobKind | null;
 
   constructor(
     readonly def: ExpeditionDef,
@@ -60,6 +64,7 @@ export class Expedition {
     this.portal = gen.portal;
     this.treasures = gen.treasures;
     this.den = gen.den;
+    this.bossKind = gen.den && def.bossId && isMobKind(def.bossId) ? def.bossId : null;
     this.treasureKeys = new Set(gen.treasures.map((t) => `${t.x},${t.y},${t.z}`));
     this.genVersion = gen.genVersion;
     this.genMs = gen.ms;

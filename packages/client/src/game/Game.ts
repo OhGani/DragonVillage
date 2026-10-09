@@ -50,8 +50,10 @@ import {
   phaseAt,
   portalContains,
   skyLightAt,
-  BOSS_KIND,
+  BOSS_EMOJI,
+  EXPEDITION_BOSS_KINDS,
   MOB_KIND_OF,
+  type MobKind,
   FLAG_POLE,
   RAID_CAPTURE_SEC,
   type RaidStateInfo,
@@ -271,7 +273,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   let crumbAcc = 0;
   let hp = welcome.hp;
   /** 살아 있는 보스(거미 왕) 자리·체력 — 보스 바에 방향·거리, 나침반이 가리킨다 (아들 13차 "어디 있는지 못 찾겠다", #127) */
-  let bossInfo: { x: number; z: number; hp: number } | null = null;
+  let bossInfo: { x: number; z: number; hp: number; kind: MobKind } | null = null;
   // 원정 몹 (M7-2): 서버 상태를 그리고, 조준한 몹을 탭/클릭하면 때린다
   const mobView = new MobView(scene);
   let hitCooldown = 0;
@@ -854,8 +856,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     },
     onMobs: (list) => {
       mobView.setState(list);
-      const boss = list.find((m) => MOB_KIND_OF[m.kind] === BOSS_KIND);
-      bossInfo = boss ? { x: boss.x, z: boss.z, hp: boss.hp } : null; // 바 글자(방향·거리)는 프레임마다 아래에서
+      const boss = list.find((m) => EXPEDITION_BOSS_KINDS.includes(MOB_KIND_OF[m.kind] ?? 'zombie'));
+      bossInfo = boss ? { x: boss.x, z: boss.z, hp: boss.hp, kind: MOB_KIND_OF[boss.kind] ?? 'spider_king' } : null; // 바 글자(방향·거리)는 프레임마다 아래에서
       if (!boss) hud.hideBoss();
     },
     onMobEvent: (m) => {
@@ -865,7 +867,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         explosionSound();
       } else if (m.ev === 'die') {
         ding();
-        if (m.mob === BOSS_KIND) {
+        if (EXPEDITION_BOSS_KINDS.includes(m.mob as MobKind)) {
           hud.hideBoss();
           levelUp(); // 승리 팡파르 대신
         }
@@ -1541,7 +1543,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     hud.setProgress(drawProgress > 0 ? drawProgress : interaction.progress); // 활 당김도 같은 고리로 (#119)
     {
       // 나침반 점: 마을에선 광장, 원정지에선 포탈 방향 (#103 — 마을이 넓어져 길을 잃지 않게). 보스가 살아 있으면 보스 (#127)
-      const bossName = `🕷️ ${MOBS.get(BOSS_KIND).name}`;
+      const bossName = bossInfo ? `${BOSS_EMOJI[bossInfo.kind] ?? ''} ${MOBS.get(bossInfo.kind).name}` : '';
       const goal =
         ctx.kind === 'village'
           ? guideStep === 1
@@ -1557,7 +1559,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         // 보스 바에 "북서 35칸" — 게이지만 보이고 어디 있는지 모르던 것 (아들 13차)
         const bearing = ((Math.atan2(bossInfo.x - player.pos.x, -(bossInfo.z - player.pos.z)) * 180) / Math.PI + 360) % 360;
         const bd = Math.hypot(bossInfo.x - player.pos.x, bossInfo.z - player.pos.z);
-        hud.setBoss(bd > 5 ? `${bossName} · ${compassWord(bearing)} ${Math.round(bd)}칸` : `${bossName} · 바로 앞!`, bossInfo.hp, MOBS.get(BOSS_KIND).hp);
+        hud.setBoss(bd > 5 ? `${bossName} · ${compassWord(bearing)} ${Math.round(bd)}칸` : `${bossName} · 바로 앞!`, bossInfo.hp, MOBS.get(bossInfo.kind).hp);
       }
       // 첫 걸음 진행 (M8-3): 포탈 가까이 → ②, 원정지에 들어가면 → ③
       if (guideStep === 1 && ctx.kind === 'village' && gd <= 7) setGuideStep(2);

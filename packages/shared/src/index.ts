@@ -36,6 +36,7 @@ export * from './worldgen/cave';
 export * from './worldgen/desert';
 export * from './worldgen/snow';
 export * from './worldgen/nether';
+export * from './worldgen/end';
 export * from './worldgen/expedition';
 export * from './worldgen/fingerprint';
 export * from './protocol/bytes';

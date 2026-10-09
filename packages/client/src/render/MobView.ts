@@ -14,6 +14,7 @@ import { PLAYER_SHADES, type SkinPalette, VOXEL, playerVoxels } from './playerMo
 import { type Part, animalParts, animalVariant, collarVoxels } from './animalModel';
 import { type Voxel, buildVoxelGeometry } from './voxelGeometry';
 import { nameSprite } from '../net/RemotePlayers';
+import { dragonMesh } from './DragonMesh';
 
 const ZOMBIE: SkinPalette = { shirt: 0x2f6a7a, skin: 0x5d8b4a, hair: 0x2c3e2b, pants: 0x3a3560, shoes: 0x25211f };
 /** 우민 (M7-5): 잿빛 피부. 변명자는 짙은 남색 옷, 약탈자는 갈색 가죽, 소환사는 검은 로브 */
@@ -415,6 +416,11 @@ export class MobView {
         body.add(mesh);
       }
       babyHead = parts.babyHead;
+    } else if (kindName === 'ender_dragon') {
+      // 엔더 드래곤 (v1.1-4): 아들의 엔더 드래곤 복셀(둥지 어른)을 2.5배로
+      const dm = dragonMesh('ender', 'adult');
+      dm.scale.setScalar(2.5);
+      body.add(dm);
     } else if (kindName === 'ghast') {
       body.add(partMesh(ghastVoxels(), material));
     } else if (kindName === 'blaze') {
@@ -426,13 +432,14 @@ export class MobView {
     // 체력 바: 머리 위, 몸과 따로(돌지도 커지지도 않는다)
     const maxHp = MOBS.get(kindName).hp;
     const king = MOB_KIND_OF[m.kind] === 'spider_king';
+    const big = king || kindName === 'ender_dragon' || kindName === 'ghast';
     const baseScale = king ? 2.2 : 1;
     body.scale.setScalar(baseScale);
     if (kindName === 'enderman') body.scale.set(0.8, 1.5, 0.8); // 키 3칸, 홀쭉하게
     else if (kindName === 'wither_skeleton') body.scale.set(1.1, 1.3, 1.1);
     else if (kindName === 'ghast') body.scale.setScalar(4.4); // 네 칸짜리 상자
-    const bar = canvasSprite(128, 28, king ? 2.2 : 1.1, king ? 0.4 : 0.24);
-    bar.sprite.position.set(0, mobSize(m.kind).h + (king ? 0.7 : 0.35), 0);
+    const bar = canvasSprite(128, 28, big ? 2.2 : 1.1, big ? 0.4 : 0.24);
+    bar.sprite.position.set(0, mobSize(m.kind).h + (big ? 0.7 : 0.35), 0);
     drawHpBar(bar.ctx, bar.tex, m.hp, maxHp);
     group.add(bar.sprite);
     this.group.add(group);

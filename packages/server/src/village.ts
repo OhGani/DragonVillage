@@ -1355,6 +1355,7 @@ export class VillageRoom {
       nightStartsAt: e.def.nightStartsAt,
       nightMobs: e.def.nightMobs,
       den: e.den,
+      boss: e.bossKind,
       get ended() {
         return e.ended;
       },
@@ -1406,6 +1407,7 @@ export class VillageRoom {
       nightStartsAt: 0,
       nightMobs: [],
       den: null,
+      boss: null,
       get ended() {
         return raid.done;
       },

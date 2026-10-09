@@ -148,6 +148,7 @@ describe('거미와 원정지별 몹 (M7-3)', () => {
     expect(isBoss('vindicator')).toBe(false);
     expect(bossMinionKind('evoker')).toBe('vindicator');
     expect(bossMinionKind('spider_king')).toBe('spider');
+    expect(bossMinionKind('ender_dragon')).toBe('enderman'); // v1.1-4 (#162)
     const e = MOBS.get('evoker');
     expect(e.name).toBe('소환사');
     expect(e.hp).toBe(150);

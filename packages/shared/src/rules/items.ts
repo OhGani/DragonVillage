@@ -13,6 +13,8 @@ export const ITEM_FALLBACK_KO: Readonly<Record<string, string>> = {
   emerald: '에메랄드',
   lapis: '청금석',
   quartz: '석영',
+  dragon_breath: '드래곤의 숨결',
+  dragon_egg: '드래곤 알',
   blaze_rod: '블레이즈 막대기',
   ghast_tear: '가스트의 눈물',
   wither_skeleton_skull: '위더 스켈레톤 머리',
