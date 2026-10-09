@@ -225,7 +225,7 @@
 | 물병 → 어색한 물약 → 물약, 화약(투척)·드래곤의 숨결(잔류), 레드스톤(×8/3)·발광석(II, 시간 반), 발효된 거미 눈(뒤집기) | `potions.json base·modifiers`, `potions.ts brew` | **M4 (v1)** — 양조기 UI 와 함께 |
 | 신속·도약·수중 호흡·야간 투시 (이동·시야 효과, 체력 없어도 됨) | `potions.json` | **M4 (v1)** |
 | 치유·고통·독·재생·화염 저항·힘·나약함 (체력·전투가 있어야 듣는다) | `potions.json` | **M7 (v1)** — 체력·피해가 생기는 마일스톤. 양조는 M4 부터 되고 효과만 M7 |
-| 치유의 물약 = 치유 드래곤 재료 6 | `dragons.json`(그대로), 레시피는 `potions.json healing` (`recipes.json healing_potion` 삭제) | M6 |
+| 치유의 물약 = 치유 드래곤 재료 6 | `dragons.json` 재료 id 는 `potion.healing`(양조기가 만드는 이름, #163), 레시피는 `potions.json healing` | M6 |
 | 투명화 (다른 플레이어에게 안 보임 — 서버 처리) | `potions.json invisibility` | v1.1 |
 | 거북 도사(거북이 없음)·느린 낙하(팬텀 없음) | `potions.json`, `recipes.json turtle_shell` | v1.1 — 그 몹이 들어올 때 |
 | 1.21 신규: 돌풍(브리즈)·방직(거미줄)·장역화(슬라임)·벌레 먹음(좀벌레) — 새 몹·구조물이 필요 | `potions.json`, `recipes.json slime_block` | v2 |

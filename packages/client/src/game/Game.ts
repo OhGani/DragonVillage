@@ -66,6 +66,8 @@ import {
   sanitizeEquipment,
   GUARD_RESEND_MS,
   GUARD_TAP_MS,
+  isPotionItem,
+  potionFromItemId,
 } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
@@ -293,7 +295,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
 
   // ---- HUD ----
   const hud = new Hud(root, isTouch);
-  const nameOf = (id: string) => (id in STATION_KO ? STATION_KO[id as keyof typeof STATION_KO] : itemName(id, registry, ITEM_NAMES));
+  const nameOf = (id: string) => (id in STATION_KO ? STATION_KO[id as keyof typeof STATION_KO] : isPotionItem(id) ? POTIONS.displayName(potionFromItemId(id)!) : itemName(id, registry, ITEM_NAMES)); // 물약은 potions.json 이름 (#163)
   const iconOf = (id: string, size: number): HTMLCanvasElement | null => itemIcon(id, size, registry, atlas, nameOf(id));
   remote.iconOf = (id) => iconOf(id, 32); // 다른 사람 손에 든 것 (#96)
   let sentHeld: string | null | undefined; // 서버에 마지막으로 알린 손 아이템
@@ -872,7 +874,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
           levelUp(); // 승리 팡파르 대신
         }
       } else if (m.ev === 'hit') hitSound();
-      else if (m.ev === 'love' || m.ev === 'tame' || m.ev === 'grow') ding();
+      else if (m.ev === 'love' || m.ev === 'tame' || m.ev === 'grow' || m.ev === 'milk') ding();
       else if (m.ev === 'wake') {
         roar();
         hud.hurtFlash();
@@ -1505,7 +1507,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const tamed = (f.state & ANIMAL_FLAG.tamed) !== 0;
         const foods = def.food.map((i) => nameOf(i)).join('·');
         const tip = tamed ? (pets.get(aimedMob)?.mine ? '빈손 탭 → 앉기/일어나기 · 카드에서 이름 짓기' : '남이 길들인 강아지예요') : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
-        const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : '';
+        const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : def.id === 'cow' && !baby ? ' · 🪣 빈 양동이 들고 탭 → 우유' : '';
         hud.toast(`${def.name}${baby ? ' (아기)' : ''}${tamed ? ' 🐾' : ''} · ${tip}${extra}`, 3000);
       }
     }

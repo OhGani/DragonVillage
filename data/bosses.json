@@ -150,7 +150,7 @@
           "hp": 600,
           "drops": [
             { "material": "gunpowder", "name": "화약", "count": 64, "chance": 1.0 },
-            { "material": "healing_potion", "name": "치유의 물약", "count": 64, "chance": 1.0 }
+            { "material": "potion.healing", "name": "치유의 물약", "count": 64, "chance": 1.0 }
           ],
           "_dropsNote": "아들(2026-09-13). 치유의 물약 = 치유 드래곤 재료(6)",
           "xp": 300

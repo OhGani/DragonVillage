@@ -284,6 +284,24 @@ describe('마을 동물 (M8-1)', () => {
     sheep.x = p.pos.x + 1.5;
     sheep.z = p.pos.z;
     expect(room.useMob(ra.idx, sid, shears, T0 + WOOL_REGROW_MS + 3000)).toBeNull();
+    // 우유 (#163): 빈 양동이를 들고 어른 소를 탭 → 양동이 1 → 우유 양동이 1. 아기 소는 안 나온다
+    give(p.inv, 'bucket', 2);
+    const bucketSlot = p.inv.findIndex((s) => s?.item === 'bucket');
+    const cow = [...room.animals.animals.values()].find((an) => an.kind === 'cow' && an.adultAt === null)!;
+    cow.x = p.pos.x + 1.5;
+    cow.z = p.pos.z;
+    cow.y = p.pos.y;
+    const cid = ANIMAL_ID_BASE + cow.id;
+    expect(room.useMob(ra.idx, cid, bucketSlot, T0 + 4000)).toBeNull();
+    expect(countOf(p.inv, 'milk_bucket')).toBe(1);
+    expect(countOf(p.inv, 'bucket')).toBe(1);
+    const calf = [...room.animals.animals.values()].find((an) => an.kind === 'cow' && an.adultAt !== null);
+    if (calf) {
+      calf.x = p.pos.x + 1.5;
+      calf.z = p.pos.z;
+      calf.y = p.pos.y;
+      expect(room.useMob(ra.idx, ANIMAL_ID_BASE + calf.id, p.inv.findIndex((s) => s?.item === 'bucket'), T0 + 5000)).toBe('NO_MILK');
+    }
     // 달걀
     const hen = [...room.animals.animals.values()].find((an) => an.kind === 'chicken')!;
     hen.x = p.pos.x + 1.5;

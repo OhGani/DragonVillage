@@ -224,8 +224,9 @@
       "rarity": 3
     },
     {
-      "id": "healing_potion",
+      "id": "potion.healing",
       "name": "치유의 물약",
+      "_idNote": "양조기가 만드는 물약 이름은 potion.<potions.json id> (아빠 2026-10-10, #163). 전엔 healing_potion 이라 아무것도 안 맞았다",
       "from": [
         "the_end",
         "craft"
@@ -1014,7 +1015,7 @@
       ],
       "recipe": [
         {
-          "material": "healing_potion",
+          "material": "potion.healing",
           "count": 6
         }
       ],

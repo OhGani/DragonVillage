@@ -344,6 +344,17 @@
       "danger": 5,
       "skyLight": 0.5,
       "_skyLightNote": "엔드는 캄캄하지 않고 어둑하다 (0.22 가 한밤, 1 이 낮)",
+      "treasureBonus": {
+        "_comment": "엔드 시티 상자엔 치유의 물약이 꼭 (아들 3차 '입구 양조기(치유의 물약), 내부 상자 2'). 치유 드래곤 재료 6개 모으기",
+        "extraPicks": 0,
+        "always": [
+          {
+            "item": "potion.healing",
+            "min": 1,
+            "max": 2
+          }
+        ]
+      },
       "nightMobs": [
         "enderman"
       ],
@@ -351,7 +362,7 @@
       "materials": [
         "dragon_breath",
         "dragon_egg",
-        "healing_potion",
+        "potion.healing",
         "ender_pearl"
       ],
       "bossOrRareMobs": [

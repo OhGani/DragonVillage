@@ -75,6 +75,7 @@ const USE_ERROR_KO: Record<string, string> = {
   PET_OTHER: '남의 강아지예요',
   NO_WOOL: '털이 아직 안 자랐어요 (5분 뒤에)',
   NO_EGG: '아직 알이 없어요 — 닭은 6분마다 하나 품어요',
+  NO_MILK: '아기 소는 우유가 안 나와요',
 };
 
 const NEST_ERROR_KO: Record<string, string> = {

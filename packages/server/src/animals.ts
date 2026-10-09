@@ -421,7 +421,7 @@ export class AnimalSystem {
 
   /**
    * 탭(보조): 먹이면 먹고(아기는 빨리 자라고, 어른은 사랑), 뼈면 길들이기, 내 강아지에 빈손이면 앉기/일어나기.
-   * 오류: NO_MOB · TOO_FAR · NOT_FOOD · PET_OTHER. 성공 null
+   * 오류: NO_MOB · TOO_FAR · NOT_FOOD · PET_OTHER · NO_WOOL · NO_EGG · NO_MILK(아기 소). 성공 null
    */
   use(p: AnimalViewer, mobId: number, held: string | null, now: number): string | null {
     const a = this.find(mobId);
@@ -439,6 +439,14 @@ export class AnimalSystem {
       a.dirty = true;
       this.hooks.reward(p.idx, [{ item: WOOL_ITEM, count: n }], 0, { x: a.x, y: a.y + 1, z: a.z }, now);
       this.hooks.json({ t: 'mob', ev: 'shear', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
+      return null;
+    }
+    // 우유 (#163): 빈 양동이를 들고 어른 소를 탭 → 양동이 하나가 우유 양동이로. 케이크 재료
+    if (held === 'bucket' && a.kind === 'cow') {
+      if (this.isBaby(a, now)) return 'NO_MILK';
+      if (!this.hooks.consume(p.idx, 'bucket')) return 'NO_MILK';
+      this.hooks.reward(p.idx, [{ item: 'milk_bucket', count: 1 }], 0, { x: a.x, y: a.y + 1, z: a.z }, now);
+      this.hooks.json({ t: 'mob', ev: 'milk', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
       return null;
     }
     // 달걀 (M8-1 3차): 빈손으로 닭을 탭 → 품은 달걀을 받는다
