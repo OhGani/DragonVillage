@@ -198,6 +198,7 @@
 | 나뭇잎 가위 드롭: 막대기 / 그 나무 묘목 / 참나무 사과 | `blocks.json leaves.shearDrops` | M4 |
 | 말 + 안장 = 탑승 | `mobs.json horse`, 서버 `animals.mount`, 클라 `Player.horse` | **구현 2026-10-10** (#166) |
 | 교배 먹이: 돼지 당근, 양·소 밀, 닭 씨앗. 먹이를 들면 동물이 쫓아옴(야생·사육 모두) | `mobs.json breedWith / followsWhenHolding` | v1.1 |
+| 주민이 몹을 보면 철 골렘 소환 / 방어전 패배 시 주민 납치 → 승리 귀환 | 서버 `MobSystem` 지킴이 동행, `villages.kidnapped` | **구현 2026-10-10** (#169) |
 | 밀·당근 농사: 농지에 씨(밀 씨·당근)를 심고 8분 뒤 수확 | `blocks.json wheat_young/wheat_ripe/carrot_young/carrot_ripe`, 서버 `crops` | **구현 2026-10-10** (#165) |
 | 주민: 놀라면 철 골렘 소환, 좀비에 물리면 좀비 주민 → 황금 사과로 치료, 빵으로 아기 주민 | `village.json npcs.villager` | v1.1 |
 

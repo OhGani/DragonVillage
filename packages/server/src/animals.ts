@@ -99,6 +99,8 @@ export interface AnimalHooks {
   /** 손에 든 것 하나를 쓴다 (먹이·뼈). 못 쓰면 false */
   consume(idx: number, item: string): boolean;
   log(msg: string): void;
+  /** 우민에게 잡혀간 주민 수 (#169): 돌아올 때까지 다시 안 채운다 */
+  kidnapped?(): number;
 }
 
 interface Animal extends AnimalRow {
@@ -147,7 +149,7 @@ export class AnimalSystem {
     let added = 0;
     let i = rows.length;
     for (const [kind, n] of Object.entries(INITIAL_ANIMALS) as [MobKind, number][]) {
-      const need = n - this.wildCountOf(kind);
+      const need = n - this.wildCountOf(kind) - (kind === 'villager' ? (this.hooks.kidnapped?.() ?? 0) : 0); // 잡혀간 주민은 안 채운다 (#169)
       if (need > 0) added += this.spawnHerd(kind, need, i++, now);
     }
     if (added > 0) this.hooks.log(rows.length === 0 ? `동물 ${added}마리를 숲에 풀었어요` : `숲에 동물 ${added}마리를 채웠어요 (${this.animals.size}마리)`);
@@ -271,7 +273,7 @@ export class AnimalSystem {
       let worst: MobKind | null = null,
         worstNeed = 0;
       for (const [kind, n] of Object.entries(INITIAL_ANIMALS) as [MobKind, number][]) {
-        const need = n - this.wildCountOf(kind);
+        const need = n - this.wildCountOf(kind) - (kind === 'villager' ? (this.hooks.kidnapped?.() ?? 0) : 0);
         if (need > worstNeed) (worst = kind), (worstNeed = need);
       }
       if (worst) {
@@ -525,6 +527,28 @@ export class AnimalSystem {
       return null;
     }
     return 'NOT_FOOD';
+  }
+
+  /** 주민 자리 (#169): 방어전 때 철 골렘이 설 곳 */
+  villagerPositions(): { x: number; y: number; z: number }[] {
+    return [...this.animals.values()].filter((a) => a.kind === 'villager' && !a.away).map((a) => ({ x: a.x, y: a.y, z: a.z }));
+  }
+
+  /** 방어전 패배 (#169, #114): 주민이 잡혀간다 — 다음 승리 때 돌아온다. 잡혀간 수 */
+  kidnapVillagers(): number {
+    let n = 0;
+    for (const a of [...this.animals.values()]) {
+      if (a.kind !== 'villager') continue;
+      this.animals.delete(a.id);
+      this.store?.deleteAnimal(a.id);
+      n++;
+    }
+    return n;
+  }
+
+  /** 방어전 승리 (#169): 잡혀갔던 주민이 집 앞으로 돌아온다 */
+  returnVillagers(n: number, now: number): number {
+    return this.spawnVillagers(n, now);
   }
 
   /** 이 동물이 내 말인가 (#166) */

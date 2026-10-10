@@ -187,6 +187,9 @@ export const TICK_MS = 50;
 export const FLUSH_MS = 30_000;
 /** 드래곤 성장 확인 간격 (M6-3) */
 export const GROWTH_CHECK_MS = 5_000;
+/** 철 골렘 (#169): 방어전마다 주민 수만큼, 둘까지. 몹 번호는 동물과 안 겹치게 60000 부터 (u16) */
+export const GOLEM_MAX = 2;
+export const GOLEM_ID_BASE = 60_000;
 /** 작물 익음 확인 주기 (#165) */
 export const CROP_CHECK_MS = 10_000;
 
@@ -341,6 +344,7 @@ export class VillageRoom {
     this.animals = new AnimalSystem(this.world, this.registry, MOBS, this.info.seed, this.storage, this.info.code, {
       players: () => this.playersIn('village').map((p) => ({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held: p.held })),
       json: (obj) => this.broadcastJson(obj, -1, 'village'),
+      kidnapped: () => this.storage?.kidnapped(this.info.code) ?? 0,
       reward: (idx, drops, xp, at, now) => {
         const p = this.players.get(idx);
         if (!p) return;
@@ -1460,13 +1464,37 @@ export class VillageRoom {
       elapsedSec: (t) => Math.max(0, (t - now) / 1000),
     };
     const mobs = new MobSystem(arena, this.registry, MOBS, this.mobHooks('village'), { autoSpawn: false, aggroRange: RAID_AGGRO_R, goal: RAID_GOAL, quiet: true });
+    // 철 골렘 (#169, 아들 7차 "주민이 몹을 보고 놀라면 철 골렘을 소환"): 주민 하나에 골렘 하나, 둘까지. 깃대 근처에 세운다
+    const guards = this.animals.villagerPositions().slice(0, GOLEM_MAX);
+    guards.forEach((_v, i) => {
+      const gx = RAID_GOAL.x + (i === 0 ? -3 : 3),
+        gz = RAID_GOAL.z + 2;
+      mobs.addCompanion({ id: GOLEM_ID_BASE + i, kind: 'iron_golem', owner: -1, name: null, x: gx, y: GROUND_Y + 1, z: gz, home: { x: gx, z: gz }, damage: MOBS.get('iron_golem').damage, reach: MOBS.get('iron_golem').reach });
+    });
+    if (guards.length > 0) this.broadcastJson({ t: 'error', code: 'RAID_GOLEM', message: `🗿 주민들이 철 골렘 ${guards.length}을 불렀어요! 깃대 옆에서 같이 싸워요` }, -1, 'village');
     this.raid = new RaidSystem(mobs, RAIDS, {
       players: () => this.playersIn('village').filter((q) => q.hp > 0).map((q) => ({ idx: q.idx, x: q.pos.x, y: q.pos.y, z: q.pos.z, eyeY: q.pos.y + EYE })),
       state: (st) => this.broadcastJson({ t: 'raid', raid: st }, -1, 'village'),
       notice: (code, message) => this.broadcastJson({ t: 'error', code, message }, -1, 'village'),
       finished: (won, wave, t) => {
         raid.done = true;
+        mobs.companions.clear(); // 골렘은 방어전이 끝나면 돌아간다 (#169)
         this.storage?.addRaid(this.info.code, now, won, wave);
+        // 주민 (#169, #114): 지면 잡혀가고, 다음에 이기면 돌아온다
+        if (won) {
+          const back = this.storage?.kidnapped(this.info.code) ?? 0;
+          if (back > 0) {
+            this.animals.returnVillagers(back, t);
+            this.storage?.setKidnapped(this.info.code, 0);
+            this.broadcastJson({ t: 'error', code: 'RAID_VILLAGERS_BACK', message: `🧑‍🌾 잡혀갔던 주민 ${back}명이 돌아왔어요!` }, -1, 'village');
+          }
+        } else {
+          const taken = this.animals.kidnapVillagers();
+          if (taken > 0) {
+            this.storage?.setKidnapped(this.info.code, (this.storage?.kidnapped(this.info.code) ?? 0) + taken);
+            this.broadcastJson({ t: 'error', code: 'RAID_KIDNAP', message: `😱 우민이 주민 ${taken}명을 잡아갔어요… 다음 방어전에서 이기면 돌아와요` }, -1, 'village');
+          }
+        }
         this.placeFlag('village');
         if (won) for (const q of this.playersIn('village')) this.addXp(q, RAIDS.xpEach, XP_SOURCE.boss, RAID_GOAL.x, RAID_GOAL.y, RAID_GOAL.z, t);
         this.log(`마을 ${this.info.code}: 방어전 ${won ? '승리' : '패배'} (파도 ${wave}/${RAIDS.waves})`);

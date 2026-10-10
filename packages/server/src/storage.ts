@@ -176,6 +176,8 @@ CREATE TABLE IF NOT EXISTS placed(
 CREATE TABLE IF NOT EXISTS crops(
   village TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL, planted_at INTEGER NOT NULL,
   PRIMARY KEY(village, x, y, z));
+CREATE TABLE IF NOT EXISTS village_flags(
+  village TEXT NOT NULL, key TEXT NOT NULL, value INTEGER NOT NULL, PRIMARY KEY(village, key));
 CREATE TABLE IF NOT EXISTS gifts_given(
   token TEXT NOT NULL, gift TEXT NOT NULL, given_at INTEGER NOT NULL, PRIMARY KEY(token, gift));
 CREATE TABLE IF NOT EXISTS animals(
@@ -209,6 +211,8 @@ export class Storage {
     this.ensureColumn('animals', 'name', 'TEXT'); // 펫 이름 (#109)
     this.stmts = {
       getVillage: this.db.prepare('SELECT code, name, seed, gen_version AS genVersion, created_at AS createdAt FROM villages WHERE code = ?'),
+      getFlag: this.db.prepare('SELECT value FROM village_flags WHERE village = ? AND key = ?'),
+      setFlag: this.db.prepare('INSERT OR REPLACE INTO village_flags(village, key, value) VALUES (?, ?, ?)'),
       listVillages: this.db.prepare('SELECT code, name, seed, gen_version AS genVersion, created_at AS createdAt FROM villages ORDER BY created_at'),
       insertVillage: this.db.prepare('INSERT INTO villages(code, name, seed, gen_version, created_at) VALUES (@code, @name, @seed, @genVersion, @createdAt)'),
       deleteChunks: this.db.prepare('DELETE FROM chunk_diffs WHERE village = ?'),
@@ -326,12 +330,19 @@ export class Storage {
     };
   }
 
+  /** 잡혀간 주민 수 (#169) — village_flags 표 */
+  kidnapped(code: string): number {
+    return (this.stmts.getFlag.get(code, 'kidnapped') as { value: number } | undefined)?.value ?? 0;
+  }
+  setKidnapped(code: string, n: number): void {
+    this.stmts.setFlag.run(code, 'kidnapped', n);
+  }
   getVillage(code: string): VillageRow | undefined {
     return this.stmts.getVillage.get(code) as VillageRow | undefined;
   }
   /** 마을 코드 바꾸기 (M9-4, #153): 마을을 가리키는 표 전부를 한 번에 */
   renameVillage(oldCode: string, newCode: string): void {
-    const tables = ['villages', 'chunk_diffs', 'storage', 'players', 'inventories', 'dragons', 'chests', 'buildings', 'codex', 'placed', 'crops', 'animals', 'raids'];
+    const tables = ['villages', 'chunk_diffs', 'storage', 'players', 'inventories', 'dragons', 'chests', 'buildings', 'codex', 'placed', 'crops', 'village_flags', 'animals', 'raids'];
     const tx = this.db.transaction(() => {
       for (const t of tables) this.db.prepare(`UPDATE ${t} SET ${t === 'villages' ? 'code' : 'village'} = ? WHERE ${t === 'villages' ? 'code' : 'village'} = ?`).run(newCode, oldCode);
     });

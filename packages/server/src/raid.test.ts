@@ -1,4 +1,4 @@
-import { BY_SERVER, FLAG_GROUND, FLAG_POLE, GROUND_Y, MOB_STATE, RAID_CAPTURE_SEC, RAID_WARNING_SEC, RAID_WAVE_REST_SEC, VILLAGE_GEN_VERSION, DEFAULT_VILLAGE_SEED, decodeServerBinary, type ServerBinary } from '@dragon-village/shared';
+import { BY_SERVER, MOB_KIND_NUM, FLAG_GROUND, FLAG_POLE, GROUND_Y, MOB_STATE, RAID_CAPTURE_SEC, RAID_WARNING_SEC, RAID_WAVE_REST_SEC, VILLAGE_GEN_VERSION, DEFAULT_VILLAGE_SEED, decodeServerBinary, type ServerBinary } from '@dragon-village/shared';
 import { BLOCKS, RAIDS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
 import { RAID_GOAL } from './raid';
@@ -113,6 +113,60 @@ describe('마을 방어전 (M7-5)', () => {
     expect(BLOCKS.get(room.world.getBlock(FLAG_POLE.x + 1, GROUND_Y + FLAG_POLE.height, FLAG_POLE.z)).id).toBe('obsidian'); // 마지막이 패배라 검은 깃발
   });
 
+  it('철 골렘·주민 납치 (#169): 종이 울리면 골렘 둘이 깃대 옆에 서서 우민을 때리고, 지면 주민이 잡혀갔다가 다음 승리 때 돌아온다', () => {
+    const { room, storage, a, ra, rb, atFlag } = setup();
+    expect([...room.animals.animals.values()].filter((v) => v.kind === 'villager')).toHaveLength(3);
+    atFlag(ra.idx, T0);
+    expect(room.startRaid(ra.idx, T0)).toBeNull();
+    expect(room.raid!.mobs.companions.size).toBe(2);
+    expect(a.json.find((m) => m.t === 'error' && m.code === 'RAID_GOLEM')).toBeDefined();
+    let t = T0 + RAID_WARNING_SEC * 1000 + 100;
+    room.tick(t);
+    expect(room.raid!.mobs.entries().filter((e) => e.kind === MOB_KIND_NUM.iron_golem)).toHaveLength(2);
+    // 우민 하나를 골렘 옆에 두면 맞는다
+    const g = [...room.raid!.mobs.companions.values()][0]!;
+    const m = [...room.raid!.mobs.mobs.values()][0]!;
+    const hp0 = m.hp;
+    for (let i = 0; i < 30; i++) {
+      m.x = g.x + 1;
+      m.z = g.z;
+      m.y = g.y;
+      room.tick((t += 100));
+    }
+    expect(m.hp).toBeLessThan(hp0);
+    // 패배 → 주민 셋이 잡혀간다, 다시 켜도 안 돌아온다
+    room.raid!.mobs.clear();
+    (room.raid as unknown as { finish(won: boolean, now: number): void }).finish(false, t + 1000);
+    room.tick(t + 1100);
+    expect(room.raid).toBeNull();
+    expect([...room.animals.animals.values()].filter((v) => v.kind === 'villager')).toHaveLength(0);
+    expect(storage.kidnapped('123456')).toBe(3);
+    expect(a.json.find((mm) => mm.t === 'error' && mm.code === 'RAID_KIDNAP')).toBeDefined();
+    const again = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    expect([...again.animals.animals.values()].filter((v) => v.kind === 'villager')).toHaveLength(0);
+    // 승리 → 돌아온다
+    t += 2000;
+    atFlag(ra.idx, t);
+    void rb;
+    expect(room.startRaid(ra.idx, t)).toBeNull();
+    expect(room.raid!.mobs.companions.size).toBe(0); // 주민이 없으니 골렘도 없다
+    t += RAID_WARNING_SEC * 1000 + 100;
+    room.tick(t);
+    for (let wave = 1; wave <= RAIDS.waves; wave++) {
+      killAll(room, ra.idx, t);
+      t += 25_000;
+      room.tick(t);
+      if (wave < RAIDS.waves) {
+        t += RAID_WAVE_REST_SEC * 1000 + 200;
+        room.tick(t);
+      }
+    }
+    expect(room.raid).toBeNull();
+    expect([...room.animals.animals.values()].filter((v) => v.kind === 'villager')).toHaveLength(3);
+    expect(storage.kidnapped('123456')).toBe(0);
+    expect(a.json.find((mm) => mm.t === 'error' && mm.code === 'RAID_VILLAGERS_BACK')).toBeDefined();
+  });
+
   it('우민이 깃대를 잡고 사람이 없으면 15초 뒤 패배, 사람이 오면 점령이 풀린다', () => {
     const { room, a, ra, rb, atFlag } = setup();
     atFlag(ra.idx, T0);
@@ -120,6 +174,7 @@ describe('마을 방어전 (M7-5)', () => {
     let t = T0 + RAID_WARNING_SEC * 1000 + 100;
     room.tick(t);
     const sys = room.raid!.mobs;
+    sys.companions.clear(); // 철 골렘(#169)이 깃대 옆 우민을 때려 점령을 막으니 이 시험에선 뺀다
     // 사람들은 멀리, 우민 하나를 깃대 옆에
     for (const r of [ra, rb]) room.onMove(r.idx, { x: 64.5, y: GROUND_Y + 1, z: 110.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, t);
     const m = [...sys.mobs.values()][0]!;

@@ -122,7 +122,14 @@ export interface Companion {
   z: number;
   yaw: number;
   nextBiteAt: number;
+  /** 지킴이 (#169, 철 골렘): 주인(owner -1) 대신 이 자리를 지킨다 — 가까운 몹을 때리고 돌아온다 */
+  home?: { x: number; z: number };
+  /** 한 번 때리는 피해 (없으면 펫 3) · 닿는 거리 (없으면 펫 1.8) */
+  damage?: number;
+  reach?: number;
 }
+/** 지킴이가 몹을 알아보는 거리 */
+const GUARD_AGGRO = 20;
 const DEFAULT_OPTS: MobSystemOptions = { autoSpawn: true, aggroRange: 40, goal: null, quiet: false };
 
 export class MobSystem {
@@ -350,7 +357,7 @@ export class MobSystem {
 
   // ---------------------------------------------------------------- 원정 동행 펫 (#147)
 
-  addCompanion(c: { id: number; kind: MobKind; owner: number; name: string | null; x: number; y: number; z: number }): void {
+  addCompanion(c: { id: number; kind: MobKind; owner: number; name: string | null; x: number; y: number; z: number; home?: { x: number; z: number }; damage?: number; reach?: number }): void {
     this.companions.set(c.id, { ...c, yaw: 0, nextBiteAt: 0 });
   }
 
@@ -366,22 +373,25 @@ export class MobSystem {
 
   private stepCompanions(players: MobTarget[], dt: number, now: number): void {
     for (const c of this.companions.values()) {
-      const owner = players.find((p) => p.idx === c.owner);
-      if (!owner) continue;
+      const owner = c.owner >= 0 ? players.find((p) => p.idx === c.owner) : undefined;
+      if (c.owner >= 0 && !owner) continue;
+      const guard = !owner; // 지킴이 (#169): 주인 없이 home 을 지킨다
+      const reach = c.reach ?? PET_REACH;
       // 주인 근처(또는 내 근처) 가장 가까운 몹 — 잠든 보스는 건드리지 않는다
       let prey: MobState | null = null;
-      let best = PET_AGGRO;
+      let best = guard ? GUARD_AGGRO : PET_AGGRO;
       for (const m of this.mobs.values()) {
         if (m === this.boss && !this.bossAwake) continue;
-        const d = Math.min(Math.hypot(m.x - owner.x, m.z - owner.z), Math.hypot(m.x - c.x, m.z - c.z));
+        const d = owner ? Math.min(Math.hypot(m.x - owner.x, m.z - owner.z), Math.hypot(m.x - c.x, m.z - c.z)) : Math.hypot(m.x - c.x, m.z - c.z);
         if (d < best) {
           best = d;
           prey = m;
         }
       }
-      const goal = prey ? { x: prey.x, z: prey.z, stop: PET_REACH } : { x: owner.x, z: owner.z, stop: PET_FOLLOW_STOP };
-      const dOwner = Math.hypot(owner.x - c.x, owner.z - c.z);
-      if (dOwner > PET_TELEPORT) {
+      const anchor = owner ?? c.home ?? { x: c.x, z: c.z };
+      const goal = prey ? { x: prey.x, z: prey.z, stop: reach } : { x: anchor.x, z: anchor.z, stop: owner ? PET_FOLLOW_STOP : 0.5 };
+      const dOwner = owner ? Math.hypot(owner.x - c.x, owner.z - c.z) : 0;
+      if (owner && dOwner > PET_TELEPORT) {
         c.x = owner.x - 1.2;
         c.z = owner.z;
         c.y = this.groundAt(c.x, c.z, owner.y) ?? owner.y;
@@ -402,10 +412,10 @@ export class MobSystem {
         }
         c.yaw = Math.atan2(-dx, -dz);
       }
-      if (prey && Math.hypot(prey.x - c.x, prey.z - c.z) <= PET_REACH + 0.4 && now >= c.nextBiteAt) {
-        c.nextBiteAt = now + PET_BITE_MS;
+      if (prey && Math.hypot(prey.x - c.x, prey.z - c.z) <= reach + 0.4 && now >= c.nextBiteAt) {
+        c.nextBiteAt = now + (guard ? 1200 : PET_BITE_MS);
         const pd = Math.hypot(prey.x - c.x, prey.z - c.z) || 1;
-        this.damage(prey, PET_DAMAGE, c.owner, now, { x: (prey.x - c.x) / pd, z: (prey.z - c.z) / pd });
+        this.damage(prey, c.damage ?? PET_DAMAGE, c.owner, now, { x: (prey.x - c.x) / pd, z: (prey.z - c.z) / pd }); // owner -1 이면 보상은 아무에게도
       }
     }
   }

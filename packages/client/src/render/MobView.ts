@@ -34,6 +34,8 @@ const HUMANOID: Partial<Record<string, SkinPalette>> = {
   wither_skeleton: { shirt: 0x262626, skin: 0x2b2b2b, hair: 0x1c1c1c, pants: 0x222222, shoes: 0x171717, eyes: 0x8a8a8a },
   // 주민 (#168): 갈색 로브, 큰 코는 아직 — 아들 그림 기다림
   villager: { shirt: 0x6b4f2a, skin: 0xc9a27c, hair: 0x4a3320, pants: 0x5a4224, shoes: 0x3a2a1a, eyes: 0x3d7a4a },
+  // 철 골렘 (#169): 잿빛 쇠, 덩굴 자국. 몸을 1.4배로
+  iron_golem: { shirt: 0xc9cfcf, skin: 0xd6dcdc, hair: 0xb8c4b8, pants: 0xc9cfcf, shoes: 0x9aa39a, eyes: 0xb03030 },
 };
 
 const CREEPER_GREEN = 0x4caf50;
@@ -439,6 +441,7 @@ export class MobView {
     body.scale.setScalar(baseScale);
     if (kindName === 'enderman') body.scale.set(0.8, 1.5, 0.8); // 키 3칸, 홀쭉하게
     else if (kindName === 'wither_skeleton') body.scale.set(1.1, 1.3, 1.1);
+    else if (kindName === 'iron_golem') body.scale.set(1.5, 1.45, 1.5);
     else if (kindName === 'ghast') body.scale.setScalar(4.4); // 네 칸짜리 상자
     const bar = canvasSprite(128, 28, big ? 2.2 : 1.1, big ? 0.4 : 0.24);
     bar.sprite.position.set(0, mobSize(m.kind).h + (big ? 0.7 : 0.35), 0);
