@@ -41,6 +41,7 @@ const RAID_ERROR_KO: Record<string, string> = {
 
 /** 몹 때리기 오류 (M7-2) */
 const HIT_ERROR_KO: Record<string, string> = {
+  VILLAGER: '주민은 때리면 안 돼요 — 빵을 주면 좋아해요',
   NO_MOB: '거기엔 아무것도 없어요',
   TOO_FAR: '너무 멀어요 — 가까이 가서 쳐요',
   PET: '길들인 동물은 때릴 수 없어요',
@@ -73,6 +74,7 @@ const USE_ERROR_KO: Record<string, string> = {
   TOO_FAR: '너무 멀어요 — 가까이 가요',
   NOT_FOOD: '이 동물이 먹는 걸 들고 탭해요 (소·양 밀, 돼지 당근, 닭 씨앗, 강아지 뼈, 양은 가위)',
   PET_OTHER: '남의 강아지예요',
+  VILLAGER: '주민은 때리면 안 돼요 — 빵을 주면 좋아해요',
   NO_WOOL: '털이 아직 안 자랐어요 (5분 뒤에)',
   NO_EGG: '아직 알이 없어요 — 닭은 6분마다 하나 품어요',
   NO_MILK: '아기 소는 우유가 안 나와요',

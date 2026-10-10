@@ -107,6 +107,28 @@
       "_note": "마을이 커지면 둥지도 커진다 (아들 답변 14). 단계별로 수용 드래곤 수와 크기 증가"
     },
     {
+      "id": "villager_house_1",
+      "name": "주민 집",
+      "level": 1,
+      "cost": {},
+      "footprint": [5, 5, 4],
+      "_comment": "주민 집 (#168): 서버가 처음부터 세운다. 창고 건물 탭엔 안 나오고 마을 레벨에도 안 센다"
+    },
+    {
+      "id": "villager_house_2",
+      "name": "주민 집",
+      "level": 1,
+      "cost": {},
+      "footprint": [5, 5, 4]
+    },
+    {
+      "id": "villager_house_3",
+      "name": "주민 집",
+      "level": 1,
+      "cost": {},
+      "footprint": [5, 5, 4]
+    },
+    {
       "id": "dragon_nest_2",
       "name": "큰 둥지",
       "level": 3,

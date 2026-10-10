@@ -1,4 +1,8 @@
-import { ANIMAL_FLAG, ANIMAL_ID_BASE, BABY_MS, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, EGG_EVERY_MS, HERD_SPREAD, INITIAL_ANIMALS, MSG, RESPAWN_BATCH, RESPAWN_EVERY_MS, VILLAGE_GEN_VERSION, WOOL_REGROW_MS, countOf, decodeServerBinary, give, isAnimalSpot, type ServerBinary } from '@dragon-village/shared';
+import { ANIMAL_FLAG, ANIMAL_ID_BASE, BABY_MS, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, EGG_EVERY_MS, HERD_SPREAD, INITIAL_ANIMALS, MSG, RESPAWN_BATCH, RESPAWN_EVERY_MS, VILLAGE_GEN_VERSION, WOOL_REGROW_MS, countOf, decodeServerBinary, give, isAnimalSpot, type ServerBinary,
+  villagerSpot,
+  VILLAGER_HOUSES,
+  isBuildingBuiltAt,
+} from '@dragon-village/shared';
 import { BLOCKS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
 import { Storage } from './storage';
@@ -28,6 +32,7 @@ describe('마을 동물 (M8-1)', () => {
     const total = Object.values(INITIAL_ANIMALS).reduce((a, b) => a + b, 0);
     expect(room.animals.animals.size).toBe(total);
     for (const a of room.animals.animals.values()) {
+      if (a.kind === 'villager') continue; // 주민은 집 앞 (#168)
       expect(isAnimalSpot(a.x, a.z)).toBe(true);
       expect(BLOCKS.get(room.world.getBlock(Math.floor(a.x), Math.floor(a.y) - 1, Math.floor(a.z))).id).toBe('grass');
       expect(a.adultAt).toBeNull();
@@ -358,6 +363,27 @@ describe('마을 동물 (M8-1)', () => {
     expect(horse.ridden).toBeNull();
     expect([horse.x, horse.z]).toEqual([70.5, 70.5]); // 내린 자리에 선다
     expect(room.animals.entries(T0 + 3000).some((e) => e.id === hid)).toBe(true);
+  });
+
+  it('주민 (#168): 집 앞에 셋이 서고, 때릴 수 없고, 빵을 주면 사랑한다. 집은 서버가 세운다', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    const villagers = [...room.animals.animals.values()].filter((an) => an.kind === 'villager');
+    expect(villagers).toHaveLength(3);
+    for (const v of villagers) expect(Math.hypot(v.x - villagerSpot(0).x, v.z - villagerSpot(0).z)).toBeLessThan(20);
+    for (const id of VILLAGER_HOUSES) expect(isBuildingBuiltAt((x, y, z) => BLOCKS.get(room.world.getBlock(x, y, z)).id, id, GROUND_Y)).toBe(true);
+    const v = villagers[0]!;
+    room.onMove(ra.idx, { x: v.x + 1.5, y: v.y, z: v.z, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    const vid = ANIMAL_ID_BASE + v.id;
+    expect(room.hitMob(ra.idx, vid, undefined, T0 + 100)).toBe('VILLAGER');
+    expect(v.hp).toBe(20);
+    give(p.inv, 'bread', 1);
+    const bread = p.inv.findIndex((s) => s?.item === 'bread');
+    expect(room.useMob(ra.idx, vid, bread, T0 + 500)).toBeNull();
+    expect(v.loveUntil).toBeGreaterThan(T0 + 500);
   });
 
   it('펫 이름 (#109): 주인만, 목록의 이름만. pets 는 받는 사람마다 mine 이 다르고 저장된다', () => {

@@ -161,6 +161,8 @@ import {
   sanitizeEquipment,
   ANIMAL_ID_BASE,
   encodeMobsState,
+  VILLAGER_HOUSES,
+  levelSiteBlocks,
 } from '@dragon-village/shared';
 import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
@@ -516,6 +518,13 @@ export class VillageRoom {
       const n = this.placeBlocks(buildingBlocks(id, GROUND_Y), null);
       this.log(`마을 ${this.info.code}: ${BUILDINGS.find(id)?.name ?? id}을(를) 세웠어요 (${n}칸)`);
     }
+    // 주민 집 (#168): 처음부터, 비용 없이. 광장에서 떨어져 땅이 울퉁불퉁하니 자리를 먼저 고른다
+    for (const id of VILLAGER_HOUSES) {
+      const s = siteOf(id);
+      if (!s || isBuildingBuiltAt(idAt, id, GROUND_Y)) continue;
+      const n = this.placeBlocks([...levelSiteBlocks(s, GROUND_Y, idAt), ...buildingBlocks(id, GROUND_Y)], null);
+      this.log(`마을 ${this.info.code}: 주민 집(${s.x0}, ${s.z0})을 세웠어요 (${n}칸)`);
+    }
     this.placeFlag(null);
   }
 
@@ -539,7 +548,7 @@ export class VillageRoom {
   private isProtected(x: number, y: number, z: number): boolean {
     if (x >= NEST.x0 && x < NEST.x0 + NEST.size && z >= NEST.z0 && z < NEST.z0 + NEST.size && y >= GROUND_Y && y <= GROUND_Y + NEST.height) return true;
     if (flagContains(GROUND_Y, x, y, z)) return true;
-    for (const id of this.builtIds()) {
+    for (const id of [...this.builtIds(), ...VILLAGER_HOUSES]) {
       const s = siteOf(id);
       if (s && siteContains(s, GROUND_Y, x, y, z)) return true;
     }

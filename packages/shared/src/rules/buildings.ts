@@ -95,6 +95,10 @@ export const BUILDING_SITES: readonly Site[] = [
   { id: 'portal_4', x0: 61, z0: 41, size: [7, 7, 5] },
   { id: 'portal_5', x0: 61, z0: 41, size: [7, 7, 5] },
   // 둥지는 겹쳐 자란다: 7×7 둥지 바깥에 11×11 고리(큰 둥지), 그 바깥에 15×15 고리(드래곤 성)
+  // 주민 집 세 채 (#168, 아들 13차 6번 "지금 건물 바깥 둘레"): 광장 남서쪽, 농장 남쪽에 한 줄. 서버가 처음부터 세운다(비용 없음, 마을 레벨엔 안 센다)
+  { id: 'villager_house_1', x0: 44, z0: 80, size: [5, 5, 4] },
+  { id: 'villager_house_2', x0: 44, z0: 88, size: [5, 5, 4] },
+  { id: 'villager_house_3', x0: 44, z0: 96, size: [5, 5, 4] },
   { id: 'dragon_nest_2', x0: 58, z0: 79, size: [11, 11, 8] },
   { id: 'dragon_nest_3', x0: 56, z0: 77, size: [15, 15, 12] },
 ];
@@ -108,6 +112,31 @@ export const OLD_SITES: readonly Site[] = [{ id: 'lighthouse', x0: 76, z0: 50, s
 /** 옛 자리를 비우는 블록 목록: 바닥은 잔디, 위는 공기 */
 export function clearSiteBlocks(s: Site, groundY: number): Placed[] {
   return box(s, groundY, (_dx, _dz, dy) => (dy === 0 ? 'grass' : 'air'));
+}
+
+/** 주민 집 (#168): 서버가 처음부터 세우고, 건물 수(마을 레벨)엔 안 센다 */
+export const VILLAGER_HOUSES: readonly string[] = ['villager_house_1', 'villager_house_2', 'villager_house_3'];
+/** 주민이 서는 곳: 집 문 앞(동쪽) */
+export function villagerSpot(i: number): { x: number; z: number } {
+  const s = siteOf(VILLAGER_HOUSES[i % VILLAGER_HOUSES.length]!)!;
+  return { x: s.x0 + s.size[0] + 1.5, z: s.z0 + 2.5 };
+}
+
+/**
+ * 자리 고르기 (#168): 발자국 + 둘레 한 칸을 groundY 높이로 — 위는 비우고(나무·풀), 아래 빈 곳은 흙으로 메우고, 땅 윗면은 잔디.
+ * 발자국 안은 건물 블록이 덮으니 둘레만 잔디를 깐다. idAt 으로 지금 세계를 본다
+ */
+export function levelSiteBlocks(s: Site, groundY: number, idAt: (x: number, y: number, z: number) => string): Placed[] {
+  const out: Placed[] = [];
+  const solid = (id: string) => id !== 'air' && id !== 'water' && id !== 'lava' && !id.startsWith('water') && !id.startsWith('lava');
+  for (let z = s.z0 - 1; z <= s.z0 + s.size[1]; z++)
+    for (let x = s.x0 - 1; x <= s.x0 + s.size[0]; x++) {
+      const inside = x >= s.x0 && x < s.x0 + s.size[0] && z >= s.z0 && z < s.z0 + s.size[1];
+      for (let y = groundY + 1; y <= groundY + 8; y++) if (solid(idAt(x, y, z))) out.push({ x, y, z, id: 'air' });
+      for (let y = groundY - 4; y < groundY; y++) if (!solid(idAt(x, y, z))) out.push({ x, y, z, id: 'dirt' });
+      if (!inside && idAt(x, groundY, z) !== 'grass') out.push({ x, y: groundY, z, id: 'grass' });
+    }
+  return out;
 }
 
 /** 둥지 식구 — 자리가 서로 겹치는 게 정상 (고리로 자란다) */
@@ -227,6 +256,19 @@ export function buildingBlocks(id: string, groundY: number): Placed[] {
         if (dy === 0 && edge(dx, dz)) return 'stone';
         return null;
       });
+    case 'villager_house_1':
+    case 'villager_house_2':
+    case 'villager_house_3':
+      // 주민 집 (#168): 조약돌 바닥, 통나무 기둥, 판자 벽에 유리창, 광장 쪽(동쪽) 문, 안엔 책장·천장 발광석
+      return box(s, groundY, (dx, dz, dy) => {
+        if (dy === 0) return 'cobblestone';
+        if (dy === h) return 'planks';
+        if (corner(dx, dz)) return 'log';
+        if (edge(dx, dz)) return door(dx, dz) && dy <= 2 ? 'air' : dy === 2 && (dx === 2 || dz === 2) ? 'glass' : 'planks';
+        if (dy === h - 1 && dx === 2 && dz === 2) return 'glowstone';
+        if (dy === 1 && dx === 1 && dz === 1) return 'bookshelf';
+        return 'air';
+      });
     case 'portal_3':
       // 모서리 기둥 꼭대기에 금 블록 (#167)
       return box(s, groundY, (dx, dz, dy) => (corner(dx, dz) && dy === 4 ? 'gold_block' : null));
@@ -266,6 +308,10 @@ export function isBuildingBuiltAt(idAt: (x: number, y: number, z: number) => str
       return idAt(s.x0, groundY + 6, s.z0) === 'glowstone' && idAt(s.x0, groundY, s.z0) === 'stone';
     case 'portal_2':
       return idAt(s.x0, groundY + 1, s.z0) === 'obsidian' && idAt(s.x0, groundY + 3, s.z0) === 'glowstone';
+    case 'villager_house_1':
+    case 'villager_house_2':
+    case 'villager_house_3':
+      return idAt(s.x0, groundY + 1, s.z0) === 'log' && idAt(s.x0 + 2, groundY + 3, s.z0 + 2) === 'glowstone';
     case 'portal_3':
       return idAt(s.x0, groundY + 4, s.z0) === 'gold_block';
     case 'portal_4':

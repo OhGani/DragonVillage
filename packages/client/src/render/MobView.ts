@@ -32,6 +32,8 @@ const HUMANOID: Partial<Record<string, SkinPalette>> = {
   // 네더 (v1.1-3): 좀비 피글린은 분홍 살에 썩은 초록, 위더 스켈레톤은 새까맣고 키가 크다(1.3배)
   zombified_piglin: { shirt: 0x6b8a4a, skin: 0xf0a8a0, hair: 0xd98080, pants: 0x4a3b7a, shoes: 0x3a2a2a },
   wither_skeleton: { shirt: 0x262626, skin: 0x2b2b2b, hair: 0x1c1c1c, pants: 0x222222, shoes: 0x171717, eyes: 0x8a8a8a },
+  // 주민 (#168): 갈색 로브, 큰 코는 아직 — 아들 그림 기다림
+  villager: { shirt: 0x6b4f2a, skin: 0xc9a27c, hair: 0x4a3320, pants: 0x5a4224, shoes: 0x3a2a1a, eyes: 0x3d7a4a },
 };
 
 const CREEPER_GREEN = 0x4caf50;
@@ -731,8 +733,8 @@ export class MobView {
         f.fuseT = 0;
         let s = f.baseScale;
         if (f.state === MOB_STATE.sleep) s *= 0.85; // 잠든 보스는 웅크린다
-        if (f.animal) {
-          if (f.state & ANIMAL_FLAG.baby) s *= 0.5; // 아기
+        if (f.animal || MOB_KIND_OF[f.kind] === 'villager') {
+          if (f.state & ANIMAL_FLAG.baby) s *= 0.5; // 아기 (주민 아기도)
           if (f.state & ANIMAL_FLAG.love && now >= f.nextHeart) {
             f.nextHeart = now + 900;
             this.popText(c.x, c.y + mobSize(f.kind).h * s + 0.4, c.z, '♥', '#ff5c8a', now);

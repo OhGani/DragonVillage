@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDING_SITES, NEST_FAMILY, PREBUILT, buildingBlocks, flagBlocks, flagContains, isBuildingBuiltAt, missingCost, siteContains, villageLevel, PORTAL_BASE, expeditionUnlocked } from './buildings';
+import { BUILDING_SITES, NEST_FAMILY, PREBUILT, buildingBlocks, flagBlocks, flagContains, isBuildingBuiltAt, missingCost, siteContains, villageLevel, PORTAL_BASE, expeditionUnlocked,
+  VILLAGER_HOUSES,
+  villagerSpot,
+  levelSiteBlocks,
+} from './buildings';
 import { BLOCKS, BUILDINGS } from './data';
 import { NEST } from './dragons';
 
@@ -17,6 +21,7 @@ describe('마을 건물 (M6-6)', () => {
     rects.push({ id: 'house', x0: 74, z0: 42, x1: 80, z1: 48 });
     const nestFamily = (id: string) => id === 'nest' || NEST_FAMILY.includes(id);
     const portalFamily = (id: string) => id.startsWith('portal_'); // 포탈 단계는 같은 단 위에 겹쳐 자란다 (#167)
+    for (const id of VILLAGER_HOUSES) expect(BUILDING_SITES.some((s) => s.id === id)).toBe(true); // 주민 집 (#168)
     for (const a of rects)
       for (const b of rects) {
         if (a.id === b.id || (nestFamily(a.id) && nestFamily(b.id)) || (portalFamily(a.id) && portalFamily(b.id))) continue; // 둥지는 고리로, 포탈은 단 위에 겹쳐 자란다
@@ -75,6 +80,25 @@ describe('마을 건물 (M6-6)', () => {
     expect(expeditionUnlocked('portal_2', ['storage', 'portal_2'])).toBe(true);
     expect(PORTAL_BASE).toBe('portal_1');
     expect(BUILDINGS.find('portal_2')!.footprint).toEqual([7, 7, 5]);
+  });
+
+  it('주민 집 (#168): 남서쪽 세 채, 문 앞 자리, 자리 고르기는 위를 비우고 아래를 메운다', () => {
+    for (const id of VILLAGER_HOUSES) {
+      const blocks = buildingBlocks(id, 40);
+      expect(blocks.length).toBeGreaterThan(20);
+      const placed = new Map(blocks.map((b) => [`${b.x},${b.y},${b.z}`, b.id]));
+      expect(isBuildingBuiltAt((x, y, z) => placed.get(`${x},${y},${z}`) ?? 'air', id, 40)).toBe(true);
+      expect(blocks.some((b) => b.id === 'glowstone')).toBe(true);
+    }
+    const spot = villagerSpot(0);
+    expect(spot.x).toBeGreaterThan(48); // 집(44~48) 동쪽 문 앞
+    // 고르기: 집터 위에 나무(통나무)가 서 있고 한 구석이 꺼져 있으면 → 통나무는 공기, 꺼진 곳은 흙, 둘레는 잔디
+    const s = BUILDING_SITES.find((b) => b.id === 'villager_house_1')!;
+    const idAt = (x: number, y: number, z: number) => (x === s.x0 + 1 && z === s.z0 + 1 && y >= 41 && y <= 45 ? 'log' : x === s.x0 && z === s.z0 && y >= 38 ? 'air' : x === s.x0 - 1 && z === s.z0 && y === 40 ? 'dirt' : y <= 40 ? 'grass' : 'air');
+    const lv = levelSiteBlocks(s, 40, idAt);
+    expect(lv.filter((b) => b.id === 'air' && b.x === s.x0 + 1 && b.z === s.z0 + 1)).toHaveLength(5);
+    expect(lv.filter((b) => b.id === 'dirt' && b.x === s.x0 && b.z === s.z0)).toHaveLength(2); // 38·39
+    expect(lv.some((b) => b.id === 'grass' && b.x === s.x0 - 1)).toBe(true);
   });
 
   it('포탈 3·4·5단계 (#167): 같은 단 위에 단계마다 다른 표식을 세우고, 앞 단계를 먼저 지어야 한다', () => {

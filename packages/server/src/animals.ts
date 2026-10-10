@@ -47,6 +47,7 @@ import {
   wanderPause,
   wanderPick,
   SADDLE,
+  villagerSpot,
 } from '@dragon-village/shared';
 
 export interface AnimalRow {
@@ -195,6 +196,7 @@ export class AnimalSystem {
 
   /** 같은 종류 n 마리를 한 무리로: 첫 마리 자리 곁(HERD_SPREAD)에 나머지. 곁에 못 서면 따로 선다. 돌려주는 값 = 실제로 생긴 수 */
   private spawnHerd(kind: MobKind, n: number, i: number, now: number): number {
+    if (kind === 'villager') return this.spawnVillagers(n, now); // 주민은 숲이 아니라 집 앞에 (#168)
     const first = this.spawnWild(kind, i, now);
     if (!first) return 0;
     let made = 1;
@@ -207,6 +209,18 @@ export class AnimalSystem {
       }
       if (!placed) placed = this.spawnWild(kind, i * 31 + k, now);
       if (placed) made++;
+    }
+    return made;
+  }
+
+  /** 주민 (#168): 집 문 앞에 하나씩. 집은 세 채, 집마다 한 명씩 돌아가며 */
+  private spawnVillagers(n: number, now: number): number {
+    let made = 0;
+    for (let k = 0; k < n; k++) {
+      const c = villagerSpot(this.wildCountOf('villager'));
+      const y = this.groundAt(c.x, c.z, GROUND_Y + 4) ?? GROUND_Y + 1;
+      this.add({ kind: 'villager', x: c.x, y, z: c.z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: c.x, homeZ: c.z, woolAt: 0, eggs: 0, lastEggAt: now, name: null }, now);
+      made++;
     }
     return made;
   }
@@ -395,6 +409,7 @@ export class AnimalSystem {
   hit(p: AnimalViewer, mobId: number, damage: number, now: number, reach = HIT_REACH): string | null {
     const a = this.find(mobId);
     if (!a) return 'NO_MOB';
+    if (a.kind === 'villager') return 'VILLAGER'; // 주민은 때릴 수 없다 (#168)
     if (a.owner !== null) return 'PET';
     if (Math.hypot(a.x - p.x, a.y + mobSize(a.kind).h * 0.5 - p.eyeY, a.z - p.z) > reach + 0.6) return 'TOO_FAR';
     const last = this.lastHitAt.get(p.idx) ?? 0;

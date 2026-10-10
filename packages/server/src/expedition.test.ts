@@ -97,7 +97,7 @@ describe('원정 중 블록·위치·타이머', () => {
     expect(a.bin.find((m) => m.type === MSG.BlockChanged)).toMatchObject({ msg: { x, y, z, id: 'air', by: ia } });
     expect(b.bin.find((m) => m.type === MSG.BlockChanged)).toBeUndefined();
     expect(e.world.getBlock(x, y, z)).toBe(0);
-    expect(room.modifiedCount).toBe(4); // 마을 세계는 그대로 (시작 때 지은 둥지 청크 2 + 창고·깃대 청크 2, M6-2·M6-6)
+    expect(room.modifiedCount).toBe(9); // 마을 세계는 그대로 (시작 때 지은 둥지 청크 2 + 창고·깃대 청크 2 + 주민 집 세 채 5, M6-2·M6-6·#168)
     expect(room.gainedOf(ia)).toEqual([{ id: 'cobblestone', count: 1 }]);
     expect(room.players.get(ia)!.inv[0]).toEqual({ item: 'cobblestone', count: 1 });
     expect(a.bin.find((m) => m.type === MSG.InvSlots)).toMatchObject({ msg: { slots: [{ slot: 0, item: 'cobblestone', count: 1 }] } });

@@ -44,7 +44,7 @@ function inbox() {
 }
 
 /** 둥지(M6-2, #76)가 서버 시작 때 광장 남쪽 집터 청크 2개(x 48~79, z 80~95)를 바꾼다 — 바뀐 청크 수 기대값에 더한다 */
-const NEST_CHUNKS = 4; // 둥지 2 + 창고 건물·깃대(M6-6, x 76~80 은 청크 두 개에 걸친다) 2
+const NEST_CHUNKS = 9; // 창고·둥지·깃대 4 + 주민 집 세 채 5 (#168)
 
 function makeRoom(storage: Storage | null = null) {
   return new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { starterKit: null, gifts: [] });

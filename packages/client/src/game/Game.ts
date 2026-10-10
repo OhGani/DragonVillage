@@ -195,6 +195,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   /** 타고 있는 드래곤. 다시 들어올 때 서버가 준 것으로 시작 (#103 — 탑승 유지) */
   let myRiding: RidingInfo | null = welcome.spawn.riding ?? null;
   // 첫 걸음 안내 (M8-3): 처음 들어온 사람을 포탈 → 원정 출발 → 귀환까지 데려간다. 진행은 이 기기에 남긴다(새로고침해도 이어짐)
+  /** 주민 인사말 (#168) — 분마다·사람마다 다르게 */
+  const VILLAGER_HELLO = ['안녕! 오늘도 좋은 날이야', '밀이 잘 자라고 있어', '드래곤 봤어? 멋지더라', '빵 있으면 하나만…', '밤엔 집에 있는 게 좋아', '포탈 너머는 무섭대'];
   const GUIDE_KEY = 'dv.guide';
   const GUIDE_TEXT: Record<number, string> = {
     1: '① 나침반의 금색 점을 따라 북쪽 포탈로 가요',
@@ -1513,8 +1515,14 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     hand.setDraw(drawProgress);
     // 동물에게 손에 든 것 쓰기 (M8-1): 먹이·뼈·빈손(앉기). 원정에 따라온 펫은 못 만진다
     if (aimedMob !== null && inp.secondaryTap && aimedMob >= ANIMAL_ID_BASE && ctx.kind === 'village') {
-      net.sendUseMob(aimedMob, hud.selectedIndex);
-      hand.swing();
+      const fk = mobView.figureOf(aimedMob);
+      if (fk && MOB_KIND_OF[fk.kind] === 'villager' && !hud.selectedItem) {
+        // 주민에게 빈손 탭 = 인사 (#168). 서버엔 안 보낸다
+        hud.toast(`🧑‍🌾 ${VILLAGER_HELLO[(aimedMob + Math.floor(Date.now() / 60_000)) % VILLAGER_HELLO.length]}`, 3000);
+      } else {
+        net.sendUseMob(aimedMob, hud.selectedIndex);
+        hand.swing();
+      }
     }
     // 조준한 동물이 바뀌면 안내 한 줄
     if (aimedMob !== aimHintFor) {
@@ -1530,7 +1538,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const tamed = (f.state & ANIMAL_FLAG.tamed) !== 0;
         const foods = def.food.map((i) => nameOf(i)).join('·');
         const tip = tamed ? (def.id === 'horse' ? (pets.get(aimedMob)?.mine ? '빈손 탭 → 🐴 타기 · 카드에서 이름 짓기' : '남의 말이에요') : pets.get(aimedMob)?.mine ? '빈손 탭 → 앉기/일어나기 · 카드에서 이름 짓기' : '남이 길들인 강아지예요') : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
-        const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : def.id === 'cow' && !baby ? ' · 🪣 빈 양동이 들고 탭 → 우유' : '';
+        const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : def.id === 'cow' && !baby ? ' · 🪣 빈 양동이 들고 탭 → 우유' : def.id === 'villager' ? ' · 빈손 탭 → 인사' : '';
         hud.toast(`${def.name}${baby ? ' (아기)' : ''}${tamed ? ' 🐾' : ''} · ${tip}${extra}`, 3000);
       }
     }
