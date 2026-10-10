@@ -16,9 +16,10 @@ describe('마을 건물 (M6-6)', () => {
     rects.push({ id: 'nest', x0: NEST.x0, z0: NEST.z0, x1: NEST.x0 + NEST.size - 1, z1: NEST.z0 + NEST.size - 1 });
     rects.push({ id: 'house', x0: 74, z0: 42, x1: 80, z1: 48 });
     const nestFamily = (id: string) => id === 'nest' || NEST_FAMILY.includes(id);
+    const portalFamily = (id: string) => id.startsWith('portal_'); // 포탈 단계는 같은 단 위에 겹쳐 자란다 (#167)
     for (const a of rects)
       for (const b of rects) {
-        if (a.id === b.id || (nestFamily(a.id) && nestFamily(b.id))) continue; // 둥지는 고리로 겹쳐 자란다
+        if (a.id === b.id || (nestFamily(a.id) && nestFamily(b.id)) || (portalFamily(a.id) && portalFamily(b.id))) continue; // 둥지는 고리로, 포탈은 단 위에 겹쳐 자란다
         const apart = a.x1 + 1 < b.x0 || b.x1 + 1 < a.x0 || a.z1 + 1 < b.z0 || b.z1 + 1 < a.z0; // 한 칸은 띄운다
         expect(apart, `${a.id} 와 ${b.id} 가 겹쳐요`).toBe(true);
       }
@@ -33,7 +34,7 @@ describe('마을 건물 (M6-6)', () => {
   it('구조물은 아는 블록으로만 만들고, 지어지면 isBuildingBuiltAt 이 알아본다. 창고엔 문구멍이 있다', () => {
     for (const s of BUILDING_SITES) {
       const blocks = buildingBlocks(s.id, 40);
-      expect(blocks.length).toBeGreaterThan(20);
+      expect(blocks.length).toBeGreaterThan(s.id === 'portal_3' || s.id === 'portal_4' || s.id === 'portal_5' ? 3 : 20); // 포탈 3·4·5단계는 표식만 (#167)
       for (const b of blocks) expect(BLOCKS.find(b.id), `${s.id}: 모르는 블록 ${b.id}`).toBeDefined();
       const world = new Map(blocks.map((b) => [`${b.x},${b.y},${b.z}`, b.id]));
       const idAt = (x: number, y: number, z: number) => world.get(`${x},${y},${z}`) ?? 'air';
@@ -74,6 +75,35 @@ describe('마을 건물 (M6-6)', () => {
     expect(expeditionUnlocked('portal_2', ['storage', 'portal_2'])).toBe(true);
     expect(PORTAL_BASE).toBe('portal_1');
     expect(BUILDINGS.find('portal_2')!.footprint).toEqual([7, 7, 5]);
+  });
+
+  it('포탈 3·4·5단계 (#167): 같은 단 위에 단계마다 다른 표식을 세우고, 앞 단계를 먼저 지어야 한다', () => {
+    const pad = BUILDING_SITES.find((s) => s.id === 'portal_2')!;
+    for (const [id, prev] of [
+      ['portal_3', 'portal_2'],
+      ['portal_4', 'portal_3'],
+      ['portal_5', 'portal_4'],
+    ] as const) {
+      const s = BUILDING_SITES.find((x) => x.id === id)!;
+      expect([s.x0, s.z0, s.size]).toEqual([pad.x0, pad.z0, pad.size]);
+      expect(BUILDINGS.find(id)!.requires).toBe(prev);
+      const blocks = buildingBlocks(id, 40);
+      expect(blocks.length).toBeGreaterThan(0);
+      const placed = new Map(blocks.map((b) => [`${b.x},${b.y},${b.z}`, b.id]));
+      const idAt = (x: number, y: number, z: number) => placed.get(`${x},${y},${z}`) ?? 'air';
+      expect(isBuildingBuiltAt(idAt, id, 40)).toBe(true);
+      // 문틀 안쪽(단 가운데)은 건드리지 않는다
+      expect(blocks.some((b) => b.x >= pad.x0 + 2 && b.x <= pad.x0 + 4 && b.z >= pad.z0 + 2 && b.z <= pad.z0 + 4)).toBe(false);
+    }
+    // 단계끼리 같은 칸을 다르게 쓰지 않는다 (앞 단계 표식을 덮지 않게)
+    const keys = (id: string) => new Set(buildingBlocks(id, 40).map((b) => `${b.x},${b.y},${b.z}`));
+    const k2 = keys('portal_2'),
+      k3 = keys('portal_3'),
+      k4 = keys('portal_4'),
+      k5 = keys('portal_5');
+    for (const k of k3) expect(k2.has(k)).toBe(false);
+    for (const k of k4) expect(k2.has(k) || k3.has(k)).toBe(false);
+    for (const k of k5) expect(k2.has(k) || k3.has(k) || k4.has(k)).toBe(false);
   });
 
   it('창고 재고로 비용을 낼 수 있는지 — 모자란 것만 돌려준다', () => {

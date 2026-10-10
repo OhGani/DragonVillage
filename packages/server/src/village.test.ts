@@ -1018,7 +1018,8 @@ describe('마을 창고·건물·도감 (M6-6)', () => {
     room.onMove(ra.idx, { x: STORE.x, y: GROUND_Y + 1, z: STORE.z - 4, yaw: 0, pitch: 0, flags: 0 });
     expect(room.build(ra.idx, 'castle')).toBe('UNKNOWN_BUILDING');
     expect(room.build(ra.idx, 'storage')).toBe('ALREADY_BUILT');
-    expect(room.build(ra.idx, 'portal_3')).toBe('NO_SITE'); // 포탈 3단계는 아직 자리 없음 (2단계는 M7-3)
+    expect(room.build(ra.idx, 'crafting_table')).toBe('NO_SITE'); // 제작대 '건물'은 자리가 없다 (블록으로 만든다)
+    expect(room.build(ra.idx, 'portal_3')).toBe('NEED_BUILDING'); // 포탈 3단계는 2단계를 먼저 (#167)
     expect(room.build(ra.idx, 'dragon_nest_2')).toBe('NOT_ENOUGH'); // 큰 둥지는 자리가 있다 (#89)
     expect(room.build(ra.idx, 'forge')).toBe('NOT_ENOUGH'); // 창고가 비어 있다
     // 대장간 비용: 조약돌 40 · 석탄 10 · 철광석 5 → 창고에 넣는다 (철광석은 하나 모자라게)

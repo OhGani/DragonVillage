@@ -90,6 +90,10 @@ export const BUILDING_SITES: readonly Site[] = [
   { id: 'lighthouse', x0: 76, z0: 72, size: [3, 3, 12] }, // 남동, 창고 남쪽 — 북동 집터(74~80·42~48)는 아빠·아들이 직접 짓는 곳이라 비워 둔다 (#99)
   { id: 'brewing_stand', x0: 50, z0: 48, size: [3, 3, 3] }, // 북서 (강은 z 40 아래)
   { id: 'portal_2', x0: 61, z0: 41, size: [7, 7, 5] }, // 북쪽 포탈 단(worldgen/village PORTAL_PAD) 그 자리 — 길의 북쪽 끝
+  // 포탈 3·4·5단계도 같은 단 위에 표식을 더한다 (#167): 3 = 모서리 기둥 꼭대기 금, 4 = 네 변 가운데 흑요석 기둥 + 발광석, 5 = 그 꼭대기 다이아
+  { id: 'portal_3', x0: 61, z0: 41, size: [7, 7, 5] },
+  { id: 'portal_4', x0: 61, z0: 41, size: [7, 7, 5] },
+  { id: 'portal_5', x0: 61, z0: 41, size: [7, 7, 5] },
   // 둥지는 겹쳐 자란다: 7×7 둥지 바깥에 11×11 고리(큰 둥지), 그 바깥에 15×15 고리(드래곤 성)
   { id: 'dragon_nest_2', x0: 58, z0: 79, size: [11, 11, 8] },
   { id: 'dragon_nest_3', x0: 56, z0: 77, size: [15, 15, 12] },
@@ -149,7 +153,7 @@ function box(s: Site, groundY: number, fn: (dx: number, dz: number, dy: number) 
 
 /**
  * 건물 블록 목록 (서버가 짓는다). 광장 쪽(가운데 64,64)을 바라보는 벽 한가운데에 문구멍을 낸다.
- * 알 수 없는 건물이면 빈 목록 — 둥지 2·3단계·양조기·포탈 확장은 아직 구조물이 없다.
+ * 알 수 없는 건물이면 빈 목록. 포탈 3·4·5단계는 같은 단 위에 표식만 더한다 (#167).
  */
 export function buildingBlocks(id: string, groundY: number): Placed[] {
   const s = siteOf(id);
@@ -223,6 +227,19 @@ export function buildingBlocks(id: string, groundY: number): Placed[] {
         if (dy === 0 && edge(dx, dz)) return 'stone';
         return null;
       });
+    case 'portal_3':
+      // 모서리 기둥 꼭대기에 금 블록 (#167)
+      return box(s, groundY, (dx, dz, dy) => (corner(dx, dz) && dy === 4 ? 'gold_block' : null));
+    case 'portal_4': {
+      // 네 변 가운데에도 흑요석 기둥 + 발광석 — 기둥 여덟 (문틀 양끝 바깥 칸)
+      const mid = (dx: number, dz: number) => edge(dx, dz) && !corner(dx, dz) && (dx === (w - 1) >> 1 || dz === (d - 1) >> 1);
+      return box(s, groundY, (dx, dz, dy) => (mid(dx, dz) ? (dy === 3 ? 'glowstone' : dy >= 1 && dy <= 2 ? 'obsidian' : null) : null));
+    }
+    case 'portal_5': {
+      // 변 가운데 기둥 꼭대기에 다이아몬드 블록
+      const mid = (dx: number, dz: number) => edge(dx, dz) && !corner(dx, dz) && (dx === (w - 1) >> 1 || dz === (d - 1) >> 1);
+      return box(s, groundY, (dx, dz, dy) => (mid(dx, dz) && dy === 4 ? 'diamond_block' : null));
+    }
     default:
       return [];
   }
@@ -249,6 +266,12 @@ export function isBuildingBuiltAt(idAt: (x: number, y: number, z: number) => str
       return idAt(s.x0, groundY + 6, s.z0) === 'glowstone' && idAt(s.x0, groundY, s.z0) === 'stone';
     case 'portal_2':
       return idAt(s.x0, groundY + 1, s.z0) === 'obsidian' && idAt(s.x0, groundY + 3, s.z0) === 'glowstone';
+    case 'portal_3':
+      return idAt(s.x0, groundY + 4, s.z0) === 'gold_block';
+    case 'portal_4':
+      return idAt(s.x0 + 3, groundY + 1, s.z0) === 'obsidian' && idAt(s.x0 + 3, groundY + 3, s.z0) === 'glowstone';
+    case 'portal_5':
+      return idAt(s.x0 + 3, groundY + 4, s.z0) === 'diamond_block';
     default:
       return false;
   }

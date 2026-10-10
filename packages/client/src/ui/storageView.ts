@@ -171,6 +171,7 @@ export class StorageView {
     const has = (id: string) => this.built.has(id) || PREBUILT.includes(id) || id === 'dragon_nest_1' || id === PORTAL_BASE;
     for (const d of defs) {
       const site = siteOf(d.id);
+      if (!site) continue; // 지을 자리가 없는 건물(제작대·포탈 6단계)은 목록에 안 보인다 (#167) — 전엔 '🔒 다음 단계에서'로 영영 잠겨 보였다
       const built = has(d.id);
       const row = document.createElement('div');
       row.className = 'storage-row' + (built ? ' built' : '');
@@ -183,7 +184,6 @@ export class StorageView {
       const needReq = d.requires && !has(d.requires) ? this.deps.buildings.find(d.requires)?.name : null;
       let status: string;
       if (built) status = '✅ 지어졌어요';
-      else if (!site) status = '🔒 다음 단계에서';
       else if (this.level < d.level) status = `마을 레벨 ${d.level} 필요 (지금 ${this.level})`;
       else if (needReq) status = `${needReq}를 먼저 지어요`;
       else if (Object.keys(miss).length) status = `모자라요: ${Object.entries(miss).map(([i, n]) => `${this.deps.nameOf(i)} ${n}`).join(', ')}`;
