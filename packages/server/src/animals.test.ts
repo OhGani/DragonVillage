@@ -327,6 +327,39 @@ describe('마을 동물 (M8-1)', () => {
     expect(again.animals.animals.get(sheep.id)!.woolAt).toBe(sheep.woolAt);
   });
 
+  it('말 (#166): 안장을 들고 탭 → 내 말, 빈손 탭 → 탄다(목록에서 빠짐, 원정엔 안 따라감), 내리면 그 자리에 선다', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    const horse = [...room.animals.animals.values()].find((an) => an.kind === 'horse' && an.adultAt === null)!;
+    expect(horse).toBeDefined();
+    horse.x = p.pos.x + 1.5;
+    horse.z = p.pos.z;
+    horse.y = p.pos.y;
+    const hid = ANIMAL_ID_BASE + horse.id;
+    expect(room.useMob(ra.idx, hid, undefined, T0 + 500)).toBe('NOT_FOOD'); // 남의(야생) 말은 빈손으로 못 탄다
+    give(p.inv, 'saddle', 1);
+    const saddle = p.inv.findIndex((s) => s?.item === 'saddle');
+    expect(room.useMob(ra.idx, hid, saddle, T0 + 1000)).toBeNull();
+    expect(horse.owner).toBe(p.token);
+    expect(countOf(p.inv, 'saddle')).toBe(0);
+    expect(room.useMob(ra.idx, hid, undefined, T0 + 2000)).toBeNull(); // 탄다
+    expect(p.riding).toEqual({ id: hid, dragon: 'horse' });
+    expect(room.animals.entries(T0 + 2000).some((e) => e.id === hid)).toBe(false); // 타는 동안 목록에서 빠진다
+    expect(a.json.some((m) => m.t === 'mount')).toBe(true);
+    expect(room.skill(ra.idx, 'beam', T0 + 2500)).toBe('NOT_RIDING'); // 말은 빔이 없다
+    expect(room.animals.takeAlong(p.token, p.pos.x, p.pos.z, 24).some((c) => c.kindName === 'horse')).toBe(false);
+    room.onMove(ra.idx, { x: 70.5, y: GROUND_Y + 1, z: 70.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0 + 3000);
+    expect(room.dismount(ra.idx)).toBeNull();
+    expect(p.riding).toBeNull();
+    expect(horse.ridden).toBeNull();
+    expect([horse.x, horse.z]).toEqual([70.5, 70.5]); // 내린 자리에 선다
+    expect(room.animals.entries(T0 + 3000).some((e) => e.id === hid)).toBe(true);
+  });
+
   it('펫 이름 (#109): 주인만, 목록의 이름만. pets 는 받는 사람마다 mine 이 다르고 저장된다', () => {
     const storage = new Storage(':memory:');
     const room = makeRoom(storage);

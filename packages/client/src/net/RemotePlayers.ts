@@ -3,8 +3,8 @@
  * 서버 위치(20Hz)를 받아 부드럽게 따라간다 (지수 보간, 약 100ms 지연).
  * 인형 생김새는 `render/playerModel.ts` — 얼굴·머리카락·손·신발이 있고 색 16가지마다 다른 사람이다 (#86).
  */
-import { FLAG_RIDING, FLAG_SNEAK, type PlayerInfo, type PlayerStateEntry, RIDE_SEAT_Y, type RidingInfo, blockOf, skyOf } from '@dragon-village/shared';
-import { dragonMesh } from '../render/DragonMesh';
+import { FLAG_RIDING, FLAG_SNEAK, type PlayerInfo, type PlayerStateEntry, type RidingInfo, blockOf, skyOf } from '@dragon-village/shared';
+import { mountMesh, mountSeat } from '../render/DragonMesh';
 import { sanitizeEquipment } from '@dragon-village/shared';
 import { COMBAT } from '@dragon-village/shared/data';
 import { armorVoxels, shieldVoxels } from '../render/armorModel';
@@ -234,10 +234,11 @@ export class RemotePlayers {
       f.mount = null;
     }
     if (riding) {
-      const m = dragonMesh(riding.dragon, 'adult');
+      const m = mountMesh(riding.dragon); // 드래곤 또는 말 (#166)
+      const seat = mountSeat(riding.dragon);
       m.material = f.material; // 탄 드래곤도 같은 빛을 받는다
-      m.position.y = -RIDE_SEAT_Y;
-      m.rotation.y = Math.PI;
+      m.position.y = -seat.seatY;
+      m.rotation.y = seat.turn;
       f.body.add(m);
       f.mount = m;
     }

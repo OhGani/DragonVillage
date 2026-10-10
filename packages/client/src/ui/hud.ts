@@ -746,9 +746,9 @@ export class Hud {
 
   /** 가족 연결 상태 (게임 방법 창 아래). code 가 있으면 연결됨 */
   /** 타고 있으면 내리기 버튼 (M6-4) */
-  setRiding(on: boolean, beamName = '빔'): void {
+  setRiding(on: boolean, beamName = '빔', beam = true): void {
     this.rideBtn.hidden = !on;
-    this.skillBox.hidden = !on;
+    this.skillBox.hidden = !on || !beam; // 말은 빔이 없다 (#166)
     this.skillLabel = `✨ ${beamName}`;
     this.skillBtn.textContent = this.skillLabel;
   }

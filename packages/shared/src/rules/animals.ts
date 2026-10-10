@@ -13,7 +13,7 @@ import { hash3 } from '../math/prng';
 import type { MobKind } from './mobs';
 
 /** 동물 종류 (mobs.json passive id). dog = 강아지(늑대) */
-export const ANIMAL_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog'];
+export const ANIMAL_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse'];
 export function isAnimal(kind: MobKind): boolean {
   return ANIMAL_KINDS.includes(kind);
 }
@@ -23,6 +23,12 @@ export const ANIMAL_FLAG = { sheared: 0x08, baby: 0x10, tamed: 0x20, sitting: 0x
 
 /** 동물 id 는 몹 id 와 겹치지 않게 여기서부터 (원정·방어전 몹은 1부터). MobsState 의 id 는 u16 이라 65535 아래여야 한다 */
 export const ANIMAL_ID_BASE = 40_000;
+/** 말 안장 높이 (#166): 탄 사람 발이 말 등 위 이만큼 */
+export const HORSE_SEAT_Y = 1.25;
+/** 말을 타면 이 속도로 달린다 (칸/초, 사람 달리기 5.6) */
+export const HORSE_SPEED = 9.5;
+/** 안장 아이템 */
+export const SADDLE = 'saddle';
 
 export const BABY_MS = 20 * 60_000;
 /** 아기에게 먹이면 이만큼 빨리 자란다 */
@@ -41,7 +47,7 @@ export const HOME_RANGE = 24;
 export const TAME_CHANCE = 0.34;
 /** 종류별 야생 목표 수 (처음 뿌리는 수 = 모자라면 채우는 기준. 길들인 것은 세지 않는다). 아빠 2026-09-24: 19 → "너무 많다" 11 → "안 보인다" 무리 16 */
 /** 종류별 야생 목표 — 아들 13차 답(2026-10-07, #129) "25마리로 늘려줘" (전엔 3·3·3·4·3 = 16) */
-export const INITIAL_ANIMALS: Readonly<Partial<Record<MobKind, number>>> = { cow: 5, pig: 5, sheep: 5, chicken: 6, dog: 4 };
+export const INITIAL_ANIMALS: Readonly<Partial<Record<MobKind, number>>> = { cow: 5, pig: 5, sheep: 5, chicken: 6, dog: 4, horse: 3 };
 export const ANIMALS_MAX = 40;
 /** 모자란 종류를 채우는 간격 · 한 번에 생기는 수 */
 export const RESPAWN_EVERY_MS = 10 * 60_000;

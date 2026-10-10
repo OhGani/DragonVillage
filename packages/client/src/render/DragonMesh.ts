@@ -3,7 +3,9 @@
  * 위치·단계(아기/어른)·주인은 서버가 진실(nest 메시지). 여기서는 그리기만.
  * 복셀 한 칸 = 1/16 블록 — 아기 약 1.4×0.9×1.8 블록, 어른 약 2.4×1.4×2.7 블록(2배, 결정 #77).
  */
-import { type NestDragonInfo, RIDE_SEAT_Y } from '@dragon-village/shared';
+import { HORSE_SEAT_Y, type NestDragonInfo, RIDE_SEAT_Y } from '@dragon-village/shared';
+import { PLAYER_SHADES, VOXEL } from './playerModel';
+import { horseVoxels } from './animalModel';
 import * as THREE from 'three';
 import { nameSprite } from '../net/RemotePlayers';
 import { type DragonStage, dragonVoxels } from './dragonModels';
@@ -43,6 +45,18 @@ export function dragonMesh(dragon: string, stage: DragonStage): THREE.Mesh {
   return new THREE.Mesh(geometryFor(dragon, stage), material);
 }
 
+let horseGeom: THREE.BufferGeometry | null = null;
+/** 탈것 메시 (#166): 'horse' 면 말, 아니면 어른 드래곤 */
+export function mountMesh(kind: string): THREE.Mesh {
+  if (kind !== 'horse') return dragonMesh(kind, 'adult');
+  horseGeom ??= buildVoxelGeometry(horseVoxels(0.1), VOXEL, PLAYER_SHADES);
+  return new THREE.Mesh(horseGeom, material);
+}
+/** 탈것에 앉는 높이·방향: 말은 앞이 −z 라 안 돌리고, 드래곤은 머리가 +z 라 반 바퀴 */
+export function mountSeat(kind: string): { seatY: number; turn: number } {
+  return kind === 'horse' ? { seatY: HORSE_SEAT_Y, turn: 0 } : { seatY: RIDE_SEAT_Y, turn: Math.PI };
+}
+
 /**
  * 내가 탄 드래곤 (M6-4): 내 발 아래 RIDE_SEAT_Y 에 어른 드래곤을 두고 내 시선 방향으로 돌린다.
  * 1인칭이라 머리·목·날개 끝이 화면 아래쪽에 보인다 (마인크래프트 말 타기처럼)
@@ -61,13 +75,15 @@ export class MountView {
     return this.mesh !== null;
   }
 
+  private seat = { seatY: RIDE_SEAT_Y, turn: Math.PI };
   set(dragon: string | null): void {
     if (this.mesh) {
       this.group.remove(this.mesh);
       this.mesh = null;
     }
     if (dragon) {
-      this.mesh = dragonMesh(dragon, 'adult');
+      this.mesh = mountMesh(dragon);
+      this.seat = mountSeat(dragon);
       this.group.add(this.mesh);
     }
     this.group.visible = dragon !== null;
@@ -77,8 +93,8 @@ export class MountView {
   update(player: { pos: { x: number; y: number; z: number }; yaw: number }, dt: number): void {
     if (!this.mesh) return;
     this.t += dt;
-    this.group.position.set(player.pos.x, player.pos.y - RIDE_SEAT_Y, player.pos.z);
-    this.group.rotation.y = player.yaw + Math.PI; // 모델 머리 +z → 내가 보는 -z 쪽
+    this.group.position.set(player.pos.x, player.pos.y - this.seat.seatY, player.pos.z);
+    this.group.rotation.y = player.yaw + this.seat.turn; // 드래곤은 머리 +z → 내가 보는 -z 쪽, 말은 그대로
     this.mesh.scale.set(1, 1 + 0.015 * Math.sin(this.t * 2.5), 1);
   }
 }

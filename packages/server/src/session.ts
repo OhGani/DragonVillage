@@ -76,6 +76,9 @@ const USE_ERROR_KO: Record<string, string> = {
   NO_WOOL: '털이 아직 안 자랐어요 (5분 뒤에)',
   NO_EGG: '아직 알이 없어요 — 닭은 6분마다 하나 품어요',
   NO_MILK: '아기 소는 우유가 안 나와요',
+  ALREADY_SADDLED: '벌써 누구의 말이에요',
+  NOT_HORSE: '말이 아니에요',
+  OCCUPIED: '누가 타고 있어요',
 };
 
 const NEST_ERROR_KO: Record<string, string> = {

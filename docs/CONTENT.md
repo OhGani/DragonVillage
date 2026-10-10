@@ -196,7 +196,7 @@
 | 물은 설원에서 얼음으로 | `blocks.json ice _note` → 설원 생성기 | M3 |
 | 달걀 → 확률로 병아리 | `mobs.json chicken.eggHatchesChickChance` (1/8 임시) | v1.1 |
 | 나뭇잎 가위 드롭: 막대기 / 그 나무 묘목 / 참나무 사과 | `blocks.json leaves.shearDrops` | M4 |
-| 말 + 안장 = 탑승 | `mobs.json horse` | v1.1 (탈것) |
+| 말 + 안장 = 탑승 | `mobs.json horse`, 서버 `animals.mount`, 클라 `Player.horse` | **구현 2026-10-10** (#166) |
 | 교배 먹이: 돼지 당근, 양·소 밀, 닭 씨앗. 먹이를 들면 동물이 쫓아옴(야생·사육 모두) | `mobs.json breedWith / followsWhenHolding` | v1.1 |
 | 밀·당근 농사: 농지에 씨(밀 씨·당근)를 심고 8분 뒤 수확 | `blocks.json wheat_young/wheat_ripe/carrot_young/carrot_ripe`, 서버 `crops` | **구현 2026-10-10** (#165) |
 | 주민: 놀라면 철 골렘 소환, 좀비에 물리면 좀비 주민 → 황금 사과로 치료, 빵으로 아기 주민 | `village.json npcs.villager` | v1.1 |

@@ -46,6 +46,7 @@ import {
   tameRoll,
   wanderPause,
   wanderPick,
+  SADDLE,
 } from '@dragon-village/shared';
 
 export interface AnimalRow {
@@ -113,6 +114,8 @@ interface Animal extends AnimalRow {
   shearCount: number;
   /** 주인 따라 원정에 가 있다 (#145): 마을에선 안 보이고 안 움직인다. 저장 안 함 — 서버가 다시 켜지면 마을로 */
   away: boolean;
+  /** 말 (#166): 타고 있는 사람 번호. 타는 동안 목록에서 빠지고(클라가 탄 사람 밑에 그린다) 안 움직인다 */
+  ridden: number | null;
   dirty: boolean;
 }
 
@@ -152,7 +155,7 @@ export class AnimalSystem {
 
   private wrap(r: AnimalRow): Animal {
     const def = this.defs.get(r.kind);
-    return { ...r, hp: animalMaxHp(def.hp, r.kind, r.owner !== null), yaw: 0, target: null, pauseUntil: 0, turn: 0, loveUntil: 0, breedCooldownUntil: 0, tameAttempts: 0, shearCount: 0, away: false, dirty: false };
+    return { ...r, hp: animalMaxHp(def.hp, r.kind, r.owner !== null), yaw: 0, target: null, pauseUntil: 0, turn: 0, loveUntil: 0, breedCooldownUntil: 0, tameAttempts: 0, shearCount: 0, away: false, ridden: null, dirty: false };
   }
 
   /** 발 높이 (그 자리 근처 층). 못 서면 null */
@@ -234,7 +237,7 @@ export class AnimalSystem {
   entries(now: number): MobEntry[] {
     const out: MobEntry[] = [];
     for (const a of this.animals.values()) {
-      if (a.away) continue; // 원정에 가 있다 (#145)
+      if (a.away || a.ridden !== null) continue; // 원정에 가 있다 (#145) / 누가 타고 있다 (#166)
       const moving = a.target !== null && !a.sitting;
       out.push({ id: ANIMAL_ID_BASE + a.id, kind: MOB_KIND_NUM[a.kind], x: a.x, y: a.y, z: a.z, yaw: a.yaw, hp: a.hp, state: (moving ? MOB_STATE.walk : 0) | this.flags(a, now) });
     }
@@ -246,7 +249,7 @@ export class AnimalSystem {
     const dt = Math.min(1, (now - (this.lastStepAt || now - STEP_MS)) / 1000);
     this.lastStepAt = now;
     const players = this.hooks.players();
-    for (const a of [...this.animals.values()]) if (!a.away) this.step(a, players, dt, now);
+    for (const a of [...this.animals.values()]) if (!a.away && a.ridden === null) this.step(a, players, dt, now);
     // 야생이 목표보다 줄면 다시 생긴다 (10분마다, 가장 모자란 종류를 둘씩 무리로) (#106)
     if (this.lastRespawnAt > now) this.lastRespawnAt = now; // 시계가 거꾸로면(테스트·시간 조정) 지금부터
     if (now - this.lastRespawnAt >= RESPAWN_EVERY_MS && this.animals.size < ANIMALS_MAX) {
@@ -471,6 +474,20 @@ export class AnimalSystem {
       } else this.hooks.json({ t: 'mob', ev: 'eat', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
       return null;
     }
+    // 말 (#166): 안장을 씌우면 내 말 (아들 7차 "말에 안장을 씌우면 탈 수 있다"). 확률 없음
+    if (held === SADDLE && a.kind === 'horse') {
+      if (a.owner !== null) return 'ALREADY_SADDLED';
+      if (this.isBaby(a, now)) return 'NOT_FOOD';
+      if (!this.hooks.consume(p.idx, SADDLE)) return 'NOT_FOOD';
+      a.owner = p.token;
+      a.hp = animalMaxHp(def.hp, a.kind, true);
+      a.homeX = a.x;
+      a.homeZ = a.z;
+      a.dirty = true;
+      this.hooks.json({ t: 'mob', ev: 'tame', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
+      this.hooks.log(`${def.name}에 안장을 씌웠어요 — 이제 ${p.idx}번의 말`);
+      return null;
+    }
     if (held && a.owner === null && def.tameWith.includes(held)) {
       if (!this.hooks.consume(p.idx, held)) return 'NOT_FOOD';
       a.tameAttempts++;
@@ -495,6 +512,44 @@ export class AnimalSystem {
     return 'NOT_FOOD';
   }
 
+  /** 이 동물이 내 말인가 (#166) */
+  isMyHorse(mobId: number, token: string): boolean {
+    const a = this.find(mobId);
+    return !!a && a.kind === 'horse' && a.owner === token;
+  }
+
+  /** 말 타기 (#166): 내 말(안장 씌운 것)이고 아무도 안 타고 있으면 탄다. 오류: NO_MOB · NOT_HORSE · NOT_MINE · OCCUPIED · TOO_FAR */
+  mount(p: AnimalViewer, mobId: number): string | null {
+    const a = this.find(mobId);
+    if (!a) return 'NO_MOB';
+    if (a.kind !== 'horse') return 'NOT_HORSE';
+    if (a.owner !== p.token) return 'NOT_MINE';
+    if (a.ridden !== null) return 'OCCUPIED';
+    if (Math.hypot(a.x - p.x, a.y + mobSize(a.kind).h * 0.5 - p.eyeY, a.z - p.z) > HIT_REACH + 1) return 'TOO_FAR';
+    a.ridden = p.idx;
+    a.target = null;
+    a.sitting = false;
+    a.dirty = true;
+    return null;
+  }
+
+  /** 내리기 (#166): 그 사람이 타던 말을 그 자리에 세운다. 말 id 를 돌려준다(없으면 null) */
+  releaseRider(idx: number, at: { x: number; y: number; z: number }): number | null {
+    for (const a of this.animals.values()) {
+      if (a.ridden !== idx) continue;
+      a.ridden = null;
+      a.x = at.x;
+      a.y = at.y;
+      a.z = at.z;
+      a.homeX = a.x;
+      a.homeZ = a.z;
+      a.target = null;
+      a.dirty = true;
+      return ANIMAL_ID_BASE + a.id;
+    }
+    return null;
+  }
+
   /** 펫 이름 짓기 (#109): 내 펫에게만, 목록의 이름만 */
   rename(token: string, mobId: number, name: string, names: { has(n: string): boolean }): string | null {
     const a = this.find(mobId);
@@ -515,7 +570,7 @@ export class AnimalSystem {
   takeAlong(token: string, x: number, z: number, maxDist: number): { id: number; kind: number; kindName: MobKind; name: string | null }[] {
     const out: { id: number; kind: number; kindName: MobKind; name: string | null }[] = [];
     for (const a of this.animals.values()) {
-      if (a.owner !== token || a.sitting || a.away) continue;
+      if (a.owner !== token || a.sitting || a.away || a.kind === 'horse') continue; // 말은 원정에 안 따라간다 (#166)
       if (Math.hypot(a.x - x, a.z - z) > maxDist) continue;
       a.away = true;
       a.target = null;

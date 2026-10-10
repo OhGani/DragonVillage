@@ -23,6 +23,8 @@ const TERMINAL = 78;
 const JUMP_V = 9.0; // ≈ 1.27 블록
 /** 드래곤 탑승 (M6-4): 나는 속도·오르내리는 속도 (블록/초) */
 const RIDE_SPEED = 9;
+/** 말 (#166) */
+const HORSE_SPEED = 9.5;
 const RIDE_CLIMB = 6;
 /** 날 때 시선 위아래를 따라가는 정도: 이 각도(라디안)까지는 수평, 그 뒤로 서서히 (#97) */
 const RIDE_PITCH_DEAD = 0.15;
@@ -54,6 +56,8 @@ export class Player {
   inWater = false;
   /** 드래곤을 타고 있다 (M6-4): 중력 없음, 점프 = 상승, 웅크리기 = 하강. 충돌은 사람 몸 그대로 */
   riding = false;
+  /** 말을 타고 있다 (#166): 날지 않고 땅에서 빨리 달린다, 점프는 조금 높게 */
+  horse = false;
   eyeHeight = EYE_STAND;
   /** 걷기 주기 (라디안) — 손·카메라 흔들림용 */
   walkCycle = 0;
@@ -133,12 +137,13 @@ export class Player {
       wx /= wl;
       wz /= wl;
     }
-    const speed = (this.riding ? RIDE_SPEED : this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK) * (this.guarding ? this.guardSlow : 1);
-    const accel = this.riding ? 8 : this.inWater ? 6 : this.onGround ? 18 : 3.5;
+    const flying = this.riding && !this.horse;
+    const speed = (this.horse ? HORSE_SPEED : this.riding ? RIDE_SPEED : this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK) * (this.guarding ? this.guardSlow : 1);
+    const accel = flying ? 8 : this.inWater ? 6 : this.onGround ? (this.horse ? 10 : 18) : 3.5;
     const k = Math.min(1, accel * h);
     // 날 때 앞·뒤로 밀면 보는 쪽(위아래)으로 난다 (#97). 살짝 내려보는 건 수평으로 치고, 많이 기울일수록 가파르게
     let pitchT = 0;
-    if (this.riding && input.moveZ !== 0) {
+    if (flying && input.moveZ !== 0) {
       pitchT = Math.max(0, Math.min(1, (Math.abs(this.pitch) - RIDE_PITCH_DEAD) / (RIDE_PITCH_FULL - RIDE_PITCH_DEAD))) * Math.sign(this.pitch);
     }
     const flat = 1 - Math.abs(pitchT) * 0.6; // 가파르게 오르내릴 땐 앞으로는 조금 덜
@@ -146,7 +151,7 @@ export class Player {
     vel.z += (wz * speed * flat - vel.z) * k;
 
     // 수직
-    if (this.riding) {
+    if (flying) {
       // 날기: 시선 위아래 × 앞으로 밀기 + ▲ 위로 / ▼ 아래로. 아무것도 없으면 멈춤 (중력 없음)
       const look = pitchT * Math.sign(input.moveZ) * RIDE_SPEED * 0.8;
       const target = look + (input.jump ? RIDE_CLIMB : input.sneak ? -RIDE_CLIMB : 0);
@@ -166,7 +171,7 @@ export class Player {
       vel.y -= GRAVITY * h;
       if (vel.y < -TERMINAL) vel.y = -TERMINAL;
       if (input.jump && this.onGround) {
-        vel.y = JUMP_V;
+        vel.y = this.horse ? JUMP_V * 1.15 : JUMP_V; // 말은 조금 높게 (#166)
         this.onGround = false;
       }
     }
@@ -181,7 +186,7 @@ export class Player {
     this.onGround = this.moveOut.onGround;
 
     // 한 칸 턱 자동 오르기 (앞으로 걷다 막혔을 때). 물속에서는 바닥을 딛지 않아도(헤엄) 둑을 밀면 올라선다
-    if (!this.riding && !this.sneaking && (wasGround || this.inWater) && (this.moveOut.hitX || this.moveOut.hitZ)) {
+    if (!flying && !this.sneaking && (wasGround || this.inWater) && (this.moveOut.hitX || this.moveOut.hitZ)) {
       const r = tryStepUp(this.isSolid, { x: px, y: py, z: pz }, pos, PLAYER_SIZE, vx0, vz0, h, this.inWater ? WATER_STEP : AUTO_STEP);
       if (r) {
         vel.x = r.vx;

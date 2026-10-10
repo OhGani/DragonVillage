@@ -212,9 +212,35 @@ export function animalParts(kind: string, variant: number, opts: { sheared?: boo
       return sheep(variant, opts.sheared === true);
     case 'chicken':
       return chicken(variant);
+    case 'horse':
+      return horse(variant);
     default:
       return dog(variant);
   }
+}
+
+// ---------------------------------------------------------------- 말 (#166)
+function horse(variant: number): AnimalParts {
+  // 갈색 · 검정 · 흰색 · 밤색 · 회색
+  const coat = variant < 0.3 ? 0x6b4a2b : variant < 0.5 ? 0x2a2420 : variant < 0.65 ? 0xe8e4dc : variant < 0.85 ? 0x8a3f22 : 0x8d8d8d;
+  const mane = variant < 0.5 ? 0x1c1612 : variant < 0.65 ? 0xcfcac0 : 0x2a1a10;
+  const f: ColorFn = soft(coat, 0.1);
+  const body = new Builder().box(-5, 4, 11, 20, -10, 11, f); // 몸 10×10×22
+  body.box(-2, 1, 19, 28, -14, -9, f); // 목 (앞으로 올라간다)
+  body.box(-1, 0, 25, 30, -14, -9, soft(mane, 0.12)); // 갈기
+  const legs = fourLegs(4, 11, 5, -8, 7, f); // 다리 4×11
+  const h = new Builder().box(-3, 2, 24, 31, -21, -13, f); // 머리 6×8×8
+  h.box(-2, 1, 24, 27, -23, -21, soft(scaleColor(coat, 0.9), 0.06)); // 주둥이
+  h.dot(-3, 29, -17, 0x1a1a1a).dot(2, 29, -17, 0x1a1a1a); // 눈 (양옆)
+  h.box(-3, -2, 31, 33, -16, -15, f).box(1, 2, 31, 33, -16, -15, f); // 귀
+  const tail = new Builder().box(-1, 0, 10, 19, 11, 12, soft(mane, 0.12)); // 꼬리
+  return { body: body.out, head: part(h, [0, 27, -13]), legs, tail: part(tail, [0, 19, 11]), wings: [], babyHead: 1.4 };
+}
+
+/** 말 메시 하나 (탈것 표시용, #166): 모든 부위를 합쳐 한 덩어리로. 앞이 −z, 바닥 y 0 */
+export function horseVoxels(variant: number): Voxel[] {
+  const p = horse(variant);
+  return [...p.body, ...p.head.v, ...p.legs.flatMap((l) => l.v), ...(p.tail ? p.tail.v : [])];
 }
 
 /** 길들인 강아지 목줄: 목(z −8) 둘레의 빨간 고리 + 금색 이름표 */
