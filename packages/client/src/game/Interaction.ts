@@ -115,6 +115,9 @@ export class Interaction {
 
   /** 빈 양동이를 들면 물·용암을 떠내고(꾹), 물·용암 양동이를 들면 붓는다(탭). 아들 2026-10-06 "양동이로 용암이나 물 푸기" (#125) */
   /** 검·도끼·곡괭이로 한 번 휘두르기 (#141): sec 동안 꾹 누른 것처럼 캔다. 같은 블록을 톡톡 치면 진행이 이어진다 */
+  /** 마지막으로 '못 뜬다' 안내를 한 칸 (같은 칸엔 한 번만) */
+  private hintKey = -1;
+
   swingBurst(sec: number): void {
     this.burst = Math.max(this.burst, sec);
   }
@@ -157,6 +160,12 @@ export class Interaction {
         this.progress = 0;
         // 가득한 칸은 빈 양동이를 들고 있어야 뜬다(물·용암 양동이를 들고는 붓기만). 얕은 웅덩이는 그냥 닦인다
         const canScoop = def.fluidLevel === 0 ? this.heldItem === BUCKET : def.fluidVolume > 0;
+        if (!canScoop && this.hintKey !== key) {
+          // 왜 안 떠지는지 알려 준다 (아빠 2026-10-10 "용암이 양동이로 안 떠짐"): 흐르는 것은 원천이 아니고, 원천은 빈 양동이라야
+          this.hintKey = key;
+          const name = def.fluid === 'lava' ? '용암' : '물';
+          this.events.onHint?.(def.fluidLevel !== 0 ? `흐르는 ${name}은 못 떠요 — 고인 원천(평평한 곳)을 겨냥해요` : `빈 양동이를 들고 꾹 누르면 ${name}을 떠요`);
+        }
         if (this.cooldown <= 0 && canScoop) {
           const res = this.world.setBlock(t.x, t.y, t.z, AIR_ID);
           if (res.changed) {
