@@ -1,4 +1,4 @@
-import { DEFAULT_VILLAGE_SEED, GROUND_Y, MSG, PHASE_NUM, REJECT, SEA_Y, VILLAGE_GEN_VERSION, decodeServerBinary, type ServerBinary, treasureLoot } from '@dragon-village/shared';
+import { FLAG_GROUND, DEFAULT_VILLAGE_SEED, GROUND_Y, MSG, PHASE_NUM, REJECT, SEA_Y, VILLAGE_GEN_VERSION, decodeServerBinary, type ServerBinary, treasureLoot } from '@dragon-village/shared';
 import { BLOCKS, EXPEDITIONS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
 import { Storage } from './storage';
@@ -68,6 +68,34 @@ describe('원정 시작·합류', () => {
     expect(r2.startExpedition(i2, 'moon', T0)).toBe('BAD_EXPEDITION');
     expect(r2.startExpedition(i2, 'cave', T0)).toBe('LOCKED'); // 포탈 2단계를 지어야 (M7-3)
     expect(r2.startExpedition(i2, 'the_end', T0)).toBe('LOCKED'); // 생성기는 여섯 곳 다 있다 (v1.1-4). 포탈 5단계를 지어야
+  });
+
+  it('엔딩 (#170): 엔더 드래곤을 잡으면 분수 남쪽에 다른 차원 포탈이 열리고, 거기서 돌아가면 엔딩 결과', () => {
+    const storage = new Storage(':memory:');
+    const { room, a, ia } = setup(storage);
+    for (const b of ['portal_2', 'portal_3', 'portal_4', 'portal_5']) storage.addBuilding(INFO.code, b, T0);
+    expect(room.startExpedition(ia, 'the_end', T0)).toBeNull();
+    room.tick(T0 + 200); // 몹 무대는 첫 틱에 생긴다 (엔드는 처음부터 어두움)
+    const e = room.expedition!;
+    const d = room.mobSys!.boss!;
+    expect(d.kind).toBe('ender_dragon');
+    // 사람을 드래곤 아래 땅에, 드래곤을 땅까지 내려 한 방에
+    room.onMove(ia, { x: d.x, y: d.y - 7, z: d.z + 1, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0 + 1000);
+    const p = room.players.get(ia)!;
+    d.y = p.pos.y;
+    d.hp = 1;
+    room.mobSys!.bossAwake = true;
+    expect(room.hitMob(ia, d.id, undefined, T0 + 1100)).toBeNull();
+    expect(e.endingPortal).not.toBeNull();
+    const ep = e.endingPortal!;
+    expect(ep.z).toBe(e.den!.z + 6);
+    expect(BLOCKS.get(e.world.getBlock(ep.x, ep.y - 1, ep.z)).id).toBe('glowstone');
+    expect(BLOCKS.get(e.world.getBlock(ep.x + 2, ep.y, ep.z + 2)).id).toBe('obsidian');
+    expect(a.json.find((m) => m.t === 'ending')).toMatchObject({ x: ep.x, y: ep.y, z: ep.z });
+    expect(room.returnHome(ia, T0 + 2000)).toBe('NOT_IN_PORTAL'); // 아직 밖
+    room.onMove(ia, { x: ep.x + 0.5, y: ep.y, z: ep.z + 0.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0 + 2500);
+    expect(room.returnHome(ia, T0 + 3000)).toBeNull();
+    expect(a.json.find((m) => m.t === 'expeditionResult')).toMatchObject({ ending: true });
   });
 
   it('입장 welcome 에 진행 중인 원정이 실려 온다', () => {

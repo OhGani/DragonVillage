@@ -596,7 +596,9 @@ export type ServerJson =
   /** 세계 전환: 마을 ↔ 원정. 이어서 그 세계의 바뀐 청크(ChunkData)와 ready 가 온다 */
   | { t: 'worldEnter'; kind: 'village' | 'expedition'; expedition: ExpeditionEnterInfo | null; spawn: PlayerInfo; players: PlayerInfo[]; chunkCount: number }
   /** 귀환 정산 (worldEnter village 직전) */
-  | { t: 'expeditionResult'; expedition: string; name: string; items: ExpeditionResultItem[]; late: boolean; keepRatio: number; elapsedSec: number }
+  | { t: 'expeditionResult'; expedition: string; name: string; items: ExpeditionResultItem[]; late: boolean; keepRatio: number; elapsedSec: number; ending?: boolean }
+  /** 엔딩 포탈이 열렸다 (#170): 엔더 드래곤을 잡으면 분수 남쪽에. 서 있는 칸 가운데 */
+  | { t: 'ending'; x: number; y: number; z: number }
   /** 마을에 있는 사람들에게: 원정이 시작·변경·끝났다 */
   | { t: 'expeditionState'; expedition: ExpeditionStateInfo | null }
   | { t: 'playerJoined'; player: PlayerInfo }

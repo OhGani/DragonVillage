@@ -1391,6 +1391,7 @@ export class VillageRoom {
         this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 ${name}을 잡았다! 전리품은 마을 창고에: ${loot}` }, -1, world);
         if (world !== 'village') this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 원정대가 ${name}을 잡았어요! 창고에 ${loot}` }, -1, 'village');
         this.broadcastStorage();
+        if (kind === 'ender_dragon' && world === 'expedition') this.openEndingPortal(now); // 엔딩 (#170)
       },
     };
   }
@@ -2219,11 +2220,46 @@ export class VillageRoom {
   /**
    * 마을로 돌아가기(정산). 포탈 안에 서 있어야 한다(late 강제 귀환은 예외). 성공하면 null, 아니면 에러 코드.
    */
+  /**
+   * 엔딩 포탈 (#170, 아들 5차 "엔딩은 다른 차원 포탈"): 엔더 드래곤을 잡으면 기반암 분수 남쪽 6칸에 발광석 바닥 3×3 + 흑요석 기둥 넷이 선다.
+   * 들어가서 돌아가면 엔딩 결과(ending). 다음 차원(고대성, v1.2)은 아직 — 지금은 마을로
+   */
+  private openEndingPortal(now: number): void {
+    const e = this.expedition;
+    if (!e || !e.den || e.endingPortal) return;
+    const cx = e.den.x,
+      cz = e.den.z + 6,
+      floorY = e.den.y - 5;
+    const blocks: { x: number; y: number; z: number; id: string }[] = [];
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) blocks.push({ x: cx + dx, y: floorY, z: cz + dz, id: 'glowstone' });
+    for (const [dx, dz] of [
+      [-2, -2],
+      [2, -2],
+      [-2, 2],
+      [2, 2],
+    ] as const)
+      for (let dy = 1; dy <= 3; dy++) blocks.push({ x: cx + dx, y: floorY + dy, z: cz + dz, id: 'obsidian' });
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (let dy = 1; dy <= 3; dy++) blocks.push({ x: cx + dx, y: floorY + dy, z: cz + dz, id: 'air' });
+    for (const b of blocks) {
+      if (!e.world.inBounds(b.x, b.y, b.z)) continue;
+      if (e.world.setBlock(b.x, b.y, b.z, this.registry.numOf(b.id)).changed) {
+        e.markModified(b.x, b.y, b.z);
+        this.broadcast(encodeBlockChanged({ x: b.x, y: b.y, z: b.z, id: b.id, by: -1 }), -1, 'expedition');
+      }
+    }
+    e.endingPortal = { x: cx, y: floorY + 1, z: cz };
+    this.broadcastJson({ t: 'ending', ...e.endingPortal }, -1, 'expedition');
+    this.broadcastJson({ t: 'error', code: 'ENDING_OPEN', message: '✨ 다른 차원으로 가는 포탈이 열렸어요! 분수 남쪽 빛나는 바닥에 서면 엔딩' }, -1, 'expedition');
+    this.log(`마을 ${this.info.code}: 엔딩 포탈 열림 (${cx}, ${floorY + 1}, ${cz})`);
+    void now;
+  }
+
   returnHome(idx: number, now = Date.now(), late = false): string | null {
     const p = this.players.get(idx);
     const e = this.expedition;
     if (!p || !e || p.world !== 'expedition') return 'NOT_OUT';
-    if (!late && !e.inPortal(p.pos.x, p.pos.y, p.pos.z)) return 'NOT_IN_PORTAL';
+    const ending = e.inEndingPortal(p.pos.x, p.pos.y, p.pos.z); // 엔딩 포탈로도 돌아온다 (#170)
+    if (!late && !ending && !e.inPortal(p.pos.x, p.pos.y, p.pos.z)) return 'NOT_IN_PORTAL';
     const keepRatio = this.expeditions.rules.failedReturnKeepRatio;
     const items = late ? this.loseGained(p, keepRatio) : this.gainedOf(idx);
     p.gained.clear();
@@ -2241,6 +2277,7 @@ export class VillageRoom {
       late,
       keepRatio: late ? keepRatio : 1,
       elapsedSec: Math.floor(e.elapsedSec(now)),
+      ending,
     });
     p.world = 'village';
     p.pos = { x: this.spawn.x, y: this.spawn.y, z: this.spawn.z, yaw: this.spawn.yaw, pitch: 0, flags: FLAG_GROUND };

@@ -51,6 +51,8 @@ export class Expedition {
   readonly den: { x: number; y: number; z: number } | null;
   /** 보스 종류 — 자리가 있고 expeditions.json boss.id 가 아는 몹이면 (#162) */
   readonly bossKind: MobKind | null;
+  /** 엔딩 포탈 (#170): 엔더 드래곤을 잡으면 열린다. 서 있는 칸 가운데(바닥 발광석 3×3 위). 없으면 null */
+  endingPortal: { x: number; y: number; z: number } | null = null;
 
   constructor(
     readonly def: ExpeditionDef,
@@ -107,5 +109,11 @@ export class Expedition {
   /** 포탈 문틀 안(4×5 흑요석 틀의 가운데 2×3 공기)에 서 있나 — 귀환 판정 */
   inPortal(x: number, y: number, z: number): boolean {
     return portalContains(this.portal, x, y, z);
+  }
+
+  /** 엔딩 포탈 안에 서 있나 (#170) */
+  inEndingPortal(x: number, y: number, z: number): boolean {
+    const p = this.endingPortal;
+    return p !== null && Math.abs(x - (p.x + 0.5)) <= 1.6 && Math.abs(z - (p.z + 0.5)) <= 1.6 && y >= p.y - 0.5 && y <= p.y + 3;
   }
 }

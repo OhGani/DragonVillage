@@ -195,6 +195,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   /** 타고 있는 드래곤. 다시 들어올 때 서버가 준 것으로 시작 (#103 — 탑승 유지) */
   let myRiding: RidingInfo | null = welcome.spawn.riding ?? null;
   // 첫 걸음 안내 (M8-3): 처음 들어온 사람을 포탈 → 원정 출발 → 귀환까지 데려간다. 진행은 이 기기에 남긴다(새로고침해도 이어짐)
+  /** 엔딩 포탈 (#170): 엔더 드래곤을 잡으면 서버가 알려 준다. 세계를 바꾸면 사라진다 */
+  let endingPortal: { x: number; y: number; z: number } | null = null;
   /** 주민 인사말 (#168) — 분마다·사람마다 다르게 */
   const VILLAGER_HELLO = ['안녕! 오늘도 좋은 날이야', '밀이 잘 자라고 있어', '드래곤 봤어? 멋지더라', '빵 있으면 하나만…', '밤엔 집에 있는 게 좋아', '포탈 너머는 무섭대'];
   const GUIDE_KEY = 'dv.guide';
@@ -566,6 +568,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   let warned3 = false,
     warned1 = false;
   const enterWorld = (w: WorldEnter) => {
+    endingPortal = null; // 세계가 바뀌면 엔딩 포탈 표시는 지운다 (#170)
     disposeWorld(ctx);
     pending.clear();
     companions.clear(); // 세계가 바뀌면 따라온 펫 목록은 서버가 다시 준다 (#145)
@@ -595,12 +598,14 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const total = r.items.reduce((s, it) => s + it.count, 0);
     const mm = Math.floor(r.elapsedSec / 60),
       ss = r.elapsedSec % 60;
-    const sub = r.late
-      ? `시간이 다 되어 저절로 돌아왔어요. 절반만 가져왔어요 (${Math.round(r.keepRatio * 100)}%)`
-      : `${mm}분 ${ss}초 만에 돌아왔어요. 모은 것 ${total}개를 마을 창고에 넣었어요`;
+    const sub = r.ending
+      ? `엔더 드래곤을 물리치고 다른 차원 포탈을 지났어요! 드래곤 알·숨결은 마을 창고에. ${mm}분 ${ss}초, 모은 것 ${total}개`
+      : r.late
+        ? `시간이 다 되어 저절로 돌아왔어요. 절반만 가져왔어요 (${Math.round(r.keepRatio * 100)}%)`
+        : `${mm}분 ${ss}초 만에 돌아왔어요. 모은 것 ${total}개를 마을 창고에 넣었어요`;
     input.paused = true;
     kbm.enabled = false;
-    hud.showResult(`${r.name} 원정 끝!`, sub, items, '한 번 더 갈까?', () => {
+    hud.showResult(r.ending ? '🏆 드래곤 크래프트 클리어! 🐲' : `${r.name} 원정 끝!`, sub, items, '한 번 더 갈까?', () => {
       net.sendStartExpedition(r.expedition);
       resume();
     }, () => resume());
@@ -754,6 +759,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       pets.clear();
       for (const p of list) pets.set(p.id, { name: p.name, mine: p.mine });
       refreshPetNames();
+    },
+    onEnding: (at) => {
+      endingPortal = at;
+      levelUp();
     },
     onCompanions: (list) => {
       // 새로 온 펫은 주인 옆에서 시작, 이미 있던 건 자리 유지, 목록에 없는 건 지운다 (#145)
@@ -1396,6 +1405,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const alt = open.length > 1 ? { label: `다른 곳 ▸ ${open[(expeditionPick + 1) % open.length]!.name}`, onClick: () => void (expeditionPick = (expeditionPick + 1) % open.length) } : undefined;
         hud.showAction(`${def.name}${toward(def.name)} 원정`, `${Math.round(def.durationSec / 60)}분 · ${night} · 보물 상자 ${def.treasures}개\n포탈로 돌아오면 모은 것을 가져와요`, '원정 출발' + KEY_HINT, () => net.sendStartExpedition(def.id), alt);
       }
+    } else if (endingPortal && Math.hypot(ctx.player.pos.x - (endingPortal.x + 0.5), ctx.player.pos.z - (endingPortal.z + 0.5)) <= 1.6 && Math.abs(ctx.player.pos.y - endingPortal.y) <= 3) {
+      hud.showAction('🏆 다른 차원 포탈', '엔더 드래곤을 물리쳤어요! 들어가면 엔딩', '엔딩 보기' + KEY_HINT, () => net.sendReturnHome());
     } else {
       hud.showAction('마을로 돌아가기', '지금까지 모은 것을 마을 창고에 넣어요', '돌아가기' + KEY_HINT, () => net.sendReturnHome());
     }
