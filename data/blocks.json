@@ -654,6 +654,59 @@
       "lightEmit": 0,
       "texture": "nether_wart",
       "_note": "네더 영혼 모래 위에 자란다 (v1.1-3, #161). 물약의 시작 재료(potions.json awkward). 캐면 그대로 들어온다"
+    },
+    {
+      "id": "wheat_young",
+      "name": "밀 싹",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "drops": "wheat_seeds",
+      "seed": "wheat_seeds",
+      "grows": "wheat_ripe",
+      "growMinutes": 8,
+      "lightEmit": 0,
+      "texture": "wheat_young",
+      "_note": "농사 (#165): 밀 씨를 들고 농지(밭) 위를 탭하면 심어진다. 8분 뒤 익은 밀. 싹을 부수면 씨만 돌아온다"
+    },
+    {
+      "id": "wheat_ripe",
+      "name": "익은 밀",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "drops": "wheat",
+      "bonusDrops": "wheat_seeds",
+      "bonusCount": [1, 2],
+      "lightEmit": 0,
+      "texture": "wheat_ripe",
+      "_note": "부수면 밀 1 + 밀 씨 1~2 (다시 심을 수 있게)"
+    },
+    {
+      "id": "carrot_young",
+      "name": "당근 싹",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "drops": "carrot",
+      "seed": "carrot",
+      "grows": "carrot_ripe",
+      "growMinutes": 8,
+      "lightEmit": 0,
+      "texture": "carrot_young",
+      "_note": "당근을 들고 농지 위를 탭하면 심어진다 (마인크래프트처럼 씨앗이 따로 없다). 8분 뒤 익은 당근"
+    },
+    {
+      "id": "carrot_ripe",
+      "name": "익은 당근",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "drops": "carrot",
+      "dropCount": [2, 3],
+      "lightEmit": 0,
+      "texture": "carrot_ripe",
+      "_note": "부수면 당근 2~3"
     }
   ]
 }

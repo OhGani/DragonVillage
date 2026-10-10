@@ -18,6 +18,9 @@ import {
   dragonMaxHp,
   DRAGON_REST_MS, FEED_REST_MS,
   HP_MAX,
+  itemToBlock,
+  itemForPlacing,
+  give,
 } from '@dragon-village/shared';
 import { DRAGONS, EXPEDITIONS, BLOCKS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
@@ -159,6 +162,55 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(rejected(a)).toEqual([]);
     expect(room.placed.has(`66,${GROUND_Y + 1},64`)).toBe(false);
     expect(storage.listPlaced(INFO.code)).toEqual([]);
+  });
+
+  it('농사 (#165): 밀 씨를 들고 농지 위에 심으면 싹, 농지가 아니면 NO_FARMLAND, 8분 뒤 익은 밀, 부수면 밀 + 씨. 저장돼서 다시 켜도 자란다', () => {
+    expect(itemToBlock('wheat_seeds', BLOCKS)).toBe(BLOCKS.numOf('wheat_young'));
+    expect(itemForPlacing('wheat_young', BLOCKS)).toBe('wheat_seeds');
+    expect(itemToBlock('carrot', BLOCKS)).toBe(BLOCKS.numOf('carrot_young'));
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    give(p.inv, 'wheat_seeds', 2);
+    // 서쪽 밭에서 위가 빈 농지 한 칸
+    let fx = -1,
+      fz = -1;
+    for (let z = 50; z < 80 && fx < 0; z++)
+      for (let x = 22; x < 44; x++)
+        if (BLOCKS.get(room.world.getBlock(x, GROUND_Y, z)).id === 'farmland' && room.world.getBlock(x, GROUND_Y + 1, z) === 0) {
+          fx = x;
+          fz = z;
+          break;
+        }
+    expect(fx).toBeGreaterThan(0);
+    room.onMove(ra.idx, { x: fx + 0.5, y: GROUND_Y + 1, z: fz + 2.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 1, x: fx, y: GROUND_Y + 1, z: fz, id: 'wheat_young' }, 1000);
+    expect(rejected(a)).toEqual([]);
+    expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y + 1, fz)).id).toBe('wheat_young');
+    expect(countOf(p.inv, 'wheat_seeds')).toBe(1);
+    expect(room.crops.get(`${fx},${GROUND_Y + 1},${fz}`)).toBe(1000);
+    // 농지가 아닌 곳(광장 옆 잔디)엔 못 심는다
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 2, x: 66, y: GROUND_Y + 1, z: 64, id: 'wheat_young' }, 1100);
+    expect(rejected(a)).toEqual([{ seq: 2, reason: REJECT.NO_FARMLAND }]);
+    // 다시 켜도 심은 기록이 남아 있다
+    const again = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    expect(again.crops.get(`${fx},${GROUND_Y + 1},${fz}`)).toBe(1000);
+    // 8분 전엔 그대로, 지나면 익은 밀 (모두에게 BlockChanged)
+    room.checkCrops(1000 + 7 * 60_000);
+    expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y + 1, fz)).id).toBe('wheat_young');
+    room.checkCrops(1000 + 8 * 60_000 + 1);
+    expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y + 1, fz)).id).toBe('wheat_ripe');
+    expect(room.crops.size).toBe(0);
+    expect(storage.listCrops(INFO.code)).toEqual([]);
+    // 부수면 밀 1 + 씨 1~2
+    room.onMove(ra.idx, { x: fx + 0.5, y: GROUND_Y + 1, z: fz + 2.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 3, x: fx, y: GROUND_Y + 1, z: fz, id: 'air' }, 1000 + 9 * 60_000);
+    expect(rejected(a)).toHaveLength(1);
+    expect(countOf(p.inv, 'wheat')).toBe(1);
+    expect(countOf(p.inv, 'wheat_seeds')).toBeGreaterThanOrEqual(2);
   });
 
   it('공기를 부수기·모르는 블록·흐르는 물 단계 놓기는 INVALID', () => {

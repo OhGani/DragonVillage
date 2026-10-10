@@ -16,6 +16,15 @@
       "items": {
         "stone_sword": 1
       }
+    },
+    {
+      "id": "farm_start_2026_10_10",
+      "name": "밀 씨와 당근",
+      "message": "아빠가 밀 씨 4개와 당근 2개를 줬어요! 광장 옆 밭(농지)에 심으면 8분 뒤에 익어요",
+      "items": {
+        "wheat_seeds": 4,
+        "carrot": 2
+      }
     }
   ]
 }

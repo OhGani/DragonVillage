@@ -173,6 +173,9 @@ CREATE TABLE IF NOT EXISTS codex(
 CREATE TABLE IF NOT EXISTS placed(
   village TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL, token TEXT NOT NULL, nick TEXT NOT NULL,
   PRIMARY KEY(village, x, y, z));
+CREATE TABLE IF NOT EXISTS crops(
+  village TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL, planted_at INTEGER NOT NULL,
+  PRIMARY KEY(village, x, y, z));
 CREATE TABLE IF NOT EXISTS gifts_given(
   token TEXT NOT NULL, gift TEXT NOT NULL, given_at INTEGER NOT NULL, PRIMARY KEY(token, gift));
 CREATE TABLE IF NOT EXISTS animals(
@@ -238,6 +241,9 @@ export class Storage {
       setPlaced: this.db.prepare('INSERT OR REPLACE INTO placed(village, x, y, z, token, nick) VALUES (?, ?, ?, ?, ?, ?)'),
       delPlaced: this.db.prepare('DELETE FROM placed WHERE village = ? AND x = ? AND y = ? AND z = ?'),
       listPlaced: this.db.prepare('SELECT x, y, z, token, nick FROM placed WHERE village = ?'),
+      setCrop: this.db.prepare('INSERT OR REPLACE INTO crops(village, x, y, z, planted_at) VALUES (?, ?, ?, ?, ?)'),
+      delCrop: this.db.prepare('DELETE FROM crops WHERE village = ? AND x = ? AND y = ? AND z = ?'),
+      listCrops: this.db.prepare('SELECT x, y, z, planted_at AS plantedAt FROM crops WHERE village = ?'),
       getInventory: this.db.prepare('SELECT json FROM inventories WHERE token = ?'),
       getAccountByNick: this.db.prepare('SELECT nick_key AS nickKey, nick, token, pin_hash AS pinHash, created_at AS createdAt FROM accounts WHERE nick_key = ?'),
       getAccountByToken: this.db.prepare('SELECT nick_key AS nickKey, nick, token, pin_hash AS pinHash, created_at AS createdAt FROM accounts WHERE token = ?'),
@@ -325,7 +331,7 @@ export class Storage {
   }
   /** 마을 코드 바꾸기 (M9-4, #153): 마을을 가리키는 표 전부를 한 번에 */
   renameVillage(oldCode: string, newCode: string): void {
-    const tables = ['villages', 'chunk_diffs', 'storage', 'players', 'inventories', 'dragons', 'chests', 'buildings', 'codex', 'placed', 'animals', 'raids'];
+    const tables = ['villages', 'chunk_diffs', 'storage', 'players', 'inventories', 'dragons', 'chests', 'buildings', 'codex', 'placed', 'crops', 'animals', 'raids'];
     const tx = this.db.transaction(() => {
       for (const t of tables) this.db.prepare(`UPDATE ${t} SET ${t === 'villages' ? 'code' : 'village'} = ? WHERE ${t === 'villages' ? 'code' : 'village'} = ?`).run(newCode, oldCode);
     });
@@ -434,6 +440,16 @@ export class Storage {
   }
   listPlaced(code: string): { x: number; y: number; z: number; token: string; nick: string }[] {
     return this.stmts.listPlaced.all(code) as { x: number; y: number; z: number; token: string; nick: string }[];
+  }
+  /** 농사 (#165): 자라는 작물 */
+  setCrop(code: string, x: number, y: number, z: number, plantedAt: number): void {
+    this.stmts.setCrop.run(code, x, y, z, plantedAt);
+  }
+  delCrop(code: string, x: number, y: number, z: number): void {
+    this.stmts.delCrop.run(code, x, y, z);
+  }
+  listCrops(code: string): { x: number; y: number; z: number; plantedAt: number }[] {
+    return this.stmts.listCrops.all(code) as { x: number; y: number; z: number; plantedAt: number }[];
   }
   getStorage(code: string): { item: string; count: number }[] {
     return this.stmts.getStorage.all(code) as { item: string; count: number }[];

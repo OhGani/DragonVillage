@@ -185,6 +185,8 @@ export const TICK_MS = 50;
 export const FLUSH_MS = 30_000;
 /** 드래곤 성장 확인 간격 (M6-3) */
 export const GROWTH_CHECK_MS = 5_000;
+/** 작물 익음 확인 주기 (#165) */
+export const CROP_CHECK_MS = 10_000;
 
 export type Send = (data: Uint8Array | string) => void;
 export type WorldKind = 'village' | 'expedition';
@@ -357,6 +359,7 @@ export class VillageRoom {
     });
     this.animals.load(Date.now());
     for (const r of this.storage?.listPlaced(this.info.code) ?? []) this.placed.set(`${r.x},${r.y},${r.z}`, { token: r.token, nick: r.nick }); // 남의 집 보호 (#151)
+    for (const r of this.storage?.listCrops(this.info.code) ?? []) this.crops.set(`${r.x},${r.y},${r.z}`, r.plantedAt); // 농사 (#165)
     this.repairChests();
   }
 
@@ -1022,6 +1025,34 @@ export class VillageRoom {
     }
   }
 
+  /** 10초마다: 심은 지 growMinutes 지난 작물을 익은 블록으로 바꾼다 (#165). 그 자리에 작물이 없어졌으면 기록만 지운다 */
+  private tickCrops(now: number): void {
+    if (this.crops.size === 0 || now - this.lastCropCheck < CROP_CHECK_MS) return;
+    this.lastCropCheck = now;
+    for (const [key, plantedAt] of [...this.crops]) {
+      const [x, y, z] = key.split(',').map(Number) as [number, number, number];
+      const cur = this.registry.get(this.world.getBlock(x, y, z));
+      const next = cur.grows ? this.registry.find(cur.grows) : undefined;
+      if (!next) {
+        this.crops.delete(key);
+        this.storage?.delCrop(this.info.code, x, y, z);
+        continue;
+      }
+      if (now - plantedAt < (cur.growMinutes ?? 0) * 60_000) continue;
+      this.world.setBlock(x, y, z, next.num);
+      this.markDirtyBlock(x, y, z);
+      this.crops.delete(key);
+      this.storage?.delCrop(this.info.code, x, y, z);
+      this.broadcast(encodeBlockChanged({ x, y, z, id: next.id, by: -1 }), -1, 'village');
+    }
+  }
+
+  /** 시험용: 작물 확인을 지금 바로 */
+  checkCrops(now: number): void {
+    this.lastCropCheck = 0;
+    this.tickCrops(now);
+  }
+
   /** 시험용: 성장 확인을 지금 바로 */
   checkGrowth(now: number): void {
     this.lastGrowthCheck = 0;
@@ -1373,6 +1404,9 @@ export class VillageRoom {
   private lastCreatureCount = 0;
   /** 사람이 놓은 블록의 주인 (M9-3 남의 집 보호, #151): 놓은 사람만 부순다. 자연 블록·액체는 누구나. 마을에서만 */
   readonly placed = new Map<string, { token: string; nick: string }>();
+  /** 자라는 작물 (#165): "x,y,z" → 심은 시각. 마을만 */
+  readonly crops = new Map<string, number>();
+  private lastCropCheck = 0;
 
   /** 마지막 방어전 결과 → 깃대 맨 위 깃발 색 */
   private flagMark(): FlagMark {
@@ -1439,6 +1473,7 @@ export class VillageRoom {
   private tickCreatures(now: number): void {
     if (this.playersIn('village').length === 0) return;
     this.animals.tick(now);
+    this.tickCrops(now);
     const list = [...(this.raid?.mobs.entries() ?? []), ...this.animals.entries(now)];
     if (list.length === 0 && this.lastCreatureCount === 0) return;
     this.lastCreatureCount = list.length;
@@ -1746,6 +1781,11 @@ export class VillageRoom {
     if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82)
     if (def.door && (def.door.upper || def.door.open)) return REJECT.INVALID; // 문은 아래·닫힘 변형만 놓는다(윗칸은 서버가 채운다)
     // 가방에 그 아이템(액체면 찬 양동이)이 있어야 한다 (M4, #66)
+    if (def.grows || def.seed) {
+      // 농사 (#165): 작물은 농지 위에만
+      const below = world.inBounds(x, y - 1, z) ? this.registry.get(world.getBlock(x, y - 1, z)).id : '';
+      if (below !== 'farmland') return REJECT.NO_FARMLAND;
+    }
     const item = itemForPlacing(def.id, this.registry);
     if (!item || countOf(p.inv, item) < 1) return REJECT.NO_ITEM;
     if (cur.num !== AIR_ID && !cur.fluid) return REJECT.OCCUPIED; // 횃불·꽃 같은 비고체 블록도 덮어쓰지 않는다(아이템이 사라지니까)
@@ -1813,6 +1853,14 @@ export class VillageRoom {
       }
     }
     const isToggle = def.door !== null && prev.door !== null;
+    // 농사 (#165): 심으면 자라기 시작, 부수면(또는 다른 블록이 되면) 기록을 지운다
+    if (p.world === 'village') {
+      const ckey = `${req.x},${req.y},${req.z}`;
+      if (def.grows) {
+        this.crops.set(ckey, now);
+        this.storage?.setCrop(this.info.code, req.x, req.y, req.z, now);
+      } else if (this.crops.delete(ckey)) this.storage?.delCrop(this.info.code, req.x, req.y, req.z);
+    }
     // 남의 집 보호 (#151): 마을에서 놓은 블록은 내 것으로 적고, 부수면 지운다 (액체는 흐르니 안 적는다). 문은 두 칸 다
     if (p.world === 'village' && !isToggle) {
       const cells: number[] = [req.y];

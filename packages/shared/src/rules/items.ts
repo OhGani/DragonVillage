@@ -124,6 +124,8 @@ export function itemToBlock(item: string, registry: BlockRegistry): number | nul
     const l = registry.find('lava');
     return l ? registry.fluidFinite(l.num, FLUID_FULL) : null;
   }
+  const crop = registry.defs.find((b) => b.seed === item); // 씨앗을 들면 작물 싹을 놓는다 (#165)
+  if (crop) return crop.num;
   const d = registry.find(item);
   if (!d || d.internal || d.fluid || d.num === 0) return null;
   return d.num;
@@ -137,6 +139,7 @@ export function itemForPlacing(blockId: string, registry: BlockRegistry): string
   if (d.door) return d.door.upper || d.door.open ? null : registry.get(d.door.base).id; // 문은 아래·닫힘 변형을 놓을 때 문 아이템 하나
   if (d.torch) return registry.get(d.torch.base).id; // 벽에 붙인 횃불도 횃불 아이템 하나 (#82)
   if (d.chest) return registry.get(d.chest.base).id; // 큰 상자 반쪽도 상자 아이템 하나 (#84)
+  if (d.seed) return d.seed; // 작물 싹은 씨앗 아이템으로 심는다 (#165)
   return d.internal ? null : d.id;
 }
 

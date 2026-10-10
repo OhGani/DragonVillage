@@ -80,6 +80,8 @@ export const REJECT = {
   BAG_FULL: 10,
   /** 다른 사람이 놓은 블록 — 놓은 사람만 부순다 (M9-3 남의 집 보호, #151) */
   OWNED: 11,
+  /** 작물은 농지 위에만 (#165) */
+  NO_FARMLAND: 12,
 } as const;
 /** 초5가 읽을 거절 이유 */
 export const REJECT_KO: readonly string[] = [
@@ -95,6 +97,7 @@ export const REJECT_KO: readonly string[] = [
   '가방에 그게 없어요',
   '가방이 가득 찼어요. 자리를 비우고 부수세요',
   '친구가 놓은 거예요 — 놓은 사람만 부술 수 있어요',
+  '농지 위에만 심을 수 있어요',
 ];
 
 export interface PlayerMoveMsg {

@@ -37,6 +37,12 @@ const RawBlock = z.object({
   dyeable: z.boolean().optional(),
   variants: z.array(z.string()).optional(),
   fluid: z.enum(['water', 'lava']).optional(),
+  /** 농사 (#165): 이 아이템을 들고 농지 위에 놓으면 이 블록이 된다 (밀 씨 → 밀 싹) */
+  seed: z.string().optional(),
+  /** 자라면 이 블록으로 바뀐다 (밀 싹 → 익은 밀) */
+  grows: z.string().optional(),
+  /** 자라는 데 걸리는 분 */
+  growMinutes: z.number().min(0, '0 이상이어야 해요').optional(),
 });
 
 export type FluidKind = 'water' | 'lava';
@@ -78,6 +84,9 @@ const FIELD_KO: Record<string, string> = {
   shape: 'shape(특수 모양)',
   release: 'release(버전)',
   variants: 'variants(종류 목록)',
+  seed: 'seed(심는 아이템)',
+  grows: 'grows(자라면 되는 블록)',
+  growMinutes: 'growMinutes(자라는 분)',
   fluid: 'fluid(액체 종류)',
 };
 
@@ -135,6 +144,12 @@ export interface BlockDef {
   readonly fluidVolume: number;
   /** 코드가 만든 내부 블록(흐르는·고인 액체 단계, 문 변형). 핫바·도감에 안 보임 */
   readonly internal: boolean;
+  /** 농사 (#165): 이 아이템을 농지 위에 놓으면 이 블록 (밀 씨 → 밀 싹). 작물 아니면 없음 */
+  readonly seed?: string | null;
+  /** 자라면 바뀌는 블록 id (밀 싹 → 익은 밀). 없으면 안 자란다 */
+  readonly grows?: string | null;
+  /** 자라는 데 걸리는 분 */
+  readonly growMinutes?: number;
   /** 문 변형이면 어느 문의 어떤 상태인지. 문 아니면 null (JSON 의 문 자체도 null — 세계에는 변형만 놓인다) */
   readonly door: DoorInfo | null;
   /** 횃불이면 어디에 붙었는지 (결정 #82). 횃불 아니면 null */
@@ -433,6 +448,9 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       fluidSource: b.fluid ? num : -1,
       fluidVolume: 0,
       internal: false,
+      seed: b.seed ?? null,
+      grows: b.grows ?? null,
+      growMinutes: b.growMinutes ?? 0,
       door: null,
       torch: null,
       chest: null,
