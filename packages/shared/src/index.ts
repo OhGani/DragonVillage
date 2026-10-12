@@ -22,6 +22,7 @@ export * from './rules/raid';
 export * from './rules/animals';
 export * from './rules/combat';
 export * from './rules/petNames';
+export * from './rules/villagerTalk';
 export * from './chunk/chunk';
 export * from './chunk/world';
 export * from './chunk/serialize';

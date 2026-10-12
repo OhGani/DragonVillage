@@ -20,9 +20,11 @@ import giftsJson from '../../../../data/gifts.json';
 import starterKitJson from '../../../../data/starter-kit.json';
 import toolsJson from '../../../../data/tools.json';
 import xpJson from '../../../../data/xp.json';
+import villagerTalkJson from '../../../../data/villager-talk.json';
 import { parseBlocks } from './blocks';
 import { parseCombat } from './combat';
 import { parsePetNames } from './petNames';
+import { parseVillagerTalk } from './villagerTalk';
 import { parseBannedWords } from './bannedWords';
 import { parseBuildings } from './buildings';
 import { parseMobs } from './mobs';
@@ -50,6 +52,8 @@ export const EXPEDITIONS = parseExpeditions(expeditionsJson);
 export const DRAGONS = parseDragons(dragonsJson);
 /** 펫 이름 목록 (M8-1 4차, pet-names.json, #109) */
 export const PET_NAMES = parsePetNames(petNamesJson);
+/** 주민 대화 (#172) */
+export const VILLAGER_TALK = parseVillagerTalk(villagerTalkJson);
 /** 이름 금칙어 (M9-4, banned-words.json, #152) */
 export const BANNED_WORDS = parseBannedWords(bannedWordsJson);
 /** 전투 장비 — 갑옷·방패·활·화살 (M8-2, combat.json). 제작법도 여기서 나온다 */

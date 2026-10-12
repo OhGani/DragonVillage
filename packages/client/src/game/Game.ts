@@ -69,7 +69,7 @@ import {
   isPotionItem,
   potionFromItemId,
 } from '@dragon-village/shared';
-import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, XP } from '@dragon-village/shared/data';
+import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { beam as beamSound, bell, ding, explosion as explosionSound, hit as hitSound, hurt as hurtSound, levelUp, lose, roar } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
@@ -90,6 +90,7 @@ import { loadTextureAtlas } from '../render/textures';
 import { BagView, type Stations } from '../ui/bag';
 import { ChatView } from '../ui/chat';
 import { PetNamePicker } from '../ui/petNames';
+import { TalkSheet } from '../ui/talk';
 import { ChestView } from '../ui/chest';
 import { Hud, type HotbarSlot } from '../ui/hud';
 import { NestView } from '../ui/nest';
@@ -197,8 +198,6 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   // 첫 걸음 안내 (M8-3): 처음 들어온 사람을 포탈 → 원정 출발 → 귀환까지 데려간다. 진행은 이 기기에 남긴다(새로고침해도 이어짐)
   /** 엔딩 포탈 (#170): 엔더 드래곤을 잡으면 서버가 알려 준다. 세계를 바꾸면 사라진다 */
   let endingPortal: { x: number; y: number; z: number } | null = null;
-  /** 주민 인사말 (#168) — 분마다·사람마다 다르게 */
-  const VILLAGER_HELLO = ['안녕! 오늘도 좋은 날이야', '밀이 잘 자라고 있어', '드래곤 봤어? 멋지더라', '빵 있으면 하나만…', '밤엔 집에 있는 게 좋아', '포탈 너머는 무섭대'];
   const GUIDE_KEY = 'dv.guide';
   const GUIDE_TEXT: Record<number, string> = {
     1: '① 나침반의 금색 점을 따라 북쪽 포탈로 가요',
@@ -235,8 +234,35 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const pets = new Map<number, { name: string | null; mine: boolean }>();
   /** 원정에 따라온 펫 (#145·#147): 서버가 몹 목록에 같이 실어 움직이고 물게 한다. 여기선 이름표·토스트만 */
   const companions = new Map<number, { name: string | null; owner: number }>();
-  const refreshPetNames = () => mobView.setPetNames([...[...pets.entries()].map(([id, p]) => ({ id, name: p.name, mine: p.mine })), ...[...companions.entries()].map(([id, c]) => ({ id, name: c.name, mine: c.owner === myIdx }))]);
+  const refreshPetNames = () =>
+    mobView.setPetNames([
+      ...[...pets.entries()].map(([id, p]) => ({ id, name: p.name, mine: p.mine })),
+      ...[...companions.entries()].map(([id, c]) => ({ id, name: c.name, mine: c.owner === myIdx })),
+      ...[...mobView.figures.entries()].filter(([, f]) => MOB_KIND_OF[f.kind] === 'villager').map(([id]) => ({ id, name: VILLAGER_TALK.nameOf(id), mine: false })), // 주민 이름 (#172)
+    ]);
+  let villagerFigures = 0;
   let aimedMobNow: number | null = null;
+  /** 주민 대화 (#172): 빈손 탭 → 시트. 이번 접속에 말 걸어 본 주민 */
+  const talkedTo = new Set<number>();
+  const talk = new TalkSheet(
+    root,
+    (id, action) => {
+      if (action === 'feed') net.sendUseMob(id, hud.selectedIndex); // "응, 먹어!" → 들고 있는 빵을 준다
+    },
+    () => {
+      if (started && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) resume();
+    },
+  );
+  const openTalk = (id: number) => {
+    if (!started || disconnected || hud.resultVisible || anyPanelOpen()) return;
+    const def = VILLAGER_TALK.pick({ holding: hud.selectedItem, hasDragon: myDragons.some((d) => d.stage !== 'egg'), level: villageState.level, firstTalk: !talkedTo.has(id) }, id + Math.floor(Date.now() / 60_000));
+    talkedTo.add(id);
+    hud.hideAction();
+    input.paused = true;
+    kbm.enabled = false;
+    if (kbm.locked) document.exitPointerLock();
+    talk.show(id, VILLAGER_TALK.nameOf(id), def);
+  };
   const petNamer = new PetNamePicker(
     root,
     PET_NAMES.names,
@@ -885,6 +911,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     },
     onMobs: (list) => {
       mobView.setState(list);
+      const nv = list.filter((m) => MOB_KIND_OF[m.kind] === 'villager').length;
+      if (nv !== villagerFigures) {
+        villagerFigures = nv;
+        refreshPetNames(); // 새 주민이 보이면 이름표 (#172)
+      }
       const boss = list.find((m) => EXPEDITION_BOSS_KINDS.includes(MOB_KIND_OF[m.kind] ?? 'zombie'));
       bossInfo = boss ? { x: boss.x, z: boss.z, hp: boss.hp, kind: MOB_KIND_OF[boss.kind] ?? 'spider_king' } : null; // 바 글자(방향·거리)는 프레임마다 아래에서
       if (!boss) hud.hideBoss();
@@ -1088,7 +1119,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
   };
   /** 가방·채팅·둥지·상자 — 창이 하나라도 열려 있으면 마우스를 잠그지 않는다. 상자가 빠져 있었다 (아빠 2026-09-23) */
-  const anyPanelOpen = () => bag.visible || chat.visible || nest.visible || chest.visible || storageView.visible || petNamer.visible;
+  const anyPanelOpen = () => bag.visible || chat.visible || nest.visible || chest.visible || storageView.visible || petNamer.visible || talk.visible;
   // 창고 창 (M6-6): 서버가 재고를 보내 주면 연다 (열 자격도 서버가 본다)
   let pendingStorageOpen = false;
   const openStorage = () => {
@@ -1527,9 +1558,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     // 동물에게 손에 든 것 쓰기 (M8-1): 먹이·뼈·빈손(앉기). 원정에 따라온 펫은 못 만진다
     if (aimedMob !== null && inp.secondaryTap && aimedMob >= ANIMAL_ID_BASE && ctx.kind === 'village') {
       const fk = mobView.figureOf(aimedMob);
-      if (fk && MOB_KIND_OF[fk.kind] === 'villager' && !hud.selectedItem) {
-        // 주민에게 빈손 탭 = 인사 (#168). 서버엔 안 보낸다
-        hud.toast(`🧑‍🌾 ${VILLAGER_HELLO[(aimedMob + Math.floor(Date.now() / 60_000)) % VILLAGER_HELLO.length]}`, 3000);
+      if (fk && MOB_KIND_OF[fk.kind] === 'villager' && (!hud.selectedItem || !MOBS.get('villager').food.includes(hud.selectedItem))) {
+        // 주민에게 탭 = 대화 시트 (#172). 빵을 들었을 땐 바로 먹이기(서버) 대신 대화에서 "응, 먹어!" 로 준다
+        openTalk(aimedMob);
+      } else if (fk && MOB_KIND_OF[fk.kind] === 'villager') {
+        openTalk(aimedMob);
       } else {
         net.sendUseMob(aimedMob, hud.selectedIndex);
         hand.swing();
@@ -1549,7 +1582,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const tamed = (f.state & ANIMAL_FLAG.tamed) !== 0;
         const foods = def.food.map((i) => nameOf(i)).join('·');
         const tip = def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (def.id === 'horse' ? (pets.get(aimedMob)?.mine ? '빈손 탭 → 🐴 타기 · 카드에서 이름 짓기' : '남의 말이에요') : pets.get(aimedMob)?.mine ? '빈손 탭 → 앉기/일어나기 · 카드에서 이름 짓기' : '남이 길들인 강아지예요') : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
-        const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : def.id === 'cow' && !baby ? ' · 🪣 빈 양동이 들고 탭 → 우유' : def.id === 'villager' ? ' · 빈손 탭 → 인사' : '';
+        const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : def.id === 'cow' && !baby ? ' · 🪣 빈 양동이 들고 탭 → 우유' : def.id === 'villager' ? ' · 탭 → 💬 대화' : '';
         hud.toast(`${def.name}${baby ? ' (아기)' : ''}${tamed ? ' 🐾' : ''} · ${tip}${extra}`, 3000);
       }
     }

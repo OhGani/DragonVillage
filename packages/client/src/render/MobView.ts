@@ -294,7 +294,7 @@ const SHOT_MAT = new THREE.MeshBasicMaterial({ color: 0xd9c8a0 });
 
 export class MobView {
   private readonly group = new THREE.Group();
-  private readonly figures = new Map<number, Figure>();
+  readonly figures = new Map<number, Figure>();
   private readonly bursts: Burst[] = [];
   private readonly pops: Pop[] = [];
   /** 날아가는 화살 (M8-2): 0.25초 동안 from → to */
@@ -325,7 +325,8 @@ export class MobView {
       f.nameLabel = null;
     }
     if (!name) return;
-    const sprite = nameSprite(`🐾 ${name}`, 'rgba(60,30,10,0.55)', 0.4);
+    const villager = MOB_KIND_OF[f.kind] === 'villager';
+    const sprite = nameSprite(`${villager ? '🧑‍🌾' : '🐾'} ${name}`, villager ? 'rgba(40,60,30,0.55)' : 'rgba(60,30,10,0.55)', 0.4);
     sprite.position.set(0, mobSize(f.kind).h + 0.55, 0);
     f.group.add(sprite);
     f.nameLabel = { sprite, text: name };
