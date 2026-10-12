@@ -211,6 +211,21 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(rejected(a)).toHaveLength(1);
     expect(countOf(p.inv, 'wheat')).toBe(1);
     expect(countOf(p.inv, 'wheat_seeds')).toBeGreaterThanOrEqual(2);
+    // 흙 → 잔디 (#171): 놓은 흙은 1분 뒤 잔디, 쌓으면 맨 위만. 위가 막히면 그대로
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    give(p.inv, 'dirt', 3);
+    const t1 = 1000 + 10 * 60_000;
+    room.onBlockChange(ra.idx, { seq: 4, x: 66, y: GROUND_Y + 1, z: 64, id: 'dirt' }, t1);
+    room.onBlockChange(ra.idx, { seq: 5, x: 66, y: GROUND_Y + 2, z: 64, id: 'dirt' }, t1);
+    expect(rejected(a)).toHaveLength(1); // 앞서 농지 아닌 곳 거절 하나뿐 — 흙은 아무 데나 놓는다
+    room.checkCrops(t1 + 30_000);
+    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 2, 64)).id).toBe('dirt');
+    room.checkCrops(t1 + 61_000);
+    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 2, 64)).id).toBe('grass'); // 맨 위
+    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 64)).id).toBe('dirt'); // 아래는 막혀 있어 그대로
+    room.onBlockChange(ra.idx, { seq: 6, x: 66, y: GROUND_Y + 2, z: 64, id: 'air' }, t1 + 62_000); // 위를 캐면
+    room.checkCrops(t1 + 72_000);
+    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 64)).id).toBe('grass'); // 이제 아래 흙도 잔디
   });
 
   it('공기를 부수기·모르는 블록·흐르는 물 단계 놓기는 INVALID', () => {

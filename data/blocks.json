@@ -38,7 +38,11 @@
       "hardness": 0.5,
       "tool": null,
       "lightEmit": 0,
-      "texture": "dirt"
+      "texture": "dirt",
+      "grows": "grass",
+      "growMinutes": 1,
+      "growsWhenOpen": true,
+      "_note": "아빠 2026-10-12 (#171): 놓은 흙은 위가 비어 있으면 1분 뒤 잔디가 된다 (마을에서만, 쌓은 흙은 맨 위만)"
     },
     {
       "id": "farmland",

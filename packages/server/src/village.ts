@@ -1054,6 +1054,7 @@ export class VillageRoom {
         continue;
       }
       if (now - plantedAt < (cur.growMinutes ?? 0) * 60_000) continue;
+      if (cur.growsWhenOpen && this.world.inBounds(x, y + 1, z) && this.registry.get(this.world.getBlock(x, y + 1, z)).solid) continue; // 위가 막혔으면 그대로 흙 (#171)
       this.world.setBlock(x, y, z, next.num);
       this.markDirtyBlock(x, y, z);
       this.crops.delete(key);
@@ -1832,8 +1833,8 @@ export class VillageRoom {
     if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82)
     if (def.door && (def.door.upper || def.door.open)) return REJECT.INVALID; // 문은 아래·닫힘 변형만 놓는다(윗칸은 서버가 채운다)
     // 가방에 그 아이템(액체면 찬 양동이)이 있어야 한다 (M4, #66)
-    if (def.grows || def.seed) {
-      // 농사 (#165): 작물은 농지 위에만
+    if (def.seed) {
+      // 농사 (#165): 작물(씨앗으로 심는 것)은 농지 위에만. 흙처럼 그냥 자라는 블록(#171)은 아무 데나
       const below = world.inBounds(x, y - 1, z) ? this.registry.get(world.getBlock(x, y - 1, z)).id : '';
       if (below !== 'farmland') return REJECT.NO_FARMLAND;
     }

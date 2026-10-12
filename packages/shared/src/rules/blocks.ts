@@ -43,6 +43,8 @@ const RawBlock = z.object({
   grows: z.string().optional(),
   /** 자라는 데 걸리는 분 */
   growMinutes: z.number().min(0, '0 이상이어야 해요').optional(),
+  /** 위가 비어 있을 때만 자란다 (흙 → 잔디, #171) */
+  growsWhenOpen: z.boolean().optional(),
 });
 
 export type FluidKind = 'water' | 'lava';
@@ -150,6 +152,8 @@ export interface BlockDef {
   readonly grows?: string | null;
   /** 자라는 데 걸리는 분 */
   readonly growMinutes?: number;
+  /** 위 칸이 비어 있어야(단단한 블록이 없어야) 자란다 — 쌓은 흙은 맨 위만 잔디 (#171) */
+  readonly growsWhenOpen?: boolean;
   /** 문 변형이면 어느 문의 어떤 상태인지. 문 아니면 null (JSON 의 문 자체도 null — 세계에는 변형만 놓인다) */
   readonly door: DoorInfo | null;
   /** 횃불이면 어디에 붙었는지 (결정 #82). 횃불 아니면 null */
@@ -451,6 +455,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       seed: b.seed ?? null,
       grows: b.grows ?? null,
       growMinutes: b.growMinutes ?? 0,
+      growsWhenOpen: b.growsWhenOpen ?? false,
       door: null,
       torch: null,
       chest: null,
