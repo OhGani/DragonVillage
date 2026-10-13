@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { VILLAGER_TALK } from './data';
-import { parseVillagerTalk, talkMatches } from './villagerTalk';
+import { type TalkContext, parseVillagerTalk, talkMatches } from './villagerTalk';
 
 describe('주민 대화 (#172)', () => {
   it('data/villager-talk.json 이 읽히고, 대화마다 대답 1~3개, 이름은 번호로 늘 같다', () => {
@@ -14,10 +14,10 @@ describe('주민 대화 (#172)', () => {
   });
 
   it('상황에 맞는 대화를 고른다: 빵을 들면 빵 대화, 처음이면 인사, 드래곤 없으면 그 얘기, 아니면 any 를 돌아가며', () => {
-    const base = { holding: null, hasDragon: true, level: 2, firstTalk: false };
+    const base: TalkContext = { holding: null, hasDragon: true, level: 2, firstTalk: false, name: null };
     expect(VILLAGER_TALK.pick({ ...base, holding: 'bread' }, 1).id).toBe('bread');
     expect(VILLAGER_TALK.pick({ ...base, firstTalk: true }, 1).id).toBe('first_hello');
-    const seen = (ctx: typeof base) => new Set(Array.from({ length: 60 }, (_, m) => VILLAGER_TALK.pick(ctx, 40_001 + m).id));
+    const seen = (ctx: TalkContext) => new Set(Array.from({ length: 60 }, (_, m) => VILLAGER_TALK.pick(ctx, 40_001 + m).id));
     expect(seen({ ...base, hasDragon: false })).toContain('no_dragon'); // 드래곤 없으면 그 얘기가 섞여 나온다
     expect(seen({ ...base, hasDragon: false })).not.toContain('dragon');
     expect(seen({ ...base, level: 3 })).toContain('portal');
@@ -28,6 +28,11 @@ describe('주민 대화 (#172)', () => {
     expect(VILLAGER_TALK.talks.find((t) => t.id === 'bread')!.replies[0]!.action).toBe('feed');
     expect(talkMatches('holding:wheat', { ...base, holding: 'wheat' })).toBe(true);
     expect(talkMatches('level>=5', base)).toBe(false);
+    // 대장장이 (#173): 이름이 맞으면 그 대화만, 다른 주민은 안 한다
+    const smith = new Set(Array.from({ length: 30 }, (_, m) => VILLAGER_TALK.pick({ ...base, name: '대장장이' }, 40_101 + m).id));
+    for (const id of smith) expect(id.startsWith('smith_')).toBe(true);
+    expect(smith.size).toBeGreaterThanOrEqual(2);
+    expect([...seen({ ...base, name: '콩이' })].some((id) => id.startsWith('smith_'))).toBe(false);
   });
 
   it('잘못된 파일은 한국어로 알려 준다', () => {

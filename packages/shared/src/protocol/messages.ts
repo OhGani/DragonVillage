@@ -564,7 +564,7 @@ export type ServerJson =
   /** 원정에 따라온 펫 (#145): 원정 세계 사람들에게. 클라가 주인을 따라다니게 그린다 (서버 목록엔 없다) */
   | { t: 'companions'; list: { id: number; kind: number; name: string | null; owner: number }[] }
   /** 몹(스켈레톤·약탈자)이 쏜 화살: from(몹) → to(사람 가슴) (M8-2 3차) */
-  | { t: 'arrow'; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number } }
+  | { t: 'arrow'; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean }
   /** 마을 방어전 상태 1Hz (M7-5). null = 끝났다/없다 */
   | { t: 'raid'; raid: RaidStateInfo | null }
   /** 누가 빔을 쐈다 (같은 세계 모두, 본인 포함) (M6-5). from 은 드래곤 입 근처, dir 은 단위 벡터 */

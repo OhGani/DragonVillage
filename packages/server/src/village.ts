@@ -364,6 +364,7 @@ export class VillageRoom {
       log: (msg) => this.log(`마을 ${this.info.code}: ${msg}`),
     });
     this.animals.load(Date.now());
+    if (this.builtIds().includes('forge')) this.animals.spawnBlacksmith(Date.now()); // 대장간이 있으면 대장장이 (#173)
     for (const r of this.storage?.listPlaced(this.info.code) ?? []) this.placed.set(`${r.x},${r.y},${r.z}`, { token: r.token, nick: r.nick }); // 남의 집 보호 (#151)
     for (const r of this.storage?.listCrops(this.info.code) ?? []) this.crops.set(`${r.x},${r.y},${r.z}`, r.plantedAt); // 농사 (#165)
     this.repairChests();
@@ -638,6 +639,10 @@ export class VillageRoom {
     for (const [item, n] of Object.entries(def.cost)) this.storage.storageTake(this.info.code, item, n);
     this.storage.addBuilding(this.info.code, id, now);
     const n = this.placeBlocks(buildingBlocks(id, GROUND_Y), 'village');
+    if (id === 'forge') {
+      this.animals.spawnBlacksmith(now); // 대장장이 (#173)
+      this.broadcastPets();
+    }
     this.placeFlag('village');
     this.log(`마을 ${this.info.code}: ${p.nick} 이(가) ${def.name}을(를) 지었어요 (${n}칸) — 마을 레벨 ${this.level()}`);
     this.broadcastStorage();

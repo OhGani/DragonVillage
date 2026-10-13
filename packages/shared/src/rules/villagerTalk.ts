@@ -41,6 +41,8 @@ export interface TalkContext {
   level: number;
   /** 이 주민에게 이번 접속에서 처음 말 거나 */
   firstTalk: boolean;
+  /** 주민 이름 (대장장이처럼 이름으로 고르는 대화, #173) */
+  name?: string | null;
 }
 
 /** when 조건이 맞나 */
@@ -50,6 +52,7 @@ export function talkMatches(when: string, ctx: TalkContext): boolean {
   if (when === 'hasDragon') return ctx.hasDragon;
   if (when === 'noDragon') return !ctx.hasDragon;
   if (when.startsWith('holding:')) return ctx.holding === when.slice(8);
+  if (when.startsWith('name:')) return (ctx.name ?? null) === when.slice(5);
   const lv = /^level>=(\d+)$/.exec(when);
   if (lv) return ctx.level >= Number(lv[1]);
   return false;
@@ -73,7 +76,7 @@ export class VillagerTalk {
   pick(ctx: TalkContext, salt: number): TalkDef {
     const ok = this.talks.filter((t) => talkMatches(t.when, ctx));
     // 손에 든 것·처음 인사는 꼭 그 말부터. 나머지(레벨·드래곤·아무 때나)는 맞는 것끼리 돌아가며
-    const tiers: ((w: string) => boolean)[] = [(w) => w.startsWith('holding:'), (w) => w === 'firstTalk', () => true];
+    const tiers: ((w: string) => boolean)[] = [(w) => w.startsWith('holding:'), (w) => w === 'firstTalk', (w) => w.startsWith('name:'), () => true];
     for (const tier of tiers) {
       const pool = ok.filter((t) => tier(t.when));
       if (pool.length > 0) return pool[((salt * 2246822519) >>> 0) % pool.length]!;
@@ -94,7 +97,7 @@ export function parseVillagerTalk(raw: unknown, fileName = 'data/villager-talk.j
     if (seen.has(t.id)) problems.push(`대화 '${t.id}' 가 두 번 있어요`);
     seen.add(t.id);
     const w = t.when ?? 'any';
-    if (!(w === 'any' || w === 'firstTalk' || w === 'hasDragon' || w === 'noDragon' || w.startsWith('holding:') || /^level>=\d+$/.test(w))) problems.push(`대화 '${t.id}' 의 when '${w}' 는 모르는 조건이에요 (any / firstTalk / hasDragon / noDragon / holding:아이템 / level>=숫자)`);
+    if (!(w === 'any' || w === 'firstTalk' || w === 'hasDragon' || w === 'noDragon' || w.startsWith('holding:') || w.startsWith('name:') || /^level>=\d+$/.test(w))) problems.push(`대화 '${t.id}' 의 when '${w}' 는 모르는 조건이에요 (any / firstTalk / hasDragon / noDragon / holding:아이템 / name:이름 / level>=숫자)`);
   }
   if (problems.length) throw new Error(`${fileName} 에 문제가 있어요:\n${problems.map((p) => `  - ${p}`).join('\n')}`);
   return new VillagerTalk(

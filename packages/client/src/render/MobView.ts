@@ -291,6 +291,9 @@ const BURST_GEOM = new THREE.BoxGeometry(0.16, 0.16, 0.16);
 /** 화살 막대 (M8-2): 앞(−z → lookAt 방향)으로 긴 상자 */
 const SHOT_GEOM = new THREE.BoxGeometry(0.06, 0.06, 0.7);
 const SHOT_MAT = new THREE.MeshBasicMaterial({ color: 0xd9c8a0 });
+/** 불덩이 (#173): 가스트·블레이즈가 쏜다. 주황 공, 화살보다 천천히(0.45초) */
+const FIRE_GEOM = new THREE.SphereGeometry(0.3, 8, 6);
+const FIRE_MAT = new THREE.MeshBasicMaterial({ color: 0xff8a2a });
 
 export class MobView {
   private readonly group = new THREE.Group();
@@ -298,7 +301,7 @@ export class MobView {
   private readonly bursts: Burst[] = [];
   private readonly pops: Pop[] = [];
   /** 날아가는 화살 (M8-2): 0.25초 동안 from → to */
-  private readonly shots: { mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; born: number }[] = [];
+  private readonly shots: { mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; born: number; ms: number }[] = [];
 
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
@@ -339,14 +342,14 @@ export class MobView {
   }
 
   /** 화살 연출 (M8-2): 눈에서 몹까지 가느다란 막대가 날아간다 */
-  shot(from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }): void {
-    const mesh = new THREE.Mesh(SHOT_GEOM, SHOT_MAT);
+  shot(from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }, fire = false): void {
+    const mesh = fire ? new THREE.Mesh(FIRE_GEOM, FIRE_MAT) : new THREE.Mesh(SHOT_GEOM, SHOT_MAT);
     const f = new THREE.Vector3(from.x, from.y, from.z),
       t = new THREE.Vector3(to.x, to.y, to.z);
     mesh.position.copy(f);
     mesh.lookAt(t);
     this.group.add(mesh);
-    this.shots.push({ mesh, from: f, to: t, born: -1 });
+    this.shots.push({ mesh, from: f, to: t, born: -1, ms: fire ? 450 : 250 });
   }
 
   /** 조준 안내용: 그 몹의 종류·상태 */
@@ -770,7 +773,7 @@ export class MobView {
     for (let i = this.shots.length - 1; i >= 0; i--) {
       const s = this.shots[i]!;
       if (s.born < 0) s.born = now;
-      const k = (now - s.born) / 250;
+      const k = (now - s.born) / s.ms;
       if (k >= 1) {
         this.group.remove(s.mesh);
         this.shots.splice(i, 1);

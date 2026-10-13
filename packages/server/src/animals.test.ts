@@ -2,6 +2,8 @@ import { ANIMAL_FLAG, ANIMAL_ID_BASE, BABY_MS, DEFAULT_VILLAGE_SEED, FLAG_GROUND
   villagerSpot,
   VILLAGER_HOUSES,
   isBuildingBuiltAt,
+  BLACKSMITH_NAME,
+  siteOf,
 } from '@dragon-village/shared';
 import { BLOCKS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
@@ -384,6 +386,23 @@ describe('마을 동물 (M8-1)', () => {
     const bread = p.inv.findIndex((s) => s?.item === 'bread');
     expect(room.useMob(ra.idx, vid, bread, T0 + 500)).toBeNull();
     expect(v.loveUntil).toBeGreaterThan(T0 + 500);
+  });
+
+  it('대장장이 (#173): 대장간이 있으면 그 문 앞에 서고, 이름이 pets 로 가고, 잡혀가지 않고, 집 주민 수에 안 센다', () => {
+    const storage = new Storage(':memory:');
+    storage.addBuilding('123456', 'forge', T0);
+    const room = makeRoom(storage);
+    const villagers = [...room.animals.animals.values()].filter((an) => an.kind === 'villager');
+    expect(villagers).toHaveLength(4); // 집 주민 셋 + 대장장이
+    const smith = villagers.find((v) => v.name === BLACKSMITH_NAME)!;
+    const forge = siteOf('forge')!;
+    expect(smith.x).toBeCloseTo(forge.x0 + forge.size[0] + 1.5, 1);
+    expect(room.animals.petsFor('x'.repeat(32)).some((p) => p.id === ANIMAL_ID_BASE + smith.id && p.name === BLACKSMITH_NAME && !p.mine)).toBe(true);
+    expect(room.animals.kidnapVillagers()).toBe(3);
+    expect([...room.animals.animals.values()].filter((an) => an.kind === 'villager')).toHaveLength(1);
+    // 다시 켜도 둘이 되지 않는다
+    const again = makeRoom(storage);
+    expect([...again.animals.animals.values()].filter((an) => an.name === BLACKSMITH_NAME)).toHaveLength(1);
   });
 
   it('펫 이름 (#109): 주인만, 목록의 이름만. pets 는 받는 사람마다 mine 이 다르고 저장된다', () => {

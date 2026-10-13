@@ -29,6 +29,8 @@ export const HORSE_SEAT_Y = 1.25;
 export const HORSE_SPEED = 9.5;
 /** 안장 아이템 */
 export const SADDLE = 'saddle';
+/** 대장장이 (#173): 대장간이 지어지면 그 앞에 서는 주민의 이름. 잡혀가지 않는다 */
+export const BLACKSMITH_NAME = '대장장이';
 
 export const BABY_MS = 20 * 60_000;
 /** 아기에게 먹이면 이만큼 빨리 자란다 */

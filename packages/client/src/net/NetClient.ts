@@ -168,7 +168,7 @@ export interface NetEvents {
   /** 엔딩 포탈이 열렸다 (#170) */
   onEnding(at: { x: number; y: number; z: number }): void;
   /** 몹이 쏜 화살 (M8-2 3차) */
-  onArrow(m: { from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number } }): void;
+  onArrow(m: { from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean }): void;
   /** 마을 방어전 상태 (M7-5). null = 끝/없음 */
   onRaid(raid: RaidStateInfo | null): void;
   /** 누가 빔을 쐈다 (M6-5) */

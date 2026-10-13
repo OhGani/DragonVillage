@@ -238,7 +238,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     mobView.setPetNames([
       ...[...pets.entries()].map(([id, p]) => ({ id, name: p.name, mine: p.mine })),
       ...[...companions.entries()].map(([id, c]) => ({ id, name: c.name, mine: c.owner === myIdx })),
-      ...[...mobView.figures.entries()].filter(([, f]) => MOB_KIND_OF[f.kind] === 'villager').map(([id]) => ({ id, name: VILLAGER_TALK.nameOf(id), mine: false })), // 주민 이름 (#172)
+      ...[...mobView.figures.entries()].filter(([id, f]) => MOB_KIND_OF[f.kind] === 'villager' && !pets.has(id)).map(([id]) => ({ id, name: VILLAGER_TALK.nameOf(id), mine: false })), // 주민 이름 (#172) — 서버가 이름을 준 주민(대장장이)은 pets 에 있다
     ]);
   let villagerFigures = 0;
   let aimedMobNow: number | null = null;
@@ -255,13 +255,14 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   );
   const openTalk = (id: number) => {
     if (!started || disconnected || hud.resultVisible || anyPanelOpen()) return;
-    const def = VILLAGER_TALK.pick({ holding: hud.selectedItem, hasDragon: myDragons.some((d) => d.stage !== 'egg'), level: villageState.level, firstTalk: !talkedTo.has(id) }, id + Math.floor(Date.now() / 60_000));
+    const name = pets.get(id)?.name ?? VILLAGER_TALK.nameOf(id); // 서버가 준 이름(대장장이) 아니면 번호로
+    const def = VILLAGER_TALK.pick({ holding: hud.selectedItem, hasDragon: myDragons.some((d) => d.stage !== 'egg'), level: villageState.level, firstTalk: !talkedTo.has(id), name }, id + Math.floor(Date.now() / 60_000));
     talkedTo.add(id);
     hud.hideAction();
     input.paused = true;
     kbm.enabled = false;
     if (kbm.locked) document.exitPointerLock();
-    talk.show(id, VILLAGER_TALK.nameOf(id), def);
+    talk.show(id, name, def);
   };
   const petNamer = new PetNamePicker(
     root,
@@ -774,7 +775,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       hud.setGuardAvailable(myEquip.shield !== null);
       bag.refresh();
     },
-    onArrow: (m) => mobView.shot(m.from, m.to), // 스켈레톤·약탈자 화살
+    onArrow: (m) => mobView.shot(m.from, m.to, m.fire === true), // 스켈레톤·약탈자 화살, 가스트·블레이즈 불덩이 (#173)
     onDragonHp: (m) => hud.setDragonHp(m.hp, m.max),
     onDragonDown: (m) => {
       const name = DRAGONS.find(m.dragon)?.name ?? m.dragon;

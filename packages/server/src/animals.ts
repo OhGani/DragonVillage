@@ -48,6 +48,8 @@ import {
   wanderPick,
   SADDLE,
   villagerSpot,
+  BLACKSMITH_NAME,
+  siteOf,
 } from '@dragon-village/shared';
 
 export interface AnimalRow {
@@ -149,7 +151,7 @@ export class AnimalSystem {
     let added = 0;
     let i = rows.length;
     for (const [kind, n] of Object.entries(INITIAL_ANIMALS) as [MobKind, number][]) {
-      const need = n - this.wildCountOf(kind) - (kind === 'villager' ? (this.hooks.kidnapped?.() ?? 0) : 0); // 잡혀간 주민은 안 채운다 (#169)
+      const need = n - (kind === 'villager' ? this.houseVillagerCount() + (this.hooks.kidnapped?.() ?? 0) : this.wildCountOf(kind)); // 잡혀간 주민은 안 채운다 (#169), 대장장이는 안 센다 (#173)
       if (need > 0) added += this.spawnHerd(kind, need, i++, now);
     }
     if (added > 0) this.hooks.log(rows.length === 0 ? `동물 ${added}마리를 숲에 풀었어요` : `숲에 동물 ${added}마리를 채웠어요 (${this.animals.size}마리)`);
@@ -215,11 +217,31 @@ export class AnimalSystem {
     return made;
   }
 
+  /** 집 주민 수 (대장장이는 빼고, #173) */
+  houseVillagerCount(): number {
+    let n = 0;
+    for (const a of this.animals.values()) if (a.kind === 'villager' && a.name !== BLACKSMITH_NAME) n++;
+    return n;
+  }
+  hasBlacksmith(): boolean {
+    return [...this.animals.values()].some((a) => a.kind === 'villager' && a.name === BLACKSMITH_NAME);
+  }
+  /** 대장장이 (#173): 대장간 문 앞(동쪽)에 선다 */
+  spawnBlacksmith(now: number): void {
+    const s = siteOf('forge');
+    if (!s || this.hasBlacksmith()) return;
+    const x = s.x0 + s.size[0] + 1.5,
+      z = s.z0 + 2.5;
+    const y = this.groundAt(x, z, GROUND_Y + 4) ?? GROUND_Y + 1;
+    this.add({ kind: 'villager', x, y, z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: x, homeZ: z, woolAt: 0, eggs: 0, lastEggAt: now, name: BLACKSMITH_NAME }, now);
+    this.hooks.log('대장장이가 대장간 앞에 왔어요');
+  }
+
   /** 주민 (#168): 집 문 앞에 하나씩. 집은 세 채, 집마다 한 명씩 돌아가며 */
   private spawnVillagers(n: number, now: number): number {
     let made = 0;
     for (let k = 0; k < n; k++) {
-      const c = villagerSpot(this.wildCountOf('villager'));
+      const c = villagerSpot(this.houseVillagerCount());
       const y = this.groundAt(c.x, c.z, GROUND_Y + 4) ?? GROUND_Y + 1;
       this.add({ kind: 'villager', x: c.x, y, z: c.z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: c.x, homeZ: c.z, woolAt: 0, eggs: 0, lastEggAt: now, name: null }, now);
       made++;
@@ -273,7 +295,7 @@ export class AnimalSystem {
       let worst: MobKind | null = null,
         worstNeed = 0;
       for (const [kind, n] of Object.entries(INITIAL_ANIMALS) as [MobKind, number][]) {
-        const need = n - this.wildCountOf(kind) - (kind === 'villager' ? (this.hooks.kidnapped?.() ?? 0) : 0);
+        const need = n - (kind === 'villager' ? this.houseVillagerCount() + (this.hooks.kidnapped?.() ?? 0) : this.wildCountOf(kind));
         if (need > worstNeed) (worst = kind), (worstNeed = need);
       }
       if (worst) {
@@ -538,7 +560,7 @@ export class AnimalSystem {
   kidnapVillagers(): number {
     let n = 0;
     for (const a of [...this.animals.values()]) {
-      if (a.kind !== 'villager') continue;
+      if (a.kind !== 'villager' || a.name === BLACKSMITH_NAME) continue; // 대장장이는 안 잡혀간다 (#173)
       this.animals.delete(a.id);
       this.store?.deleteAnimal(a.id);
       n++;
@@ -647,7 +669,7 @@ export class AnimalSystem {
 
   petsFor(token: string): { id: number; name: string | null; mine: boolean }[] {
     const out: { id: number; name: string | null; mine: boolean }[] = [];
-    for (const a of this.animals.values()) if (a.owner !== null) out.push({ id: ANIMAL_ID_BASE + a.id, name: a.name, mine: a.owner === token });
+    for (const a of this.animals.values()) if (a.owner !== null || (a.kind === 'villager' && a.name)) out.push({ id: ANIMAL_ID_BASE + a.id, name: a.name, mine: a.owner === token }); // 이름 있는 주민(대장장이)도 이름표를 위해 (#173)
     return out;
   }
 
