@@ -342,7 +342,10 @@
       "tool": null,
       "damage": 1,
       "lightEmit": 0,
-      "texture": "cactus"
+      "textureTop": "cactus_top",
+      "textureSide": "cactus_side",
+      "textureBottom": "cactus_top",
+      "_textureNote": "아들 입체 그림(2026-10-17)에서 윗면·옆면을 떼어 냈다"
     },
     {
       "id": "sugar_cane",

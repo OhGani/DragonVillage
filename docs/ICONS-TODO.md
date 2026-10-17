@@ -1,13 +1,12 @@
-# 아이콘 그림이 없는 아이템 (104개)
+# 아이콘 그림이 없는 아이템 (94개)
 
 파일 이름은 `textures/<id>.png` (16×16). 활은 당기는 단계 그림 `bow_pulling_0.png`·`bow_pulling_1.png`·`bow_pulling_2.png`(점점 휘는 활)를 그리면 쏠 때 그 그림이 나온다(#184). 블록은 전부 그림이 있어서 뺐다. 물약은 병 모양 하나에 색만 다르니 `potion` 병 하나만 그려도 된다.
 
-## 도구·무기 (24)
+## 도구·무기 (23)
 - 쇠뇌 — `crossbow`
 - 다이아몬드 도끼 — `diamond_axe`
 - 다이아몬드 곡괭이 — `diamond_pickaxe`
 - 다이아몬드 검 — `diamond_sword`
-- 낚싯대 — `fishing_rod`
 - 라이터 — `flint_and_steel`
 - 황금 도끼 — `golden_axe`
 - 금 곡괭이 — `golden_pickaxe`
@@ -56,39 +55,30 @@
 - 돌풍의 물약 — `potion.wind_charged`
 - 물병 — `water_bottle`
 
-## 재료·드롭 (28)
+## 재료·드롭 (20)
 - 블레이즈 가루 — `blaze_powder`
 - 블레이즈 막대기 — `blaze_rod`
-- 뼈 — `bone`
-- 석탄 — `coal`
 - 드래곤의 숨결 — `dragon_breath`
 - 에메랄드 — `emerald`
 - 엔더 진주 — `ender_pearl`
 - 깃털 — `feather`
 - 발효된 거미 눈 — `fermented_spider_eye`
-- 가스트의 눈물 — `ghast_tear`
-- 발광석 가루 — `glowstone_dust`
-- 금 조각 — `gold_nugget`
 - 화약 — `gunpowder`
 - 먹물 — `ink_sac`
 - 철 — `iron_ingot`
 - 청금석 — `lapis`
-- 가죽 — `leather`
 - 마그마 크림 — `magma_cream`
 - 네더라이트 — `netherite`
-- 석영 — `quartz`
 - 레드스톤 가루 — `redstone`
 - 인갑 — `scute`
 - 슬라임 볼 — `slime_ball`
 - 눈덩이 — `snowball`
 - 거미 눈 — `spider_eye`
-- 막대기 — `stick`
 - 실 — `string`
 - 위더 스켈레톤 머리 — `wither_skeleton_skull`
 
-## 음식 (11)
+## 음식 (10)
 - 갈색 버섯 — `brown_mushroom`
-- 케이크 — `cake`
 - 당근 — `carrot`
 - 달걀 — `egg`
 - 반짝이는 수박 조각 — `glistering_melon`

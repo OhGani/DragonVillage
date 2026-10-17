@@ -34,7 +34,7 @@ describe('원정 밤의 몹 (M7-2)', () => {
     expect(pickSpawn(7, 3, { x: 100, z: 100 }, () => null)).toBeNull();
   });
 
-  it('좀비: 사람을 향해 걷고, 붙으면 1.2초마다 문다. 사람이 없으면 가만히', () => {
+  it('좀비: 사람을 향해 걷고, 붙으면 1.8초마다 문다 (#187). 사람이 없으면 가만히', () => {
     const m = mob('zombie', 100, 100);
     const def = MOBS.get('zombie');
     expect(stepMob(m, def, null, 0.1, 1000, flat)).toBeNull();
@@ -44,8 +44,8 @@ describe('원정 밤의 몹 (M7-2)', () => {
     m.x = 109; // 1칸 앞
     expect(stepMob(m, def, { x: 110, y: 41, z: 100 }, 0.1, 2000, flat)).toBe('attack');
     expect(m.state).toBe(MOB_STATE.attack);
-    expect(stepMob(m, def, { x: 110, y: 41, z: 100 }, 0.1, 2500, flat)).toBeNull(); // 아직 1.2초 안
-    expect(stepMob(m, def, { x: 110, y: 41, z: 100 }, 0.1, 3300, flat)).toBe('attack');
+    expect(stepMob(m, def, { x: 110, y: 41, z: 100 }, 0.1, 3500, flat)).toBeNull(); // 아직 1.8초 안 (#187)
+    expect(stepMob(m, def, { x: 110, y: 41, z: 100 }, 0.1, 3900, flat)).toBe('attack');
     // 두 칸 턱은 못 오른다
     const wall = (x: number) => (x > 105 ? 43 : 41);
     const m2 = mob('zombie', 105, 100);
@@ -102,7 +102,8 @@ describe('거미와 원정지별 몹 (M7-3)', () => {
     const m = mob('spider', 100, 100);
     expect(stepMob(m, s, { x: 101.5, y: 41, z: 100 }, 0.1, 5000, flat)).toBe('attack');
     expect(stepMob(m, s, { x: 101.5, y: 41, z: 100 }, 0.1, 5500, flat)).toBeNull();
-    expect(stepMob(m, s, { x: 101.5, y: 41, z: 100 }, 0.1, 6000, flat)).toBe('attack'); // 1초마다
+    expect(stepMob(m, s, { x: 101.5, y: 41, z: 100 }, 0.1, 6000, flat)).toBeNull(); // 아직 1.5초 안 (#187)
+    expect(stepMob(m, s, { x: 101.5, y: 41, z: 100 }, 0.1, 6600, flat)).toBe('attack'); // 1.5초마다
     // 낮은 몹은 빔 판정도 낮다
     expect(beamHitsMob({ x: 0, y: 1.6, z: 0 }, { x: 0, y: 0, z: -1 }, 24, { x: 0, y: 0, z: -10, kind: 'spider' }, 1)).toBe(false); // 가슴점 0.45 — 눈높이 선에서 1.15 떨어짐
     expect(beamHitsMob({ x: 0, y: 1.6, z: 0 }, { x: 0, y: -0.1, z: -1 }, 24, { x: 0, y: 0, z: -10, kind: 'spider' }, 1)).toBe(true); // 살짝 내려 쏘면 맞는다
