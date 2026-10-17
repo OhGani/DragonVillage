@@ -1230,7 +1230,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   });
   hud.chatBtn.addEventListener('click', () => (chat.visible ? closeChat() : openChat()));
   hud.petBtn.addEventListener('click', () => {
-    if (started && !disconnected && ctx.kind === 'village') net.sendCallPets(); // 내 펫 전부 옆으로 (#174)
+    if (!started || disconnected || ctx.kind !== 'village') return;
+    // 내 펫을 보면서 누르면 이름 짓기 (#176), 아니면 내 펫 전부 옆으로 (#174)
+    const pet = aimedMobNow !== null ? pets.get(aimedMobNow) : undefined;
+    if (aimedMobNow !== null && pet?.mine) openPetNamer(aimedMobNow, pet.name);
+    else net.sendCallPets();
   });
   window.addEventListener('keydown', (e) => {
     if (!started || disconnected) return;
@@ -1371,13 +1375,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   /** 포탈 안에 서 있으면 카드 */
   const updatePortalCard = () => {
     const p = ctx.player.pos;
-    // 내 펫을 보고 있으면 이름 짓기 카드 (#109)
-    if (aimedMobNow !== null && pets.get(aimedMobNow)?.mine && !petNamer.visible) {
-      const pet = pets.get(aimedMobNow)!;
-      const id = aimedMobNow;
-      hud.showAction(`🐾 ${pet.name ?? '내 강아지'}`, pet.name ? '빈손 탭 → 앉기/일어나기 · 이름을 바꿀 수도 있어요' : '이름을 지어 줘요 (목록에서 골라요) · 빈손 탭 → 앉기/일어나기', (pet.name ? '이름 바꾸기' : '이름 짓기') + KEY_HINT, () => openPetNamer(id, pet.name));
-      return;
-    }
+    // 내 펫을 보고 있어도 카드는 안 띄운다 (#176, 아빠 2026-10-17 "이름 바꾸기 팝업이 방해") — 이름 짓기는 펫을 보면서 🐾 버튼
     const inside = portalContains(ctx.portalPos, p.x, p.y, p.z);
     if (!inside) {
       // 내 드래곤을 보고 있으면 타기 카드 (M6-4) — 둥지 카드보다 먼저
@@ -1586,7 +1584,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const baby = (f.state & ANIMAL_FLAG.baby) !== 0;
         const tamed = (f.state & ANIMAL_FLAG.tamed) !== 0;
         const foods = def.food.map((i) => nameOf(i)).join('·');
-        const tip = def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (def.id === 'horse' ? (pets.get(aimedMob)?.mine ? '빈손 탭 → 🐴 타기 · 카드에서 이름 짓기' : '남의 말이에요') : pets.get(aimedMob)?.mine ? `${{ follow: '🐾 따라오는 중 · 빈손 탭 → 앉기', sit: '🐾 앉아 있음 · 빈손 탭 → 풀어놓기', free: '🐾 자유 · 빈손 탭 → 따라오기' }[pets.get(aimedMob)!.mode]} · 🐾 버튼으로 다 부르기` : '남이 길들인 강아지예요') : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
+        const tip = def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (def.id === 'horse' ? (pets.get(aimedMob)?.mine ? '빈손 탭 → 🐴 타기 · 카드에서 이름 짓기' : '남의 말이에요') : pets.get(aimedMob)?.mine ? `${{ follow: '🐾 따라오는 중 · 빈손 탭 → 앉기', sit: '🐾 앉아 있음 · 빈손 탭 → 풀어놓기', free: '🐾 자유 · 빈손 탭 → 따라오기' }[pets.get(aimedMob)!.mode]} · 보면서 🐾 버튼 → 이름 짓기` : '남이 길들인 강아지예요') : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
         const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : def.id === 'cow' && !baby ? ' · 🪣 빈 양동이 들고 탭 → 우유' : def.id === 'villager' ? ' · 탭 → 💬 대화' : '';
         hud.toast(`${def.name}${baby ? ' (아기)' : ''}${tamed ? ' 🐾' : ''} · ${tip}${extra}`, 3000);
       }
