@@ -841,7 +841,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       myRiding = riding;
       ctx.player.riding = true;
       ctx.player.horse = riding.dragon === 'horse';
-      mount.set(riding.dragon);
+      mount.set(riding);
       hud.hideAction();
       if (riding.dragon === 'horse') {
         // 말 (#166): 날지 않고 달린다. 빔·기력 없음
@@ -1203,7 +1203,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   if (myRiding) {
     // 타고 있던 채로 들어왔다 (#103): 드래곤·빔 버튼·기력을 바로 켠다 (mount 이벤트는 처음 탈 때만 온다)
     ctx.player.horse = myRiding.dragon === 'horse';
-    mount.set(myRiding.dragon);
+    mount.set(myRiding);
     hud.setRiding(true, DRAGONS.find(myRiding.dragon)?.skills.find((s) => s.type === 'beam')?.name ?? '빔');
     stamina = { value: staminaMaxFor('adult'), max: staminaMaxFor('adult'), at: Date.now() + serverClockOffset, readyAt: 0 };
     refreshStamina();
@@ -1584,7 +1584,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const baby = (f.state & ANIMAL_FLAG.baby) !== 0;
         const tamed = (f.state & ANIMAL_FLAG.tamed) !== 0;
         const foods = def.food.map((i) => nameOf(i)).join('·');
-        const tip = def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (def.id === 'horse' ? (pets.get(aimedMob)?.mine ? '빈손 탭 → 🐴 타기 · 카드에서 이름 짓기' : '남의 말이에요') : pets.get(aimedMob)?.mine ? `${{ follow: '🐾 따라오는 중 · 빈손 탭 → 앉기', sit: '🐾 앉아 있음 · 빈손 탭 → 풀어놓기', free: '🐾 자유 · 빈손 탭 → 따라오기' }[pets.get(aimedMob)!.mode]} · 보면서 🐾 버튼 → 이름 짓기` : '남이 길들인 강아지예요') : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
+        const tip = def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (def.id === 'horse' ? (pets.get(aimedMob)?.mine ? '빈손 탭 → 🐴 타기 · 보면서 🐾 버튼 → 이름 짓기' : '남의 말이에요') : pets.get(aimedMob)?.mine ? `${{ follow: '🐾 따라오는 중 · 빈손 탭 → 앉기', sit: '🐾 앉아 있음 · 빈손 탭 → 풀어놓기', free: '🐾 자유 · 빈손 탭 → 따라오기' }[pets.get(aimedMob)!.mode]} · 보면서 🐾 버튼 → 이름 짓기` : '남이 길들인 강아지예요') : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
         const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : def.id === 'cow' && !baby ? ' · 🪣 빈 양동이 들고 탭 → 우유' : def.id === 'villager' ? ' · 탭 → 💬 대화' : '';
         hud.toast(`${def.name}${baby ? ' (아기)' : ''}${tamed ? ' 🐾' : ''} · ${tip}${extra}`, 3000);
       }

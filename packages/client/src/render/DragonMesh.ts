@@ -5,7 +5,7 @@
  */
 import { HORSE_SEAT_Y, type NestDragonInfo, RIDE_SEAT_Y } from '@dragon-village/shared';
 import { PLAYER_SHADES, VOXEL } from './playerModel';
-import { horseVoxels } from './animalModel';
+import { animalVariant, horseCoat, horseVoxels } from './animalModel';
 import * as THREE from 'three';
 import { nameSprite } from '../net/RemotePlayers';
 import { type DragonStage, dragonVoxels } from './dragonModels';
@@ -45,12 +45,18 @@ export function dragonMesh(dragon: string, stage: DragonStage): THREE.Mesh {
   return new THREE.Mesh(geometryFor(dragon, stage), material);
 }
 
-let horseGeom: THREE.BufferGeometry | null = null;
-/** 탈것 메시 (#166): 'horse' 면 말, 아니면 어른 드래곤 */
-export function mountMesh(kind: string): THREE.Mesh {
+const horseGeoms = new Map<string, THREE.BufferGeometry>();
+/** 탈것 메시 (#166): 'horse' 면 말(털색은 말 번호로 — 타도 같은 말, #177), 아니면 어른 드래곤 */
+export function mountMesh(kind: string, id = 0): THREE.Mesh {
   if (kind !== 'horse') return dragonMesh(kind, 'adult');
-  horseGeom ??= buildVoxelGeometry(horseVoxels(0.1), VOXEL, PLAYER_SHADES);
-  return new THREE.Mesh(horseGeom, material);
+  const v = animalVariant(id);
+  const coat = horseCoat(v);
+  let g = horseGeoms.get(coat);
+  if (!g) {
+    g = buildVoxelGeometry(horseVoxels(v), VOXEL, PLAYER_SHADES);
+    horseGeoms.set(coat, g);
+  }
+  return new THREE.Mesh(g, material);
 }
 /** 탈것에 앉는 높이·방향: 말은 앞이 −z 라 안 돌리고, 드래곤은 머리가 +z 라 반 바퀴 */
 export function mountSeat(kind: string): { seatY: number; turn: number } {
@@ -76,17 +82,17 @@ export class MountView {
   }
 
   private seat = { seatY: RIDE_SEAT_Y, turn: Math.PI };
-  set(dragon: string | null): void {
+  set(riding: { dragon: string; id: number } | null): void {
     if (this.mesh) {
       this.group.remove(this.mesh);
       this.mesh = null;
     }
-    if (dragon) {
-      this.mesh = mountMesh(dragon);
-      this.seat = mountSeat(dragon);
+    if (riding) {
+      this.mesh = mountMesh(riding.dragon, riding.id);
+      this.seat = mountSeat(riding.dragon);
       this.group.add(this.mesh);
     }
-    this.group.visible = dragon !== null;
+    this.group.visible = riding !== null;
   }
 
   /** 프레임마다: 내 위치·시선을 따라간다. 날개(몸통) 살짝 숨쉬기 */

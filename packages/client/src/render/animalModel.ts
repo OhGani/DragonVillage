@@ -53,7 +53,7 @@ export function animalVariant(id: number): number {
   let h = (id * 2654435761) >>> 0;
   h ^= h >>> 15;
   h = (h * 2246822519) >>> 0;
-  h ^= h >>> 13;
+  h = (h ^ (h >>> 13)) >>> 0; // 마지막 XOR 가 음수가 되던 버그(절반이 0 아래로 가서 첫 색만 나왔다) 고침 (#177)
   return (h % 10000) / 10000;
 }
 
@@ -220,18 +220,31 @@ export function animalParts(kind: string, variant: number, opts: { sheared?: boo
 }
 
 // ---------------------------------------------------------------- 말 (#166)
+/** 말 털색 다섯 가지 (아들 2026-10-17 "검정색 갈색 흰색 회색 얼룩말") — 번호로 결정론, 20% 씩 */
+export const HORSE_COATS = ['black', 'brown', 'white', 'gray', 'zebra'] as const;
+export type HorseCoat = (typeof HORSE_COATS)[number];
+export function horseCoat(variant: number): HorseCoat {
+  return HORSE_COATS[Math.min(4, Math.floor(variant * 5))]!;
+}
 function horse(variant: number): AnimalParts {
-  // 갈색 · 검정 · 흰색 · 밤색 · 회색
-  const coat = variant < 0.3 ? 0x6b4a2b : variant < 0.5 ? 0x2a2420 : variant < 0.65 ? 0xe8e4dc : variant < 0.85 ? 0x8a3f22 : 0x8d8d8d;
-  const mane = variant < 0.5 ? 0x1c1612 : variant < 0.65 ? 0xcfcac0 : 0x2a1a10;
-  const f: ColorFn = soft(coat, 0.1);
+  const kind = horseCoat(variant);
+  // 털·갈기(꼬리)·주둥이·발굽 — 마인크래프트 말처럼 갈기와 발굽은 몸보다 어둡고(흰말은 회색), 주둥이는 살짝 다르다
+  const coat = { black: 0x25211e, brown: 0x6b4a2b, white: 0xeeebe4, gray: 0x8d8d8d, zebra: 0xf0efe9 }[kind];
+  const mane = { black: 0x0f0d0c, brown: 0x2a1a10, white: 0xbdbab2, gray: 0x3a3a3a, zebra: 0x1a1a1a }[kind];
+  const muzzle = { black: 0x3a3634, brown: 0x8a6a4a, white: 0xd6d3cc, gray: 0x6e6e6e, zebra: 0x2a2a2a }[kind];
+  const hoof = kind === 'white' ? 0x7a7772 : 0x2a2622;
+  const stripe = 0x1a1a1a;
+  // 얼룩말: 몸·머리는 앞뒤(z) 로 두 칸씩 검은 줄, 다리는 위아래(y) 로 줄
+  const f: ColorFn = kind === 'zebra' ? (x, y, z) => fur(x, y, z, Math.floor((z + 40 + (y >> 2)) / 2) % 2 === 0 ? stripe : coat, 0.05) : soft(coat, 0.1);
+  const legF: ColorFn = (x, y, z) => (y === 0 ? hoof : kind === 'zebra' ? (Math.floor(y / 2) % 2 === 0 ? stripe : coat) : fur(x, y, z, coat, 0.1));
   const body = new Builder().box(-5, 4, 11, 20, -10, 11, f); // 몸 10×10×22
   body.box(-2, 1, 19, 28, -14, -9, f); // 목 (앞으로 올라간다)
   body.box(-1, 0, 25, 30, -14, -9, soft(mane, 0.12)); // 갈기
-  const legs = fourLegs(4, 11, 5, -8, 7, f); // 다리 4×11
+  const legs = fourLegs(4, 11, 5, -8, 7, legF); // 다리 4×11, 맨 아래 한 칸은 발굽
   const h = new Builder().box(-3, 2, 24, 31, -21, -13, f); // 머리 6×8×8
-  h.box(-2, 1, 24, 27, -23, -21, soft(scaleColor(coat, 0.9), 0.06)); // 주둥이
+  h.box(-2, 1, 24, 27, -23, -21, soft(muzzle, 0.06)); // 주둥이
   h.dot(-3, 29, -17, 0x1a1a1a).dot(2, 29, -17, 0x1a1a1a); // 눈 (양옆)
+  if (kind === 'black') h.dot(-3, 29, -17, 0x3a3a3a).dot(2, 29, -17, 0x3a3a3a); // 검은 말은 눈이 묻히니 살짝 밝게
   h.box(-3, -2, 31, 33, -16, -15, f).box(1, 2, 31, 33, -16, -15, f); // 귀
   const tail = new Builder().box(-1, 0, 10, 19, 11, 12, soft(mane, 0.12)); // 꼬리
   return { body: body.out, head: part(h, [0, 27, -13]), legs, tail: part(tail, [0, 19, 11]), wings: [], babyHead: 1.4 };

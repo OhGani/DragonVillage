@@ -234,7 +234,7 @@ export class RemotePlayers {
       f.mount = null;
     }
     if (riding) {
-      const m = mountMesh(riding.dragon); // 드래곤 또는 말 (#166)
+      const m = mountMesh(riding.dragon, riding.id); // 드래곤 또는 말 — 말은 제 털색 (#166·#177)
       const seat = mountSeat(riding.dragon);
       m.material = f.material; // 탄 드래곤도 같은 빛을 받는다
       m.position.y = -seat.seatY;
