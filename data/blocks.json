@@ -360,7 +360,10 @@
       "hardness": 1.0,
       "tool": "axe",
       "lightEmit": 0,
-      "texture": "pumpkin"
+      "textureTop": "pumpkin_top",
+      "textureSide": "pumpkin_side",
+      "textureBottom": "pumpkin_top",
+      "_comment": "아들 입체 그림(2026-10-17)에서 윗면·옆면을 떼어 냈다"
     },
     {
       "id": "carved_pumpkin",
