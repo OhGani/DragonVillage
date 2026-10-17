@@ -1,7 +1,9 @@
 import {
   type BlockRegistry,
   type BodySize,
+  HORSE_SEAT_Y,
   type MoveResult,
+  RIDE_SEAT_Y,
   type Vec3,
   type VoxelWorld,
   hasGroundBelow,
@@ -105,6 +107,49 @@ export class Player {
     return { x: this.pos.x, y: this.pos.y + this.eyeHeight, z: this.pos.z };
   }
 
+  /** 탈것에 앉은 높이 (#178): 타고 있으면 몸 상자가 이만큼 아래로 길어져 탈것이 땅속에 안 들어간다 */
+  get seatY(): number {
+    return this.riding ? (this.horse ? HORSE_SEAT_Y : RIDE_SEAT_Y) : 0;
+  }
+
+  /** 발 아래 seat 만큼 중 땅에 안 박힌 길이 — 탈것 자리가 땅에 걸쳐 있으면(낮은 천장 아래서 탔을 때 등) 그만큼만 상자를 늘려 안 끼인다 */
+  private freeSeat(pos: Vec3, seat: number): number {
+    const hw = PLAYER_SIZE.w / 2;
+    const x0 = Math.floor(pos.x - hw + 0.001),
+      x1 = Math.floor(pos.x + hw - 0.001);
+    const z0 = Math.floor(pos.z - hw + 0.001),
+      z1 = Math.floor(pos.z + hw - 0.001);
+    const y0 = Math.floor(pos.y - seat + 0.001),
+      y1 = Math.floor(pos.y - 0.001);
+    for (let y = y1; y >= y0; y--)
+      for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) if (this.isSolid(x, y, z)) return Math.max(0, Math.min(seat, pos.y - (y + 1)));
+    return seat;
+  }
+
+  /** 탈것에 올라탄 직후 (#178): 발을 탈것 등 높이만큼 올린다. 천장(나뭇잎 등)이 낮으면 닿기 직전까지만 — 그만큼 탈것이 땅에 살짝 묻혀 보인다 */
+  liftForMount(): void {
+    const seat = this.seatY;
+    if (seat <= 0) return;
+    const hw = PLAYER_SIZE.w / 2;
+    const top = this.pos.y + PLAYER_SIZE.h;
+    const x0 = Math.floor(this.pos.x - hw + 0.001),
+      x1 = Math.floor(this.pos.x + hw - 0.001);
+    const z0 = Math.floor(this.pos.z - hw + 0.001),
+      z1 = Math.floor(this.pos.z + hw - 0.001);
+    const y0 = Math.floor(top + 0.001),
+      y1 = Math.floor(top + seat - 0.001);
+    let lift = seat;
+    outer: for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++)
+        for (let z = z0; z <= z1; z++)
+          if (this.isSolid(x, y, z)) {
+            lift = Math.max(0, Math.min(seat, y - top - 0.002));
+            break outer;
+          }
+    this.pos.y += lift;
+    this.vel.y = 0;
+  }
+
   get lookDir(): Vec3 {
     const cp = Math.cos(this.pitch);
     return { x: -cp * Math.sin(this.yaw), y: Math.sin(this.pitch), z: -cp * Math.cos(this.yaw) };
@@ -177,17 +222,23 @@ export class Player {
     }
 
     const wasGround = this.onGround;
+    // 탈것 (#178): 몸 상자를 탈것 등 높이만큼 아래로 늘려서 움직인다 — 말·드래곤이 바닥 밑으로 안 들어간다. 자리가 땅에 박혀 있으면 이번 걸음은 보통 몸으로
+    let seat = this.seatY;
+    if (seat > 0) seat = this.freeSeat(pos, seat);
+    const size: BodySize = seat > 0.01 ? { w: PLAYER_SIZE.w, h: PLAYER_SIZE.h + seat } : PLAYER_SIZE;
+    if (seat <= 0.01) seat = 0;
+    pos.y -= seat;
     const px = pos.x,
       py = pos.y,
       pz = pos.z;
     const vx0 = vel.x,
       vz0 = vel.z;
-    moveBody(this.isSolid, pos, PLAYER_SIZE, vel, h, this.moveOut);
+    moveBody(this.isSolid, pos, size, vel, h, this.moveOut);
     this.onGround = this.moveOut.onGround;
 
     // 한 칸 턱 자동 오르기 (앞으로 걷다 막혔을 때). 물속에서는 바닥을 딛지 않아도(헤엄) 둑을 밀면 올라선다
     if (!flying && !this.sneaking && (wasGround || this.inWater) && (this.moveOut.hitX || this.moveOut.hitZ)) {
-      const r = tryStepUp(this.isSolid, { x: px, y: py, z: pz }, pos, PLAYER_SIZE, vx0, vz0, h, this.inWater ? WATER_STEP : AUTO_STEP);
+      const r = tryStepUp(this.isSolid, { x: px, y: py, z: pz }, pos, size, vx0, vz0, h, this.inWater ? WATER_STEP : AUTO_STEP);
       if (r) {
         vel.x = r.vx;
         vel.z = r.vz;
@@ -196,6 +247,7 @@ export class Player {
         this.stepCamOffset -= r.dy;
       }
     }
+    pos.y += seat; // 탈것 상자 → 다시 내 발 높이 (#178)
     this.stepCamOffset += (0 - this.stepCamOffset) * Math.min(1, STEP_CAM_SMOOTH * h);
     if (Math.abs(this.stepCamOffset) < 0.002) this.stepCamOffset = 0;
 

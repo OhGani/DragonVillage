@@ -236,12 +236,15 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const companions = new Map<number, { name: string | null; owner: number }>();
   const refreshPetNames = () =>
     mobView.setPetNames([
-      ...[...pets.entries()].map(([id, p]) => ({ id, name: p.name, mine: p.mine })),
+      ...[...pets.entries()].map(([id, p]) => ({ id, name: p.name ?? (p.mine ? '이름 없음' : null), mine: p.mine })), // 내 펫은 이름이 없어도 🐾 이름표 (#179)
       ...[...companions.entries()].map(([id, c]) => ({ id, name: c.name, mine: c.owner === myIdx })),
       ...[...mobView.figures.entries()].filter(([id, f]) => MOB_KIND_OF[f.kind] === 'villager' && !pets.has(id)).map(([id]) => ({ id, name: VILLAGER_TALK.nameOf(id), mine: false })), // 주민 이름 (#172) — 서버가 이름을 준 주민(대장장이)은 pets 에 있다
     ]);
   let villagerFigures = 0;
   let aimedMobNow: number | null = null;
+  /** 마지막으로 조준한 내 펫 (#179): 🐾 버튼을 누르러 가는 사이 시선이 빗나가거나 펫이 걸어가도 그 펫 이름을 짓는다 */
+  let lastAimedPet: { id: number; at: number } | null = null;
+  const PET_AIM_KEEP_MS = 4000;
   /** 주민 대화 (#172): 빈손 탭 → 시트. 이번 접속에 말 걸어 본 주민 */
   const talkedTo = new Set<number>();
   const talk = new TalkSheet(
@@ -841,6 +844,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       myRiding = riding;
       ctx.player.riding = true;
       ctx.player.horse = riding.dragon === 'horse';
+      ctx.player.liftForMount(); // 탈것 등 높이만큼 올라앉는다 (#178)
       mount.set(riding);
       hud.hideAction();
       if (riding.dragon === 'horse') {
@@ -1203,6 +1207,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   if (myRiding) {
     // 타고 있던 채로 들어왔다 (#103): 드래곤·빔 버튼·기력을 바로 켠다 (mount 이벤트는 처음 탈 때만 온다)
     ctx.player.horse = myRiding.dragon === 'horse';
+    ctx.player.liftForMount(); // (#178)
     mount.set(myRiding);
     hud.setRiding(true, DRAGONS.find(myRiding.dragon)?.skills.find((s) => s.type === 'beam')?.name ?? '빔');
     stamina = { value: staminaMaxFor('adult'), max: staminaMaxFor('adult'), at: Date.now() + serverClockOffset, readyAt: 0 };
@@ -1231,9 +1236,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   hud.chatBtn.addEventListener('click', () => (chat.visible ? closeChat() : openChat()));
   hud.petBtn.addEventListener('click', () => {
     if (!started || disconnected || ctx.kind !== 'village') return;
-    // 내 펫을 보면서 누르면 이름 짓기 (#176), 아니면 내 펫 전부 옆으로 (#174)
-    const pet = aimedMobNow !== null ? pets.get(aimedMobNow) : undefined;
-    if (aimedMobNow !== null && pet?.mine) openPetNamer(aimedMobNow, pet.name);
+    // 내 펫을 보면서(또는 4초 안에 봤으면) 누르면 이름 짓기 (#176·#179), 아니면 내 펫 전부 옆으로 (#174)
+    const recent = lastAimedPet && performance.now() - lastAimedPet.at < PET_AIM_KEEP_MS && pets.get(lastAimedPet.id)?.mine ? lastAimedPet.id : null;
+    const id = aimedMobNow !== null && pets.get(aimedMobNow)?.mine ? aimedMobNow : recent;
+    if (id !== null) openPetNamer(id, pets.get(id)!.name);
     else net.sendCallPets();
   });
   window.addEventListener('keydown', (e) => {
@@ -1500,6 +1506,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const bow = bowOf(COMBAT, hud.selectedItem);
     const aimedMob = mobView.count > 0 ? mobView.aim(player.eye, player.lookDir, bow ? bow.range : HIT_REACH + 1) : null;
     aimedMobNow = aimedMob;
+    if (aimedMob !== null && pets.get(aimedMob)?.mine) lastAimedPet = { id: aimedMob, at: now }; // (#179)
     interaction.suppressPrimary = aimedMob !== null || bow !== null; // 활을 들면 꾹 누르기는 당기기 (#119)
     interaction.suppressSecondary = aimedMob !== null;
     // 🛡️ 막기 (#118): 방패를 끼고 버튼(X)을 누르는 동안 — 한 번 톡 눌러도 GUARD_TAP_MS 는 막는다(아들 13차). 폰은 두 번 톡톡 = 계속. 서버엔 바뀔 때 + 5초마다
