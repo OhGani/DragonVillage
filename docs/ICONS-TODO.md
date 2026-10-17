@@ -1,9 +1,8 @@
-# 아이콘 그림이 없는 아이템 (106개)
+# 아이콘 그림이 없는 아이템 (104개)
 
 파일 이름은 `textures/<id>.png` (16×16). 활은 당기는 단계 그림 `bow_pulling_0.png`·`bow_pulling_1.png`·`bow_pulling_2.png`(점점 휘는 활)를 그리면 쏠 때 그 그림이 나온다(#184). 블록은 전부 그림이 있어서 뺐다. 물약은 병 모양 하나에 색만 다르니 `potion` 병 하나만 그려도 된다.
 
-## 도구·무기 (25)
-- 당근 낚싯대 — `carrot_on_a_stick`
+## 도구·무기 (24)
 - 쇠뇌 — `crossbow`
 - 다이아몬드 도끼 — `diamond_axe`
 - 다이아몬드 곡괭이 — `diamond_pickaxe`
@@ -57,7 +56,7 @@
 - 돌풍의 물약 — `potion.wind_charged`
 - 물병 — `water_bottle`
 
-## 재료·드롭 (29)
+## 재료·드롭 (28)
 - 블레이즈 가루 — `blaze_powder`
 - 블레이즈 막대기 — `blaze_rod`
 - 뼈 — `bone`
@@ -69,7 +68,6 @@
 - 발효된 거미 눈 — `fermented_spider_eye`
 - 가스트의 눈물 — `ghast_tear`
 - 발광석 가루 — `glowstone_dust`
-- 금 — `gold_ingot`
 - 금 조각 — `gold_nugget`
 - 화약 — `gunpowder`
 - 먹물 — `ink_sac`

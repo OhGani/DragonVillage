@@ -164,6 +164,28 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(storage.listPlaced(INFO.code)).toEqual([]);
   });
 
+  it('먹기 (#186): 빵을 들고 먹으면 하나 줄고 하트 5 회복, 다 찼으면 HP_FULL, 막대기는 NOT_EDIBLE', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    give(p.inv, 'bread', 2);
+    give(p.inv, 'stick', 1);
+    const bread = p.inv.findIndex((s) => s?.item === 'bread');
+    const stick = p.inv.findIndex((s) => s?.item === 'stick');
+    expect(room.eat(ra.idx, bread, 1000)).toBe('HP_FULL');
+    p.hp = 12;
+    expect(room.eat(ra.idx, stick, 1000)).toBe('NOT_EDIBLE');
+    expect(room.eat(ra.idx, bread, 1000)).toBeNull();
+    expect(p.hp).toBe(17);
+    expect(countOf(p.inv, 'bread')).toBe(1);
+    expect(a.json.some((m) => m.t === 'health' && m.cause === 'eat' && m.hp === 17)).toBe(true);
+    expect(room.eat(ra.idx, bread, 1100)).toBeNull();
+    expect(p.hp).toBe(20); // 넘치지 않는다
+    expect(countOf(p.inv, 'bread')).toBe(0);
+  });
+
   it('묘목 (#181): 잔디 위에 심으면 10분 뒤 참나무(줄기 4~6 + 잎)가 되고 모두에게 BlockChanged, 돌 위엔 못 심는다', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });

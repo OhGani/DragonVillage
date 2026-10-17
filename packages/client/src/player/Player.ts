@@ -9,6 +9,10 @@ import {
   hasGroundBelow,
   moveBody,
   tryStepUp,
+  type MountKind,
+  PIG_SEAT_Y,
+  PIG_SPEED,
+  PIG_SLOW,
 } from '@dragon-village/shared';
 import type * as THREE from 'three';
 import type { InputState } from '../input/InputState';
@@ -59,7 +63,10 @@ export class Player {
   /** 드래곤을 타고 있다 (M6-4): 중력 없음, 점프 = 상승, 웅크리기 = 하강. 충돌은 사람 몸 그대로 */
   riding = false;
   /** 말을 타고 있다 (#166): 날지 않고 땅에서 빨리 달린다, 점프는 조금 높게 */
-  horse = false;
+  /** 타고 있는 동물 종류 (#166 말, #185 돼지). 드래곤은 null (riding 만 true) */
+  mountKind: MountKind | null = null;
+  /** 당근 낚싯대를 들었나 (#185): 돼지가 빨라진다 */
+  carrotStick = false;
   eyeHeight = EYE_STAND;
   /** 걷기 주기 (라디안) — 손·카메라 흔들림용 */
   walkCycle = 0;
@@ -109,7 +116,7 @@ export class Player {
 
   /** 탈것에 앉은 높이 (#178): 타고 있으면 몸 상자가 이만큼 아래로 길어져 탈것이 땅속에 안 들어간다 */
   get seatY(): number {
-    return this.riding ? (this.horse ? HORSE_SEAT_Y : RIDE_SEAT_Y) : 0;
+    return this.riding ? (this.mountKind === 'horse' ? HORSE_SEAT_Y : this.mountKind === 'pig' ? PIG_SEAT_Y : RIDE_SEAT_Y) : 0;
   }
 
   /** 발 아래 seat 만큼 중 땅에 안 박힌 길이 — 탈것 자리가 땅에 걸쳐 있으면(낮은 천장 아래서 탔을 때 등) 그만큼만 상자를 늘려 안 끼인다 */
@@ -182,9 +189,9 @@ export class Player {
       wx /= wl;
       wz /= wl;
     }
-    const flying = this.riding && !this.horse;
-    const speed = (this.horse ? HORSE_SPEED : this.riding ? RIDE_SPEED : this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK) * (this.guarding ? this.guardSlow : 1);
-    const accel = flying ? 8 : this.inWater ? 6 : this.onGround ? (this.horse ? 10 : 18) : 3.5;
+    const flying = this.riding && this.mountKind === null;
+    const speed = (this.mountKind === 'horse' ? HORSE_SPEED : this.mountKind === 'pig' ? (this.carrotStick ? PIG_SPEED : PIG_SLOW) : this.riding ? RIDE_SPEED : this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK) * (this.guarding ? this.guardSlow : 1);
+    const accel = flying ? 8 : this.inWater ? 6 : this.onGround ? (this.mountKind !== null ? 10 : 18) : 3.5;
     const k = Math.min(1, accel * h);
     // 날 때 앞·뒤로 밀면 보는 쪽(위아래)으로 난다 (#97). 살짝 내려보는 건 수평으로 치고, 많이 기울일수록 가파르게
     let pitchT = 0;
@@ -215,8 +222,9 @@ export class Player {
     } else {
       vel.y -= GRAVITY * h;
       if (vel.y < -TERMINAL) vel.y = -TERMINAL;
-      if (input.jump && this.onGround) {
-        vel.y = this.horse ? JUMP_V * 1.15 : JUMP_V; // 말은 조금 높게 (#166)
+      if (input.jump && this.onGround && this.mountKind !== 'pig') {
+        // 말은 조금 높게 (#166), 돼지는 못 뛴다 (#185)
+        vel.y = this.mountKind === 'horse' ? JUMP_V * 1.15 : JUMP_V;
         this.onGround = false;
       }
     }

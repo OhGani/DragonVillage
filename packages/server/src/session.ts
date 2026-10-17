@@ -423,6 +423,14 @@ export class Session {
         if (err && err !== 'COOLDOWN') return this.error(err, USE_ERROR_KO[err] ?? '지금은 할 수 없어요');
         return;
       }
+      case 'eat': {
+        // 먹기 (#186)
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.slot)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.eat(this.idx, msg.slot as number);
+        if (err) return this.error(err, err === 'HP_FULL' ? '하트가 다 찼어요 — 아플 때 먹어요' : err === 'NOT_EDIBLE' ? '먹을 수 있는 게 아니에요' : '지금은 먹을 수 없어요');
+        return;
+      }
       case 'startRaid': {
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
         // 시간 제한: 원정과 같은 규칙 (10분 세션)

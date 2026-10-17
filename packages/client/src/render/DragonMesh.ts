@@ -3,9 +3,9 @@
  * 위치·단계(아기/어른)·주인은 서버가 진실(nest 메시지). 여기서는 그리기만.
  * 복셀 한 칸 = 1/16 블록 — 아기 약 1.4×0.9×1.8 블록, 어른 약 2.4×1.4×2.7 블록(2배, 결정 #77).
  */
-import { HORSE_SEAT_Y, type NestDragonInfo, RIDE_SEAT_Y } from '@dragon-village/shared';
+import { HORSE_SEAT_Y, type NestDragonInfo, PIG_SEAT_Y, RIDE_SEAT_Y } from '@dragon-village/shared';
 import { PLAYER_SHADES, VOXEL } from './playerModel';
-import { animalVariant, horseCoat, horseVoxels } from './animalModel';
+import { animalVariant, animalVoxels, horseCoat, horseVoxels } from './animalModel';
 import * as THREE from 'three';
 import { nameSprite } from '../net/RemotePlayers';
 import { type DragonStage, dragonVoxels } from './dragonModels';
@@ -46,8 +46,19 @@ export function dragonMesh(dragon: string, stage: DragonStage): THREE.Mesh {
 }
 
 const horseGeoms = new Map<string, THREE.BufferGeometry>();
-/** 탈것 메시 (#166): 'horse' 면 말(털색은 말 번호로 — 타도 같은 말, #177), 아니면 어른 드래곤 */
+const pigGeoms = new Map<string, THREE.BufferGeometry>();
+/** 탈것 메시 (#166): 'horse' 면 말(털색은 말 번호로 — 타도 같은 말, #177), 'pig' 면 돼지(#185), 아니면 어른 드래곤 */
 export function mountMesh(kind: string, id = 0): THREE.Mesh {
+  if (kind === 'pig') {
+    const v = animalVariant(id);
+    const key = v < 0.6 ? 'temperate' : v < 0.8 ? 'cold' : 'warm';
+    let g = pigGeoms.get(key);
+    if (!g) {
+      g = buildVoxelGeometry(animalVoxels('pig', v), VOXEL, PLAYER_SHADES);
+      pigGeoms.set(key, g);
+    }
+    return new THREE.Mesh(g, material);
+  }
   if (kind !== 'horse') return dragonMesh(kind, 'adult');
   const v = animalVariant(id);
   const coat = horseCoat(v);
@@ -60,7 +71,7 @@ export function mountMesh(kind: string, id = 0): THREE.Mesh {
 }
 /** 탈것에 앉는 높이·방향: 말은 앞이 −z 라 안 돌리고, 드래곤은 머리가 +z 라 반 바퀴 */
 export function mountSeat(kind: string): { seatY: number; turn: number } {
-  return kind === 'horse' ? { seatY: HORSE_SEAT_Y, turn: 0 } : { seatY: RIDE_SEAT_Y, turn: Math.PI };
+  return kind === 'horse' ? { seatY: HORSE_SEAT_Y, turn: 0 } : kind === 'pig' ? { seatY: PIG_SEAT_Y, turn: 0 } : { seatY: RIDE_SEAT_Y, turn: Math.PI };
 }
 
 /**

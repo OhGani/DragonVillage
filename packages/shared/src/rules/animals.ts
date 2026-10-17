@@ -27,6 +27,18 @@ export const ANIMAL_ID_BASE = 40_000;
 export const HORSE_SEAT_Y = 1.25;
 /** 말을 타면 이 속도로 달린다 (칸/초, 사람 달리기 5.6) */
 export const HORSE_SPEED = 9.5;
+/** 탈 수 있는 동물 (#166 말, #185 돼지) — 안장을 씌우면 내 것, 빈손 탭으로 탄다 */
+export const MOUNT_KINDS = ['horse', 'pig'] as const;
+export type MountKind = (typeof MOUNT_KINDS)[number];
+export function isMountKind(kind: string): kind is MountKind {
+  return (MOUNT_KINDS as readonly string[]).includes(kind);
+}
+/** 돼지 안장 높이 (#185): 말보다 낮다 */
+export const PIG_SEAT_Y = 0.85;
+/** 돼지 (#185, 아들 2026-10-17 마인크래프트 돼지 타기): 당근 낚싯대를 들면 이 속도, 아니면 느릿느릿. 점프는 못 하고 한 칸 턱은 저절로 오른다 */
+export const PIG_SPEED = 4.5;
+export const PIG_SLOW = 1.2;
+export const CARROT_ON_A_STICK = 'carrot_on_a_stick';
 /** 안장 아이템 */
 export const SADDLE = 'saddle';
 /** 대장장이 (#173): 대장간이 지어지면 그 앞에 서는 주민의 이름. 잡혀가지 않는다 */

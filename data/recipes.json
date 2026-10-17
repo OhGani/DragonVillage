@@ -44,6 +44,20 @@
       "_note": "드래곤의 숨결을 담는다"
     },
     {
+      "id": "bread",
+      "name": "빵",
+      "station": "crafting_table",
+      "pattern": ["www"],
+      "key": {"w": "wheat"},
+      "in": {
+        "wheat": 3
+      },
+      "out": {
+        "bread": 1
+      },
+      "_note": "아들 2026-10-17: 밀 3개로 만들고 먹으면 에너지(하트)가 올라간다 (#186, 회복량은 data/food.json). 주민에게 주면 아기가 생긴다 (#168)"
+    },
+    {
       "id": "cake",
       "name": "케이크",
       "station": "crafting_table",
@@ -1086,8 +1100,7 @@
       "out": {
         "carrot_on_a_stick": 1
       },
-      "release": "v1.1",
-      "_note": "돼지 타기"
+      "_note": "돼지 타기 (#185): 안장 씌운 돼지를 타고 이걸 들면 빨라진다. 그림은 아들(2026-10-17)"
     },
     {
       "id": "warped_fungus_on_a_stick",

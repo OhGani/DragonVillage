@@ -50,6 +50,7 @@ import {
   villagerSpot,
   BLACKSMITH_NAME,
   siteOf,
+  isMountKind,
 } from '@dragon-village/shared';
 
 export interface AnimalRow {
@@ -587,7 +588,7 @@ export class AnimalSystem {
       return null;
     }
     // 말 (#166): 안장을 씌우면 내 말 (아들 7차 "말에 안장을 씌우면 탈 수 있다"). 확률 없음
-    if (held === SADDLE && a.kind === 'horse') {
+    if (held === SADDLE && isMountKind(a.kind)) {
       if (a.owner !== null) return 'ALREADY_SADDLED';
       if (this.isBaby(a, now)) return 'NOT_FOOD';
       if (!this.hooks.consume(p.idx, SADDLE)) return 'NOT_FOOD';
@@ -658,17 +659,22 @@ export class AnimalSystem {
     return this.spawnVillagers(n, now);
   }
 
-  /** 이 동물이 내 말인가 (#166) */
+  /** 이 동물이 내 말·돼지인가 (#166·#185) */
   isMyHorse(mobId: number, token: string): boolean {
     const a = this.find(mobId);
-    return !!a && a.kind === 'horse' && a.owner === token;
+    return !!a && isMountKind(a.kind) && a.owner === token;
+  }
+
+  /** 동물 종류 (없으면 null) */
+  kindOf(mobId: number): MobKind | null {
+    return this.find(mobId)?.kind ?? null;
   }
 
   /** 말 타기 (#166): 내 말(안장 씌운 것)이고 아무도 안 타고 있으면 탄다. 오류: NO_MOB · NOT_HORSE · NOT_MINE · OCCUPIED · TOO_FAR */
   mount(p: AnimalViewer, mobId: number): string | null {
     const a = this.find(mobId);
     if (!a) return 'NO_MOB';
-    if (a.kind !== 'horse') return 'NOT_HORSE';
+    if (!isMountKind(a.kind)) return 'NOT_HORSE';
     if (a.owner !== p.token) return 'NOT_MINE';
     if (a.ridden !== null) return 'OCCUPIED';
     if (Math.hypot(a.x - p.x, a.y + mobSize(a.kind).h * 0.5 - p.eyeY, a.z - p.z) > HIT_REACH + 1) return 'TOO_FAR';
@@ -716,7 +722,7 @@ export class AnimalSystem {
   takeAlong(token: string, x: number, z: number, maxDist: number): { id: number; kind: number; kindName: MobKind; name: string | null }[] {
     const out: { id: number; kind: number; kindName: MobKind; name: string | null }[] = [];
     for (const a of this.animals.values()) {
-      if (a.owner !== token || a.sitting || a.away || a.kind === 'horse') continue; // 말은 원정에 안 따라간다 (#166)
+      if (a.owner !== token || a.sitting || a.away || isMountKind(a.kind)) continue; // 말·돼지는 원정에 안 따라간다 (#166·#185)
       if (Math.hypot(a.x - x, a.z - z) > maxDist) continue;
       a.away = true;
       a.target = null;

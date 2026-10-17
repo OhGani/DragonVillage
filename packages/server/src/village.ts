@@ -166,8 +166,10 @@ import {
   encodeMobsState,
   VILLAGER_HOUSES,
   levelSiteBlocks,
+  isMountKind,
+  foodOf,
 } from '@dragon-village/shared';
-import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
+import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import { RAID_GOAL, RaidSystem } from './raid';
@@ -982,7 +984,7 @@ export class VillageRoom {
     const p = this.players.get(idx);
     if (!p) return 'NOT_IN_VILLAGE';
     if (!p.riding) return 'NOT_RIDING';
-    const horse = p.riding.dragon === 'horse';
+    const horse = isMountKind(p.riding.dragon);
     p.riding = null;
     this.broadcastJson({ t: 'dismount', idx }, -1, p.world);
     if (horse) this.animals.releaseRider(idx, p.pos); // 말은 내린 자리에 선다 (#166)
@@ -998,7 +1000,7 @@ export class VillageRoom {
   skill(idx: number, id: string, now = Date.now()): string | null {
     const p = this.players.get(idx);
     if (!p) return 'NOT_IN_VILLAGE';
-    if (!p.riding || p.riding.dragon === 'horse') return 'NOT_RIDING'; // 말은 빔이 없다 (#166)
+    if (!p.riding || isMountKind(p.riding.dragon)) return 'NOT_RIDING'; // 말·돼지는 빔이 없다 (#166)
     if (id !== 'beam') return 'UNKNOWN_SKILL';
     const def = DRAGONS.require(p.riding.dragon);
     const beam = beamOf(def);
@@ -1339,7 +1341,7 @@ export class VillageRoom {
     this.storage?.saveInventory(p.token, this.info.code, p.inv);
     this.broadcastJson({ t: 'playerLeft', idx }, -1, p.world);
     if (p.riding) {
-      if (p.riding.dragon === 'horse') this.animals.releaseRider(idx, p.pos); // 말은 그 자리에 (#166)
+      if (isMountKind(p.riding.dragon)) this.animals.releaseRider(idx, p.pos); // 말·돼지는 그 자리에 (#166)
       p.riding = null; // 타고 있던 드래곤은 둥지로 (M6-4)
       this.broadcastNest();
     }
@@ -1576,14 +1578,15 @@ export class VillageRoom {
     if (p.world !== 'village' || mobId < ANIMAL_ID_BASE) return 'NO_MOB';
     const held = slot !== undefined && slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
     const before = this.animals.petsFor(p.token).length;
-    // 말 (#166): 내 말을 빈손으로 탭 → 탄다 (드래곤 타기와 같은 mount 메시지, dragon: 'horse')
+    // 말·돼지 (#166·#185): 내 것을 빈손으로 탭 → 탄다 (드래곤 타기와 같은 mount 메시지, dragon: 'horse' | 'pig')
     if (!held && !p.riding && this.animals.isMyHorse(mobId, p.token)) {
       const err = this.animals.mount({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held }, mobId);
       if (err) return err;
-      p.riding = { id: mobId, dragon: 'horse' };
+      const kind = this.animals.kindOf(mobId) ?? 'horse';
+      p.riding = { id: mobId, dragon: kind };
       p.dragonHp = 0;
       this.broadcastJson({ t: 'mount', idx, riding: p.riding }, -1, p.world);
-      this.log(`마을 ${this.info.code}: ${p.nick} 말 탑승`);
+      this.log(`마을 ${this.info.code}: ${p.nick} ${kind === 'pig' ? '돼지' : '말'} 탑승`);
       return null;
     }
     const err = this.animals.use({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held }, mobId, held, now);
@@ -1721,7 +1724,7 @@ export class VillageRoom {
   hurt(p: RoomPlayer, amount: number, cause: string, now = Date.now()): void {
     if (p.hp <= 0 || amount <= 0) return;
     // 타고 있으면 몹 피해는 드래곤이 대신 맞는다 (#113). 낙하·독은 사람 몫
-    if (p.riding && p.riding.dragon !== 'horse' && armorApplies(cause)) {
+    if (p.riding && !isMountKind(p.riding.dragon) && armorApplies(cause)) {
       this.hurtDragon(p, Math.floor(amount), cause, now);
       return;
     }
@@ -1790,6 +1793,24 @@ export class VillageRoom {
       this.broadcastJson({ t: 'orbGone', id, by: p.idx }, -1, p.world);
       this.addXp(p, o.amount, XP_SOURCE.mining, o.x, o.y + 0.5, o.z, now);
     }
+  }
+
+  /** 먹기 (#186): 손에 든 칸의 음식 하나를 먹고 heals 만큼 체력. 오류: NOT_EDIBLE · HP_FULL · DEAD */
+  eat(idx: number, slot: number, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    const held = slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
+    const food = foodOf(FOOD, held);
+    if (!food) return 'NOT_EDIBLE';
+    if (p.hp <= 0) return 'DEAD';
+    if (p.hp >= HP_MAX) return 'HP_FULL';
+    const changed = new Set<number>();
+    if (!takeFromSlot(p.inv, slot, 1, changed)) return 'NOT_EDIBLE';
+    this.sendInv(p, changed);
+    p.hp = Math.min(HP_MAX, p.hp + food.heals);
+    p.lastRegenAt = now;
+    this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'eat' });
+    return null;
   }
 
   /** 틱마다: 맞은 지 5초 지나면 3초에 1 회복 */
@@ -2216,7 +2237,7 @@ export class VillageRoom {
   }
 
   private moveToExpedition(p: RoomPlayer, e: Expedition, now: number): void {
-    if (p.riding?.dragon === 'horse') this.dismount(p.idx); // 말은 원정에 못 간다 (#166)
+    if (p.riding && isMountKind(p.riding.dragon)) this.dismount(p.idx); // 말·돼지는 원정에 못 간다 (#166)
     this.broadcastJson({ t: 'playerLeft', idx: p.idx }, p.idx, 'village');
     // 펫 원정 동행 (#145): 포탈 24칸 안에서 앉아 있지 않은 내 펫은 같이 간다
     const taken = this.animals.takeAlong(p.token, p.pos.x, p.pos.z, PET_ALONG_RANGE);

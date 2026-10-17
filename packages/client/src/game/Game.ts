@@ -69,8 +69,11 @@ import {
   GUARD_TAP_MS,
   isPotionItem,
   potionFromItemId,
+  isMountKind,
+  CARROT_ON_A_STICK,
+  foodOf,
 } from '@dragon-village/shared';
-import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, XP } from '@dragon-village/shared/data';
+import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { beam as beamSound, bell, ding, explosion as explosionSound, hit as hitSound, hurt as hurtSound, levelUp, lose, roar } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
@@ -323,7 +326,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   let hitCooldown = 0;
   let stamina: { value: number; max: number; at: number; readyAt: number } | null = null;
   let serverClockOffset = 0; // 서버 now - 내 Date.now()
-  const beamNeed = () => (myRiding && myRiding.dragon !== 'horse' ? beamOf(DRAGONS.require(myRiding.dragon)).stamina : 0);
+  const beamNeed = () => (myRiding && !isMountKind(myRiding.dragon) ? beamOf(DRAGONS.require(myRiding.dragon)).stamina : 0);
   const refreshStamina = () => {
     if (!stamina || !myRiding) return;
     const now = Date.now() + serverClockOffset;
@@ -331,7 +334,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     hud.setStamina(value, stamina.max, beamNeed(), Math.max(0, stamina.readyAt - now) / 1000);
   };
   const fireBeam = () => {
-    if (!myRiding || myRiding.dragon === 'horse' || !started || disconnected) return;
+    if (!myRiding || isMountKind(myRiding.dragon) || !started || disconnected) return;
     net.sendSkill('beam');
   };
 
@@ -844,7 +847,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       }
       myRiding = riding;
       ctx.player.riding = true;
-      ctx.player.horse = riding.dragon === 'horse';
+      ctx.player.mountKind = isMountKind(riding.dragon) ? riding.dragon : null;
       ctx.player.liftForMount(); // 탈것 등 높이만큼 올라앉는다 (#178)
       mount.set(riding);
       hud.hideAction();
@@ -853,6 +856,13 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         hud.setRiding(true, '빔', false);
         stamina = null;
         hud.toast(`🐴 말을 탔어요! 앞으로 밀면 달려요 · ${isTouch ? '▲' : 'Space'} 점프 · 내리기는 🐉 버튼`, 6000);
+        return;
+      }
+      if (riding.dragon === 'pig') {
+        // 돼지 (#185): 느릿느릿, 당근 낚싯대를 들면 빨라진다. 점프 없음
+        hud.setRiding(true, '빔', false);
+        stamina = null;
+        hud.toast('🐷 돼지를 탔어요! 🥕 당근 낚싯대를 들면 빨라져요 · 점프는 못 해요 · 내리기는 🐉 버튼', 6000);
         return;
       }
       hud.setRiding(true, DRAGONS.find(riding.dragon)?.skills.find((s) => s.type === 'beam')?.name ?? '빔');
@@ -867,7 +877,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       }
       myRiding = null;
       ctx.player.riding = false;
-      ctx.player.horse = false;
+      ctx.player.mountKind = null;
       mount.set(null);
       hud.setRiding(false);
       stamina = null;
@@ -903,6 +913,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         if (m.cause === 'poison') hud.toast('🕷️ 독에 물렸어요 — 잠깐 아파요', 1500);
       }
       if (m.cause === 'blocked') hud.toast('🛡️ 방패로 막았어요', 1200);
+      if (m.cause === 'eat') hud.toast(`😋 냠냠! 하트 ${((m.hp - hp) / 2).toFixed(1).replace('.0', '')}개 회복`, 1500); // 먹기 (#186)
       hp = m.hp;
       hud.setHealth(m.hp, m.max);
     },
@@ -1207,7 +1218,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   ctx.player.guardSlow = COMBAT.shield.guardSlow;
   if (myRiding) {
     // 타고 있던 채로 들어왔다 (#103): 드래곤·빔 버튼·기력을 바로 켠다 (mount 이벤트는 처음 탈 때만 온다)
-    ctx.player.horse = myRiding.dragon === 'horse';
+    ctx.player.mountKind = isMountKind(myRiding.dragon) ? myRiding.dragon : null;
     ctx.player.liftForMount(); // (#178)
     mount.set(myRiding);
     hud.setRiding(true, DRAGONS.find(myRiding.dragon)?.skills.find((s) => s.type === 'beam')?.name ?? '빔');
@@ -1500,6 +1511,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     interaction.selectedBlock = heldBlock();
     interaction.heldItem = hud.selectedItem;
 
+    player.carrotStick = hud.selectedItem === CARROT_ON_A_STICK; // 돼지 조종 (#185)
     player.update(inp, dt);
     // 몹을 조준하고 있으면 탭/클릭은 때리기 (블록은 안 부순다)
     hitCooldown = Math.max(0, hitCooldown - dt);
@@ -1568,6 +1580,12 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
     hand.setDraw(drawProgress);
     // 동물에게 손에 든 것 쓰기 (M8-1): 먹이·뼈·빈손(앉기). 원정에 따라온 펫은 못 만진다
+    // 먹기 (#186): 먹을 것을 들고 (몹을 안 보며) 탭 → 서버가 하나 빼고 하트를 채운다
+    const heldFood = foodOf(FOOD, hud.selectedItem);
+    if (heldFood && inp.secondaryTap && aimedMob === null && !guarding && !anyPanelOpen() && started && !disconnected) {
+      net.sendEat(hud.selectedIndex);
+      hand.swing();
+    }
     if (aimedMob !== null && inp.secondaryTap && aimedMob >= ANIMAL_ID_BASE && ctx.kind === 'village') {
       const fk = mobView.figureOf(aimedMob);
       if (fk && MOB_KIND_OF[fk.kind] === 'villager' && (!hud.selectedItem || !MOBS.get('villager').food.includes(hud.selectedItem))) {
@@ -1593,7 +1611,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const baby = (f.state & ANIMAL_FLAG.baby) !== 0;
         const tamed = (f.state & ANIMAL_FLAG.tamed) !== 0;
         const foods = def.food.map((i) => nameOf(i)).join('·');
-        const tip = def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (def.id === 'horse' ? (pets.get(aimedMob)?.mine ? '빈손 탭 → 🐴 타기 · 보면서 🐾 버튼 → 이름 짓기' : '남의 말이에요') : pets.get(aimedMob)?.mine ? `${{ follow: '🐾 따라오는 중 · 빈손 탭 → 앉기', sit: '🐾 앉아 있음 · 빈손 탭 → 풀어놓기', free: '🐾 자유 · 빈손 탭 → 따라오기' }[pets.get(aimedMob)!.mode]} · 보면서 🐾 버튼 → 이름 짓기` : '남이 길들인 강아지예요') : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
+        const tip = def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (isMountKind(def.id) ? (pets.get(aimedMob)?.mine ? `빈손 탭 → ${def.id === 'pig' ? '🐷' : '🐴'} 타기${def.id === 'pig' ? ' · 🥕 당근 낚싯대를 들면 빨라요' : ''} · 보면서 🐾 버튼 → 이름 짓기` : `남의 ${def.name}이에요`) : pets.get(aimedMob)?.mine ? `${{ follow: '🐾 따라오는 중 · 빈손 탭 → 앉기', sit: '🐾 앉아 있음 · 빈손 탭 → 풀어놓기', free: '🐾 자유 · 빈손 탭 → 따라오기' }[pets.get(aimedMob)!.mode]} · 보면서 🐾 버튼 → 이름 짓기` : '남이 길들인 강아지예요') : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.id === 'pig' && !baby ? `🏇 안장을 들고 탭 → 내 돼지로 · ${foods}을(를) 들고 탭 → 먹이기` : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
         const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : def.id === 'cow' && !baby ? ' · 🪣 빈 양동이 들고 탭 → 우유' : def.id === 'villager' ? ' · 탭 → 💬 대화' : '';
         hud.toast(`${def.name}${baby ? ' (아기)' : ''}${tamed ? ' 🐾' : ''} · ${tip}${extra}`, 3000);
       }

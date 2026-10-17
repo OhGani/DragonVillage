@@ -469,6 +469,8 @@ export type ClientJson =
   | { t: 'startRaid' }
   /** 몹(동물)에게 손에 든 것 쓰기 (M8-1): 먹이·뼈·빈손(앉기). slot = 손에 든 칸 */
   | { t: 'useMob'; id: number; slot?: number }
+  /** 손에 든 먹을 것 먹기 (#186): slot = 손에 든 칸. 서버가 하나 빼고 체력을 올린다 */
+  | { t: 'eat'; slot: number }
   /** 타고 있는 드래곤의 스킬 (M6-5). 지금은 'beam' 만 */
   | { t: 'skill'; id: string }
   /** 마을 창고 열기 (M6-6) — 창고 건물 옆에서 */

@@ -19,6 +19,7 @@ import redstoneJson from '../../../../data/redstone.json';
 import giftsJson from '../../../../data/gifts.json';
 import starterKitJson from '../../../../data/starter-kit.json';
 import toolsJson from '../../../../data/tools.json';
+import foodJson from '../../../../data/food.json';
 import xpJson from '../../../../data/xp.json';
 import villagerTalkJson from '../../../../data/villager-talk.json';
 import { parseBlocks } from './blocks';
@@ -40,6 +41,7 @@ import { parseRedstone } from './redstone';
 import { parseGifts } from './gifts';
 import { parseStarterKit } from './starterKit';
 import { parseTools } from './tools';
+import { parseFood } from './food';
 import { parseXp } from './xp';
 
 export const BLOCKS = parseBlocks(blocksJson);
@@ -65,6 +67,8 @@ export const PHRASES = parsePhrases(phrasesJson);
 export const FAMILY_RULES = parseFamilyRules(familyRulesJson);
 /** 곡괭이 등급 (아들 2026-09-20) */
 export const TOOLS = parseTools(toolsJson);
+/** 먹을 것 (#186) */
+export const FOOD = parseFood(foodJson);
 /** 경험치 규칙 (M6-1, 마인크래프트 값 + 우리 것) */
 export const XP = parseXp(xpJson);
 /** 원정 밤의 몹 — 좀비·크리퍼 (M7-2). 드롭·이름은 mobs.json, 경험치는 xp.json */

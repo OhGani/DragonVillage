@@ -450,6 +450,8 @@
       "name": "돼지",
       "breedWith": "carrot",
       "followsWhenHolding": "carrot",
+      "rideWith": "saddle",
+      "_rideNote": "돼지 타기 (#185, 아들 2026-10-17): 안장을 씌우면 내 돼지, 빈손 탭으로 탄다. 당근 낚싯대를 들면 빨라지고(4.5칸/초, 아니면 1.2) 점프는 못 한다",
       "drops": [
         [
           "porkchop",
@@ -460,7 +462,7 @@
           1.0
         ]
       ],
-      "rideable": "v1.1"
+      "rideable": true
     },
     {
       "id": "rabbit",

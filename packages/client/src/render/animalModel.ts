@@ -252,8 +252,13 @@ function horse(variant: number): AnimalParts {
 
 /** 말 메시 하나 (탈것 표시용, #166): 모든 부위를 합쳐 한 덩어리로. 앞이 −z, 바닥 y 0 */
 export function horseVoxels(variant: number): Voxel[] {
-  const p = horse(variant);
-  return [...p.body, ...p.head.v, ...p.legs.flatMap((l) => l.v), ...(p.tail ? p.tail.v : [])];
+  return animalVoxels('horse', variant);
+}
+
+/** 동물 한 마리를 한 덩어리 복셀로 (탈것 표시용 #166·#185) */
+export function animalVoxels(kind: string, variant: number): Voxel[] {
+  const p = animalParts(kind, variant);
+  return [...p.body, ...p.head.v, ...p.legs.flatMap((l) => l.v), ...(p.tail ? p.tail.v : []), ...p.wings.flatMap((w) => w.v)];
 }
 
 /** 길들인 강아지 목줄: 목(z −8) 둘레의 빨간 고리 + 금색 이름표 */
