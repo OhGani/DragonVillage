@@ -1693,7 +1693,13 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       const b = heldBlock();
       if (guarding) hand.setItem('shield', iconOf('shield', 16)); // 막는 동안은 방패를 든다 (#118)
       else if (b > 0) hand.setBlock(b);
-      else hand.setItem(hud.selectedItem, hud.selectedItem ? iconOf(hud.selectedItem, 16) : null); // 도구·안장 같은 아이템도 손에 보인다 (#96) — 16픽셀을 세운 입체
+      else if (hud.selectedItem && bowOf(COMBAT, hud.selectedItem)) {
+        // 활 (#184): 당기는 동안 bow_pulling_0/1/2.png 가 있으면 그 단계 그림으로, 화살은 arrow 그림으로 시위에 먹인다
+        const base = hud.selectedItem;
+        const stage = drawProgress <= 0 ? -1 : drawProgress < 0.35 ? 0 : drawProgress < 0.75 ? 1 : 2;
+        const frame = stage >= 0 && atlas.images.has(`${base}_pulling_${stage}`) ? `${base}_pulling_${stage}` : null;
+        hand.setItem(frame ? `${base}#${stage}` : base, frame ? iconOf(frame, 16) : iconOf(base, 16), iconOf(COMBAT.arrow.id, 16));
+      } else hand.setItem(hud.selectedItem, hud.selectedItem ? iconOf(hud.selectedItem, 16) : null); // 도구·안장 같은 아이템도 손에 보인다 (#96) — 16픽셀을 세운 입체
     }
     if (started && hud.selectedItem !== sentHeld) {
       sentHeld = hud.selectedItem;

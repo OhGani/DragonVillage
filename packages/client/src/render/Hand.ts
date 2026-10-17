@@ -18,6 +18,24 @@ const HAND_TURN = 0.6;
 /** 아이템(블록 아닌 것) 한 픽셀 크기 — 16픽셀이 0.9칸. 도구는 마인크래프트처럼 손보다 크게 보인다 */
 const ITEM_PIXEL = 0.9 / 16;
 const ITEM_SHADES = [0.78, 0.7, 1.0, 0.5, 0.86, 0.94];
+/**
+ * 활 자세 (#184, 아들 2026-10-17 마인크래프트 활 쏘는 화면): 쉴 때(rot/pos) → 다 당겼을 때(drawRot/drawPos) 사이를 당긴 만큼 섞는다.
+ * pull 은 손(피벗) 전체가 가운데로 끌려오는 양 [dx, dy, rx, dz]. 화살은 활 가운데(시위)에서 조준점 쪽으로 뻗고, 당길수록 뒤로 빠진다.
+ * 값은 패널에서 맞춘 것 — dev 콘솔 __dv.hand.tune 으로 바로 바꿔 볼 수 있다
+ */
+export const BOW_TUNE = {
+  rot: [0.15, -0.5, 0.75],
+  drawRot: [0.05, -0.15, 0.95],
+  pos: [-0.4, 0.35, 0.1],
+  drawPos: [-0.15, 0.45, -0.1],
+  scale: 1.1,
+  drawScale: 1.0,
+  pull: [0.35, 0.12, 0.1, -0.12],
+  /** 화살 (피벗 기준, 회전 순서 YZX): 그림 대각선을 조준점 쪽으로 돌리고 화면 안쪽으로 눕힌다 */
+  arrowRot: [0, -0.8, 2.13],
+  arrowPos: [-0.25, 0.42, -0.05],
+  arrowDrawPos: [-0.5, 0.5, -0.35],
+};
 
 /** 아이콘 캔버스(정사각, 16 또는 그 배수)를 16×16 격자로 읽어 픽셀마다 상자 하나. y 는 위가 15 */
 function iconVoxels(icon: HTMLCanvasElement): Voxel[] {
@@ -45,6 +63,11 @@ export class HandView {
   private readonly anchor = new THREE.Group();
   private readonly pivot = new THREE.Group();
   private mesh: THREE.Mesh | null = null;
+  /** 활에 먹인 화살 (#184): 당길수록 뒤로 빠진다 */
+  private arrow: THREE.Mesh | null = null;
+  private bow = false;
+  /** 활 자세 값 (#184) — 개발 콘솔에서 바로 고쳐 볼 수 있다 */
+  readonly tune = BOW_TUNE;
   private swingT = 1;
   /** 활 당김 0~1 (#119): 손이 뒤로 당겨진다 */
   private draw = 0;
@@ -62,6 +85,13 @@ export class HandView {
   }
 
   private clearMesh(): void {
+    if (this.arrow) {
+      this.pivot.remove(this.arrow);
+      this.arrow.geometry.dispose();
+      (this.arrow.material as THREE.Material).dispose();
+      this.arrow = null;
+    }
+    this.bow = false;
     if (!this.mesh) return;
     this.pivot.remove(this.mesh);
     this.mesh.geometry.dispose();
@@ -69,21 +99,43 @@ export class HandView {
     this.mesh = null;
   }
 
+  /** 아이콘 → 픽셀 입체 모형 */
+  private iconMesh(icon: HTMLCanvasElement): THREE.Mesh | null {
+    const voxels = iconVoxels(icon);
+    if (voxels.length === 0) return null;
+    const geom = buildVoxelGeometry(voxels, ITEM_PIXEL, ITEM_SHADES);
+    geom.translate(-8 * ITEM_PIXEL, -8 * ITEM_PIXEL, -0.5 * ITEM_PIXEL);
+    const mesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ vertexColors: true }));
+    mesh.frustumCulled = false;
+    return mesh;
+  }
+
   /**
    * 블록이 아닌 아이템: 아이콘(16×16 픽셀 그림)의 픽셀 하나하나를 상자로 세운 입체 모형 (마인크래프트 손 아이템처럼, 아빠 2026-09-24).
    * 도구(곡괭이·도끼)는 손잡이가 오른쪽 아래, 머리가 왼쪽 위로 비스듬히. icon 이 없으면 빈손
    */
-  setItem(id: string | null, icon: HTMLCanvasElement | null): void {
+  setItem(id: string | null, icon: HTMLCanvasElement | null, arrowIcon: HTMLCanvasElement | null = null): void {
     if (id === this.currentItem && this.currentBlock <= 0) return;
     this.clearMesh();
     this.currentBlock = 0;
     this.currentItem = id;
     if (!id || !icon) return;
-    const voxels = iconVoxels(icon);
-    if (voxels.length === 0) return;
-    const geom = buildVoxelGeometry(voxels, ITEM_PIXEL, ITEM_SHADES);
-    geom.translate(-8 * ITEM_PIXEL, -8 * ITEM_PIXEL, -0.5 * ITEM_PIXEL);
-    this.mesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ vertexColors: true }));
+    this.mesh = this.iconMesh(icon);
+    if (!this.mesh) return;
+    const bow = /^(bow|crossbow)(#|$)/.test(id); // 당기는 단계 그림은 'bow#1' 처럼 온다 (#184)
+    if (bow) {
+      // 활 (#184, 아들 2026-10-17 마인크래프트 화면): 오른쪽에 비스듬히 세워 들고, 당기면 update 가 가운데로 끌어온다
+      this.bow = true;
+      if (arrowIcon) {
+        this.arrow = this.iconMesh(arrowIcon);
+        if (this.arrow) {
+          this.arrow.visible = false;
+          this.pivot.add(this.arrow);
+        }
+      }
+      this.pivot.add(this.mesh);
+      return;
+    }
     const sword = /_sword$/.test(id);
     const tool = !sword && (/_(pickaxe|axe|shovel|hoe)$/.test(id) || id === 'shears' || id === 'flint_and_steel');
     if (sword) {
@@ -101,7 +153,6 @@ export class HandView {
       this.mesh.rotation.set(0, -HAND_TURN * 0.7, 0.15);
       this.mesh.position.set(-0.05, 0.05, 0);
     }
-    this.mesh.frustumCulled = false;
     this.pivot.add(this.mesh);
   }
 
@@ -155,6 +206,30 @@ export class HandView {
       dy -= s * 0.28;
       dx -= s * 0.12;
       rx -= s * 1.1;
+    }
+    if (this.bow) {
+      // 활 당기기 (#184): 활이 화면 가운데 쪽으로 오면서 세워지고, 화살이 시위에 먹힌 채 뒤로 빠진다
+      const d = this.draw;
+      const t = this.tune;
+      const mix = (a: readonly number[], b: readonly number[], k: number): number => a[k]! + (b[k]! - a[k]!) * d;
+      dx -= d * t.pull[0]!;
+      dy += d * t.pull[1]!;
+      rx += d * t.pull[2]!;
+      if (this.mesh) {
+        this.mesh.rotation.set(mix(t.rot, t.drawRot, 0), mix(t.rot, t.drawRot, 1), mix(t.rot, t.drawRot, 2));
+        this.mesh.position.set(mix(t.pos, t.drawPos, 0), mix(t.pos, t.drawPos, 1), mix(t.pos, t.drawPos, 2));
+        this.mesh.scale.setScalar(t.scale + (t.drawScale - t.scale) * d);
+      }
+      if (this.arrow) {
+        this.arrow.visible = d > 0;
+        this.arrow.rotation.order = 'YZX';
+        this.arrow.rotation.set(t.arrowRot[0]!, t.arrowRot[1]!, t.arrowRot[2]!);
+        this.arrow.scale.setScalar(t.scale);
+        this.arrow.position.set(mix(t.arrowPos, t.arrowDrawPos, 0), mix(t.arrowPos, t.arrowDrawPos, 1), mix(t.arrowPos, t.arrowDrawPos, 2));
+      }
+      this.pivot.position.set(baseX + dx, baseY + dy, HAND_Z + d * t.pull[3]!);
+      this.pivot.rotation.x = HAND_TILT + rx;
+      return;
     }
     // 활 당기기: 손을 안쪽·위로 조금 당기고 살짝 기울인다
     dx -= this.draw * 0.08;
