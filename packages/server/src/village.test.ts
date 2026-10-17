@@ -1632,7 +1632,7 @@ describe('원정 밤의 몹 (M7-2)', () => {
     // 1.2초 안엔 다시 안 문다, 지나면 문다
     room.tick(NIGHT + 800);
     expect(room.hpOf(ra.idx)).toBe(17);
-    room.tick(NIGHT + 1500);
+    room.tick(NIGHT + 2100); // 1.8초마다 (#187)
     expect(room.hpOf(ra.idx)).toBe(14);
     // 때리기: 맨손 1, 0.45초 쿨. 멀면 TOO_FAR
     expect(room.hitMob(ra.idx, 999, undefined, NIGHT + 2000)).toBe('NO_MOB');
