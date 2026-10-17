@@ -488,6 +488,11 @@ export class Session {
         if (err === 'NO_SHIELD') return this.error(err, '방패를 끼워야 막을 수 있어요 (가방 → 방패 → 들기)');
         return;
       }
+      case 'callPets': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        const n = this.room.callPets(this.idx);
+        return this.error('PETS_CALLED', n > 0 ? `🐾 펫 ${n}마리를 옆으로 불렀어요` : '부를 펫이 없어요 (마을에서만, 원정에 데려간 펫은 빼고)');
+      }
       case 'nameMob': {
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
         if (!Number.isInteger(msg.id) || typeof msg.name !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');

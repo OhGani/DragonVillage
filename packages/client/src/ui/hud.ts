@@ -82,6 +82,8 @@ export class Hud {
   /** 부모가 게임 안에서 승인(true)·거절(false)했다 */
   onApprove: ((ask: ApprovalAsk, ok: boolean) => void) | null = null;
   readonly chatBtn: HTMLButtonElement;
+  /** 🐾 펫 부르기 (#174): 내 펫이 있을 때만 보인다 */
+  readonly petBtn: HTMLButtonElement;
   private readonly helpEl: HTMLElement;
   private readonly compassRose: HTMLElement;
   private readonly compassLabels: HTMLElement[];
@@ -132,6 +134,7 @@ export class Hud {
       <div class="side-btns">
         <button class="sbtn bag-btn" aria-label="가방">🎒</button>
         <button class="sbtn chat-btn" aria-label="채팅">💬</button>
+        <button class="sbtn pet-btn" aria-label="펫 부르기" hidden>🐾</button>
       </div>
       <button class="sbtn ride-btn" aria-label="드래곤에서 내리기" hidden>🐉 내리기</button>
       <div class="skill-box" hidden>
@@ -284,6 +287,7 @@ export class Hud {
     q<HTMLButtonElement>('.approval-no').addEventListener('click', () => this.decideApproval(false));
     q<HTMLButtonElement>('.approval-later').addEventListener('click', () => this.decideApproval(null));
     this.chatBtn = q<HTMLButtonElement>('.chat-btn');
+    this.petBtn = q<HTMLButtonElement>('.pet-btn');
     // 주의: 상단 '?' 버튼도 class 에 help 가 있으므로 창은 help-panel 로 구분한다
     this.helpEl = q('.help-panel');
     this.compassRose = q('.compass-rose');

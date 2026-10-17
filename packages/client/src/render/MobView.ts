@@ -512,7 +512,7 @@ export class MobView {
       if (dmg) this.pop(x, y + mobSize(f?.kind ?? 0).h + 0.7, z, dmg, now);
     } else if (ev === 'wake' && f) {
       f.flashUntil = now + 400;
-    } else if (ev === 'love' || ev === 'tame' || ev === 'eat' || ev === 'grow' || ev === 'sit' || ev === 'shear' || ev === 'egg' || ev === 'milk') {
+    } else if (ev === 'love' || ev === 'tame' || ev === 'eat' || ev === 'grow' || ev === 'sit' || ev === 'free' || ev === 'follow' || ev === 'shear' || ev === 'egg' || ev === 'milk') {
       if (ev === 'eat') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '냠', '#ffffff', now);
       else if (ev === 'love') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '♥', '#ff5c8a', now);
       else if (ev === 'tame') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '♥♥', '#ff5c8a', now);
@@ -520,6 +520,8 @@ export class MobView {
       else if (ev === 'shear') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '✂️', '#ffffff', now);
       else if (ev === 'egg') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '🥚', '#ffffff', now);
       else if (ev === 'milk') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '🥛', '#ffffff', now);
+      else if (ev === 'free') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '자유!', '#ffeb3b', now);
+      else if (ev === 'follow') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '따라가요', '#ffffff', now);
     } else if (ev === 'summon' && f) {
       f.summonT = 0.8;
       this.burst(x, y + 0.6, z, 0xb388ff, 16, now);

@@ -204,6 +204,7 @@ export class Storage {
     this.ensureColumn('players', 'xp_total', 'INTEGER NOT NULL DEFAULT 0');
     this.ensureColumn('players', 'riding_dragon', 'INTEGER');
     this.ensureColumn('players', 'equipment', 'TEXT');
+    this.ensureColumn('animals', 'free', 'INTEGER NOT NULL DEFAULT 0'); // 풀어놓은 펫 (#174)
     // 동물 (M8-1 3차): 양털 다시 자라는 시각, 품은 달걀 수, 마지막 달걀 시각
     this.ensureColumn('animals', 'wool_at', 'INTEGER NOT NULL DEFAULT 0');
     this.ensureColumn('animals', 'eggs', 'INTEGER NOT NULL DEFAULT 0');
@@ -233,9 +234,9 @@ export class Storage {
       listBuildings: this.db.prepare('SELECT id FROM buildings WHERE village = ? ORDER BY built_at'),
       addBuilding: this.db.prepare('INSERT OR IGNORE INTO buildings(village, id, built_at) VALUES (?, ?, ?)'),
       addRaid: this.db.prepare('INSERT INTO raids(village, started_at, won, wave) VALUES (?, ?, ?, ?)'),
-      listAnimals: this.db.prepare('SELECT id, kind, x, y, z, born_at AS bornAt, adult_at AS adultAt, owner, sitting, home_x AS homeX, home_z AS homeZ, wool_at AS woolAt, eggs, last_egg_at AS lastEggAt, name FROM animals WHERE village = ? ORDER BY id'),
-      insertAnimal: this.db.prepare('INSERT INTO animals(village, kind, x, y, z, born_at, adult_at, owner, sitting, home_x, home_z, wool_at, eggs, last_egg_at, name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'),
-      updateAnimal: this.db.prepare('UPDATE animals SET x = ?, y = ?, z = ?, adult_at = ?, owner = ?, sitting = ?, home_x = ?, home_z = ?, wool_at = ?, eggs = ?, last_egg_at = ?, name = ? WHERE id = ?'),
+      listAnimals: this.db.prepare('SELECT id, kind, x, y, z, born_at AS bornAt, adult_at AS adultAt, owner, sitting, free, home_x AS homeX, home_z AS homeZ, wool_at AS woolAt, eggs, last_egg_at AS lastEggAt, name FROM animals WHERE village = ? ORDER BY id'),
+      insertAnimal: this.db.prepare('INSERT INTO animals(village, kind, x, y, z, born_at, adult_at, owner, sitting, free, home_x, home_z, wool_at, eggs, last_egg_at, name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+      updateAnimal: this.db.prepare('UPDATE animals SET x = ?, y = ?, z = ?, adult_at = ?, owner = ?, sitting = ?, free = ?, home_x = ?, home_z = ?, wool_at = ?, eggs = ?, last_egg_at = ?, name = ? WHERE id = ?'),
       deleteAnimal: this.db.prepare('DELETE FROM animals WHERE id = ?'),
       countRaidsSince: this.db.prepare('SELECT COUNT(*) AS n FROM raids WHERE village = ? AND started_at >= ?'),
       lastRaid: this.db.prepare('SELECT won, wave, started_at AS startedAt FROM raids WHERE village = ? ORDER BY started_at DESC LIMIT 1'),
@@ -409,13 +410,13 @@ export class Storage {
   }
   /** 마을 동물 (M8-1) */
   listAnimals(code: string): AnimalRow[] {
-    return (this.stmts.listAnimals.all(code) as (Omit<AnimalRow, 'sitting'> & { sitting: number })[]).map((r) => ({ ...r, kind: r.kind as AnimalRow['kind'], sitting: r.sitting === 1 }));
+    return (this.stmts.listAnimals.all(code) as (Omit<AnimalRow, 'sitting' | 'free'> & { sitting: number; free: number })[]).map((r) => ({ ...r, kind: r.kind as AnimalRow['kind'], sitting: r.sitting === 1, free: r.free === 1 }));
   }
   insertAnimal(code: string, r: Omit<AnimalRow, 'id'>): number {
-    return Number(this.stmts.insertAnimal.run(code, r.kind, r.x, r.y, r.z, r.bornAt, r.adultAt, r.owner, r.sitting ? 1 : 0, r.homeX, r.homeZ, r.woolAt, r.eggs, r.lastEggAt, r.name).lastInsertRowid);
+    return Number(this.stmts.insertAnimal.run(code, r.kind, r.x, r.y, r.z, r.bornAt, r.adultAt, r.owner, r.sitting ? 1 : 0, r.free ? 1 : 0, r.homeX, r.homeZ, r.woolAt, r.eggs, r.lastEggAt, r.name).lastInsertRowid);
   }
   updateAnimal(r: AnimalRow): void {
-    this.stmts.updateAnimal.run(r.x, r.y, r.z, r.adultAt, r.owner, r.sitting ? 1 : 0, r.homeX, r.homeZ, r.woolAt, r.eggs, r.lastEggAt, r.name, r.id);
+    this.stmts.updateAnimal.run(r.x, r.y, r.z, r.adultAt, r.owner, r.sitting ? 1 : 0, r.free ? 1 : 0, r.homeX, r.homeZ, r.woolAt, r.eggs, r.lastEggAt, r.name, r.id);
   }
   deleteAnimal(id: number): void {
     this.stmts.deleteAnimal.run(id);

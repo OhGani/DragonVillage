@@ -487,7 +487,9 @@ export type ClientJson =
   /** 🛡️ 막기 (#118): 누르는 동안 true, 놓으면 false. 방패를 끼고 있어야 한다 */
   | { t: 'guard'; on: boolean }
   /** 내 펫 이름 짓기 (M8-1 4차): pet-names.json 의 이름만 */
-  | { t: 'nameMob'; id: number; name: string };
+  | { t: 'nameMob'; id: number; name: string }
+  /** 내 펫 전부 부르기 (#174) */
+  | { t: 'callPets' };
 
 export type ServerJson =
   | { t: 'hello'; token: string; protocol: number }
@@ -560,7 +562,7 @@ export type ServerJson =
   /** 누가 🛡️ 막기를 켜고 껐다 (#144) — 다른 사람 인형이 방패를 올린다 */
   | { t: 'guard'; idx: number; on: boolean }
   /** 펫 목록 (M8-1 4차): 길들인 동물의 이름과 내 것인지. 들어올 때와 바뀔 때 (받는 사람마다 mine 이 다르다) */
-  | { t: 'pets'; list: { id: number; name: string | null; mine: boolean }[] }
+  | { t: 'pets'; list: { id: number; name: string | null; mine: boolean; mode?: 'follow' | 'sit' | 'free' }[] }
   /** 원정에 따라온 펫 (#145): 원정 세계 사람들에게. 클라가 주인을 따라다니게 그린다 (서버 목록엔 없다) */
   | { t: 'companions'; list: { id: number; kind: number; name: string | null; owner: number }[] }
   /** 몹(스켈레톤·약탈자)이 쏜 화살: from(몹) → to(사람 가슴) (M8-2 3차) */
@@ -587,7 +589,7 @@ export type ServerJson =
   | { t: 'orbGone'; id: number; by: number }
   /** 몹 사건 (M7-2): 생김·맞음·죽음·폭발 */
   /** 몹 사건. wake·summon 은 보스(M7-4) */
-  | { t: 'mob'; ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'grow' | 'shear' | 'egg' | 'milk'; id: number; mob: string; x: number; y: number; z: number; dmg?: number }
+  | { t: 'mob'; ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk'; id: number; mob: string; x: number; y: number; z: number; dmg?: number }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }

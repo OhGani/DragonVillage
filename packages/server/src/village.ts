@@ -1527,6 +1527,15 @@ export class VillageRoom {
     this.broadcast(encodeMobsState(list), -1, 'village');
   }
 
+  /** 내 펫 전부 부르기 (#174). 부른 수 */
+  callPets(idx: number): number {
+    const p = this.players.get(idx);
+    if (!p || p.world !== 'village') return 0;
+    const n = this.animals.callPets(p.token, { x: p.pos.x, y: p.pos.y, z: p.pos.z });
+    if (n > 0) this.broadcastPets();
+    return n;
+  }
+
   /** 펫 이름 짓기 (#109). 오류는 세션이 한국어로 */
   nameMob(idx: number, mobId: number, name: string): string | null {
     const p = this.players.get(idx);

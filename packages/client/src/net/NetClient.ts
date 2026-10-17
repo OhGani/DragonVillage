@@ -162,7 +162,7 @@ export interface NetEvents {
   /** 내 드래곤이 쓰러졌다 (#113) */
   onDragonDown(m: { id: number; dragon: string; restUntil: number }): void;
   /** 펫 목록·이름 (#109) */
-  onPets(list: { id: number; name: string | null; mine: boolean }[]): void;
+  onPets(list: { id: number; name: string | null; mine: boolean; mode?: 'follow' | 'sit' | 'free' }[]): void;
   /** 원정에 따라온 펫 (#145) */
   onCompanions(list: { id: number; kind: number; name: string | null; owner: number }[]): void;
   /** 엔딩 포탈이 열렸다 (#170) */
@@ -190,7 +190,7 @@ export interface NetEvents {
   onOrbGone(id: number, by: number): void;
   /** 원정 몹 상태 (20Hz, M7-2) */
   onMobs(list: MobEntry[]): void;
-  onMobEvent(m: { ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'grow' | 'shear' | 'egg' | 'milk'; id: number; mob: string; x: number; y: number; z: number; dmg?: number }): void;
+  onMobEvent(m: { ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk'; id: number; mob: string; x: number; y: number; z: number; dmg?: number }): void;
   onDismount(idx: number): void;
 }
 
@@ -412,6 +412,10 @@ export class NetClient {
   /** 펫 이름 짓기 (#109) */
   sendNameMob(id: number, name: string): void {
     this.sendJson({ t: 'nameMob', id, name });
+  }
+  /** 내 펫 전부 부르기 (#174) */
+  sendCallPets(): void {
+    this.sendJson({ t: 'callPets' });
   }
   /** 장비 (M8-2) */
   sendEquip(slot: number): void {

@@ -405,6 +405,52 @@ describe('마을 동물 (M8-1)', () => {
     expect([...again.animals.animals.values()].filter((an) => an.name === BLACKSMITH_NAME)).toHaveLength(1);
   });
 
+  it('펫 모드·부르기 (#174): 빈손 탭은 따라오기 → 앉기 → 풀어놓기 → 따라오기, 풀어놓으면 안 따라오고, 🐾 부르기로 옆에 오며, 따라오는 펫끼리 안 겹친다', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    const dogs = [...room.animals.animals.values()].filter((an) => an.kind === 'dog').slice(0, 2);
+    expect(dogs).toHaveLength(2);
+    for (const d of dogs) {
+      d.owner = p.token;
+      d.x = p.pos.x + 1;
+      d.z = p.pos.z;
+      d.y = p.pos.y;
+    }
+    const [d1, d2] = dogs as [typeof dogs[0], typeof dogs[0]];
+    const id1 = ANIMAL_ID_BASE + d1.id;
+    // 모드 돌기
+    expect(room.useMob(ra.idx, id1, undefined, T0 + 100)).toBeNull();
+    expect(d1.sitting).toBe(true);
+    expect(room.useMob(ra.idx, id1, undefined, T0 + 200)).toBeNull();
+    expect([d1.sitting, d1.free]).toEqual([false, true]);
+    expect(room.animals.petsFor(p.token).find((x) => x.id === id1)!.mode).toBe('free');
+    // 주인이 멀리 가도 풀어놓은 개는 안 따라오고, 따라오는 개는 온다
+    room.onMove(ra.idx, { x: 84.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0 + 300);
+    for (let t = T0 + 400; t < T0 + 12_000; t += 200) room.tick(t);
+    expect(Math.hypot(d1.x - 84.5, d1.z - 64.5)).toBeGreaterThan(8);
+    expect(Math.hypot(d2.x - 84.5, d2.z - 64.5)).toBeLessThan(4);
+    // 부르기: 둘 다 옆으로, 따라오기 모드로
+    expect(room.callPets(ra.idx)).toBe(2);
+    expect([d1.free, d1.sitting]).toEqual([false, false]);
+    expect(Math.hypot(d1.x - 84.5, d1.z - 64.5)).toBeLessThan(3);
+    expect(a.json.some((m) => m.t === 'mob' && m.ev === 'follow')).toBe(true);
+    // 따라오는 둘은 서로 겹치지 않는다
+    for (let t = T0 + 12_000; t < T0 + 20_000; t += 200) room.tick(t);
+    expect(Math.hypot(d1.x - d2.x, d1.z - d2.z)).toBeGreaterThan(0.8);
+    expect(room.useMob(ra.idx, id1, undefined, T0 + 20_100)).toBeNull();
+    expect(d1.sitting).toBe(true);
+    // 저장: free 가 남는다
+    d1.sitting = false;
+    d1.free = true;
+    d1.dirty = true;
+    room.flush(T0 + 21_000);
+    expect(storage.listAnimals('123456').find((r) => r.id === d1.id)!.free).toBe(true);
+  });
+
   it('펫 이름 (#109): 주인만, 목록의 이름만. pets 는 받는 사람마다 mine 이 다르고 저장된다', () => {
     const storage = new Storage(':memory:');
     const room = makeRoom(storage);

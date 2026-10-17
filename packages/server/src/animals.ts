@@ -64,6 +64,8 @@ export interface AnimalRow {
   /** 길들인 주인 토큰 */
   owner: string | null;
   sitting: boolean;
+  /** 풀어놓은 펫 (#174): 주인을 안 따라오고 집(풀어놓은 자리) 둘레를 산책한다 */
+  free: boolean;
   homeX: number;
   homeZ: number;
   /** 양털이 다시 자라는 시각 (0 = 털 있음) */
@@ -217,6 +219,58 @@ export class AnimalSystem {
     return made;
   }
 
+  /** 서로 밀어내기 (#174): 0.9칸보다 가까운 둘은 살짝 떨어뜨린다 (앉은 것·탄 말·원정 간 것은 빼고). 밀린 자리에 땅이 없으면 그대로 */
+  private separate(): void {
+    const list = [...this.animals.values()].filter((a) => !a.away && a.ridden === null && !a.sitting);
+    for (let i = 0; i < list.length; i++)
+      for (let j = i + 1; j < list.length; j++) {
+        const a = list[i]!,
+          b = list[j]!;
+        const dx = b.x - a.x,
+          dz = b.z - a.z;
+        const d = Math.hypot(dx, dz);
+        if (d >= 0.9 || Math.abs(a.y - b.y) > 1.5) continue;
+        const push = (0.9 - d) / 2;
+        const ux = d > 0.01 ? dx / d : Math.cos(a.id * 1.7),
+          uz = d > 0.01 ? dz / d : Math.sin(a.id * 1.7);
+        for (const [c, sgn] of [
+          [a, -1],
+          [b, 1],
+        ] as const) {
+          const nx = c.x + ux * push * sgn,
+            nz = c.z + uz * push * sgn;
+          const gy = this.groundAt(nx, nz, c.y);
+          if (gy !== null && Math.abs(gy - c.y) <= 1) {
+            c.x = nx;
+            c.z = nz;
+            c.y = gy;
+            c.dirty = true;
+          }
+        }
+      }
+  }
+
+  /** 내 펫 전부 부르기 (#174): 앉은 것·풀어놓은 것도 따라오기로 바꾸고 옆에 세운다. 탄 말·원정 간 것은 빼고. 부른 수 */
+  callPets(token: string, at: { x: number; y: number; z: number }): number {
+    const mine = [...this.animals.values()].filter((a) => a.owner === token && !a.away && a.ridden === null);
+    mine.forEach((a, i) => {
+      a.sitting = false;
+      a.free = false;
+      a.target = null;
+      const ang = (i / Math.max(1, mine.length)) * Math.PI * 2 + 0.8;
+      const nx = at.x + Math.cos(ang) * 2,
+        nz = at.z + Math.sin(ang) * 2;
+      a.x = nx;
+      a.z = nz;
+      a.y = this.groundAt(nx, nz, at.y) ?? at.y;
+      a.homeX = nx;
+      a.homeZ = nz;
+      a.dirty = true;
+      this.hooks.json({ t: 'mob', ev: 'follow', id: ANIMAL_ID_BASE + a.id, mob: a.kind, x: a.x, y: a.y, z: a.z });
+    });
+    return mine.length;
+  }
+
   /** 집 주민 수 (대장장이는 빼고, #173) */
   houseVillagerCount(): number {
     let n = 0;
@@ -249,7 +303,8 @@ export class AnimalSystem {
     return made;
   }
 
-  private add(row: Omit<AnimalRow, 'id'>, now: number): Animal {
+  private add(row0: Omit<AnimalRow, 'id' | 'free'> & { free?: boolean }, now: number): Animal {
+    const row: Omit<AnimalRow, 'id'> = { ...row0, free: row0.free ?? false };
     const id = this.store ? this.store.insertAnimal(this.code, row) : this.tempId--;
     const a = this.wrap({ ...row, id });
     this.animals.set(id, a);
@@ -288,6 +343,7 @@ export class AnimalSystem {
     this.lastStepAt = now;
     const players = this.hooks.players();
     for (const a of [...this.animals.values()]) if (!a.away && a.ridden === null) this.step(a, players, dt, now);
+    this.separate();
     // 야생이 목표보다 줄면 다시 생긴다 (10분마다, 가장 모자란 종류를 둘씩 무리로) (#106)
     if (this.lastRespawnAt > now) this.lastRespawnAt = now; // 시계가 거꾸로면(테스트·시간 조정) 지금부터
     if (now - this.lastRespawnAt >= RESPAWN_EVERY_MS && this.animals.size < ANIMALS_MAX) {
@@ -345,10 +401,15 @@ export class AnimalSystem {
     }
     // 목표: 주인 > 먹이 든 사람 > 산책
     let goal: { x: number; z: number; stop: number } | null = null;
-    if (a.owner !== null) {
+    if (a.owner !== null && !a.free) {
       const owner = players.find((p) => p.token === a.owner);
       if (owner) {
         const d = Math.hypot(owner.x - a.x, owner.z - a.z);
+        // 펫마다 주인 둘레 자기 자리 (#174, 아빠 "펫끼리 안 겹치게"): 따라오는 펫을 번호 순으로 둥글게
+        const mates = [...this.animals.values()].filter((b) => b.owner === a.owner && !b.sitting && !b.free && !b.away && b.ridden === null).sort((p, q) => p.id - q.id);
+        const slot = Math.max(0, mates.indexOf(a));
+        const ang = (slot / Math.max(1, mates.length)) * Math.PI * 2 + 0.8;
+        const spot = { x: owner.x + Math.cos(ang) * (PET_FOLLOW_STOP + 0.6), z: owner.z + Math.sin(ang) * (PET_FOLLOW_STOP + 0.6) };
         if (d > PET_TELEPORT_RANGE) {
           for (let k = 0; k < 8; k++) {
             const ang = (k / 8) * Math.PI * 2;
@@ -363,7 +424,7 @@ export class AnimalSystem {
             a.dirty = true;
             break;
           }
-        } else if (d > PET_FOLLOW_STOP) goal = { x: owner.x, z: owner.z, stop: PET_FOLLOW_STOP };
+        } else if (Math.hypot(spot.x - a.x, spot.z - a.z) > 0.9) goal = { x: spot.x, z: spot.z, stop: 0.4 };
       }
     }
     if (!goal) {
@@ -542,10 +603,22 @@ export class AnimalSystem {
       return null;
     }
     if (a.owner === p.token && !held) {
-      a.sitting = !a.sitting;
+      // 빈손 탭은 세 가지를 돈다 (#174): 따라오기 → 앉기 → 풀어놓기(그 자리 둘레 산책) → 따라오기
       a.target = null;
       a.dirty = true;
-      this.hooks.json({ t: 'mob', ev: 'sit', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
+      if (!a.sitting && !a.free) {
+        a.sitting = true;
+        this.hooks.json({ t: 'mob', ev: 'sit', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
+      } else if (a.sitting) {
+        a.sitting = false;
+        a.free = true;
+        a.homeX = a.x;
+        a.homeZ = a.z;
+        this.hooks.json({ t: 'mob', ev: 'free', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
+      } else {
+        a.free = false;
+        this.hooks.json({ t: 'mob', ev: 'follow', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
+      }
       return null;
     }
     return 'NOT_FOOD';
@@ -667,9 +740,9 @@ export class AnimalSystem {
     return out;
   }
 
-  petsFor(token: string): { id: number; name: string | null; mine: boolean }[] {
-    const out: { id: number; name: string | null; mine: boolean }[] = [];
-    for (const a of this.animals.values()) if (a.owner !== null || (a.kind === 'villager' && a.name)) out.push({ id: ANIMAL_ID_BASE + a.id, name: a.name, mine: a.owner === token }); // 이름 있는 주민(대장장이)도 이름표를 위해 (#173)
+  petsFor(token: string): { id: number; name: string | null; mine: boolean; mode: 'follow' | 'sit' | 'free' }[] {
+    const out: { id: number; name: string | null; mine: boolean; mode: 'follow' | 'sit' | 'free' }[] = [];
+    for (const a of this.animals.values()) if (a.owner !== null || (a.kind === 'villager' && a.name)) out.push({ id: ANIMAL_ID_BASE + a.id, name: a.name, mine: a.owner === token, mode: a.sitting ? 'sit' : a.free ? 'free' : 'follow' }); // 이름 있는 주민(대장장이)도 이름표를 위해 (#173)
     return out;
   }
 
@@ -679,7 +752,7 @@ export class AnimalSystem {
     for (const a of this.animals.values()) {
       if (!a.dirty) continue;
       a.dirty = false;
-      this.store.updateAnimal({ id: a.id, kind: a.kind, x: a.x, y: a.y, z: a.z, bornAt: a.bornAt, adultAt: a.adultAt, owner: a.owner, sitting: a.sitting, homeX: a.homeX, homeZ: a.homeZ, woolAt: a.woolAt, eggs: a.eggs, lastEggAt: a.lastEggAt, name: a.name });
+      this.store.updateAnimal({ id: a.id, kind: a.kind, x: a.x, y: a.y, z: a.z, bornAt: a.bornAt, adultAt: a.adultAt, owner: a.owner, sitting: a.sitting, free: a.free, homeX: a.homeX, homeZ: a.homeZ, woolAt: a.woolAt, eggs: a.eggs, lastEggAt: a.lastEggAt, name: a.name });
     }
   }
 }
