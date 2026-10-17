@@ -39,6 +39,9 @@ export interface InteractionEvents {
 }
 
 /** 조준·부수기·놓기. 서버가 생기면(M2) setBlock 이 요청으로 바뀌고 나머지는 그대로. */
+/** 꽃·풀을 심을 수 있는 바닥 (#180) */
+export const PLANT_GROUND = new Set(['grass', 'dirt', 'farmland']);
+
 export class Interaction {
   target: RayHit | null = null;
   /** 0..1 부수기 진행 */
@@ -274,6 +277,14 @@ export class Interaction {
       return;
     }
     if (def.solid && bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y, z)) return; // 내 몸 안에는 못 놓는다
+    // 꽃·풀 (#180): 잔디·흙·농지 위에만
+    if (def.shape === 'cross') {
+      const below = this.world.inBounds(x, y - 1, z) ? this.registry.get(this.world.getBlock(x, y - 1, z)).id : '';
+      if (!PLANT_GROUND.has(below)) {
+        this.events.onHint?.(`🌼 ${def.name}은(는) 잔디나 흙 위에만 심을 수 있어요`);
+        return;
+      }
+    }
     // 물·용암은 양동이 하나만큼(8/8)의 고인 액체로 놓는다 — 사방으로 퍼지되 양만큼만 (결정 #65)
     const blockNum = def.fluid ? this.registry.fluidFinite(def.fluidSource, FLUID_FULL) : this.selectedBlock;
     const res = this.world.setBlock(x, y, z, blockNum);

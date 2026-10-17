@@ -1852,6 +1852,11 @@ export class VillageRoom {
       const below = world.inBounds(x, y - 1, z) ? this.registry.get(world.getBlock(x, y - 1, z)).id : '';
       if (below !== 'farmland') return REJECT.NO_FARMLAND;
     }
+    if (def.shape === 'cross') {
+      // 꽃·풀 (#180): 잔디·흙·농지 위에만 (클라가 먼저 안내하고, 서버는 조용히 되돌린다)
+      const below = world.inBounds(x, y - 1, z) ? this.registry.get(world.getBlock(x, y - 1, z)).id : '';
+      if (below !== 'grass' && below !== 'dirt' && below !== 'farmland') return REJECT.NO_FARMLAND;
+    }
     const item = itemForPlacing(def.id, this.registry);
     if (!item || countOf(p.inv, item) < 1) return REJECT.NO_ITEM;
     if (cur.num !== AIR_ID && !cur.fluid) return REJECT.OCCUPIED; // 횃불·꽃 같은 비고체 블록도 덮어쓰지 않는다(아이템이 사라지니까)

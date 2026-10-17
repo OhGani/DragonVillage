@@ -573,22 +573,55 @@
       "_note": "16색 염색 가능. 텍스처는 wool_<color>"
     },
     {
-      "id": "flower",
-      "name": "꽃",
+      "id": "dandelion",
+      "name": "민들레",
       "hardness": 0.0,
       "tool": null,
       "solid": false,
       "lightEmit": 0,
-      "texture": "flower",
-      "variants": [
-        "poppy",
-        "dandelion",
-        "cornflower",
-        "allium",
-        "tulip_pink",
-        "oxeye_daisy"
-      ],
-      "_note": "부수면 색 염료 3개"
+      "shape": "cross",
+      "texture": "dandelion",
+      "_note": "꽃 (#180, 아들 그림 2026-10-17): shape cross = 십자 판 두 장으로 서 있는 풀. 잔디·흙 위에만 놓을 수 있고 가방 2×2 칸에 두면 염료 3개. 초원 섬과 마을 새 땅에 저절로 핀다"
+    },
+    {
+      "id": "rose_bush",
+      "name": "장미",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "shape": "cross",
+      "texture": "rose_bush"
+    },
+    {
+      "id": "peony",
+      "name": "작약",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "shape": "cross",
+      "texture": "peony"
+    },
+    {
+      "id": "tulip_pink",
+      "name": "분홍 튤립",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "shape": "cross",
+      "texture": "tulip_pink"
+    },
+    {
+      "id": "blue_orchid",
+      "name": "파란 난초",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "shape": "cross",
+      "texture": "blue_orchid"
     },
     {
       "id": "rail",

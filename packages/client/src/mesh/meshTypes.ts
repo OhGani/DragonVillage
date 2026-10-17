@@ -25,6 +25,8 @@ export interface MeshBlockInfo {
   torch: number | null;
   /** 드래곤 알(#85): 위로 갈수록 좁아지는 상자 여섯 층으로 그린다 */
   egg: boolean;
+  /** 꽃·풀(#180, shape 'cross'): 칸 대각선에 선 판 두 장(양면)으로 그린다 */
+  cross: boolean;
 }
 
 export interface MeshBuffers {

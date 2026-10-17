@@ -22,7 +22,7 @@ import { createNoise2D, createNoise3D } from 'simplex-noise';
 import { CHUNK_SIZE, CHUNK_VOLUME, localIndex } from '../chunk/chunk';
 import { VoxelWorld, type WorldBounds } from '../chunk/world';
 import { hash3, mulberry32 } from '../math/prng';
-import { AIR_ID, type BlockRegistry } from '../rules/blocks';
+import { AIR_ID, type BlockRegistry, FLOWER_IDS } from '../rules/blocks';
 
 export const VILLAGE_BOUNDS: WorldBounds = { sizeCX: 16, sizeCY: 8, sizeCZ: 16 };
 /** 확장 전 크기 (옛 땅이 그대로인지 검사할 때) */
@@ -127,6 +127,7 @@ export function generateVillage(registry: BlockRegistry, seed = DEFAULT_VILLAGE_
     hay = B('hay_bale'),
     pumpkin = B('pumpkin'),
     melon = B('melon'),
+    flowers = FLOWER_IDS.map(B),
     coal = B('coal_ore'),
     iron = B('iron_ore'),
     gold = B('gold_ore'),
@@ -392,6 +393,11 @@ export function generateVillage(registry: BlockRegistry, seed = DEFAULT_VILLAGE_
       if (Math.abs(x - CENTER) <= 1 || Math.abs(z - CENTER) <= 1) continue; // 길
       // 옛 세계 끝(128) 둘레 4칸 띠엔 나무를 안 심는다 (#100): 예전엔 끝 두 칸에 나무가 없었고, 새 땅 나무의 잎이 옛 땅으로 넘어오면 안 된다
       if ((x >= OLD_SIZE - 2 && x < OLD_SIZE + 2) || (z >= OLD_SIZE - 2 && z < OLD_SIZE + 2)) continue;
+      // 꽃 (#180): 새 땅(옛 128 바깥) 잔디 3% — 옛 땅은 지문을 지키려 안 건드린다(#100). 옛 땅엔 섬에서 가져와 심는다
+      if ((x >= OLD_SIZE + 2 || z >= OLD_SIZE + 2) && hash3(x, 9, z, seed) < 0.03) {
+        set(x, c.h + 1, z, flowers[Math.floor(hash3(x, 7, z, seed) * flowers.length)]!);
+        continue;
+      }
       const p = (0.012 + 0.1 * smoothstep(40, 60, dist)) * (1 - 0.85 * smoothstep(FAR_LAND_R, FAR_LAND_R + 30, dist)); // 새 땅은 드문 나무
       if (hash3(x, 1, z, seed) >= p || nearTrunk(x, z)) continue;
       trunks.add(x * SIZE + z);

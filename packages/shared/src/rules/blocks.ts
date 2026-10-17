@@ -47,6 +47,9 @@ const RawBlock = z.object({
   growsWhenOpen: z.boolean().optional(),
 });
 
+/** 꽃 5종 (#180, 아들 그림): 생성기가 잔디 위에 흩뿌리고, 가방 2×2 칸에서 염료가 된다 */
+export const FLOWER_IDS = ['dandelion', 'rose_bush', 'peony', 'tulip_pink', 'blue_orchid'] as const;
+
 export type FluidKind = 'water' | 'lava';
 /** 흐르는 액체 단계 수 (원천 0 + 1..7) */
 export const MAX_FLUID_LEVEL = 7;

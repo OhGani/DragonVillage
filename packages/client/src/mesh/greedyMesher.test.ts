@@ -14,6 +14,7 @@ const registry = parseBlocks({
     { id: 'oak_door', name: '문', hardness: 3, transparent: true, textureTop: 'door_top', textureSide: 'door_bottom', textureBottom: 'door_bottom', shape: 'door' },
     { id: 'torch', name: '횃불', hardness: 0, solid: false, transparent: true, lightEmit: 14, shape: 'torch', texture: 'torch' },
     { id: 'dragon_egg', name: '드래곤 알', transparent: true, lightEmit: 4, shape: 'egg', texture: 'dragon_egg' },
+    { id: 'dandelion', name: '민들레', hardness: 0, solid: false, shape: 'cross', texture: 'dandelion' },
   ],
 });
 const texIndex = new Map([
@@ -28,6 +29,7 @@ const texIndex = new Map([
   ['door_bottom', 8],
   ['torch', 9],
   ['dragon_egg', 10],
+  ['dandelion', 11],
 ]);
 const info = buildMeshBlockInfo(registry, texIndex);
 const STONE = registry.numOf('stone');
@@ -39,6 +41,7 @@ const DOOR_N_OPEN_UP = registry.doorVariant(registry.numOf('oak_door'), 0, true,
 const TORCH = registry.numOf('torch');
 const TORCH_WALL_N = registry.torchVariant(TORCH, 0);
 const EGG = registry.numOf('dragon_egg');
+const FLOWER = registry.numOf('dandelion');
 
 function padded(fill: (x: number, y: number, z: number) => number): Uint16Array {
   const arr = new Uint16Array(PADDED_VOLUME);
@@ -320,6 +323,28 @@ describe('문 판 (#71)', () => {
       info,
     );
     expect(quadCount(s.opaque)).toBe(12);
+  });
+});
+
+describe('꽃·풀 (#180)', () => {
+  it('십자 판 두 장 양면 = 4면, 칸 안 대각선에 서고 높이 1, 텍스처 v 는 바닥 0 → 위 1', () => {
+    const m = greedyMesh(padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? FLOWER : 0)), info).opaque!;
+    expect(m.indexCount / 6).toBe(4);
+    const ys: number[] = [];
+    for (let i = 0; i < m.vertexCount; i++) {
+      ys.push(m.positions[i * 3 + 1]!);
+      expect(m.positions[i * 3]!).toBeGreaterThanOrEqual(5);
+      expect(m.positions[i * 3]!).toBeLessThanOrEqual(6);
+      expect(m.meta[i * 4]).toBe(11); // 텍스처 레이어
+      expect(m.uvs[i * 2 + 1]).toBe(m.positions[i * 3 + 1]! - 5); // v = 높이
+    }
+    expect(Math.min(...ys)).toBe(5);
+    expect(Math.max(...ys)).toBe(6);
+  });
+  it('꽃 밑의 잔디 윗면은 그대로 그려진다 (꽃은 면을 가리지 않는다)', () => {
+    const withFlower = greedyMesh(padded((x, y, z) => (y < 5 ? GRASS : x === 5 && y === 5 && z === 5 ? FLOWER : 0)), info).opaque!;
+    const bare = greedyMesh(padded((_x, y) => (y < 5 ? GRASS : 0)), info).opaque!;
+    expect(withFlower.indexCount).toBe(bare.indexCount + 4 * 6);
   });
 });
 

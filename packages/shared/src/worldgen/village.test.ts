@@ -7,7 +7,7 @@ import { VoxelWorld } from '../chunk/world';
 import { DEFAULT_VILLAGE_SEED, GROUND_Y, VILLAGE_BOUNDS, VILLAGE_OLD_SIZE_CHUNKS, WATER_Y, generateVillage } from './village';
 
 /** 생성기를 바꾸면 갱신. (chunks 수, 지문) */
-const SNAPSHOT = '1000:14e17dbc:2952161';
+const SNAPSHOT = '1000:a2c3e734:2952057'; // #180 꽃 (새 땅만)
 /** 확장 전(128×128) 세계의 지문 — 옛 땅은 이 값과 영원히 같아야 한다 (#100). 바뀌면 지은 것이 깨진다 */
 const OLD_SNAPSHOT = '240:ccbdf4e1:743090';
 

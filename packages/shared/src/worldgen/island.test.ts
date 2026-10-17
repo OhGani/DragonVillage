@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { AIR_ID } from '../rules/blocks';
+import { AIR_ID, FLOWER_IDS } from '../rules/blocks';
 import { BLOCKS } from '../rules/data';
 import { fingerprint } from './fingerprint';
 import { ISLAND_BOUNDS, SEA_Y, generateIsland } from './island';
 
 const SEED = 777;
 /** 생성기를 바꾸면 갱신. (chunks 수, 지문) */
-const SNAPSHOT = '875:b4fc9559:2826021';
+const SNAPSHOT = '875:845786ba:2826496'; // #180 꽃
 
 const gen = generateIsland(BLOCKS, SEED, 3);
 const { world, spawn, layout } = gen;
@@ -102,6 +102,8 @@ describe('generateIsland 배치', () => {
     expect(count.water).toBeGreaterThan(20000);
     expect(count.gold_ore ?? 0).toBe(0); // 금·다이아는 동굴 원정지
     expect((count.pumpkin ?? 0) + (count.melon ?? 0)).toBeGreaterThan(5);
+    expect(FLOWER_IDS.reduce((n, id) => n + (count[id] ?? 0), 0)).toBeGreaterThan(80); // 꽃 (#180): 잔디 2%
+    for (const id of FLOWER_IDS) expect(count[id] ?? 0, id).toBeGreaterThan(5); // 다섯 종 다 핀다
   });
 
   it('생성 시간을 기록한다 (2코어 VM 목표 1.5s 미만)', () => {

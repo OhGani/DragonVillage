@@ -26,6 +26,8 @@ const TORCH_TEX_U = 7 / 16;
 const TORCH_WALL_OFF = 7 / 16;
 /** 벽 횃불이 붙는 높이 */
 const TORCH_WALL_Y = 3 / 16;
+/** 꽃·풀 판의 반폭 (#180): 대각선이 칸을 꽉 채우면 너무 커 보여 마인크래프트처럼 조금 안쪽으로 */
+export const PLANT_HALF = 0.5 * 0.7071;
 
 /**
  * 드래곤 알 (결정 #85): 마인크래프트 알처럼 위로 갈수록 좁아지는 상자 여섯 층.
@@ -394,6 +396,34 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
   };
 
   /**
+   * 꽃·풀 전용 패스 (#180): 칸의 두 대각선에 선 판(1×1) 두 장, 양면. 텍스처 v 는 높이(바닥 0), u 는 대각선 방향.
+   * 면 번호는 +Y(2)로 둬서 바닥처럼 밝게 — 풀은 그늘 면이 없다. 양면이라 어느 쪽에서 봐도 보인다
+   */
+  const emitPlants = () => {
+    for (let y = 0; y < N; y++)
+      for (let z = 0; z < N; z++)
+        for (let x = 0; x < N; x++) {
+          const bi = info[padded[paddedIndex(x, y, z)]];
+          if (bi === undefined || !bi.cross) continue;
+          const lt = lightOfCell(x, y, z);
+          const layer = bi.tex[0];
+          const put = (a: [number, number], b: [number, number]) => {
+            // a→b 대각선. 네 꼭짓점: a 아래, b 아래, b 위, a 위
+            const c = [
+              [x + a[0], y, z + a[1], 0, 0, 3, lt],
+              [x + b[0], y, z + b[1], 1, 0, 3, lt],
+              [x + b[0], y + 1, z + b[1], 1, 1, 3, lt],
+              [x + a[0], y + 1, z + a[1], 0, 1, 3, lt],
+            ];
+            opaque.quad(c, layer, 2);
+            opaque.quad([c[0]!, c[3]!, c[2]!, c[1]!], layer, 2); // 뒷면
+          };
+          put([0.5 - PLANT_HALF, 0.5 - PLANT_HALF], [0.5 + PLANT_HALF, 0.5 + PLANT_HALF]);
+          put([0.5 - PLANT_HALF, 0.5 + PLANT_HALF], [0.5 + PLANT_HALF, 0.5 - PLANT_HALF]);
+        }
+  };
+
+  /**
    * 알 전용 패스 (#85): 상자 여섯 층. 층끼리 맞닿는 면은 넓은 쪽만 그린다(같은 자리에 두 면이 겹쳐 깜빡이지 않게).
    */
   const emitEggs = () => {
@@ -517,7 +547,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
             kb = 0,
             kfl = 0,
             kbl = 0;
-          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg) {
+          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg && !bi.cross) {
             p[d] = i + 1;
             const idF = padded[paddedIndex(p[0], p[1], p[2])];
             p[d] = i;
@@ -564,6 +594,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
   emitPanels();
   emitTorches();
   emitEggs();
+  emitPlants();
 
   return { opaque: opaque.build(), translucent: trans.build() };
 }

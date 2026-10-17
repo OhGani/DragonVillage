@@ -17,12 +17,12 @@ import { createNoise2D, createNoise3D } from 'simplex-noise';
 import { CHUNK_SIZE, CHUNK_VOLUME, localIndex } from '../chunk/chunk';
 import { VoxelWorld, type WorldBounds } from '../chunk/world';
 import { hash3, mulberry32 } from '../math/prng';
-import { AIR_ID, type BlockRegistry } from '../rules/blocks';
+import { AIR_ID, type BlockRegistry, FLOWER_IDS } from '../rules/blocks';
 import type { SpawnPoint } from './village';
 
 export const ISLAND_BOUNDS: WorldBounds = { sizeCX: 16, sizeCY: 8, sizeCZ: 16 };
 /** 생성기를 고치면 올린다 (클라·서버 버전 불일치 감지) */
-export const ISLAND_GEN_VERSION = 1;
+export const ISLAND_GEN_VERSION = 2; // 2: 꽃 (#180, 2026-10-17)
 /** 수면 */
 export const SEA_Y = 40;
 
@@ -87,6 +87,7 @@ export function generateIsland(registry: BlockRegistry, seed: number, treasures 
     cane = B('sugar_cane'),
     pumpkin = B('pumpkin'),
     melon = B('melon'),
+    flowers = FLOWER_IDS.map(B),
     coal = B('coal_ore'),
     iron = B('iron_ore');
 
@@ -295,6 +296,7 @@ export function generateIsland(registry: BlockRegistry, seed: number, treasures 
           trunks.add(x * SIZE + z);
           treeAt(x, z);
         } else if (r > 0.997) set(x, c.h + 1, z, hash3(x, 4, z, seed) < 0.5 ? pumpkin : melon);
+        else if (r > 0.975) set(x, c.h + 1, z, flowers[Math.floor(hash3(x, 7, z, seed) * flowers.length)]!); // 꽃 (#180): 잔디 2%
       }
       // 사탕수수: 물가 잔디·모래 위 2~3칸
       if ((c.top === grass || c.top === sand) && c.h <= SEA_Y + 2 && nearWater(x, z) && hash3(x, 5, z, seed) < 0.22) {

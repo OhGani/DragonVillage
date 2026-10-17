@@ -1073,16 +1073,60 @@
       "_note": "아들: 거미줄(실) 4개 = 양털 1개. 6차: 가방 2×2 칸에서"
     },
     {
-      "id": "dye_from_flower",
+      "id": "dye_from_dandelion",
       "name": "염료",
       "station": "inventory",
       "in": {
-        "flower": 1
+        "dandelion": 1
       },
       "out": {
         "dye": 3
       },
-      "_note": "가방 2×2 칸에 꽃을 두면 꽃 색깔에 맞는 염료 3개 (아들 6차). 4차에선 '꽃을 부수면'이었는데 6차 방식으로"
+      "_note": "가방 2×2 칸에 꽃을 두면 염료 3개 (아들 6차). 꽃 5종마다 하나씩 (#180)"
+    },
+    {
+      "id": "dye_from_rose_bush",
+      "name": "염료",
+      "station": "inventory",
+      "in": {
+        "rose_bush": 1
+      },
+      "out": {
+        "dye": 3
+      }
+    },
+    {
+      "id": "dye_from_peony",
+      "name": "염료",
+      "station": "inventory",
+      "in": {
+        "peony": 1
+      },
+      "out": {
+        "dye": 3
+      }
+    },
+    {
+      "id": "dye_from_tulip_pink",
+      "name": "염료",
+      "station": "inventory",
+      "in": {
+        "tulip_pink": 1
+      },
+      "out": {
+        "dye": 3
+      }
+    },
+    {
+      "id": "dye_from_blue_orchid",
+      "name": "염료",
+      "station": "inventory",
+      "in": {
+        "blue_orchid": 1
+      },
+      "out": {
+        "dye": 3
+      }
     },
     {
       "id": "dye_wool",

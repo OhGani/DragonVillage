@@ -367,7 +367,9 @@ export function itemIcon(id: string, size: number, registry: BlockRegistry, atla
   if (hit) return cloneCanvas(hit);
   const def = registry.find(id);
   let canvas: HTMLCanvasElement;
-  if (def && def.textures) {
+  if (def && def.textures && def.shape === 'cross' && atlas.images.get(def.textures[0])) {
+    canvas = renderSpriteIcon(atlas.images.get(def.textures[0])!, size); // 꽃·풀 (#180): 정육면체가 아니라 그림 그대로
+  } else if (def && def.textures) {
     const missing = atlas.images.get('missing')!;
     canvas = renderBlockIcon(atlas.images.get(def.textures[0]) ?? missing, atlas.images.get(def.textures[1]) ?? missing, size);
   } else if (atlas.images.get(id)) {
