@@ -222,32 +222,44 @@ export class AnimalSystem {
   /** 서로 밀어내기 (#174): 0.9칸보다 가까운 둘은 살짝 떨어뜨린다 (앉은 것·탄 말·원정 간 것은 빼고). 밀린 자리에 땅이 없으면 그대로 */
   private separate(): void {
     const list = [...this.animals.values()].filter((a) => !a.away && a.ridden === null && !a.sitting);
-    for (let i = 0; i < list.length; i++)
-      for (let j = i + 1; j < list.length; j++) {
-        const a = list[i]!,
-          b = list[j]!;
-        const dx = b.x - a.x,
-          dz = b.z - a.z;
-        const d = Math.hypot(dx, dz);
-        if (d >= 0.9 || Math.abs(a.y - b.y) > 1.5) continue;
-        const push = (0.9 - d) / 2;
-        const ux = d > 0.01 ? dx / d : Math.cos(a.id * 1.7),
-          uz = d > 0.01 ? dz / d : Math.sin(a.id * 1.7);
-        for (const [c, sgn] of [
-          [a, -1],
-          [b, 1],
-        ] as const) {
-          const nx = c.x + ux * push * sgn,
-            nz = c.z + uz * push * sgn;
-          const gy = this.groundAt(nx, nz, c.y);
-          if (gy !== null && Math.abs(gy - c.y) <= 1) {
-            c.x = nx;
-            c.z = nz;
-            c.y = gy;
-            c.dirty = true;
-          }
-        }
+    // 1칸 격자에 넣고 이웃 칸끼리만 본다 (동물 40마리 × 매 틱이라 전부 비교하면 시험이 느려진다)
+    const cell = new Map<string, Animal[]>();
+    for (const a of list) {
+      const k = `${Math.floor(a.x)},${Math.floor(a.z)}`;
+      let bucket = cell.get(k);
+      if (!bucket) {
+        bucket = [];
+        cell.set(k, bucket);
       }
+      bucket.push(a);
+    }
+    for (const a of list)
+      for (let ox = -1; ox <= 1; ox++)
+        for (let oz = -1; oz <= 1; oz++)
+          for (const b of cell.get(`${Math.floor(a.x) + ox},${Math.floor(a.z) + oz}`) ?? []) {
+            if (b.id <= a.id) continue;
+            const dx = b.x - a.x,
+              dz = b.z - a.z;
+            const d = Math.hypot(dx, dz);
+            if (d >= 0.9 || Math.abs(a.y - b.y) > 1.5) continue;
+            const push = (0.9 - d) / 2;
+            const ux = d > 0.01 ? dx / d : Math.cos(a.id * 1.7),
+              uz = d > 0.01 ? dz / d : Math.sin(a.id * 1.7);
+            for (const [c, sgn] of [
+              [a, -1],
+              [b, 1],
+            ] as const) {
+              const nx = c.x + ux * push * sgn,
+                nz = c.z + uz * push * sgn;
+              const gy = this.groundAt(nx, nz, c.y);
+              if (gy !== null && Math.abs(gy - c.y) <= 1) {
+                c.x = nx;
+                c.z = nz;
+                c.y = gy;
+                c.dirty = true;
+              }
+            }
+          }
   }
 
   /** 내 펫 전부 부르기 (#174): 앉은 것·풀어놓은 것도 따라오기로 바꾸고 옆에 세운다. 탄 말·원정 간 것은 빼고. 부른 수 */

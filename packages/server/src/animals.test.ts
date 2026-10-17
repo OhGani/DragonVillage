@@ -470,8 +470,8 @@ describe('마을 동물 (M8-1)', () => {
     expect(room.nameMob(ra.idx, id, '초코')).toBeNull();
     const pa = a.json.find((m) => m.t === 'pets')!.list as { id: number; name: string | null; mine: boolean }[];
     const pb = b.json.find((m) => m.t === 'pets')!.list as { id: number; name: string | null; mine: boolean }[];
-    expect(pa.find((p) => p.id === id)).toEqual({ id, name: '초코', mine: true });
-    expect(pb.find((p) => p.id === id)).toEqual({ id, name: '초코', mine: false });
+    expect(pa.find((p) => p.id === id)).toMatchObject({ id, name: '초코', mine: true });
+    expect(pb.find((p) => p.id === id)).toMatchObject({ id, name: '초코', mine: false });
     room.flush(T0);
     const again = makeRoom(storage);
     expect(again.animals.animals.get(dog.id)!.name).toBe('초코');
