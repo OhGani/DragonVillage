@@ -1622,21 +1622,6 @@
       "_note": "수레+철도 이동. 마을 안 순환선 아이디어"
     },
     {
-      "id": "spear",
-      "name": "창",
-      "station": "forge",
-      "pattern": ["i", "s", "s"],
-      "key": {"i": "iron_ingot", "s": "stick"},
-      "in": {
-        "iron_ingot": 1,
-        "stick": 2
-      },
-      "out": {
-        "spear": 1
-      },
-      "_note": "아들: 창이 있다. 칼보다 사거리 길고 느림. 던지기 가능 여부는 아들에게"
-    },
-    {
       "id": "water_bottle",
       "name": "물병",
       "station": "world",
