@@ -370,6 +370,9 @@ export function itemIcon(id: string, size: number, registry: BlockRegistry, atla
   if (def && def.textures) {
     const missing = atlas.images.get('missing')!;
     canvas = renderBlockIcon(atlas.images.get(def.textures[0]) ?? missing, atlas.images.get(def.textures[1]) ?? missing, size);
+  } else if (atlas.images.get(id)) {
+    // 아이템 이름과 같은 16×16 그림이 textures/ 에 있으면 그대로 (#175, 아들 다이아몬드 그림) — 블록이 아닌 아이템은 이 길이 먼저
+    canvas = renderSpriteIcon(atlas.images.get(id)!, size);
   } else {
     const dpr = Math.min(3, window.devicePixelRatio || 1);
     canvas = document.createElement('canvas');
@@ -380,6 +383,23 @@ export function itemIcon(id: string, size: number, registry: BlockRegistry, atla
   }
   cache.set(key, canvas);
   return cloneCanvas(canvas);
+}
+
+/** 16×16 그림을 그대로 키운 아이콘 (픽셀 뭉개지 않게). 아들이 textures/<아이템>.png 를 넣으면 쓰인다 (#175) */
+function renderSpriteIcon(img: ImageData, size: number): HTMLCanvasElement {
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const src = document.createElement('canvas');
+  src.width = img.width;
+  src.height = img.height;
+  src.getContext('2d')!.putImageData(img, 0, 0);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = Math.round(size * dpr);
+  canvas.style.width = canvas.style.height = `${size}px`;
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  const pad = Math.round(size * dpr * 0.08);
+  ctx.drawImage(src, pad, pad, canvas.width - pad * 2, canvas.height - pad * 2);
+  return canvas;
 }
 
 /** 복사본. 그림 픽셀은 dpr 배지만 화면 크기(css)는 size 로 — 안 그러면 고해상도 화면에서 2배로 커진다 */
