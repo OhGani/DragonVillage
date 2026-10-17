@@ -371,7 +371,10 @@
       "hardness": 1.0,
       "tool": "axe",
       "lightEmit": 0,
-      "texture": "carved_pumpkin"
+      "textureTop": "pumpkin_top",
+      "textureSide": "carved_pumpkin_side",
+      "textureBottom": "pumpkin_top",
+      "_comment": "아들 할로윈 호박 그림(2026-10-17)에서 얼굴 면을 떼어 냈다. 윗면은 호박과 같다"
     },
     {
       "id": "jack_o_lantern",
@@ -387,7 +390,10 @@
       "hardness": 1.0,
       "tool": "axe",
       "lightEmit": 0,
-      "texture": "melon"
+      "textureTop": "melon_top",
+      "textureSide": "melon_side",
+      "textureBottom": "melon_top",
+      "_comment": "아들 입체 그림(2026-10-17)에서 윗면·옆면을 떼어 냈다"
     },
     {
       "id": "iron_block",
