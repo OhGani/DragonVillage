@@ -472,7 +472,7 @@ export function hitDamage(toolTier: number | null): number {
 
 /** 손에 든 도구의 공격력: 검은 tools.json damage(나무 5 · 돌 6 · 철 7 · 금 5 · 다이아 8 · 네더라이트 9, #131), 곡괭이·도끼는 등급으로, 맨손 1 */
 export function attackDamageOf(tool: { kind: string; tier: number; damage: number | null } | null): number {
-  if (tool?.kind === 'sword' && tool.damage !== null) return Math.floor(tool.damage);
+  if ((tool?.kind === 'sword' || tool?.kind === 'spear') && tool.damage !== null) return Math.floor(tool.damage); // 창 (#183)
   return hitDamage(tool ? tool.tier : null);
 }
 

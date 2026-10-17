@@ -164,6 +164,40 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(storage.listPlaced(INFO.code)).toEqual([]);
   });
 
+  it('묘목 (#181): 잔디 위에 심으면 10분 뒤 참나무(줄기 4~6 + 잎)가 되고 모두에게 BlockChanged, 돌 위엔 못 심는다', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    give(p.inv, 'sapling', 2);
+    // 광장 밖 잔디 한 칸 (광장 동쪽 끝 너머)
+    let gx = -1;
+    for (let x = 86; x < 110 && gx < 0; x++) if (BLOCKS.get(room.world.getBlock(x, GROUND_Y, 64)).id === 'grass' && room.world.getBlock(x, GROUND_Y + 1, 64) === 0 && room.world.getBlock(x, GROUND_Y + 2, 64) === 0) gx = x;
+    expect(gx).toBeGreaterThan(0);
+    room.onMove(ra.idx, { x: gx + 0.5, y: GROUND_Y + 1, z: 66.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 1, x: gx, y: GROUND_Y + 1, z: 64, id: 'sapling' }, 1000);
+    expect(rejected(a)).toEqual([]);
+    expect(BLOCKS.get(room.world.getBlock(gx, GROUND_Y + 1, 64)).id).toBe('sapling');
+    expect(room.crops.get(`${gx},${GROUND_Y + 1},64`)).toBe(1000);
+    // 광장 돌 위엔 못 심는다 (잔디·흙·농지만)
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 2, x: 66, y: GROUND_Y + 1, z: 64, id: 'sapling' }, 1100);
+    expect(rejected(a)).toEqual([{ seq: 2, reason: REJECT.NO_FARMLAND }]);
+    // 10분 전엔 묘목, 지나면 줄기 4~6 + 잎
+    room.checkCrops(1000 + 9 * 60_000);
+    expect(BLOCKS.get(room.world.getBlock(gx, GROUND_Y + 1, 64)).id).toBe('sapling');
+    const before = a.bin.length;
+    room.checkCrops(1000 + 10 * 60_000 + 1);
+    let logs = 0;
+    for (let y = GROUND_Y + 1; y <= GROUND_Y + 8; y++) if (BLOCKS.get(room.world.getBlock(gx, y, 64)).id === 'log') logs++;
+    expect(logs).toBeGreaterThanOrEqual(4);
+    expect(logs).toBeLessThanOrEqual(6);
+    expect(BLOCKS.get(room.world.getBlock(gx + 1, GROUND_Y + logs, 64)).id).toBe('leaves');
+    expect(a.bin.length - before).toBeGreaterThan(logs + 10); // 줄기·잎마다 BlockChanged
+    expect(room.crops.size).toBe(0);
+  });
+
   it('농사 (#165): 밀 씨를 들고 농지 위에 심으면 싹, 농지가 아니면 NO_FARMLAND, 8분 뒤 익은 밀, 부수면 밀 + 씨. 저장돼서 다시 켜도 자란다', () => {
     expect(itemToBlock('wheat_seeds', BLOCKS)).toBe(BLOCKS.numOf('wheat_young'));
     expect(itemForPlacing('wheat_young', BLOCKS)).toBe('wheat_seeds');

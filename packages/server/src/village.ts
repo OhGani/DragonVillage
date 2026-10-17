@@ -74,6 +74,9 @@ import {
   encodeXpGained,
   canBreakWith,
   toolOf,
+  oakTreeBlocks,
+  HIT_REACH,
+  hitReachOf,
   type DragonInfo,
   type NestDragonInfo,
   type BlockDef,
@@ -1052,6 +1055,21 @@ export class VillageRoom {
     for (const [key, plantedAt] of [...this.crops]) {
       const [x, y, z] = key.split(',').map(Number) as [number, number, number];
       const cur = this.registry.get(this.world.getBlock(x, y, z));
+      if (cur.grows === 'oak_tree') {
+        // 묘목 → 참나무 (#181): 줄기·잎을 한꺼번에 놓고 모두에게 알린다. 잎은 빈 칸에만
+        if (now - plantedAt < (cur.growMinutes ?? 0) * 60_000) continue;
+        const log = this.registry.require('log'),
+          leaves = this.registry.require('leaves');
+        for (const b of oakTreeBlocks({ x, y, z }, this.info.seed, (bx, by, bz) => this.world.inBounds(bx, by, bz) && this.world.getBlock(bx, by, bz) === AIR_ID)) {
+          const id = b.kind === 'log' ? log : leaves;
+          this.world.setBlock(b.x, b.y, b.z, id.num);
+          this.markDirtyBlock(b.x, b.y, b.z);
+          this.broadcast(encodeBlockChanged({ x: b.x, y: b.y, z: b.z, id: id.id, by: -1 }), -1, 'village');
+        }
+        this.crops.delete(key);
+        this.storage?.delCrop(this.info.code, x, y, z);
+        continue;
+      }
       const next = cur.grows ? this.registry.find(cur.grows) : undefined;
       if (!next) {
         this.crops.delete(key);
@@ -1589,11 +1607,12 @@ export class VillageRoom {
     if (!p) return 'NOT_IN_VILLAGE';
     const held = slot !== undefined && slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
     const tool = toolOf(TOOLS, held);
+    const reach = hitReachOf(tool, HIT_REACH); // 창은 5칸 (#183)
     const me = { idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE };
-    if (p.world === 'village' && mobId >= ANIMAL_ID_BASE) return this.animals.hit({ ...me, token: p.token, held }, mobId, attackDamageOf(tool), now); // 동물 (M8-1)
+    if (p.world === 'village' && mobId >= ANIMAL_ID_BASE) return this.animals.hit({ ...me, token: p.token, held }, mobId, attackDamageOf(tool), now, reach); // 동물 (M8-1)
     const sys = p.world === 'expedition' ? this.mobSys : (this.raid?.mobs ?? null);
     if (!sys) return 'NO_MOB';
-    return sys.hit(me, mobId, attackDamageOf(tool), now);
+    return sys.hit(me, mobId, attackDamageOf(tool), now, reach);
   }
 
   /** 활·쇠뇌로 노린 몹을 쏜다 (M8-2): 든 칸이 활이고 화살이 있어야. 사거리·피해·간격은 combat.json. 화살 1개 소모, 모두에게 'shot' */

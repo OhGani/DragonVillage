@@ -457,6 +457,90 @@
       "_note": "아빠 2026-09-24 (마인크래프트 값). 공격력은 data/tools.json swords. 대장간에서 다이아몬드 검에 네더라이트를 붙인다"
     },
     {
+      "id": "wooden_spear",
+      "name": "나무 창",
+      "station": "crafting_table",
+      "pattern": ["  m", " s ", "s  "],
+      "key": {"m": "planks", "s": "stick"},
+      "in": {
+        "planks": 1,
+        "stick": 2
+      },
+      "out": {
+        "wooden_spear": 1
+      },
+      "_note": "창 (#183, 아들 2026-10-17 \"창은 공격할 수 있어\"): 마인크래프트 26.1 처럼 재료 1 + 막대기 2 를 대각선으로. 공격력·닿는 거리는 data/tools.json spears"
+    },
+    {
+      "id": "stone_spear",
+      "name": "돌 창",
+      "station": "crafting_table",
+      "pattern": ["  m", " s ", "s  "],
+      "key": {"m": "cobblestone", "s": "stick"},
+      "in": {
+        "cobblestone": 1,
+        "stick": 2
+      },
+      "out": {
+        "stone_spear": 1
+      }
+    },
+    {
+      "id": "iron_spear",
+      "name": "철 창",
+      "station": "forge",
+      "pattern": ["  m", " s ", "s  "],
+      "key": {"m": "iron_ingot", "s": "stick"},
+      "in": {
+        "iron_ingot": 1,
+        "stick": 2
+      },
+      "out": {
+        "iron_spear": 1
+      }
+    },
+    {
+      "id": "golden_spear",
+      "name": "황금 창",
+      "station": "forge",
+      "pattern": ["  m", " s ", "s  "],
+      "key": {"m": "gold_ingot", "s": "stick"},
+      "in": {
+        "gold_ingot": 1,
+        "stick": 2
+      },
+      "out": {
+        "golden_spear": 1
+      }
+    },
+    {
+      "id": "diamond_spear",
+      "name": "다이아몬드 창",
+      "station": "forge",
+      "pattern": ["  m", " s ", "s  "],
+      "key": {"m": "diamond", "s": "stick"},
+      "in": {
+        "diamond": 1,
+        "stick": 2
+      },
+      "out": {
+        "diamond_spear": 1
+      }
+    },
+    {
+      "id": "netherite_spear",
+      "name": "네더라이트 창",
+      "station": "forge",
+      "in": {
+        "diamond_spear": 1,
+        "netherite": 1
+      },
+      "out": {
+        "netherite_spear": 1
+      },
+      "_note": "대장간에서 다이아몬드 창에 네더라이트를 붙인다"
+    },
+    {
       "id": "wheat_from_hay",
       "name": "밀",
       "station": "inventory",
@@ -1073,83 +1157,408 @@
       "_note": "아들: 거미줄(실) 4개 = 양털 1개. 6차: 가방 2×2 칸에서"
     },
     {
-      "id": "dye_from_dandelion",
-      "name": "염료",
+      "id": "yellow_dye_from_dandelion",
+      "name": "노란 염료",
       "station": "inventory",
       "in": {
         "dandelion": 1
       },
       "out": {
-        "dye": 3
+        "yellow_dye": 3
       },
-      "_note": "가방 2×2 칸에 꽃을 두면 염료 3개 (아들 6차). 꽃 5종마다 하나씩 (#180)"
+      "_note": "염료 16색 (#182, 아들 2026-10-17 마인크래프트 위키 염료). 꽃·뼈·먹물·청금석·선인장·버섯에서 나오고, 둘을 섞어 다른 색을 만든다. 가방 2×2 칸"
     },
     {
-      "id": "dye_from_rose_bush",
-      "name": "염료",
+      "id": "red_dye_from_rose_bush",
+      "name": "빨간 염료",
       "station": "inventory",
       "in": {
         "rose_bush": 1
       },
       "out": {
-        "dye": 3
+        "red_dye": 3
       }
     },
     {
-      "id": "dye_from_peony",
-      "name": "염료",
+      "id": "pink_dye_from_peony",
+      "name": "분홍 염료",
       "station": "inventory",
       "in": {
         "peony": 1
       },
       "out": {
-        "dye": 3
+        "pink_dye": 3
       }
     },
     {
-      "id": "dye_from_tulip_pink",
-      "name": "염료",
+      "id": "pink_dye_from_tulip",
+      "name": "분홍 염료",
       "station": "inventory",
       "in": {
         "tulip_pink": 1
       },
       "out": {
-        "dye": 3
+        "pink_dye": 3
       }
     },
     {
-      "id": "dye_from_blue_orchid",
-      "name": "염료",
+      "id": "light_blue_dye_from_orchid",
+      "name": "하늘 염료",
       "station": "inventory",
       "in": {
         "blue_orchid": 1
       },
       "out": {
-        "dye": 3
+        "light_blue_dye": 3
       }
     },
     {
-      "id": "dye_wool",
-      "name": "양털 물들이기",
+      "id": "white_dye",
+      "name": "흰 염료",
       "station": "inventory",
       "in": {
-        "white_wool": 1,
-        "dye": 1
+        "bone": 1
       },
       "out": {
-        "colored_wool": 1
+        "white_dye": 3
       },
-      "_note": "흰 양털만 염색할 수 있다. 흰 양털 1 + 원하는 염료 1 → 그 색 양털 1 (아들 6차). 침대·깃발 색"
+      "_note": "뼈 1 → 흰 염료 3 (뼛가루 대신)"
     },
     {
-      "id": "ink_dye",
-      "name": "검은 염료 (먹물)",
-      "station": "crafting_table",
+      "id": "black_dye",
+      "name": "검은 염료",
+      "station": "inventory",
       "in": {
         "ink_sac": 1
       },
       "out": {
         "black_dye": 1
+      }
+    },
+    {
+      "id": "blue_dye",
+      "name": "파란 염료",
+      "station": "inventory",
+      "in": {
+        "lapis": 1
+      },
+      "out": {
+        "blue_dye": 1
+      }
+    },
+    {
+      "id": "green_dye",
+      "name": "초록 염료",
+      "station": "furnace",
+      "in": {
+        "cactus": 1,
+        "coal": 1
+      },
+      "out": {
+        "green_dye": 1
+      },
+      "_note": "선인장을 화로에 구우면 초록 염료 (마인크래프트)"
+    },
+    {
+      "id": "brown_dye",
+      "name": "갈색 염료",
+      "station": "inventory",
+      "in": {
+        "brown_mushroom": 1
+      },
+      "out": {
+        "brown_dye": 1
+      },
+      "_note": "마인크래프트는 코코아 콩인데 우리 세계엔 정글이 없어서 갈색 버섯으로 (우리 규칙)"
+    },
+    {
+      "id": "orange_dye_mix",
+      "name": "주황 염료",
+      "station": "inventory",
+      "in": {
+        "red_dye": 1,
+        "yellow_dye": 1
+      },
+      "out": {
+        "orange_dye": 2
+      },
+      "_note": "염료 둘을 섞으면 둘 → 2개"
+    },
+    {
+      "id": "lime_dye_mix",
+      "name": "연두 염료",
+      "station": "inventory",
+      "in": {
+        "green_dye": 1,
+        "white_dye": 1
+      },
+      "out": {
+        "lime_dye": 2
+      }
+    },
+    {
+      "id": "gray_dye_mix",
+      "name": "회색 염료",
+      "station": "inventory",
+      "in": {
+        "black_dye": 1,
+        "white_dye": 1
+      },
+      "out": {
+        "gray_dye": 2
+      }
+    },
+    {
+      "id": "light_gray_dye_mix",
+      "name": "연회색 염료",
+      "station": "inventory",
+      "in": {
+        "gray_dye": 1,
+        "white_dye": 1
+      },
+      "out": {
+        "light_gray_dye": 2
+      }
+    },
+    {
+      "id": "cyan_dye_mix",
+      "name": "청록 염료",
+      "station": "inventory",
+      "in": {
+        "blue_dye": 1,
+        "green_dye": 1
+      },
+      "out": {
+        "cyan_dye": 2
+      }
+    },
+    {
+      "id": "purple_dye_mix",
+      "name": "보라 염료",
+      "station": "inventory",
+      "in": {
+        "blue_dye": 1,
+        "red_dye": 1
+      },
+      "out": {
+        "purple_dye": 2
+      }
+    },
+    {
+      "id": "magenta_dye_mix",
+      "name": "자홍 염료",
+      "station": "inventory",
+      "in": {
+        "purple_dye": 1,
+        "pink_dye": 1
+      },
+      "out": {
+        "magenta_dye": 2
+      }
+    },
+    {
+      "id": "pink_dye_mix",
+      "name": "분홍 염료",
+      "station": "inventory",
+      "in": {
+        "red_dye": 1,
+        "white_dye": 1
+      },
+      "out": {
+        "pink_dye": 2
+      }
+    },
+    {
+      "id": "light_blue_dye_mix",
+      "name": "하늘 염료",
+      "station": "inventory",
+      "in": {
+        "blue_dye": 1,
+        "white_dye": 1
+      },
+      "out": {
+        "light_blue_dye": 2
+      }
+    },
+    {
+      "id": "orange_wool",
+      "name": "주황 양털",
+      "station": "inventory",
+      "in": {
+        "wool": 1,
+        "orange_dye": 1
+      },
+      "out": {
+        "orange_wool": 1
+      },
+      "_note": "양털 물들이기 (#182): 흰 양털 1 + 염료 1 → 그 색 양털 1 (아들 6차). 침대·깃발 색"
+    },
+    {
+      "id": "magenta_wool",
+      "name": "자홍 양털",
+      "station": "inventory",
+      "in": {
+        "wool": 1,
+        "magenta_dye": 1
+      },
+      "out": {
+        "magenta_wool": 1
+      }
+    },
+    {
+      "id": "light_blue_wool",
+      "name": "하늘 양털",
+      "station": "inventory",
+      "in": {
+        "wool": 1,
+        "light_blue_dye": 1
+      },
+      "out": {
+        "light_blue_wool": 1
+      }
+    },
+    {
+      "id": "yellow_wool",
+      "name": "노랑 양털",
+      "station": "inventory",
+      "in": {
+        "wool": 1,
+        "yellow_dye": 1
+      },
+      "out": {
+        "yellow_wool": 1
+      }
+    },
+    {
+      "id": "lime_wool",
+      "name": "연두 양털",
+      "station": "inventory",
+      "in": {
+        "wool": 1,
+        "lime_dye": 1
+      },
+      "out": {
+        "lime_wool": 1
+      }
+    },
+    {
+      "id": "pink_wool",
+      "name": "분홍 양털",
+      "station": "inventory",
+      "in": {
+        "wool": 1,
+        "pink_dye": 1
+      },
+      "out": {
+        "pink_wool": 1
+      }
+    },
+    {
+      "id": "gray_wool",
+      "name": "회색 양털",
+      "station": "inventory",
+      "in": {
+        "wool": 1,
+        "gray_dye": 1
+      },
+      "out": {
+        "gray_wool": 1
+      }
+    },
+    {
+      "id": "light_gray_wool",
+      "name": "연회색 양털",
+      "station": "inventory",
+      "in": {
+        "wool": 1,
+        "light_gray_dye": 1
+      },
+      "out": {
+        "light_gray_wool": 1
+      }
+    },
+    {
+      "id": "cyan_wool",
+      "name": "청록 양털",
+      "station": "inventory",
+      "in": {
+        "wool": 1,
+        "cyan_dye": 1
+      },
+      "out": {
+        "cyan_wool": 1
+      }
+    },
+    {
+      "id": "purple_wool",
+      "name": "보라 양털",
+      "station": "inventory",
+      "in": {
+        "wool": 1,
+        "purple_dye": 1
+      },
+      "out": {
+        "purple_wool": 1
+      }
+    },
+    {
+      "id": "blue_wool",
+      "name": "파랑 양털",
+      "station": "inventory",
+      "in": {
+        "wool": 1,
+        "blue_dye": 1
+      },
+      "out": {
+        "blue_wool": 1
+      }
+    },
+    {
+      "id": "brown_wool",
+      "name": "갈색 양털",
+      "station": "inventory",
+      "in": {
+        "wool": 1,
+        "brown_dye": 1
+      },
+      "out": {
+        "brown_wool": 1
+      }
+    },
+    {
+      "id": "green_wool",
+      "name": "초록 양털",
+      "station": "inventory",
+      "in": {
+        "wool": 1,
+        "green_dye": 1
+      },
+      "out": {
+        "green_wool": 1
+      }
+    },
+    {
+      "id": "red_wool",
+      "name": "빨강 양털",
+      "station": "inventory",
+      "in": {
+        "wool": 1,
+        "red_dye": 1
+      },
+      "out": {
+        "red_wool": 1
+      }
+    },
+    {
+      "id": "black_wool",
+      "name": "검정 양털",
+      "station": "inventory",
+      "in": {
+        "wool": 1,
+        "black_dye": 1
+      },
+      "out": {
+        "black_wool": 1
       }
     },
     {

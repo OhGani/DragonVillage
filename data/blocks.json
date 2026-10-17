@@ -570,7 +570,127 @@
       "lightEmit": 0,
       "texture": "wool",
       "dyeable": true,
-      "_note": "16색 염색 가능. 텍스처는 wool_<color>"
+      "_note": "양 털깎기로 나오는 흰 양털. 가방 2×2 칸에 양털 1 + 염료 1 을 두면 그 색 양털 (#182, 아래 15색)"
+    },
+    {
+      "id": "orange_wool",
+      "name": "주황 양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "orange_wool"
+    },
+    {
+      "id": "magenta_wool",
+      "name": "자홍 양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "magenta_wool"
+    },
+    {
+      "id": "light_blue_wool",
+      "name": "하늘 양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "light_blue_wool"
+    },
+    {
+      "id": "yellow_wool",
+      "name": "노랑 양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "yellow_wool"
+    },
+    {
+      "id": "lime_wool",
+      "name": "연두 양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "lime_wool"
+    },
+    {
+      "id": "pink_wool",
+      "name": "분홍 양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "pink_wool"
+    },
+    {
+      "id": "gray_wool",
+      "name": "회색 양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "gray_wool"
+    },
+    {
+      "id": "light_gray_wool",
+      "name": "연회색 양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "light_gray_wool"
+    },
+    {
+      "id": "cyan_wool",
+      "name": "청록 양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "cyan_wool"
+    },
+    {
+      "id": "purple_wool",
+      "name": "보라 양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "purple_wool"
+    },
+    {
+      "id": "blue_wool",
+      "name": "파랑 양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "blue_wool"
+    },
+    {
+      "id": "brown_wool",
+      "name": "갈색 양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "brown_wool"
+    },
+    {
+      "id": "green_wool",
+      "name": "초록 양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "green_wool"
+    },
+    {
+      "id": "red_wool",
+      "name": "빨강 양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "red_wool"
+    },
+    {
+      "id": "black_wool",
+      "name": "검정 양털",
+      "hardness": 0.8,
+      "tool": null,
+      "lightEmit": 0,
+      "texture": "black_wool"
     },
     {
       "id": "dandelion",
@@ -622,6 +742,19 @@
       "lightEmit": 0,
       "shape": "cross",
       "texture": "blue_orchid"
+    },
+    {
+      "id": "sapling",
+      "name": "나무 묘목",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "shape": "cross",
+      "texture": "sapling",
+      "grows": "oak_tree",
+      "growMinutes": 10,
+      "_note": "아들 2026-10-17 '묘목은 심을 수 있고 시간이 지나면 나무로 자라난다' (#181): 잔디·흙 위에 심으면 10분 뒤 참나무(줄기 4~6 + 잎)가 된다. grows 가 oak_tree 면 블록 하나가 아니라 나무 한 그루"
     },
     {
       "id": "rail",

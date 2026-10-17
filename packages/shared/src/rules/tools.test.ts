@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import toolsJson from '../../../../data/tools.json';
 import { BLOCKS, ITEM_NAMES, RECIPES, TOOLS } from './data';
-import { axeOf, breakSeconds, canBreakWith, needToolText, parseTools, pickaxeOf, swordOf, toolOf } from './tools';
-import { attackDamageOf } from './mobs';
+import { axeOf, breakSeconds, canBreakWith, hitReachOf, needToolText, parseTools, pickaxeOf, spearOf, swordOf, toolOf } from './tools';
+import { HIT_REACH, attackDamageOf } from './mobs';
 
 const B = (id: string) => BLOCKS.require(id);
 const P = (id: string) => pickaxeOf(TOOLS, id);
@@ -131,5 +131,29 @@ describe('도끼 (아빠 2026-09-21, #80)', () => {
 
   it('없는 종류의 도구는 한국어로 알려준다', () => {
     expect(() => parseTools({ enchantSpeedPerLevel: 1.5, pickaxes: [{ id: 'a', name: 'ㄱ', tier: 0, speed: 1, durability: 1 }], axes: [{ id: 'a', name: 'ㄴ', tier: 0, speed: 1, durability: 1 }] })).toThrow(/두 번/);
+  });
+});
+
+describe('창 (#183)', () => {
+  it('6종: 같은 등급 검보다 1 약하고(4·5·6·4·7·8) 5칸까지 닿는다. 검·맨손은 3.5', () => {
+    const dmg = ['wooden', 'stone', 'iron', 'golden', 'diamond', 'netherite'].map((t) => spearOf(TOOLS, `${t}_spear`)?.damage);
+    expect(dmg).toEqual([4, 5, 6, 4, 7, 8]);
+    for (const t of ['wooden', 'stone', 'iron', 'golden', 'diamond', 'netherite']) {
+      const sp = spearOf(TOOLS, `${t}_spear`)!;
+      expect(sp.kind).toBe('spear');
+      expect(sp.damage).toBe(swordOf(TOOLS, `${t}_sword`)!.damage! - 1);
+      expect(hitReachOf(sp, HIT_REACH)).toBe(5);
+      expect(attackDamageOf(sp)).toBe(sp.damage);
+      expect(toolOf(TOOLS, `${t}_spear`)?.kind).toBe('spear');
+    }
+    expect(hitReachOf(swordOf(TOOLS, 'iron_sword'), HIT_REACH)).toBe(HIT_REACH);
+    expect(hitReachOf(null, HIT_REACH)).toBe(HIT_REACH);
+    expect(spearOf(TOOLS, 'iron_sword')).toBeNull();
+  });
+
+  it('reach 가 없는 창은 한국어로 알려준다', () => {
+    const raw = JSON.parse(JSON.stringify(toolsJson)) as { spears: { reach?: number }[] };
+    delete raw.spears[0]!.reach;
+    expect(() => parseTools(raw)).toThrow(/reach/);
   });
 });

@@ -123,7 +123,7 @@ function drawItem(ctx: CanvasRenderingContext2D, id: string, name: string, s: nu
   ctx.lineWidth = Math.max(1, u * 0.8);
   ctx.strokeStyle = 'rgba(0,0,0,0.55)';
   const potion = id === 'water_bottle' || id === 'glass_bottle' || id.startsWith('potion.') || id.startsWith('splash_potion.') || id.startsWith('lingering_potion.');
-  const isTool = /_(pickaxe|axe|sword|shovel|hoe)$/.test(id);
+  const isTool = /_(pickaxe|axe|sword|spear|shovel|hoe)$/.test(id);
   const isBucket = id === 'bucket' || id.endsWith('_bucket');
   const isDust = id.endsWith('_dust') || id === 'redstone' || id === 'sugar' || id === 'gunpowder' || id === 'glowstone_dust';
   const isIngot = id.endsWith('_ingot') || id === 'netherite' || id === 'gold_nugget';

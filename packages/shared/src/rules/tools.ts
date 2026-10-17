@@ -19,8 +19,10 @@ const RawTool = z
     speed: z.number().min(1, '1 이상이어야 해요'),
     obsidianSpeed: z.number().min(0.1).optional(),
     durability: z.number().int().min(1, '1 이상이어야 해요'),
-    /** 검만: 몹을 때리는 힘 (맨손 1) */
+    /** 검·창만: 몹을 때리는 힘 (맨손 1) */
     damage: z.number().min(0, '0 이상이어야 해요').optional(),
+    /** 창만 (#183): 몹에 닿는 거리(칸). 검·맨손은 HIT_REACH 3.5 */
+    reach: z.number().min(1, '1 이상이어야 해요').optional(),
   })
   .loose();
 
@@ -31,11 +33,12 @@ const ToolsFile = z
     pickaxes: z.array(RawTool).min(1, '곡괭이가 하나는 있어야 해요'),
     axes: z.array(RawTool).optional(),
     swords: z.array(RawTool).optional(),
+    spears: z.array(RawTool).optional(),
   })
   .loose();
 
 /** 도구 종류 — blocks.json 의 tool 과 같은 말 */
-export type ToolKind = 'pickaxe' | 'axe' | 'sword';
+export type ToolKind = 'pickaxe' | 'axe' | 'sword' | 'spear';
 
 export interface ToolDef {
   readonly id: string;
@@ -47,6 +50,8 @@ export interface ToolDef {
   readonly durability: number;
   /** 검의 공격력 (다른 도구는 null → 등급으로 계산) */
   readonly damage: number | null;
+  /** 창만: 닿는 거리. 아니면 null */
+  readonly reach: number | null;
 }
 
 /** 옛 이름 (M6-1 부터 쓰던 것) */
@@ -57,6 +62,8 @@ export interface ToolRules {
   readonly pickaxes: ReadonlyMap<string, ToolDef>;
   readonly axes: ReadonlyMap<string, ToolDef>;
   readonly swords: ReadonlyMap<string, ToolDef>;
+  /** 창 (#183): 검보다 멀리 닿는다 */
+  readonly spears: ReadonlyMap<string, ToolDef>;
 }
 
 /** 맨손은 나무 곡괭이와 같은 등급 0 (toolTier 0 인 돌·조약돌만, 속도는 배수 없음) */
@@ -76,7 +83,7 @@ export function parseTools(raw: unknown, fileName = 'data/tools.json'): ToolRule
     for (const t of raws) {
       if (seen.has(t.id)) problems.push(`${ko} '${t.id}' 가 두 번 나와요`);
       seen.add(t.id);
-      out.set(t.id, { id: t.id, name: t.name, kind, tier: t.tier, speed: t.speed, obsidianSpeed: t.obsidianSpeed ?? null, durability: t.durability, damage: t.damage ?? null });
+      out.set(t.id, { id: t.id, name: t.name, kind, tier: t.tier, speed: t.speed, obsidianSpeed: t.obsidianSpeed ?? null, durability: t.durability, damage: t.damage ?? null, reach: t.reach ?? null });
     }
     return out;
   };
@@ -84,8 +91,13 @@ export function parseTools(raw: unknown, fileName = 'data/tools.json'): ToolRule
   const axes = load(result.data.axes ?? [], 'axe', '도끼');
   const swords = load(result.data.swords ?? [], 'sword', '검');
   for (const s of swords.values()) if (s.damage === null) problems.push(`검 '${s.id}' 에 damage(공격력)가 없어요`);
+  const spears = load(result.data.spears ?? [], 'spear', '창');
+  for (const s of spears.values()) {
+    if (s.damage === null) problems.push(`창 '${s.id}' 에 damage(공격력)가 없어요`);
+    if (s.reach === null) problems.push(`창 '${s.id}' 에 reach(닿는 거리)가 없어요`);
+  }
   if (problems.length) throw new DataError(fileName, problems);
-  return { enchantSpeedPerLevel: result.data.enchantSpeedPerLevel, pickaxes, axes, swords };
+  return { enchantSpeedPerLevel: result.data.enchantSpeedPerLevel, pickaxes, axes, swords, spears };
 }
 
 /** 손에 든 아이템이 곡괭이면 그 정의, 아니면 null */
@@ -103,9 +115,19 @@ export function swordOf(tools: ToolRules, item: string | null | undefined): Tool
   return item ? (tools.swords.get(item) ?? null) : null;
 }
 
-/** 손에 든 아이템이 도구(곡괭이·도끼·검)면 그 정의, 아니면 null */
+/** 손에 든 아이템이 창이면 그 정의, 아니면 null (#183) */
+export function spearOf(tools: ToolRules, item: string | null | undefined): ToolDef | null {
+  return item ? (tools.spears.get(item) ?? null) : null;
+}
+
+/** 손에 든 아이템이 도구(곡괭이·도끼·검·창)면 그 정의, 아니면 null */
 export function toolOf(tools: ToolRules, item: string | null | undefined): ToolDef | null {
-  return pickaxeOf(tools, item) ?? axeOf(tools, item) ?? swordOf(tools, item);
+  return pickaxeOf(tools, item) ?? axeOf(tools, item) ?? swordOf(tools, item) ?? spearOf(tools, item);
+}
+
+/** 이 도구로 몹에 닿는 거리: 창은 제 reach, 나머지는 기본 (#183) */
+export function hitReachOf(tool: ToolDef | null, base: number): number {
+  return tool?.kind === 'spear' && tool.reach !== null ? tool.reach : base;
 }
 
 /** 이 블록을 이 도구로 캘 수 있나 (등급만 본다). 곡괭이가 필요 없는 블록은 언제나 ok (도끼 블록도 맨손으로 캔다) */

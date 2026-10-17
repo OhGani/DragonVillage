@@ -6,6 +6,7 @@ import {
   type RidingInfo,
   HIT_COOLDOWN_MS,
   HIT_REACH,
+  hitReachOf,
   toolOf,
   STORAGE_REACH,
   beamOf,
@@ -1504,7 +1505,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     hitCooldown = Math.max(0, hitCooldown - dt);
     // 활·쇠뇌를 들었으면 멀리 있는 몹도 노린다 (M8-2)
     const bow = bowOf(COMBAT, hud.selectedItem);
-    const aimedMob = mobView.count > 0 ? mobView.aim(player.eye, player.lookDir, bow ? bow.range : HIT_REACH + 1) : null;
+    const meleeReach = hitReachOf(toolOf(TOOLS, hud.selectedItem), HIT_REACH); // 창은 5칸 (#183)
+    const aimedMob = mobView.count > 0 ? mobView.aim(player.eye, player.lookDir, bow ? bow.range : meleeReach + 1) : null;
     aimedMobNow = aimedMob;
     if (aimedMob !== null && pets.get(aimedMob)?.mine) lastAimedPet = { id: aimedMob, at: now }; // (#179)
     interaction.suppressPrimary = aimedMob !== null || bow !== null; // 활을 들면 꾹 누르기는 당기기 (#119)
@@ -1527,7 +1529,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const heldTool = toolOf(TOOLS, hud.selectedItem);
     let swingMob: number | null = null;
     if (inp.secondaryTap && heldTool !== null && !bow && !guarding && !anyPanelOpen()) {
-      swingMob = aimedMob !== null && aimedMob < ANIMAL_ID_BASE ? aimedMob : aimedMob === null ? mobView.nearestInCone(player.eye, player.lookDir, HIT_REACH, SWING_CONE_COS, true) : null;
+      swingMob = aimedMob !== null && aimedMob < ANIMAL_ID_BASE ? aimedMob : aimedMob === null ? mobView.nearestInCone(player.eye, player.lookDir, meleeReach, SWING_CONE_COS, true) : null;
       if (swingMob === null && aimedMob === null) {
         const tdef = interaction.target ? registry.get(interaction.target.id) : null;
         if (tdef && !tdef.door && !tdef.chest) interaction.swingBurst(SWING_BURST_SEC);
