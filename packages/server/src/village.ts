@@ -1884,7 +1884,8 @@ export class VillageRoom {
       return null;
     }
     // 놓기: 액체는 플레이어가 놓는 고인 액체 8/8 만(자연 원천·흐름은 못 놓는다), 그 외 내부 블록 불가, 자리는 공기·액체만, 누가 서 있으면 안 됨
-    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82)
+    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch && !def.bed) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82)
+    if (def.bed && def.bed.head) return REJECT.INVALID; // 침대는 발 쪽만 놓는다(머리 칸은 서버가 채운다, #188)
     if (def.door && (def.door.upper || def.door.open)) return REJECT.INVALID; // 문은 아래·닫힘 변형만 놓는다(윗칸은 서버가 채운다)
     // 가방에 그 아이템(액체면 찬 양동이)이 있어야 한다 (M4, #66)
     if (def.seed) {
@@ -1901,6 +1902,14 @@ export class VillageRoom {
     if (!item || countOf(p.inv, item) < 1) return REJECT.NO_ITEM;
     if (cur.num !== AIR_ID && !cur.fluid) return REJECT.OCCUPIED; // 횃불·꽃 같은 비고체 블록도 덮어쓰지 않는다(아이템이 사라지니까)
     if (def.solid) for (const other of this.playersIn(p.world)) if (bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, y, z)) return REJECT.OCCUPIED;
+    if (def.bed) {
+      // 침대는 두 칸 (#188): 머리 칸도 공기여야 하고 누가 서 있으면 안 된다
+      const [bdx, bdz] = DOOR_DIR[def.bed.facing]!;
+      const hx = x + bdx,
+        hz = z + bdz;
+      if (!world.inBounds(hx, y, hz) || world.getBlock(hx, y, hz) !== AIR_ID) return REJECT.OCCUPIED;
+      for (const other of this.playersIn(p.world)) if (bodyOverlapsBlock(other.pos, PLAYER_SIZE, hx, y, hz)) return REJECT.OCCUPIED;
+    }
     if (def.door) {
       // 문은 두 칸: 윗칸도 공기여야 하고 누가 서 있으면 안 된다
       if (!world.inBounds(x, y + 1, z) || world.getBlock(x, y + 1, z) !== AIR_ID) return REJECT.OCCUPIED;
@@ -1924,6 +1933,10 @@ export class VillageRoom {
       };
       const hinge = doorHinge(isWall, req.x, req.y, req.z, facing);
       req = { ...req, id: this.registry.get(this.registry.doorVariant(rawDef.num, facing, false, false, hinge)).id };
+    }
+    // 침대 (#188): 핫바의 침대(JSON id)를 놓는 요청은 보던 방향의 발 쪽 변형으로 (머리 칸은 아래서 채운다)
+    if (rawDef && rawDef.shape === 'bed' && !rawDef.bed && this.registry.isBed(rawDef.num)) {
+      req = { ...req, id: this.registry.get(this.registry.bedVariant(rawDef.num, facingFromYaw(p.pos.yaw), false)).id };
     }
     const reason = this.validate(p, req, now);
     if (reason !== null) {
@@ -1963,6 +1976,18 @@ export class VillageRoom {
         this.broadcast(encodeBlockChanged({ x: req.x, y: oy, z: req.z, id: this.registry.get(other).id, by: idx }), -1, p.world);
       }
     }
+    // 침대는 두 칸이 함께 (#188): 놓으면 머리 칸도, 부수면 다른 반쪽도
+    const bedHalf = def.bed ?? prev.bed;
+    let bedOther: { x: number; z: number } | null = null;
+    if (bedHalf) {
+      const [bdx, bdz] = DOOR_DIR[bedHalf.facing]!;
+      bedOther = { x: bedHalf.head ? req.x - bdx : req.x + bdx, z: bedHalf.head ? req.z - bdz : req.z + bdz };
+      const other = def.bed ? this.registry.bedVariant(def.bed.base, def.bed.facing, !def.bed.head) : AIR_ID;
+      if (world.inBounds(bedOther.x, req.y, bedOther.z) && world.setBlock(bedOther.x, req.y, bedOther.z, other).changed) {
+        touched(bedOther.x, req.y, bedOther.z);
+        this.broadcast(encodeBlockChanged({ x: bedOther.x, y: req.y, z: bedOther.z, id: this.registry.get(other).id, by: idx }), -1, p.world);
+      }
+    }
     const isToggle = def.door !== null && prev.door !== null;
     // 농사 (#165): 심으면 자라기 시작, 부수면(또는 다른 블록이 되면) 기록을 지운다
     if (p.world === 'village') {
@@ -1977,13 +2002,15 @@ export class VillageRoom {
       const cells: number[] = [req.y];
       if (def.door) cells.push(def.door.upper ? req.y - 1 : req.y + 1);
       else if (prev.door) cells.push(prev.door.upper ? req.y - 1 : req.y + 1);
-      for (const cy of cells) {
-        const key = `${req.x},${cy},${req.z}`;
+      const spots: { x: number; y: number; z: number }[] = cells.map((cy) => ({ x: req.x, y: cy, z: req.z }));
+      if (bedOther) spots.push({ x: bedOther.x, y: req.y, z: bedOther.z }); // 침대 머리 칸도 내 것 (#188)
+      for (const c of spots) {
+        const key = `${c.x},${c.y},${c.z}`;
         if (num === AIR_ID || def.fluid) {
-          if (this.placed.delete(key)) this.storage?.delPlaced(this.info.code, req.x, cy, req.z);
+          if (this.placed.delete(key)) this.storage?.delPlaced(this.info.code, c.x, c.y, c.z);
         } else {
           this.placed.set(key, { token: p.token, nick: p.nick });
-          this.storage?.setPlaced(this.info.code, req.x, cy, req.z, p.token, p.nick);
+          this.storage?.setPlaced(this.info.code, c.x, c.y, c.z, p.token, p.nick);
         }
       }
     }

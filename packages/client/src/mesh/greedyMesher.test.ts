@@ -15,6 +15,7 @@ const registry = parseBlocks({
     { id: 'torch', name: '횃불', hardness: 0, solid: false, transparent: true, lightEmit: 14, shape: 'torch', texture: 'torch' },
     { id: 'dragon_egg', name: '드래곤 알', transparent: true, lightEmit: 4, shape: 'egg', texture: 'dragon_egg' },
     { id: 'dandelion', name: '민들레', hardness: 0, solid: false, shape: 'cross', texture: 'dandelion' },
+    { id: 'bed', name: '침대', hardness: 0.2, shape: 'bed', textureTop: 'bed_top', textureSide: 'bed_side', textureBottom: 'dirt' },
   ],
 });
 const texIndex = new Map([
@@ -30,6 +31,9 @@ const texIndex = new Map([
   ['torch', 9],
   ['dragon_egg', 10],
   ['dandelion', 11],
+  ['bed_top_foot', 12],
+  ['bed_top_head', 13],
+  ['bed_side', 14],
 ]);
 const info = buildMeshBlockInfo(registry, texIndex);
 const STONE = registry.numOf('stone');
@@ -42,6 +46,8 @@ const TORCH = registry.numOf('torch');
 const TORCH_WALL_N = registry.torchVariant(TORCH, 0);
 const EGG = registry.numOf('dragon_egg');
 const FLOWER = registry.numOf('dandelion');
+const BED_FOOT_N = registry.bedVariant(registry.numOf('bed'), 0, false);
+const BED_HEAD_N = registry.bedVariant(registry.numOf('bed'), 0, true);
 
 function padded(fill: (x: number, y: number, z: number) => number): Uint16Array {
   const arr = new Uint16Array(PADDED_VOLUME);
@@ -345,6 +351,28 @@ describe('꽃·풀 (#180)', () => {
     const withFlower = greedyMesh(padded((x, y, z) => (y < 5 ? GRASS : x === 5 && y === 5 && z === 5 ? FLOWER : 0)), info).opaque!;
     const bare = greedyMesh(padded((_x, y) => (y < 5 ? GRASS : 0)), info).opaque!;
     expect(withFlower.indexCount).toBe(bare.indexCount + 4 * 6);
+  });
+});
+
+describe('침대 (#188)', () => {
+  it('발·머리 각각 9/16 높이 상자 6면, 윗면 그림은 발 foot·머리 head, 밑의 잔디 윗면은 그대로', () => {
+    const m = greedyMesh(padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? BED_FOOT_N : x === 5 && y === 5 && z === 4 ? BED_HEAD_N : 0)), info).opaque!;
+    expect(m.indexCount / 6).toBe(12);
+    let top = 0;
+    const layers = new Set<number>();
+    for (let i = 0; i < m.vertexCount; i++) {
+      const y = m.positions[i * 3 + 1]!;
+      expect(y).toBeGreaterThanOrEqual(5);
+      expect(y).toBeLessThanOrEqual(5 + 9 / 16 + 1e-6);
+      if (Math.abs(y - (5 + 9 / 16)) < 1e-6 && m.meta[i * 4 + 2] === 2) top++;
+      layers.add(m.meta[i * 4]!);
+    }
+    expect(top).toBe(8); // 윗면 두 장 × 4 꼭짓점
+    expect(layers.has(12) && layers.has(13) && layers.has(14)).toBe(true);
+    checkWinding(m);
+    const withBed = greedyMesh(padded((x, y, z) => (y < 5 ? GRASS : x === 5 && y === 5 && z === 5 ? BED_FOOT_N : 0)), info).opaque!;
+    const bare = greedyMesh(padded((_x, y) => (y < 5 ? GRASS : 0)), info).opaque!;
+    expect(withBed.indexCount).toBe(bare.indexCount + 6 * 6);
   });
 });
 

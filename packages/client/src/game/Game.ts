@@ -1371,7 +1371,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const eye = ctx.player.eye;
     const dir = ctx.player.lookDir;
     let best: NestDragonInfo | null = null;
-    let bestDist = 5;
+    let bestDist = 6.5; // 서버 RIDE_RANGE 6 (#189: 5 였을 땐 한 발짝만 멀어도 카드가 안 떠서 못 타는 줄 알았다)
     for (const d of nestDragonList) {
       if (!d.mine) continue;
       const dx = d.perch.x + 0.5 - eye.x,
@@ -1409,7 +1409,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
           };
           if (d.stage !== 'adult') hud.showAction(`${name} (아기)`, '어른이 되면 탈 수 있어요 — 둥지 창에서 먹이를 주면 빨리 자라요', '알겠어요', dismiss);
           else if (d.restingUntil && d.restingUntil > Date.now() + serverClockOffset) hud.showAction(`${name} 쉬는 중`, `쓰러져서 ${Math.max(1, Math.ceil((d.restingUntil - (Date.now() + serverClockOffset)) / 60000))}분 더 쉬어야 탈 수 있어요 · 둥지 창에서 먹이면 2분 빨라져요`, '알겠어요', dismiss);
-          else if (!hasSaddle()) hud.showAction(`${name} 타기`, '안장이 있어야 해요 — 제작대: 가죽 5 + 철 2 (가죽은 원정 보물 상자)', '알겠어요', dismiss);
+          else if (!hasSaddle()) hud.showAction(`${name} 타기`, '가방에 안장이 있어야 해요 — 제작대: 가죽 5 + 철 1. 말·돼지에 씌운 안장은 그 동물 것이 되니 하나 더 만들어요', '알겠어요', dismiss);
           else hud.showAction(`🐉 ${name} 타기`, isTouch ? '앞으로 밀면 보는 쪽으로 날아요 · ▲ 위로 · ▼ 아래로 · 🐉 버튼으로 내려요' : 'W 로 보는 쪽으로 날아요 · Space 위로 · Shift 아래로 · 🐉 버튼으로 내려요', '타기' + KEY_HINT, () => net.sendRide(d.id));
           return;
         }
@@ -1580,6 +1580,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
     hand.setDraw(drawProgress);
     // 동물에게 손에 든 것 쓰기 (M8-1): 먹이·뼈·빈손(앉기). 원정에 따라온 펫은 못 만진다
+    // 드래곤 타기 (#189): 말처럼 내 드래곤을 빈손으로 탭해도 탄다 (카드 버튼을 안 눌러도)
+    if (inp.secondaryTap && !myRiding && ctx.kind === 'village' && !hud.selectedItem && aimedMob === null && !anyPanelOpen()) {
+      const d = lookedDragon();
+      if (d && d.stage === 'adult' && hasSaddle() && !(d.restingUntil && d.restingUntil > Date.now() + serverClockOffset)) net.sendRide(d.id);
+    }
     // 먹기 (#186): 먹을 것을 들고 (몹을 안 보며) 탭 → 서버가 하나 빼고 하트를 채운다
     const heldFood = foodOf(FOOD, hud.selectedItem);
     if (heldFood && inp.secondaryTap && aimedMob === null && !guarding && !anyPanelOpen() && started && !disconnected) {
@@ -1710,7 +1715,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     {
       const b = heldBlock();
       if (guarding) hand.setItem('shield', iconOf('shield', 16)); // 막는 동안은 방패를 든다 (#118)
-      else if (b > 0) hand.setBlock(b);
+      else if (b > 0) hand.setBlock(registry.get(b).shape === 'bed' && registry.isBed(b) ? registry.bedVariant(b, 0, false) : b); // 침대는 발 쪽 변형으로 (#188)
       else if (hud.selectedItem && bowOf(COMBAT, hud.selectedItem)) {
         // 활 (#184): 당기는 동안 bow_pulling_0/1/2.png 가 있으면 그 단계 그림으로, 화살은 arrow 그림으로 시위에 먹인다
         const base = hud.selectedItem;

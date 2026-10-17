@@ -28,6 +28,8 @@ const TORCH_WALL_OFF = 7 / 16;
 const TORCH_WALL_Y = 3 / 16;
 /** 꽃·풀 판의 반폭 (#180): 대각선이 칸을 꽉 채우면 너무 커 보여 마인크래프트처럼 조금 안쪽으로 */
 export const PLANT_HALF = 0.5 * 0.7071;
+/** 침대 높이 (#188): 마인크래프트 9/16 */
+export const BED_HEIGHT = 9 / 16;
 
 /**
  * 드래곤 알 (결정 #85): 마인크래프트 알처럼 위로 갈수록 좁아지는 상자 여섯 층.
@@ -424,6 +426,28 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
   };
 
   /**
+   * 침대 전용 패스 (#188): 9/16 높이 상자. 옆·아래는 boxFace, 윗면은 그림의 위(머리 쪽)가 facing 방향을 보게 UV 를 돌린다
+   */
+  const emitBeds = () => {
+    for (let y = 0; y < N; y++)
+      for (let z = 0; z < N; z++)
+        for (let x = 0; x < N; x++) {
+          const bi = info[padded[paddedIndex(x, y, z)]];
+          if (bi === undefined || bi.bed === null) continue;
+          const lt = lightOfCell(x, y, z);
+          const mn = [x, y, z],
+            mx = [x + 1, y + BED_HEIGHT, z + 1];
+          for (const f of [0, 1, 3, 4, 5]) boxFace(opaque, f, mn, mx, bi.tex[f], lt);
+          const [dx, dz] = DOOR_DIR[bi.bed[0]]!;
+          const rx = -dz,
+            rz = dx;
+          // 꼭짓점 순서는 +Y 법선 (0,0)→(0,1)→(1,1)→(1,0)
+          const c = ([[0, 0], [0, 1], [1, 1], [1, 0]] as const).map(([lx, lz]) => [x + lx, y + BED_HEIGHT, z + lz, 0.5 + (lx - 0.5) * rx + (lz - 0.5) * rz, 0.5 + (lx - 0.5) * dx + (lz - 0.5) * dz, 3, lt]);
+          opaque.quad(c, bi.tex[2], 2);
+        }
+  };
+
+  /**
    * 알 전용 패스 (#85): 상자 여섯 층. 층끼리 맞닿는 면은 넓은 쪽만 그린다(같은 자리에 두 면이 겹쳐 깜빡이지 않게).
    */
   const emitEggs = () => {
@@ -547,7 +571,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
             kb = 0,
             kfl = 0,
             kbl = 0;
-          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg && !bi.cross) {
+          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg && !bi.cross && bi.bed === null) {
             p[d] = i + 1;
             const idF = padded[paddedIndex(p[0], p[1], p[2])];
             p[d] = i;
@@ -595,6 +619,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
   emitTorches();
   emitEggs();
   emitPlants();
+  emitBeds();
 
   return { opaque: opaque.build(), translucent: trans.build() };
 }

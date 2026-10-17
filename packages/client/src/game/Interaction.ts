@@ -14,6 +14,7 @@ import {
   needToolText,
   toolOf,
   raycastVoxels,
+  DOOR_DIR,
 } from '@dragon-village/shared';
 import { TOOLS } from '@dragon-village/shared/data';
 import type { InputState } from '../input/InputState';
@@ -73,6 +74,29 @@ export class Interaction {
 
   private readonly getBlock = (x: number, y: number, z: number) => this.world.getBlock(x, y, z);
   /** 문 놓기(#71): 아래 칸 + 윗칸을 내가 보는 방향으로. 윗칸이 비어 있어야 한다 */
+  /** 침대 (#188): 보는 방향으로 발·머리 두 칸. 머리 칸은 비어 있어야 하고 누가 서 있으면 안 된다 */
+  private placeBed(x: number, y: number, z: number, base: BlockDef, cur: number): void {
+    const look = this.player.lookDir;
+    const facing = facingOf(look.x, look.z);
+    const [dx, dz] = DOOR_DIR[facing]!;
+    const hx = x + dx,
+      hz = z + dz;
+    if (!this.world.inBounds(hx, y, hz) || this.world.getBlock(hx, y, hz) !== AIR_ID) {
+      this.events.onHint?.('🛏️ 침대는 두 칸이에요 — 앞 칸도 비어 있어야 해요');
+      return;
+    }
+    if (bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y, z) || bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, hx, y, hz)) return;
+    const foot = this.registry.bedVariant(base.num, facing, false);
+    const head = this.registry.bedVariant(base.num, facing, true);
+    const r1 = this.world.setBlock(x, y, z, foot);
+    const r2 = this.world.setBlock(hx, y, hz, head);
+    if (r1.changed || r2.changed) {
+      this.events.onBlocksChanged([...r1.dirty, ...r2.dirty]);
+      this.events.onPlaced?.(x, y, z, foot, cur);
+      this.events.onSwing();
+    }
+  }
+
   private placeDoor(x: number, y: number, z: number, base: BlockDef, cur: number): void {
     if (!this.world.inBounds(x, y + 1, z) || this.world.getBlock(x, y + 1, z) !== AIR_ID) return;
     if (bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y, z) || bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y + 1, z)) return;
@@ -261,6 +285,10 @@ export class Interaction {
     const def = this.registry.get(this.selectedBlock);
     if (def.shape === 'door' && this.registry.isDoor(def.num)) {
       this.placeDoor(x, y, z, def, cur);
+      return;
+    }
+    if (def.shape === 'bed' && this.registry.isBed(def.num)) {
+      this.placeBed(x, y, z, def, cur);
       return;
     }
     // 횃불(#82): 블록 옆면을 탭하면 그 벽에 붙이고, 윗면이면 바닥에 세운다. 천장에는 못 붙인다

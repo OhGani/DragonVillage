@@ -808,6 +808,218 @@
       }
     },
     {
+      "id": "bed_from_red_wool",
+      "name": "침대",
+      "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "red_wool", "p": "planks"},
+      "in": {
+        "red_wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "bed": 1
+      },
+      "_note": "빨간 양털로도 (흰 양털로 만든 것과 같은 빨간 침대, #188)"
+    },
+    {
+      "id": "orange_bed",
+      "name": "주황 침대",
+      "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "orange_wool", "p": "planks"},
+      "in": {
+        "orange_wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "orange_bed": 1
+      },
+      "_note": "색 침대 (#188): 그 색 양털 3 + 판자 3. 14색"
+    },
+    {
+      "id": "magenta_bed",
+      "name": "자홍 침대",
+      "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "magenta_wool", "p": "planks"},
+      "in": {
+        "magenta_wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "magenta_bed": 1
+      }
+    },
+    {
+      "id": "light_blue_bed",
+      "name": "하늘 침대",
+      "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "light_blue_wool", "p": "planks"},
+      "in": {
+        "light_blue_wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "light_blue_bed": 1
+      }
+    },
+    {
+      "id": "yellow_bed",
+      "name": "노랑 침대",
+      "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "yellow_wool", "p": "planks"},
+      "in": {
+        "yellow_wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "yellow_bed": 1
+      }
+    },
+    {
+      "id": "lime_bed",
+      "name": "연두 침대",
+      "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "lime_wool", "p": "planks"},
+      "in": {
+        "lime_wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "lime_bed": 1
+      }
+    },
+    {
+      "id": "pink_bed",
+      "name": "분홍 침대",
+      "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "pink_wool", "p": "planks"},
+      "in": {
+        "pink_wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "pink_bed": 1
+      }
+    },
+    {
+      "id": "gray_bed",
+      "name": "회색 침대",
+      "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "gray_wool", "p": "planks"},
+      "in": {
+        "gray_wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "gray_bed": 1
+      }
+    },
+    {
+      "id": "light_gray_bed",
+      "name": "연회색 침대",
+      "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "light_gray_wool", "p": "planks"},
+      "in": {
+        "light_gray_wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "light_gray_bed": 1
+      }
+    },
+    {
+      "id": "cyan_bed",
+      "name": "청록 침대",
+      "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "cyan_wool", "p": "planks"},
+      "in": {
+        "cyan_wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "cyan_bed": 1
+      }
+    },
+    {
+      "id": "purple_bed",
+      "name": "보라 침대",
+      "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "purple_wool", "p": "planks"},
+      "in": {
+        "purple_wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "purple_bed": 1
+      }
+    },
+    {
+      "id": "blue_bed",
+      "name": "파랑 침대",
+      "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "blue_wool", "p": "planks"},
+      "in": {
+        "blue_wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "blue_bed": 1
+      }
+    },
+    {
+      "id": "brown_bed",
+      "name": "갈색 침대",
+      "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "brown_wool", "p": "planks"},
+      "in": {
+        "brown_wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "brown_bed": 1
+      }
+    },
+    {
+      "id": "green_bed",
+      "name": "초록 침대",
+      "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "green_wool", "p": "planks"},
+      "in": {
+        "green_wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "green_bed": 1
+      }
+    },
+    {
+      "id": "black_bed",
+      "name": "검정 침대",
+      "station": "crafting_table",
+      "pattern": ["www", "ppp"],
+      "key": {"w": "black_wool", "p": "planks"},
+      "in": {
+        "black_wool": 3,
+        "planks": 3
+      },
+      "out": {
+        "black_bed": 1
+      }
+    },
+    {
       "id": "torch",
       "name": "횃불",
       "station": "crafting_table",

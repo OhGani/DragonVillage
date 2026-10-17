@@ -198,3 +198,26 @@ describe('문 경첩 (#83, 아빠 2026-09-22)', () => {
     expect(doorHinge(wallsAt([10, 5, 6]), 10, 5, 5, 1)).toBe(1);
   });
 });
+
+describe('침대 변형 (#188)', () => {
+  it('data/blocks.json 의 침대마다 방향 4 × 발/머리 8개 변형, 발만 아이템을 떨구고, 윗면 그림은 _foot/_head', () => {
+    const base = BLOCKS.require('bed');
+    expect(base.bed).toBeNull();
+    for (let f = 0; f < 4; f++) {
+      const foot = BLOCKS.get(BLOCKS.bedVariant(base.num, f, false));
+      const head = BLOCKS.get(BLOCKS.bedVariant(base.num, f, true));
+      expect(foot.bed).toEqual({ base: base.num, facing: f, head: false });
+      expect(head.bed?.head).toBe(true);
+      expect(foot.drops).toBe('bed');
+      expect(head.drops).toBeNull();
+      expect(foot.textures?.[0]).toBe('bed_top_foot');
+      expect(head.textures?.[0]).toBe('bed_top_head');
+      expect(foot.solid && foot.transparent).toBe(true);
+    }
+    expect(BLOCKS.isBed(base.num)).toBe(true);
+    expect(BLOCKS.isBed(BLOCKS.numOf('dirt'))).toBe(false);
+    expect(itemForPlacing(BLOCKS.get(BLOCKS.bedVariant(base.num, 2, false)).id, BLOCKS)).toBe('bed');
+    expect(itemForPlacing(BLOCKS.get(BLOCKS.bedVariant(base.num, 2, true)).id, BLOCKS)).toBeNull();
+    expect(BLOCKS.require('purple_bed').shape).toBe('bed');
+  });
+});

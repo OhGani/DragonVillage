@@ -163,6 +163,8 @@ export interface BlockDef {
   readonly torch: TorchInfo | null;
   /** 상자면 짝이 어느 쪽인지 (결정 #84). 상자 아니면 null */
   readonly chest: ChestInfo | null;
+  /** 침대 반쪽이면 어느 쪽·방향인지 (#188). 아니면 null */
+  readonly bed: BedInfo | null;
 }
 
 /** 상자 (결정 #84). pair −1 = 혼자(27칸), 0~3 = 그 방향 상자와 합쳐진 큰 상자(둘이 54칸) */
@@ -178,6 +180,13 @@ export interface TorchInfo {
 }
 
 /** 문 변형 정보 (결정 #71). facing 0 북(-z) 1 동(+x) 2 남(+z) 3 서(-x) = 놓은 사람이 보던 방향 */
+/** 침대 (#188): 두 칸(발·머리), 방향은 발 → 머리 */
+export interface BedInfo {
+  readonly base: number;
+  readonly facing: number;
+  readonly head: boolean;
+}
+
 export interface DoorInfo {
   readonly base: number;
   readonly facing: number;
@@ -228,6 +237,8 @@ export class BlockRegistry {
   private readonly doors = new Map<number, number[]>();
   private readonly torches = new Map<number, number[]>();
   private readonly chests = new Map<number, number[]>();
+  /** 침대 번호 → [facing*2 + head] 변형 번호 (#188) */
+  private readonly beds = new Map<number, number[]>();
 
   constructor(readonly defs: readonly BlockDef[]) {
     for (const d of defs) {
@@ -241,6 +252,11 @@ export class BlockRegistry {
         let t = this.torches.get(d.torch.base);
         if (!t) this.torches.set(d.torch.base, (t = []));
         t[d.torch.wall] = d.num;
+      }
+      if (d.bed) {
+        let bArr = this.beds.get(d.bed.base);
+        if (!bArr) this.beds.set(d.bed.base, (bArr = []));
+        bArr[d.bed.facing * 2 + (d.bed.head ? 1 : 0)] = d.num;
       }
       if (d.door) {
         let arr = this.doors.get(d.door.base);
@@ -289,6 +305,19 @@ export class BlockRegistry {
   /** 상자(혼자든 큰 상자든)인가 */
   isChest(num: number): boolean {
     return this.get(num).chest !== null;
+  }
+
+  /** 침대 변형 (#188): 침대 번호(JSON 것) + 방향 + 머리/발 → 블록 번호 */
+  bedVariant(base: number, facing: number, head: boolean): number {
+    const arr = this.beds.get(base);
+    if (!arr) throw new Error(`침대가 아닌 블록 번호: ${base}`);
+    return arr[(facing & 3) * 2 + (head ? 1 : 0)]!;
+  }
+
+  /** 침대(JSON 의 침대 또는 그 변형)인가 */
+  isBed(num: number): boolean {
+    const d = this.get(num);
+    return d.bed !== null || (d.shape === 'bed' && this.beds.has(num));
   }
 
   /** 벽에 붙은 횃불 변형 (wall 0~3). 없으면 바닥 횃불 그대로 */
@@ -462,6 +491,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       door: null,
       torch: null,
       chest: null,
+      bed: null,
     };
   });
 
@@ -526,6 +556,28 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
             door: { base: src.num, facing, upper, open, hinge },
           });
         }
+  }
+
+  // 침대(shape 'bed', #188): 아들 JSON 은 침대 하나만 적고, 코드가 방향 4 × 발/머리 = 8개 내부 변형을 만든다 (문처럼 두 칸).
+  // 윗면 그림은 textureTop 에 _foot / _head 를 붙인 것. 발 쪽만 아이템을 떨구고, 둘 중 하나를 부수면 둘 다 사라진다
+  for (const src of [...defs]) {
+    if (src.shape !== 'bed' || !src.textures) continue;
+    const [top, side, bottom] = src.textures;
+    for (let facing = 0; facing < 4; facing++)
+      for (const head of [false, true])
+        defs.push({
+          ...src,
+          num: defs.length,
+          id: `${src.id}@${DOOR_FACING[facing]}${head ? '^' : ''}`,
+          solid: true,
+          transparent: true,
+          drops: head ? null : src.drops,
+          bonusDrops: null,
+          lightFilter: 0,
+          textures: [`${top}_${head ? 'head' : 'foot'}`, side, bottom],
+          internal: true,
+          bed: { base: src.num, facing, head },
+        });
   }
 
   // 상자(shape 'chest'): 혼자 상자(JSON 그대로) + 짝이 있는 큰 상자 변형 4개 (결정 #84).

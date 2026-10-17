@@ -27,6 +27,8 @@ export interface MeshBlockInfo {
   egg: boolean;
   /** 꽃·풀(#180, shape 'cross'): 칸 대각선에 선 판 두 장(양면)으로 그린다 */
   cross: boolean;
+  /** 침대(#188): [facing(발→머리), 머리면 1]. 9/16 높이 상자, 윗면 그림은 머리 쪽이 위 */
+  bed: readonly [number, number] | null;
 }
 
 export interface MeshBuffers {
