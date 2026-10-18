@@ -21,6 +21,7 @@ import {
   itemToBlock,
   itemForPlacing,
   give,
+  hasWaterNear,
 } from '@dragon-village/shared';
 import { DRAGONS, EXPEDITIONS, BLOCKS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
@@ -162,6 +163,61 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(rejected(a)).toEqual([]);
     expect(room.placed.has(`66,${GROUND_Y + 1},64`)).toBe(false);
     expect(storage.listPlaced(INFO.code)).toEqual([]);
+  });
+
+  it('괭이·뼛가루 (#193): 물가 잔디는 괭이로 밭이 되고(멀면 NO_FARMLAND, 괭이 없으면 TOOL), 뼛가루는 싹을 바로 익힌다', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    // 서쪽 밭 물길 옆 농지를 흙으로 바꿔 두고 다시 간다 (물이 바로 옆)
+    let fx = -1,
+      fz = -1;
+    for (let z = 50; z < 80 && fx < 0; z++)
+      for (let x = 22; x < 44; x++)
+        if (BLOCKS.get(room.world.getBlock(x, GROUND_Y, z)).id === 'farmland' && room.world.getBlock(x, GROUND_Y + 1, z) === 0) {
+          fx = x;
+          fz = z;
+          break;
+        }
+    room.world.setBlock(fx, GROUND_Y, fz, BLOCKS.numOf('dirt'));
+    room.onMove(ra.idx, { x: fx + 0.5, y: GROUND_Y + 1, z: fz + 2.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 1, x: fx, y: GROUND_Y, z: fz, id: 'farmland', slot: 0 }, 1000);
+    expect(rejected(a)).toEqual([{ seq: 1, reason: REJECT.TOOL }]); // 빈손
+    give(p.inv, 'wooden_hoe', 1);
+    const hoe = p.inv.findIndex((s) => s?.item === 'wooden_hoe');
+    room.onBlockChange(ra.idx, { seq: 2, x: fx, y: GROUND_Y, z: fz, id: 'farmland', slot: hoe }, 1100);
+    expect(rejected(a)).toHaveLength(1);
+    expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y, fz)).id).toBe('farmland');
+    expect(countOf(p.inv, 'wooden_hoe')).toBe(1);
+    // 물에서 먼 잔디(광장 동쪽 끝 너머)는 안 된다
+    const isWater = (wx: number, wy: number, wz: number) => room.world.inBounds(wx, wy, wz) && BLOCKS.get(room.world.getBlock(wx, wy, wz)).fluid === 'water';
+    let gx = -1,
+      gz = -1;
+    for (let z = 96; z < 150 && gx < 0; z++)
+      for (let x = 40; x < 200 && gx < 0; x++)
+        if (BLOCKS.get(room.world.getBlock(x, GROUND_Y, z)).id === 'grass' && !hasWaterNear(isWater, x, GROUND_Y, z)) {
+          gx = x;
+          gz = z;
+        }
+    expect(gx).toBeGreaterThan(0);
+    room.onMove(ra.idx, { x: gx + 0.5, y: GROUND_Y + 1, z: gz + 2.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 3, x: gx, y: GROUND_Y, z: gz, id: 'farmland', slot: hoe }, 1200);
+    expect(rejected(a)).toEqual([{ seq: 1, reason: REJECT.TOOL }, { seq: 3, reason: REJECT.NO_FARMLAND }]);
+    // 뼛가루: 밀 씨를 심고 바로 익힌다
+    give(p.inv, 'wheat_seeds', 1);
+    give(p.inv, 'bone_meal', 2);
+    room.onMove(ra.idx, { x: fx + 0.5, y: GROUND_Y + 1, z: fz + 2.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 4, x: fx, y: GROUND_Y + 1, z: fz, id: 'wheat_young' }, 2000);
+    expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y + 1, fz)).id).toBe('wheat_young');
+    const meal = p.inv.findIndex((s) => s?.item === 'bone_meal');
+    expect(room.boneMeal(ra.idx, hoe, fx, GROUND_Y + 1, fz, 2100)).toBe('NO_BONE_MEAL');
+    expect(room.boneMeal(ra.idx, meal, fx, GROUND_Y, fz, 2100)).toBe('NOT_GROWING'); // 농지는 작물이 아니다
+    expect(room.boneMeal(ra.idx, meal, fx, GROUND_Y + 1, fz, 2100)).toBeNull();
+    expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y + 1, fz)).id).toBe('wheat_ripe');
+    expect(countOf(p.inv, 'bone_meal')).toBe(1);
+    expect(room.crops.size).toBe(0);
   });
 
   it('삽으로 잔디 길 (#191): 삽을 들고 잔디 위에 grass_path 요청 → 바뀌고 아이템은 안 줄어든다. 삽이 없으면 TOOL', () => {

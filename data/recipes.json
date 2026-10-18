@@ -1102,6 +1102,75 @@
       }
     },
     {
+      "id": "wooden_hoe",
+      "name": "나무 괭이",
+      "station": "crafting_table",
+      "pattern": ["mm", " s", " s"],
+      "key": {"m": "planks", "s": "stick"},
+      "in": {
+        "planks": 2,
+        "stick": 2
+      },
+      "out": {
+        "wooden_hoe": 1
+      },
+      "_note": "괭이 (#193): 재료 2 + 막대기 2. 들고 흙·잔디 윗면을 탭 → 밭(물이 4칸 안에 있을 때)"
+    },
+    {
+      "id": "stone_hoe",
+      "name": "돌 괭이",
+      "station": "crafting_table",
+      "pattern": ["mm", " s", " s"],
+      "key": {"m": "cobblestone", "s": "stick"},
+      "in": {
+        "cobblestone": 2,
+        "stick": 2
+      },
+      "out": {
+        "stone_hoe": 1
+      }
+    },
+    {
+      "id": "golden_hoe",
+      "name": "황금 괭이",
+      "station": "forge",
+      "pattern": ["mm", " s", " s"],
+      "key": {"m": "gold_ingot", "s": "stick"},
+      "in": {
+        "gold_ingot": 2,
+        "stick": 2
+      },
+      "out": {
+        "golden_hoe": 1
+      }
+    },
+    {
+      "id": "diamond_hoe",
+      "name": "다이아몬드 괭이",
+      "station": "forge",
+      "pattern": ["mm", " s", " s"],
+      "key": {"m": "diamond", "s": "stick"},
+      "in": {
+        "diamond": 2,
+        "stick": 2
+      },
+      "out": {
+        "diamond_hoe": 1
+      }
+    },
+    {
+      "id": "netherite_hoe",
+      "name": "네더라이트 괭이",
+      "station": "forge",
+      "in": {
+        "diamond_hoe": 1,
+        "netherite": 1
+      },
+      "out": {
+        "netherite_hoe": 1
+      }
+    },
+    {
       "id": "iron_hoe",
       "name": "철 괭이",
       "station": "forge",
@@ -1507,16 +1576,27 @@
       }
     },
     {
-      "id": "white_dye",
-      "name": "흰 염료",
+      "id": "bone_meal",
+      "name": "뼛가루",
       "station": "inventory",
       "in": {
         "bone": 1
       },
       "out": {
-        "white_dye": 3
+        "bone_meal": 3
       },
-      "_note": "뼈 1 → 흰 염료 3 (뼛가루 대신)"
+      "_note": "뼈 1 → 뼛가루 3 (#193, 마인크래프트). 뼛가루를 들고 작물 싹·묘목을 탭하면 바로 다 자란다. 흰 염료도 뼛가루로"
+    },
+    {
+      "id": "white_dye",
+      "name": "흰 염료",
+      "station": "inventory",
+      "in": {
+        "bone_meal": 1
+      },
+      "out": {
+        "white_dye": 1
+      }
     },
     {
       "id": "black_dye",

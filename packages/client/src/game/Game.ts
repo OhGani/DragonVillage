@@ -72,6 +72,7 @@ import {
   isMountKind,
   CARROT_ON_A_STICK,
   foodOf,
+  TILLABLE,
 } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
@@ -547,6 +548,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       onPlaced: (x, y, z, id, prev) => {
         light.markChanged(x, y, z);
         sendBlock(x, y, z, id, prev);
+      },
+      onBoneMeal: (x, y, z) => {
+        net.sendBoneMeal(x, y, z, hud.selectedIndex); // 뼛가루 (#193)
       },
       onBroken: (x, y, z, prev) => {
         light.markChanged(x, y, z);
@@ -1544,7 +1548,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       swingMob = aimedMob !== null && aimedMob < ANIMAL_ID_BASE ? aimedMob : aimedMob === null ? mobView.nearestInCone(player.eye, player.lookDir, meleeReach, SWING_CONE_COS, true) : null;
       if (swingMob === null && aimedMob === null) {
         const tdef = interaction.target ? registry.get(interaction.target.id) : null;
-        const pathing = heldTool.kind === 'shovel' && tdef?.id === 'grass' && interaction.target!.ny > 0; // 삽으로 잔디 길 만들기는 캐기가 아니다 (#191)
+        const pathing = ((heldTool.kind === 'shovel' && tdef?.id === 'grass') || (heldTool.kind === 'hoe' && tdef !== null && TILLABLE.has(tdef.id))) && interaction.target!.ny > 0; // 삽으로 잔디 길·괭이로 밭은 캐기가 아니다 (#191·#193)
         if (tdef && !tdef.door && !tdef.chest && !pathing) interaction.swingBurst(SWING_BURST_SEC);
         hand.swing();
       }

@@ -169,6 +169,10 @@ import {
   isMountKind,
   foodOf,
   shovelOf,
+  hoeOf,
+  TILLABLE,
+  hasWaterNear,
+  BONE_MEAL,
 } from '@dragon-village/shared';
 import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
@@ -1055,38 +1059,65 @@ export class VillageRoom {
   private tickCrops(now: number): void {
     if (this.crops.size === 0 || now - this.lastCropCheck < CROP_CHECK_MS) return;
     this.lastCropCheck = now;
-    for (const [key, plantedAt] of [...this.crops]) {
-      const [x, y, z] = key.split(',').map(Number) as [number, number, number];
-      const cur = this.registry.get(this.world.getBlock(x, y, z));
-      if (cur.grows === 'oak_tree') {
-        // 묘목 → 참나무 (#181): 줄기·잎을 한꺼번에 놓고 모두에게 알린다. 잎은 빈 칸에만
-        if (now - plantedAt < (cur.growMinutes ?? 0) * 60_000) continue;
-        const log = this.registry.require('log'),
-          leaves = this.registry.require('leaves');
-        for (const b of oakTreeBlocks({ x, y, z }, this.info.seed, (bx, by, bz) => this.world.inBounds(bx, by, bz) && this.world.getBlock(bx, by, bz) === AIR_ID)) {
-          const id = b.kind === 'log' ? log : leaves;
-          this.world.setBlock(b.x, b.y, b.z, id.num);
-          this.markDirtyBlock(b.x, b.y, b.z);
-          this.broadcast(encodeBlockChanged({ x: b.x, y: b.y, z: b.z, id: id.id, by: -1 }), -1, 'village');
-        }
-        this.crops.delete(key);
-        this.storage?.delCrop(this.info.code, x, y, z);
-        continue;
-      }
-      const next = cur.grows ? this.registry.find(cur.grows) : undefined;
-      if (!next) {
-        this.crops.delete(key);
-        this.storage?.delCrop(this.info.code, x, y, z);
-        continue;
-      }
-      if (now - plantedAt < (cur.growMinutes ?? 0) * 60_000) continue;
-      if (cur.growsWhenOpen && this.world.inBounds(x, y + 1, z) && this.registry.get(this.world.getBlock(x, y + 1, z)).solid) continue; // 위가 막혔으면 그대로 흙 (#171)
-      this.world.setBlock(x, y, z, next.num);
-      this.markDirtyBlock(x, y, z);
+    for (const [key, plantedAt] of [...this.crops]) this.growCrop(key, plantedAt, now, false);
+  }
+
+  /**
+   * 작물 한 칸 자라기. force 면 시간을 안 보고 바로 (뼛가루 #193). 자랐으면 true.
+   * 그 자리에 자라는 것이 없어졌으면 기록만 지운다
+   */
+  private growCrop(key: string, plantedAt: number, now: number, force: boolean): boolean {
+    const [x, y, z] = key.split(',').map(Number) as [number, number, number];
+    const cur = this.registry.get(this.world.getBlock(x, y, z));
+    const done = () => {
       this.crops.delete(key);
       this.storage?.delCrop(this.info.code, x, y, z);
-      this.broadcast(encodeBlockChanged({ x, y, z, id: next.id, by: -1 }), -1, 'village');
+    };
+    if (cur.grows === 'oak_tree') {
+      // 묘목 → 참나무 (#181): 줄기·잎을 한꺼번에 놓고 모두에게 알린다. 잎은 빈 칸에만
+      if (!force && now - plantedAt < (cur.growMinutes ?? 0) * 60_000) return false;
+      const log = this.registry.require('log'),
+        leaves = this.registry.require('leaves');
+      for (const b of oakTreeBlocks({ x, y, z }, this.info.seed, (bx, by, bz) => this.world.inBounds(bx, by, bz) && this.world.getBlock(bx, by, bz) === AIR_ID)) {
+        const id = b.kind === 'log' ? log : leaves;
+        this.world.setBlock(b.x, b.y, b.z, id.num);
+        this.markDirtyBlock(b.x, b.y, b.z);
+        this.broadcast(encodeBlockChanged({ x: b.x, y: b.y, z: b.z, id: id.id, by: -1 }), -1, 'village');
+      }
+      done();
+      return true;
     }
+    const next = cur.grows ? this.registry.find(cur.grows) : undefined;
+    if (!next) {
+      done();
+      return false;
+    }
+    if (!force && now - plantedAt < (cur.growMinutes ?? 0) * 60_000) return false;
+    if (cur.growsWhenOpen && this.world.inBounds(x, y + 1, z) && this.registry.get(this.world.getBlock(x, y + 1, z)).solid) return false; // 위가 막혔으면 그대로 흙 (#171)
+    this.world.setBlock(x, y, z, next.num);
+    this.markDirtyBlock(x, y, z);
+    done();
+    this.broadcast(encodeBlockChanged({ x, y, z, id: next.id, by: -1 }), -1, 'village');
+    return true;
+  }
+
+  /** 뼛가루 (#193): 손에 든 칸의 뼛가루 하나를 쓰고 그 자리 작물(싹·묘목)을 바로 다 키운다. 오류: NO_BONE_MEAL · NOT_GROWING · TOO_FAR */
+  boneMeal(idx: number, slot: number, x: number, y: number, z: number, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (p.world !== 'village') return 'NOT_GROWING';
+    const held = slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
+    if (held !== BONE_MEAL) return 'NO_BONE_MEAL';
+    if (Math.hypot(x + 0.5 - p.pos.x, y + 0.5 - (p.pos.y + EYE), z + 0.5 - p.pos.z) > HIT_REACH + 1) return 'TOO_FAR';
+    const key = `${x},${y},${z}`;
+    const cur = this.world.inBounds(x, y, z) ? this.registry.get(this.world.getBlock(x, y, z)) : null;
+    if (!cur || !cur.grows || cur.growsWhenOpen) return 'NOT_GROWING'; // 흙 → 잔디는 작물이 아니다
+    const changed = new Set<number>();
+    if (!takeFromSlot(p.inv, slot, 1, changed)) return 'NO_BONE_MEAL';
+    this.sendInv(p, changed);
+    this.growCrop(key, this.crops.get(key) ?? now, now, true);
+    this.broadcastJson({ t: 'mob', ev: 'love', id: -1, mob: 'crop', x: x + 0.5, y: y + 0.5, z: z + 0.5 }, -1, 'village'); // 반짝 (하트 연출 재사용)
+    return null;
   }
 
   /** 시험용: 작물 확인을 지금 바로 */
@@ -1889,6 +1920,12 @@ export class VillageRoom {
       const heldForPath = req.slot !== undefined && req.slot >= 0 && req.slot < p.inv.length ? (p.inv[req.slot]?.item ?? null) : null;
       return shovelOf(TOOLS, heldForPath) ? null : REJECT.TOOL;
     }
+    // 괭이로 밭 갈기 (#193): 흙·잔디·잔디 길 위에 농지를 '놓는' 요청은 괭이를 들고, 물이 4칸 안에 있을 때만
+    if (def.id === 'farmland' && TILLABLE.has(cur.id)) {
+      const heldForTill = req.slot !== undefined && req.slot >= 0 && req.slot < p.inv.length ? (p.inv[req.slot]?.item ?? null) : null;
+      if (!hoeOf(TOOLS, heldForTill)) return REJECT.TOOL;
+      return hasWaterNear((wx, wy, wz) => world.inBounds(wx, wy, wz) && this.registry.get(world.getBlock(wx, wy, wz)).fluid === 'water', x, y, z) ? null : REJECT.NO_FARMLAND;
+    }
     // 놓기: 액체는 플레이어가 놓는 고인 액체 8/8 만(자연 원천·흐름은 못 놓는다), 그 외 내부 블록 불가, 자리는 공기·액체만, 누가 서 있으면 안 됨
     if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch && !def.bed) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82)
     if (def.bed && def.bed.head) return REJECT.INVALID; // 침대는 발 쪽만 놓는다(머리 칸은 서버가 채운다, #188)
@@ -2037,8 +2074,8 @@ export class VillageRoom {
       if (mined > 0) this.addXp(p, mined, XP_SOURCE.mining, req.x + 0.5, req.y + 0.5, req.z + 0.5);
       // 상자를 부수면 안에 있던 것이 내 가방으로 (#84). 아직 안 연 원정 보물은 여기서 채워져 그대로 들어온다
       if (prev.chest) this.breakChest(p, req.x, req.y, req.z, prev, changed, now);
-    } else if (req.id === 'grass_path' && prev.id === 'grass') {
-      // 삽으로 다듬은 잔디 길 (#191): 가방에서 나가는 건 없다
+    } else if ((req.id === 'grass_path' && prev.id === 'grass') || (req.id === 'farmland' && TILLABLE.has(prev.id))) {
+      // 삽으로 다듬은 잔디 길 (#191)·괭이로 간 밭 (#193): 가방에서 나가는 건 없다
     } else {
       const item = itemForPlacing(req.id, this.registry);
       if (item) {

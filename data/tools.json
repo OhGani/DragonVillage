@@ -67,6 +67,14 @@
     { "id": "diamond_shovel", "name": "다이아몬드 삽", "tier": 3, "speed": 8, "durability": 1561, "_note": "대장간" },
     { "id": "netherite_shovel", "name": "네더라이트 삽", "tier": 4, "speed": 9, "durability": 2031, "_note": "다이아몬드 삽 1 + 네더라이트 1 (대장간)" }
   ],
+  "hoes": [
+    { "id": "wooden_hoe", "name": "나무 괭이", "tier": 0, "speed": 1, "durability": 59, "_note": "괭이 (#193, 아빠 2026-10-19 밭 만들기 안내): 들고 흙·잔디 윗면을 탭하면 농지(밭)가 된다 — 단, 물이 4칸 안에 있어야. 재료 2 + 막대기 2" },
+    { "id": "stone_hoe", "name": "돌 괭이", "tier": 1, "speed": 1, "durability": 131 },
+    { "id": "iron_hoe", "name": "철 괭이", "tier": 2, "speed": 1, "durability": 250, "_note": "대장간" },
+    { "id": "golden_hoe", "name": "황금 괭이", "tier": 2, "speed": 1, "durability": 32, "_note": "대장간" },
+    { "id": "diamond_hoe", "name": "다이아몬드 괭이", "tier": 3, "speed": 1, "durability": 1561, "_note": "대장간" },
+    { "id": "netherite_hoe", "name": "네더라이트 괭이", "tier": 4, "speed": 1, "durability": 2031, "_note": "다이아몬드 괭이 1 + 네더라이트 1 (대장간)" }
+  ],
   "spears": [
     { "id": "wooden_spear", "name": "나무 창", "tier": 0, "speed": 1, "damage": 4, "reach": 5, "durability": 59, "_note": "창 (#183, 아들 2026-10-17): 검보다 1 약하지만 5칸까지 닿는다 (검 3.5). 판자 1 + 막대기 2 대각선" },
     { "id": "stone_spear", "name": "돌 창", "tier": 1, "speed": 1, "damage": 5, "reach": 5, "durability": 131 },

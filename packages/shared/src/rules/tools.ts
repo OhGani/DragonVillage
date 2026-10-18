@@ -35,11 +35,12 @@ const ToolsFile = z
     swords: z.array(RawTool).optional(),
     spears: z.array(RawTool).optional(),
     shovels: z.array(RawTool).optional(),
+    hoes: z.array(RawTool).optional(),
   })
   .loose();
 
 /** 도구 종류 — blocks.json 의 tool 과 같은 말 */
-export type ToolKind = 'pickaxe' | 'axe' | 'sword' | 'spear' | 'shovel';
+export type ToolKind = 'pickaxe' | 'axe' | 'sword' | 'spear' | 'shovel' | 'hoe';
 
 export interface ToolDef {
   readonly id: string;
@@ -67,6 +68,8 @@ export interface ToolRules {
   readonly spears: ReadonlyMap<string, ToolDef>;
   /** 삽 (#191): 흙·모래를 빨리 파고, 잔디를 길로 다듬는다 */
   readonly shovels: ReadonlyMap<string, ToolDef>;
+  /** 괭이 (#193): 흙·잔디를 밭으로 간다 */
+  readonly hoes: ReadonlyMap<string, ToolDef>;
 }
 
 /** 맨손은 나무 곡괭이와 같은 등급 0 (toolTier 0 인 돌·조약돌만, 속도는 배수 없음) */
@@ -96,12 +99,13 @@ export function parseTools(raw: unknown, fileName = 'data/tools.json'): ToolRule
   for (const s of swords.values()) if (s.damage === null) problems.push(`검 '${s.id}' 에 damage(공격력)가 없어요`);
   const spears = load(result.data.spears ?? [], 'spear', '창');
   const shovels = load(result.data.shovels ?? [], 'shovel', '삽');
+  const hoes = load(result.data.hoes ?? [], 'hoe', '괭이');
   for (const s of spears.values()) {
     if (s.damage === null) problems.push(`창 '${s.id}' 에 damage(공격력)가 없어요`);
     if (s.reach === null) problems.push(`창 '${s.id}' 에 reach(닿는 거리)가 없어요`);
   }
   if (problems.length) throw new DataError(fileName, problems);
-  return { enchantSpeedPerLevel: result.data.enchantSpeedPerLevel, pickaxes, axes, swords, spears, shovels };
+  return { enchantSpeedPerLevel: result.data.enchantSpeedPerLevel, pickaxes, axes, swords, spears, shovels, hoes };
 }
 
 /** 손에 든 아이템이 곡괭이면 그 정의, 아니면 null */
@@ -129,9 +133,29 @@ export function shovelOf(tools: ToolRules, item: string | null | undefined): Too
   return item ? (tools.shovels.get(item) ?? null) : null;
 }
 
-/** 손에 든 아이템이 도구(곡괭이·도끼·검·창·삽)면 그 정의, 아니면 null */
+/** 손에 든 아이템이 괭이면 그 정의, 아니면 null (#193) */
+export function hoeOf(tools: ToolRules, item: string | null | undefined): ToolDef | null {
+  return item ? (tools.hoes.get(item) ?? null) : null;
+}
+
+/** 괭이로 밭을 갈 수 있는 땅 (#193) */
+export const TILLABLE = new Set(['dirt', 'grass', 'grass_path']);
+/** 밭에 물이 닿는 거리 (#193, 마인크래프트 4칸): 같은 높이나 한 칸 위에 물이 있으면 된다 */
+export const FARM_WATER_RANGE = 4;
+/** (x,y,z) 둘레 FARM_WATER_RANGE 칸 안(같은 높이·한 칸 위)에 물이 있나. isWater 는 블록 번호가 물인지 */
+export function hasWaterNear(isWater: (x: number, y: number, z: number) => boolean, x: number, y: number, z: number): boolean {
+  for (let dy = 0; dy <= 1; dy++)
+    for (let dx = -FARM_WATER_RANGE; dx <= FARM_WATER_RANGE; dx++)
+      for (let dz = -FARM_WATER_RANGE; dz <= FARM_WATER_RANGE; dz++)
+        if (isWater(x + dx, y + dy, z + dz)) return true;
+  return false;
+}
+/** 뼛가루 (#193): 자라는 것(작물 싹·묘목)에 쓰면 바로 다 자란다 */
+export const BONE_MEAL = 'bone_meal';
+
+/** 손에 든 아이템이 도구(곡괭이·도끼·검·창·삽·괭이)면 그 정의, 아니면 null */
 export function toolOf(tools: ToolRules, item: string | null | undefined): ToolDef | null {
-  return pickaxeOf(tools, item) ?? axeOf(tools, item) ?? swordOf(tools, item) ?? spearOf(tools, item) ?? shovelOf(tools, item);
+  return pickaxeOf(tools, item) ?? axeOf(tools, item) ?? swordOf(tools, item) ?? spearOf(tools, item) ?? shovelOf(tools, item) ?? hoeOf(tools, item);
 }
 
 /** 이 도구로 몹에 닿는 거리: 창은 제 reach, 나머지는 기본 (#183) */

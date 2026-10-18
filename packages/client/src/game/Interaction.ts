@@ -16,6 +16,10 @@ import {
   raycastVoxels,
   DOOR_DIR,
   shovelOf,
+  hoeOf,
+  TILLABLE,
+  hasWaterNear,
+  BONE_MEAL,
 } from '@dragon-village/shared';
 import { TOOLS } from '@dragon-village/shared/data';
 import type { InputState } from '../input/InputState';
@@ -36,6 +40,8 @@ export interface InteractionEvents {
   onBroken?(x: number, y: number, z: number, prev: number): void;
   /** 못 캐는 이유 등 짧은 안내 (토스트) */
   onHint?(text: string): void;
+  /** 뼛가루를 그 자리 작물에 (#193) */
+  onBoneMeal?(x: number, y: number, z: number): void;
   /** 상자를 탭했다 (#84) — 놓기 대신 연다 */
   onOpenChest?(x: number, y: number, z: number): void;
 }
@@ -263,6 +269,31 @@ export class Interaction {
 
   private place(): void {
     const t = this.target;
+    // 괭이로 밭 갈기 (#193): 괭이를 들고 흙·잔디 윗면을 탭 → 농지. 물이 4칸 안에 있어야 한다
+    if (t && t.ny > 0 && hoeOf(TOOLS, this.heldItem) && TILLABLE.has(this.registry.get(t.id).id)) {
+      const isWater = (wx: number, wy: number, wz: number) => this.world.inBounds(wx, wy, wz) && this.registry.get(this.world.getBlock(wx, wy, wz)).fluid === 'water';
+      if (!hasWaterNear(isWater, t.x, t.y, t.z)) {
+        this.events.onHint?.('💧 물이 4칸 안에 있어야 밭이 돼요 — 옆에 물을 한 칸 부어요');
+        return;
+      }
+      const farm = this.registry.numOf('farmland');
+      const r = this.world.setBlock(t.x, t.y, t.z, farm);
+      if (r.changed) {
+        this.events.onBlocksChanged(r.dirty);
+        this.events.onPlaced?.(t.x, t.y, t.z, farm, t.id);
+        this.events.onSwing();
+      }
+      return;
+    }
+    // 뼛가루 (#193): 들고 작물 싹·묘목을 탭 → 서버가 바로 키운다
+    if (t && this.heldItem === BONE_MEAL) {
+      const d = this.registry.get(t.id);
+      if (d.grows && !d.growsWhenOpen) {
+        this.events.onBoneMeal?.(t.x, t.y, t.z);
+        this.events.onSwing();
+      } else this.events.onHint?.('🦴 뼛가루는 자라는 것(싹·묘목)에 써요');
+      return;
+    }
     // 삽으로 잔디 다듬기 (#191): 삽을 들고 잔디 윗면을 탭 → 캐지 않고 잔디 길이 된다
     if (t && t.ny > 0 && shovelOf(TOOLS, this.heldItem) && this.registry.get(t.id).id === 'grass') {
       const path = this.registry.numOf('grass_path');

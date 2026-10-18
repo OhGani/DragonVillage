@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import toolsJson from '../../../../data/tools.json';
 import { BLOCKS, ITEM_NAMES, RECIPES, TOOLS } from './data';
-import { axeOf, breakSeconds, canBreakWith, hitReachOf, needToolText, parseTools, pickaxeOf, shovelOf, spearOf, swordOf, toolOf } from './tools';
+import { TILLABLE, axeOf, breakSeconds, canBreakWith, hasWaterNear, hitReachOf, hoeOf, needToolText, parseTools, pickaxeOf, shovelOf, spearOf, swordOf, toolOf } from './tools';
 import { HIT_REACH, attackDamageOf } from './mobs';
 
 const B = (id: string) => BLOCKS.require(id);
@@ -131,6 +131,20 @@ describe('도끼 (아빠 2026-09-21, #80)', () => {
 
   it('없는 종류의 도구는 한국어로 알려준다', () => {
     expect(() => parseTools({ enchantSpeedPerLevel: 1.5, pickaxes: [{ id: 'a', name: 'ㄱ', tier: 0, speed: 1, durability: 1 }], axes: [{ id: 'a', name: 'ㄴ', tier: 0, speed: 1, durability: 1 }] })).toThrow(/두 번/);
+  });
+});
+
+describe('괭이 (#193)', () => {
+  it('6종이 있고 도구로 잡히며, 물 4칸 판정은 같은 높이·한 칸 위만', () => {
+    for (const t of ['wooden', 'stone', 'iron', 'golden', 'diamond', 'netherite']) expect(toolOf(TOOLS, `${t}_hoe`)?.kind).toBe('hoe');
+    expect(hoeOf(TOOLS, 'iron_shovel')).toBeNull();
+    const water = new Set(['5,10,9']);
+    const isWater = (x: number, y: number, z: number) => water.has(`${x},${y},${z}`);
+    expect(hasWaterNear(isWater, 5, 10, 5)).toBe(true); // 4칸
+    expect(hasWaterNear(isWater, 5, 10, 4)).toBe(false); // 5칸
+    expect(hasWaterNear(isWater, 5, 9, 9)).toBe(true); // 물이 한 칸 위
+    expect(hasWaterNear(isWater, 5, 11, 9)).toBe(false); // 물이 아래면 안 된다
+    expect(TILLABLE.has('grass_path') && TILLABLE.has('dirt') && !TILLABLE.has('stone')).toBe(true);
   });
 });
 
