@@ -168,6 +168,7 @@ import {
   levelSiteBlocks,
   isMountKind,
   foodOf,
+  shovelOf,
 } from '@dragon-village/shared';
 import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
@@ -1883,6 +1884,11 @@ export class VillageRoom {
       if (!canBreakWith(cur, toolOf(TOOLS, held))) return REJECT.TOOL;
       return null;
     }
+    // 삽으로 잔디 다듬기 (#191): 잔디 위에 잔디 길을 '놓는' 요청은 삽을 들고 있을 때만, 아이템은 안 쓴다
+    if (def.id === 'grass_path' && cur.id === 'grass') {
+      const heldForPath = req.slot !== undefined && req.slot >= 0 && req.slot < p.inv.length ? (p.inv[req.slot]?.item ?? null) : null;
+      return shovelOf(TOOLS, heldForPath) ? null : REJECT.TOOL;
+    }
     // 놓기: 액체는 플레이어가 놓는 고인 액체 8/8 만(자연 원천·흐름은 못 놓는다), 그 외 내부 블록 불가, 자리는 공기·액체만, 누가 서 있으면 안 됨
     if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch && !def.bed) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82)
     if (def.bed && def.bed.head) return REJECT.INVALID; // 침대는 발 쪽만 놓는다(머리 칸은 서버가 채운다, #188)
@@ -2031,6 +2037,8 @@ export class VillageRoom {
       if (mined > 0) this.addXp(p, mined, XP_SOURCE.mining, req.x + 0.5, req.y + 0.5, req.z + 0.5);
       // 상자를 부수면 안에 있던 것이 내 가방으로 (#84). 아직 안 연 원정 보물은 여기서 채워져 그대로 들어온다
       if (prev.chest) this.breakChest(p, req.x, req.y, req.z, prev, changed, now);
+    } else if (req.id === 'grass_path' && prev.id === 'grass') {
+      // 삽으로 다듬은 잔디 길 (#191): 가방에서 나가는 건 없다
     } else {
       const item = itemForPlacing(req.id, this.registry);
       if (item) {

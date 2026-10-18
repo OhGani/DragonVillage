@@ -164,6 +164,31 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(storage.listPlaced(INFO.code)).toEqual([]);
   });
 
+  it('삽으로 잔디 길 (#191): 삽을 들고 잔디 위에 grass_path 요청 → 바뀌고 아이템은 안 줄어든다. 삽이 없으면 TOOL', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    let gx = -1;
+    for (let x = 86; x < 110 && gx < 0; x++) if (BLOCKS.get(room.world.getBlock(x, GROUND_Y, 64)).id === 'grass') gx = x;
+    expect(gx).toBeGreaterThan(0);
+    room.onMove(ra.idx, { x: gx + 0.5, y: GROUND_Y + 1, z: 66.5, yaw: 0, pitch: 0, flags: 0 });
+    const before = p.inv.filter((s) => s !== null).length;
+    room.onBlockChange(ra.idx, { seq: 1, x: gx, y: GROUND_Y, z: 64, id: 'grass_path', slot: 0 }, 1000);
+    expect(rejected(a)).toEqual([{ seq: 1, reason: REJECT.TOOL }]); // 빈손
+    give(p.inv, 'iron_shovel', 1);
+    const slot = p.inv.findIndex((s) => s?.item === 'iron_shovel');
+    room.onBlockChange(ra.idx, { seq: 2, x: gx, y: GROUND_Y, z: 64, id: 'grass_path', slot }, 1100);
+    expect(rejected(a)).toHaveLength(1);
+    expect(BLOCKS.get(room.world.getBlock(gx, GROUND_Y, 64)).id).toBe('grass_path');
+    expect(p.inv.filter((s) => s !== null).length).toBe(before + 1); // 삽만 늘었고 아무것도 안 줄었다
+    expect(countOf(p.inv, 'iron_shovel')).toBe(1);
+    // 잔디 길 위에 다시 하면 안 된다(잔디가 아니다) → OCCUPIED
+    room.onBlockChange(ra.idx, { seq: 3, x: gx, y: GROUND_Y, z: 64, id: 'grass_path', slot }, 1200);
+    expect(rejected(a)).toHaveLength(2);
+  });
+
   it('호박씨·수박씨 (#190): 농지에 심으면 싹, 8분 뒤 호박·수박 블록', () => {
     expect(itemToBlock('pumpkin_seeds', BLOCKS)).toBe(BLOCKS.numOf('pumpkin_stem'));
     expect(itemToBlock('melon_seeds', BLOCKS)).toBe(BLOCKS.numOf('melon_stem'));

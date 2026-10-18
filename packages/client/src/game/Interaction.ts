@@ -15,6 +15,7 @@ import {
   toolOf,
   raycastVoxels,
   DOOR_DIR,
+  shovelOf,
 } from '@dragon-village/shared';
 import { TOOLS } from '@dragon-village/shared/data';
 import type { InputState } from '../input/InputState';
@@ -262,6 +263,17 @@ export class Interaction {
 
   private place(): void {
     const t = this.target;
+    // 삽으로 잔디 다듬기 (#191): 삽을 들고 잔디 윗면을 탭 → 캐지 않고 잔디 길이 된다
+    if (t && t.ny > 0 && shovelOf(TOOLS, this.heldItem) && this.registry.get(t.id).id === 'grass') {
+      const path = this.registry.numOf('grass_path');
+      const r = this.world.setBlock(t.x, t.y, t.z, path);
+      if (r.changed) {
+        this.events.onBlocksChanged(r.dirty);
+        this.events.onPlaced?.(t.x, t.y, t.z, path, t.id);
+        this.events.onSwing();
+      }
+      return;
+    }
     if (!t) return;
     // 문을 탭하면 놓는 대신 열고 닫는다 (빈손도 됨, #71)
     const tdef = this.registry.get(t.id);

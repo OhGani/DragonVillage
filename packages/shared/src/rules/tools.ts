@@ -34,11 +34,12 @@ const ToolsFile = z
     axes: z.array(RawTool).optional(),
     swords: z.array(RawTool).optional(),
     spears: z.array(RawTool).optional(),
+    shovels: z.array(RawTool).optional(),
   })
   .loose();
 
 /** 도구 종류 — blocks.json 의 tool 과 같은 말 */
-export type ToolKind = 'pickaxe' | 'axe' | 'sword' | 'spear';
+export type ToolKind = 'pickaxe' | 'axe' | 'sword' | 'spear' | 'shovel';
 
 export interface ToolDef {
   readonly id: string;
@@ -64,6 +65,8 @@ export interface ToolRules {
   readonly swords: ReadonlyMap<string, ToolDef>;
   /** 창 (#183): 검보다 멀리 닿는다 */
   readonly spears: ReadonlyMap<string, ToolDef>;
+  /** 삽 (#191): 흙·모래를 빨리 파고, 잔디를 길로 다듬는다 */
+  readonly shovels: ReadonlyMap<string, ToolDef>;
 }
 
 /** 맨손은 나무 곡괭이와 같은 등급 0 (toolTier 0 인 돌·조약돌만, 속도는 배수 없음) */
@@ -92,12 +95,13 @@ export function parseTools(raw: unknown, fileName = 'data/tools.json'): ToolRule
   const swords = load(result.data.swords ?? [], 'sword', '검');
   for (const s of swords.values()) if (s.damage === null) problems.push(`검 '${s.id}' 에 damage(공격력)가 없어요`);
   const spears = load(result.data.spears ?? [], 'spear', '창');
+  const shovels = load(result.data.shovels ?? [], 'shovel', '삽');
   for (const s of spears.values()) {
     if (s.damage === null) problems.push(`창 '${s.id}' 에 damage(공격력)가 없어요`);
     if (s.reach === null) problems.push(`창 '${s.id}' 에 reach(닿는 거리)가 없어요`);
   }
   if (problems.length) throw new DataError(fileName, problems);
-  return { enchantSpeedPerLevel: result.data.enchantSpeedPerLevel, pickaxes, axes, swords, spears };
+  return { enchantSpeedPerLevel: result.data.enchantSpeedPerLevel, pickaxes, axes, swords, spears, shovels };
 }
 
 /** 손에 든 아이템이 곡괭이면 그 정의, 아니면 null */
@@ -120,9 +124,14 @@ export function spearOf(tools: ToolRules, item: string | null | undefined): Tool
   return item ? (tools.spears.get(item) ?? null) : null;
 }
 
-/** 손에 든 아이템이 도구(곡괭이·도끼·검·창)면 그 정의, 아니면 null */
+/** 손에 든 아이템이 삽이면 그 정의, 아니면 null (#191) */
+export function shovelOf(tools: ToolRules, item: string | null | undefined): ToolDef | null {
+  return item ? (tools.shovels.get(item) ?? null) : null;
+}
+
+/** 손에 든 아이템이 도구(곡괭이·도끼·검·창·삽)면 그 정의, 아니면 null */
 export function toolOf(tools: ToolRules, item: string | null | undefined): ToolDef | null {
-  return pickaxeOf(tools, item) ?? axeOf(tools, item) ?? swordOf(tools, item) ?? spearOf(tools, item);
+  return pickaxeOf(tools, item) ?? axeOf(tools, item) ?? swordOf(tools, item) ?? spearOf(tools, item) ?? shovelOf(tools, item);
 }
 
 /** 이 도구로 몹에 닿는 거리: 창은 제 reach, 나머지는 기본 (#183) */

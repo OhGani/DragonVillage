@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import toolsJson from '../../../../data/tools.json';
 import { BLOCKS, ITEM_NAMES, RECIPES, TOOLS } from './data';
-import { axeOf, breakSeconds, canBreakWith, hitReachOf, needToolText, parseTools, pickaxeOf, spearOf, swordOf, toolOf } from './tools';
+import { axeOf, breakSeconds, canBreakWith, hitReachOf, needToolText, parseTools, pickaxeOf, shovelOf, spearOf, swordOf, toolOf } from './tools';
 import { HIT_REACH, attackDamageOf } from './mobs';
 
 const B = (id: string) => BLOCKS.require(id);
@@ -131,6 +131,23 @@ describe('도끼 (아빠 2026-09-21, #80)', () => {
 
   it('없는 종류의 도구는 한국어로 알려준다', () => {
     expect(() => parseTools({ enchantSpeedPerLevel: 1.5, pickaxes: [{ id: 'a', name: 'ㄱ', tier: 0, speed: 1, durability: 1 }], axes: [{ id: 'a', name: 'ㄴ', tier: 0, speed: 1, durability: 1 }] })).toThrow(/두 번/);
+  });
+});
+
+describe('삽 (#191)', () => {
+  it('6종: 흙·잔디·모래를 speed 배 빨리 파고(나무 2 · 돌 4 · 철 6 · 금 12 · 다이아 8 · 네더라이트 9), 돌엔 소용없다', () => {
+    const speeds = ['wooden', 'stone', 'iron', 'golden', 'diamond', 'netherite'].map((t) => shovelOf(TOOLS, `${t}_shovel`)?.speed);
+    expect(speeds).toEqual([2, 4, 6, 12, 8, 9]);
+    const dirt = B('dirt'),
+      stone = B('stone');
+    expect(dirt.tool).toBe('shovel');
+    expect(breakSeconds(dirt, shovelOf(TOOLS, 'iron_shovel'))).toBeCloseTo(dirt.hardness! / 6);
+    expect(breakSeconds(dirt, null)).toBe(dirt.hardness);
+    expect(breakSeconds(dirt, toolOf(TOOLS, 'iron_pickaxe'))).toBe(dirt.hardness); // 곡괭이로 흙은 그대로
+    expect(breakSeconds(stone, shovelOf(TOOLS, 'iron_shovel'))).toBe(stone.hardness); // 삽으로 돌은 맨손 속도 그대로
+    expect(toolOf(TOOLS, 'wooden_shovel')?.kind).toBe('shovel');
+    expect(B('grass_path').tool).toBe('shovel');
+    expect(B('grass_path').drops).toBe('dirt');
   });
 });
 

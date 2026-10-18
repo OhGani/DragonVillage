@@ -1116,6 +1116,75 @@
       }
     },
     {
+      "id": "wooden_shovel",
+      "name": "나무 삽",
+      "station": "crafting_table",
+      "pattern": ["m", "s", "s"],
+      "key": {"m": "planks", "s": "stick"},
+      "in": {
+        "planks": 1,
+        "stick": 2
+      },
+      "out": {
+        "wooden_shovel": 1
+      },
+      "_note": "삽 (#191): 재료 1 + 막대기 2 세로. 흙·잔디·모래·자갈을 빨리 파고, 잔디 윗면을 탭하면 잔디 길"
+    },
+    {
+      "id": "stone_shovel",
+      "name": "돌 삽",
+      "station": "crafting_table",
+      "pattern": ["m", "s", "s"],
+      "key": {"m": "cobblestone", "s": "stick"},
+      "in": {
+        "cobblestone": 1,
+        "stick": 2
+      },
+      "out": {
+        "stone_shovel": 1
+      }
+    },
+    {
+      "id": "golden_shovel",
+      "name": "황금 삽",
+      "station": "forge",
+      "pattern": ["m", "s", "s"],
+      "key": {"m": "gold_ingot", "s": "stick"},
+      "in": {
+        "gold_ingot": 1,
+        "stick": 2
+      },
+      "out": {
+        "golden_shovel": 1
+      }
+    },
+    {
+      "id": "diamond_shovel",
+      "name": "다이아몬드 삽",
+      "station": "forge",
+      "pattern": ["m", "s", "s"],
+      "key": {"m": "diamond", "s": "stick"},
+      "in": {
+        "diamond": 1,
+        "stick": 2
+      },
+      "out": {
+        "diamond_shovel": 1
+      }
+    },
+    {
+      "id": "netherite_shovel",
+      "name": "네더라이트 삽",
+      "station": "forge",
+      "in": {
+        "diamond_shovel": 1,
+        "netherite": 1
+      },
+      "out": {
+        "netherite_shovel": 1
+      }
+    },
+    {
       "id": "iron_shovel",
       "name": "철 삽",
       "station": "forge",

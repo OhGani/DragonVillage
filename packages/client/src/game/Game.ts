@@ -1544,7 +1544,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       swingMob = aimedMob !== null && aimedMob < ANIMAL_ID_BASE ? aimedMob : aimedMob === null ? mobView.nearestInCone(player.eye, player.lookDir, meleeReach, SWING_CONE_COS, true) : null;
       if (swingMob === null && aimedMob === null) {
         const tdef = interaction.target ? registry.get(interaction.target.id) : null;
-        if (tdef && !tdef.door && !tdef.chest) interaction.swingBurst(SWING_BURST_SEC);
+        const pathing = heldTool.kind === 'shovel' && tdef?.id === 'grass' && interaction.target!.ny > 0; // 삽으로 잔디 길 만들기는 캐기가 아니다 (#191)
+        if (tdef && !tdef.door && !tdef.chest && !pathing) interaction.swingBurst(SWING_BURST_SEC);
         hand.swing();
       }
     }

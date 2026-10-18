@@ -59,6 +59,14 @@
     { "id": "diamond_sword", "name": "다이아몬드 검", "tier": 3, "speed": 1, "damage": 8, "durability": 1561, "_note": "다이아몬드 2 + 막대기 1 (대장간)" },
     { "id": "netherite_sword", "name": "네더라이트 검", "tier": 4, "speed": 1, "damage": 9, "durability": 2031, "_note": "다이아몬드 검 1 + 네더라이트 주괴 1 (대장간)" }
   ],
+  "shovels": [
+    { "id": "wooden_shovel", "name": "나무 삽", "tier": 0, "speed": 2, "durability": 59, "_note": "삽 (#191, 아들 2026-10-19): 흙·잔디·모래·자갈을 빨리 판다(도끼처럼 등급 제한 없음). 삽을 들고 잔디 윗면을 탭하면 캐는 게 아니라 '잔디 길'이 된다. 판자 1 + 막대기 2" },
+    { "id": "stone_shovel", "name": "돌 삽", "tier": 1, "speed": 4, "durability": 131 },
+    { "id": "iron_shovel", "name": "철 삽", "tier": 2, "speed": 6, "durability": 250, "_note": "대장간" },
+    { "id": "golden_shovel", "name": "황금 삽", "tier": 2, "speed": 12, "durability": 32, "_note": "대장간. 빠르지만 금방 닳는다" },
+    { "id": "diamond_shovel", "name": "다이아몬드 삽", "tier": 3, "speed": 8, "durability": 1561, "_note": "대장간" },
+    { "id": "netherite_shovel", "name": "네더라이트 삽", "tier": 4, "speed": 9, "durability": 2031, "_note": "다이아몬드 삽 1 + 네더라이트 1 (대장간)" }
+  ],
   "spears": [
     { "id": "wooden_spear", "name": "나무 창", "tier": 0, "speed": 1, "damage": 4, "reach": 5, "durability": 59, "_note": "창 (#183, 아들 2026-10-17): 검보다 1 약하지만 5칸까지 닿는다 (검 3.5). 판자 1 + 막대기 2 대각선" },
     { "id": "stone_spear", "name": "돌 창", "tier": 1, "speed": 1, "damage": 5, "reach": 5, "durability": 131 },
