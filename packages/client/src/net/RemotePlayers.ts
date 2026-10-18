@@ -60,6 +60,10 @@ function lightColor(packed: number, skyLight: number, out: THREE.Color): number 
 
 /** 인형 키 (복셀 32칸 = 몸 판정과 같은 1.8). 이름표·말풍선 높이의 기준 */
 const FIGURE_H = 32 * VOXEL;
+/** 앉은 자세 (#192): 다리 길이(12칸)만큼 내려앉고, 다리는 앞으로 거의 수평, 팔은 조금 앞으로 */
+const SIT_DROP = 12 * VOXEL;
+const SIT_LEG = -1.45;
+const SIT_ARM = -0.45;
 
 /**
  * 부위 복셀 → 메시. buildVoxelGeometry 는 드래곤(홀수 폭, x 대칭)에 맞춰 반 칸 옮기므로,
@@ -337,9 +341,24 @@ export class RemotePlayers {
       f.armL.rotation.x = f.guarding ? -1.3 : -swing;
       f.armL.rotation.y = f.guarding ? 0.35 : 0;
       f.armR.rotation.x = swing;
+      // 타면 앉는다 (#192, 아들 2026-10-19 "탈 때 서 있지 말고 앉게"): 다리를 앞으로 접고 팔은 고삐 잡듯 조금 앞으로,
+      // 엉덩이가 탈것 등(발 높이)에 오도록 몸 부위를 다리 길이만큼 내린다. 탈것 메시는 body 의 자식이라 그대로 둔다
+      const sit = riding && f.mount !== null;
+      if (sit) {
+        f.legL.rotation.x = f.legR.rotation.x = SIT_LEG;
+        f.armR.rotation.x = SIT_ARM;
+        if (!f.guarding) f.armL.rotation.x = SIT_ARM;
+      }
+      const drop = sit ? SIT_DROP : 0;
+      f.torso.position.y = PART_AT.torso[1] * VOXEL - drop;
+      f.head.position.y = PART_AT.head[1] * VOXEL - drop;
+      f.armL.position.y = PART_AT.armL[1] * VOXEL - drop;
+      f.armR.position.y = PART_AT.armR[1] * VOXEL - drop;
+      f.legL.position.y = PART_AT.legL[1] * VOXEL - drop;
+      f.legR.position.y = PART_AT.legR[1] * VOXEL - drop;
       const sneak = (t.flags & FLAG_SNEAK) !== 0;
       f.body.scale.y = sneak ? 0.85 : 1;
-      f.label.position.y = (sneak ? FIGURE_H * 0.85 : FIGURE_H) + 0.3;
+      f.label.position.y = (sneak ? FIGURE_H * 0.85 : FIGURE_H) - drop + 0.3;
       if (light) {
         // 가슴 높이 칸의 빛. 한 칸 넘어갈 때 뚝 끊기지 않게 부드럽게 따라간다
         const lum = lightColor(light.get(Math.floor(c.x), Math.floor(c.y + 1), Math.floor(c.z)), skyLight, TINT);
