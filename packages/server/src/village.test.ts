@@ -164,6 +164,36 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(storage.listPlaced(INFO.code)).toEqual([]);
   });
 
+  it('호박씨·수박씨 (#190): 농지에 심으면 싹, 8분 뒤 호박·수박 블록', () => {
+    expect(itemToBlock('pumpkin_seeds', BLOCKS)).toBe(BLOCKS.numOf('pumpkin_stem'));
+    expect(itemToBlock('melon_seeds', BLOCKS)).toBe(BLOCKS.numOf('melon_stem'));
+    expect(itemForPlacing('pumpkin_stem', BLOCKS)).toBe('pumpkin_seeds');
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    give(p.inv, 'pumpkin_seeds', 1);
+    give(p.inv, 'melon_seeds', 1);
+    const spots: [number, number][] = [];
+    for (let z = 50; z < 80 && spots.length < 2; z++)
+      for (let x = 22; x < 44 && spots.length < 2; x++)
+        if (BLOCKS.get(room.world.getBlock(x, GROUND_Y, z)).id === 'farmland' && room.world.getBlock(x, GROUND_Y + 1, z) === 0) spots.push([x, z]);
+    expect(spots).toHaveLength(2);
+    const [[px, pz], [mx, mz]] = spots as [[number, number], [number, number]];
+    room.onMove(ra.idx, { x: px + 0.5, y: GROUND_Y + 1, z: pz + 2.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 1, x: px, y: GROUND_Y + 1, z: pz, id: 'pumpkin_stem' }, 1000);
+    room.onMove(ra.idx, { x: mx + 0.5, y: GROUND_Y + 1, z: mz + 2.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 2, x: mx, y: GROUND_Y + 1, z: mz, id: 'melon_stem' }, 1000);
+    expect(rejected(a)).toEqual([]);
+    expect(BLOCKS.get(room.world.getBlock(px, GROUND_Y + 1, pz)).id).toBe('pumpkin_stem');
+    expect(countOf(p.inv, 'pumpkin_seeds')).toBe(0);
+    room.checkCrops(1000 + 8 * 60_000 + 1);
+    expect(BLOCKS.get(room.world.getBlock(px, GROUND_Y + 1, pz)).id).toBe('pumpkin');
+    expect(BLOCKS.get(room.world.getBlock(mx, GROUND_Y + 1, mz)).id).toBe('melon');
+    expect(room.crops.size).toBe(0);
+  });
+
   it('먹기 (#186): 빵을 들고 먹으면 하나 줄고 하트 5 회복, 다 찼으면 HP_FULL, 막대기는 NOT_EDIBLE', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
