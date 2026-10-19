@@ -1,27 +1,29 @@
 import {
+  buildingBlocks,
   BY_SERVER,
-  DEFAULT_VILLAGE_SEED,
-  FLAG_GROUND,
-  FLAG_WATER,
-  GROUND_Y,
-  MSG,
-  REJECT,
-  VILLAGE_GEN_VERSION,
   countOf,
   decodeServerBinary,
-  type ServerBinary,
-  MOB_STATE,
-  OLD_SITES,
-  buildingBlocks,
-  isBuildingBuiltAt,
-  treasureLoot,
+  DEFAULT_VILLAGE_SEED,
+  DOOR_DIR,
+  DRAGON_REST_MS,
   dragonMaxHp,
-  DRAGON_REST_MS, FEED_REST_MS,
-  HP_MAX,
-  itemToBlock,
-  itemForPlacing,
+  FEED_REST_MS,
+  FLAG_GROUND,
+  FLAG_WATER,
   give,
+  GROUND_Y,
   hasWaterNear,
+  HP_MAX,
+  isBuildingBuiltAt,
+  itemForPlacing,
+  itemToBlock,
+  MOB_STATE,
+  MSG,
+  OLD_SITES,
+  REJECT,
+  type ServerBinary,
+  treasureLoot,
+  VILLAGE_GEN_VERSION,
 } from '@dragon-village/shared';
 import { DRAGONS, EXPEDITIONS, BLOCKS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
@@ -522,6 +524,45 @@ describe('VillageRoom 블록 변경 검증', () => {
     room.onBlockChange(ia, { seq: 7, x, y, z, id: 'oak_door@n' }, 2200);
     expect(rejected(a).at(-1)).toEqual({ seq: 7, reason: REJECT.OCCUPIED });
     expect(countOf(p.inv, 'oak_door')).toBe(1);
+  });
+
+  it('침대 (#188·#203·#204): 머리 칸을 부숴도 침대 하나가 가방으로, 빈손 탭으로 두 칸 가운데에 눕고, 움직이면 일어나고, 부서지면 깬다', () => {
+    const { room, a, ia } = setup();
+    room.giveItems(ia, 'bed', 1);
+    const p = room.players.get(ia)!;
+    const x = 66,
+      y = GROUND_Y + 1,
+      z = 66;
+    room.onBlockChange(ia, { seq: 1, x, y, z, id: 'bed' }, 1000);
+    const foot = BLOCKS.get(room.world.getBlock(x, y, z));
+    expect(foot.bed?.head).toBe(false);
+    const [dx, dz] = DOOR_DIR[foot.bed!.facing]!;
+    const hx = x + dx,
+      hz = z + dz;
+    expect(BLOCKS.get(room.world.getBlock(hx, y, hz)).bed?.head).toBe(true);
+    expect(countOf(p.inv, 'bed')).toBe(0);
+    // 눕기: 머리 칸을 탭해도 두 칸 가운데·침대 윗면으로 간다, 모두에게 알린다
+    a.clear();
+    expect(room.sleep(ia, { x: hx, y, z: hz })).toBeNull();
+    const spot = { x: x + 0.5 + dx * 0.5, y: y + 9 / 16, z: z + 0.5 + dz * 0.5, facing: foot.bed!.facing };
+    expect(p.sleeping).toEqual(spot);
+    expect(p.pos.x).toBeCloseTo(spot.x);
+    expect(p.pos.z).toBeCloseTo(spot.z);
+    expect(a.json.find((m) => m.t === 'sleep')).toMatchObject({ idx: ia, at: spot });
+    // 침대가 아닌 곳은 거절
+    expect(room.sleep(ia, { x: x + 3, y, z })).toBe('NO_BED');
+    // 일어나기
+    a.clear();
+    expect(room.sleep(ia, null)).toBeNull();
+    expect(p.sleeping).toBeNull();
+    expect(a.json.find((m) => m.t === 'sleep')).toMatchObject({ idx: ia, at: null });
+    // 다시 눕고 머리 칸을 부수면: 둘 다 사라지고 침대 하나가 가방으로(전엔 머리 칸은 빈손), 누운 사람은 깬다
+    expect(room.sleep(ia, { x, y, z })).toBeNull();
+    room.onBlockChange(ia, { seq: 2, x: hx, y, z: hz, id: 'air' }, 1500);
+    expect(room.world.getBlock(x, y, z)).toBe(0);
+    expect(room.world.getBlock(hx, y, hz)).toBe(0);
+    expect(countOf(p.inv, 'bed')).toBe(1);
+    expect(p.sleeping).toBeNull();
   });
 
   it('초당 상한을 넘으면 RATE', () => {

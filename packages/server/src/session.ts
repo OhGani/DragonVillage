@@ -47,6 +47,8 @@ const HIT_ERROR_KO: Record<string, string> = {
   PET: '길들인 동물은 때릴 수 없어요',
 };
 /** 활 쏘기 오류 (M8-2) */
+/** 침대 눕기 거절 이유 (#204) */
+const SLEEP_ERROR_KO: Record<string, string> = { NO_BED: '침대가 아니에요', TOO_FAR: '침대가 너무 멀어요', OCCUPIED: '누가 벌써 누워 있어요', RIDING: '타고 있을 땐 못 누워요' };
 const SHOOT_ERROR_KO: Record<string, string> = {
   NO_MOB: '거기엔 아무것도 없어요',
   TOO_FAR: '너무 멀어요 — 화살이 닿지 않아요',
@@ -510,6 +512,13 @@ export class Session {
         if (typeof msg.on !== 'boolean') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
         const err = this.room.guard(this.idx, msg.on);
         if (err === 'NO_SHIELD') return this.error(err, '방패를 끼워야 막을 수 있어요 (가방 → 방패 → 들기)');
+        return;
+      }
+      case 'sleep': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        const at = typeof msg.x === 'number' && typeof msg.y === 'number' && typeof msg.z === 'number' ? { x: Math.floor(msg.x), y: Math.floor(msg.y), z: Math.floor(msg.z) } : null;
+        const err = this.room.sleep(this.idx, at);
+        if (err) return this.error(err, SLEEP_ERROR_KO[err] ?? '지금은 누울 수 없어요');
         return;
       }
       case 'callPets': {

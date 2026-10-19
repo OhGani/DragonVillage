@@ -1,78 +1,80 @@
 import {
   AIR_ID,
-  FLAG_RIDING,
-  GROUND_Y,
-  type NestDragonInfo,
-  type RidingInfo,
-  HIT_COOLDOWN_MS,
-  HIT_REACH,
-  hitReachOf,
-  toolOf,
-  STORAGE_REACH,
+  ANIMAL_FLAG,
+  ANIMAL_ID_BASE,
+  armorTotals,
   beamOf,
-  siteCenter,
-  siteOf,
-  staminaAt,
-  staminaMaxFor,
-  SADDLE_ITEM,
-  nestContains,
-  COSMETIC_KO,
-  unlockedBetween,
-  xpProgress,
-  type TodayCard,
-  canStartExpedition,
-  expeditionNeedMin,
   type BlockChangedMsg,
+  BOSS_EMOJI,
+  bowOf,
+  canStartExpedition,
+  CARROT_ON_A_STICK,
   CHUNK_SIZE,
   type ChunkDataMsg,
+  cloneInventory,
+  COSMETIC_KO,
+  decodeChunk,
+  DOOR_DIR,
+  EMOTE_EMOJI,
+  type Equipment,
+  equipSlotOf,
+  EXPEDITION_BOSS_KINDS,
   type ExpeditionEnterInfo,
+  expeditionNeedMin,
   type ExpeditionPhase,
   type ExpeditionStateInfo,
-  EMOTE_EMOJI,
+  expeditionUnlocked,
   FLAG_GROUND,
-  HOTBAR_SLOTS,
-  type Inventory,
-  STATION_KO,
-  cloneInventory,
-  itemToBlock,
+  FLAG_POLE,
+  FLAG_RIDING,
   FLAG_SNEAK,
   FLAG_SPRINT,
   FLAG_WATER,
-  LightEngine,
-  NIGHT_SKY,
-  REJECT_KO,
-  type VoxelWorld,
-  decodeChunk,
-  expeditionUnlocked,
+  foodOf,
   generateExpedition,
   generateVillage,
-  hasGenerator,
-  itemName,
-  phaseAt,
-  portalContains,
-  skyLightAt,
-  BOSS_EMOJI,
-  EXPEDITION_BOSS_KINDS,
-  MOB_KIND_OF,
-  type MobKind,
-  FLAG_POLE,
-  RAID_CAPTURE_SEC,
-  type RaidStateInfo,
-  ANIMAL_FLAG,
-  ANIMAL_ID_BASE,
-  type Equipment,
-  armorTotals,
-  bowOf,
-  equipSlotOf,
-  sanitizeEquipment,
+  GROUND_Y,
   GUARD_RESEND_MS,
   GUARD_TAP_MS,
-  isPotionItem,
-  potionFromItemId,
+  hasGenerator,
+  HIT_COOLDOWN_MS,
+  HIT_REACH,
+  hitReachOf,
+  HOTBAR_SLOTS,
+  type Inventory,
   isMountKind,
-  CARROT_ON_A_STICK,
-  foodOf,
+  isPotionItem,
+  itemName,
+  itemToBlock,
+  LightEngine,
+  MOB_KIND_OF,
+  type MobKind,
+  nestContains,
+  type NestDragonInfo,
+  NIGHT_SKY,
+  phaseAt,
+  portalContains,
+  potionFromItemId,
+  RAID_CAPTURE_SEC,
+  type RaidStateInfo,
+  REJECT_KO,
+  type RidingInfo,
+  SADDLE_ITEM,
+  sanitizeEquipment,
+  siteCenter,
+  siteOf,
+  skyLightAt,
+  type SleepInfo,
+  staminaAt,
+  staminaMaxFor,
+  STATION_KO,
+  STORAGE_REACH,
   TILLABLE,
+  type TodayCard,
+  toolOf,
+  unlockedBetween,
+  type VoxelWorld,
+  xpProgress,
 } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
@@ -200,6 +202,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   // 탑승 (M6-4): 내가 탄 드래곤은 서버가 mount/dismount 로 알려 준다. 세계를 바꿔도(원정) 그대로 타고 간다
   /** 타고 있는 드래곤. 다시 들어올 때 서버가 준 것으로 시작 (#103 — 탑승 유지) */
   let myRiding: RidingInfo | null = welcome.spawn.riding ?? null;
+  /** 침대에 누워 있음 (#204). 서버 응답으로만 바뀐다 */
+  let mySleep: SleepInfo | null = null;
   // 첫 걸음 안내 (M8-3): 처음 들어온 사람을 포탈 → 원정 출발 → 귀환까지 데려간다. 진행은 이 기기에 남긴다(새로고침해도 이어짐)
   /** 엔딩 포탈 (#170): 엔더 드래곤을 잡으면 서버가 알려 준다. 세계를 바꾸면 사라진다 */
   let endingPortal: { x: number; y: number; z: number } | null = null;
@@ -561,6 +565,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         sendBlock(x, y, z, AIR_ID, prev);
         particles.burst(x, y, z, blockColor(prev));
       },
+      onSleepBed: (x, y, z) => {
+        if (!mySleep && !myRiding) net.sendSleep({ x, y, z }); // 침대 빈손 탭 → 눕기 (#204)
+      },
       onHint: (text) => hud.toast(text, 2000),
       onOpenChest: (bx, by, bz) => {
         if (bag.visible || nest.visible || chat.visible) return;
@@ -820,6 +827,26 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     },
     onGuard: (m) => {
       if (m.idx !== myIdx) remote.setGuarding(m.idx, m.on);
+    },
+    onSleep: (m) => {
+      if (m.idx !== myIdx) {
+        remote.setSleeping(m.idx, m.at);
+        return;
+      }
+      // 내가 누웠다/일어났다 (#204): 두 칸 가운데서 머리 쪽으로 반 칸, 침대 윗면 높이. 움직이면 일어난다
+      mySleep = m.at;
+      ctx.player.sleeping = m.at !== null;
+      if (m.at) {
+        const [sdx, sdz] = DOOR_DIR[m.at.facing]!;
+        ctx.player.pos.x = m.at.x + sdx * 0.5;
+        ctx.player.pos.y = m.at.y;
+        ctx.player.pos.z = m.at.z + sdz * 0.5;
+        ctx.player.vel.x = ctx.player.vel.y = ctx.player.vel.z = 0;
+        ctx.player.yaw = Math.atan2(sdx, sdz); // 발 쪽을 보며 조금 위(하늘)로 — 누운 느낌
+        ctx.player.pitch = 0.35;
+        hud.hideAction();
+        hud.toast(`🛏️ 침대에 누웠어요 — ${isTouch ? '스틱을 밀면' : 'WASD 나 점프로'} 일어나요`, 4000);
+      }
     },
     onShot: (m) => {
       const to = mobView.positionOf(m.id);
@@ -1514,6 +1541,12 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
 
     const inp = input.frame(dt);
     hud.tickEffects(dt);
+    // 침대에서 일어나기 (#204): 움직이거나 점프하면. 서버가 모두에게 알린다
+    if (mySleep && (Math.abs(inp.moveX) > 0.2 || Math.abs(inp.moveZ) > 0.2 || inp.jump)) {
+      mySleep = null;
+      player.sleeping = false;
+      net.sendSleep(null);
+    }
     if (inp.toggleDebug) debugVisible = !debugVisible;
     if (inp.slotDelta !== 0) hud.selectDelta(inp.slotDelta);
     if (inp.slotSelect >= 0) hud.select(inp.slotSelect);
@@ -1530,8 +1563,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const aimedMob = mobView.count > 0 ? mobView.aim(player.eye, player.lookDir, bow ? bow.range : meleeReach + 1) : null;
     aimedMobNow = aimedMob;
     if (aimedMob !== null && pets.get(aimedMob)?.mine) lastAimedPet = { id: aimedMob, at: now }; // (#179)
-    interaction.suppressPrimary = aimedMob !== null || bow !== null; // 활을 들면 꾹 누르기는 당기기 (#119)
-    interaction.suppressSecondary = aimedMob !== null;
+    interaction.suppressPrimary = aimedMob !== null || bow !== null || mySleep !== null; // 활을 들면 꾹 누르기는 당기기 (#119). 누워서는 못 캔다 (#204)
+    interaction.suppressSecondary = aimedMob !== null || mySleep !== null;
     // 🛡️ 막기 (#118): 방패를 끼고 버튼(X)을 누르는 동안 — 한 번 톡 눌러도 GUARD_TAP_MS 는 막는다(아들 13차). 폰은 두 번 톡톡 = 계속. 서버엔 바뀔 때 + 5초마다
     if (inp.guard && !guardHeldPrev) guardTapUntil = now + GUARD_TAP_MS;
     guardHeldPrev = inp.guard;

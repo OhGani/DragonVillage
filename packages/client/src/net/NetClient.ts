@@ -6,44 +6,45 @@
  */
 import {
   type ApprovalItem,
-  type DragonInfo,
-  type GiftNotice,
-  type NestDragonInfo,
-  type NestSlotInfo,
-  type RidingInfo,
-  type TodayCard,
-  type XpGainedMsg,
-  type XpStateMsg,
   type BlockBatchMsg,
-  type BlockChangeReqMsg,
-  type BlockChangeRejectedMsg,
   type BlockChangedMsg,
+  type BlockChangeRejectedMsg,
+  type BlockChangeReqMsg,
   type ChunkDataMsg,
   type ClientJson,
+  decodeServerBinary,
+  type DragonInfo,
+  type EmoteMsg,
+  encodeBlockChangeReq,
+  encodeEmote,
+  encodeInvDrop,
+  encodeInvMove,
+  encodePing,
+  encodePlayerMove,
   type ExpeditionEnterInfo,
   type ExpeditionResultItem,
   type ExpeditionStateInfo,
   type ExpeditionTimerMsg,
-  type EmoteMsg,
-  type InvSlotsMsg,
+  type GiftNotice,
   type Inventory,
+  type InvSlotsMsg,
+  type MobEntry,
   MSG,
-  encodeEmote,
-  encodeInvDrop,
-  encodeInvMove,
-  PROTOCOL_VERSION,
+  type NestDragonInfo,
+  type NestSlotInfo,
   type PlayerInfo,
   type PlayerMoveMsg,
   type PlayerStateEntry,
+  PROTOCOL_VERSION,
+  type RaidStateInfo,
+  type RidingInfo,
   type ServerBinary,
   type ServerJson,
-  type MobEntry,
+  type SleepInfo,
+  type TodayCard,
   type VillageInfo,
-  decodeServerBinary,
-  encodeBlockChangeReq,
-  encodePing,
-  encodePlayerMove,
-  type RaidStateInfo,
+  type XpGainedMsg,
+  type XpStateMsg,
 } from '@dragon-village/shared';
 
 const TOKEN_KEY = 'dv.token';
@@ -157,6 +158,8 @@ export interface NetEvents {
   onShot(m: { idx: number; id: number; from: { x: number; y: number; z: number } }): void;
   /** 누가 🛡️ 막기를 켜고 껐다 (#144) */
   onGuard(m: { idx: number; on: boolean }): void;
+  /** 누가 침대에 눕고 일어났다 (#204, 나 포함) */
+  onSleep(m: { idx: number; at: SleepInfo | null }): void;
   /** 내 드래곤 체력 (#113) */
   onDragonHp(m: { hp: number; max: number }): void;
   /** 내 드래곤이 쓰러졌다 (#113) */
@@ -424,6 +427,10 @@ export class NetClient {
   sendGuard(on: boolean): void {
     this.sendJson({ t: 'guard', on });
   }
+  /** 침대에 눕기 (#204): 침대 칸, null 이면 일어나기 */
+  sendSleep(at: { x: number; y: number; z: number } | null): void {
+    this.sendJson(at ? { t: 'sleep', x: at.x, y: at.y, z: at.z } : { t: 'sleep' });
+  }
   /** 펫 이름 짓기 (#109) */
   sendNameMob(id: number, name: string): void {
     this.sendJson({ t: 'nameMob', id, name });
@@ -603,6 +610,7 @@ export class NetClient {
     else if (msg.t === 'equip') ev.onEquip(msg);
     else if (msg.t === 'shot') ev.onShot(msg);
     else if (msg.t === 'guard') ev.onGuard(msg);
+    else if (msg.t === 'sleep') ev.onSleep(msg);
     else if (msg.t === 'arrow') ev.onArrow(msg);
     else if (msg.t === 'pets') ev.onPets(msg.list);
     else if (msg.t === 'companions') ev.onCompanions(msg.list);

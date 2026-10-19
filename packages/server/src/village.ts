@@ -10,170 +10,171 @@
  */
 import {
   AIR_ID,
-  FLUID_FULL,
-  BY_SERVER,
+  ANIMAL_ID_BASE,
+  armorApplies,
+  armorTotals,
+  attackDamageOf,
+  BEAM_RANGE,
+  beamOf,
   type BlockChangeReqMsg,
+  type BlockDef,
   type BlockRegistry,
-  type ChunkCoord,
-  type ExpeditionEnterInfo,
-  type ExpeditionRegistry,
-  type ExpeditionStateInfo,
-  type ExpeditionResultItem,
-  EMOTE_PER_SEC,
-  FLAG_GROUND,
-  FLAG_WATER,
-  FluidSim,
-  type InvDropMsg,
-  type InvMoveMsg,
-  type Inventory,
-  MAX_PLAYERS,
-  PHASE_NUM,
-  type PhraseRegistry,
-  type PotionRegistry,
-  type RecipeRegistry,
-  type StarterKit,
+  bodyOverlapsBlock,
+  BONE_MEAL,
+  bowDamage,
+  bowOf,
   BUCKET,
+  buildingBlocks,
+  BY_SERVER,
+  canBreakWith,
+  CHEST_SLOTS,
+  chestPrimary,
   CHUNK_SIZE,
-  WATER_BUCKET,
-  LAVA_BUCKET,
+  type ChunkCoord,
+  chunkKey,
+  clearSiteBlocks,
   cloneInventory,
   countOf,
   craft,
-  dropOf,
-  emptyInventory,
+  deathXpDrop,
+  decodeChunk,
   DOOR_DIR,
   doorHinge,
-  facingFromYaw,
-  fits,
-  give,
-  isPotionItem,
-  itemForPlacing,
-  move,
-  potionFromItemId,
-  potionItemId,
-  take,
-  takeFromSlot,
-  type PlayerInfo,
-  type Slot,
-  type PlayerMoveMsg,
-  type PlayerStateEntry,
-  REJECT,
-  VILLAGE_GEN_VERSION,
-  type VillageInfo,
-  type VoxelWorld,
-  bodyOverlapsBlock,
-  chunkKey,
-  decodeChunk,
-  encodeChunk,
+  DRAGON_REST_MS,
+  type DragonInfo,
+  dragonMaxHp,
+  dragonOfEgg,
+  dropOf,
+  eggSlotsOpen,
+  EMOTE_PER_SEC,
+  emptyChest,
+  emptyInventory,
   encodeBlockBatch,
-  encodeBlockChangeRejected,
   encodeBlockChanged,
+  encodeBlockChangeRejected,
+  encodeChunk,
   encodeChunkData,
   encodeEmote,
   encodeExpeditionTimer,
+  encodeInvSlots,
+  encodeMobsState,
+  encodePlayersState,
   encodeXpGained,
-  canBreakWith,
-  toolOf,
-  oakTreeBlocks,
-  HIT_REACH,
-  hitReachOf,
-  type DragonInfo,
-  type NestDragonInfo,
-  type BlockDef,
-  BEAM_RANGE,
-  HP_MAX,
-  ORB_PICKUP_RANGE,
-  type OrbInfo,
-  deathXpDrop,
-  regenAt,
-  trackFall,
-  xpAfterDeath,
-  PREBUILT,
-  STORAGE_REACH,
-  buildingBlocks,
+  encodeXpState,
+  type Equipment,
+  type EquipSlot,
+  equipSlotOf,
+  type ExpeditionEnterInfo,
+  type ExpeditionRegistry,
+  type ExpeditionResultItem,
+  type ExpeditionStateInfo,
+  expeditionUnlocked,
+  explosionDamage,
+  facingFromYaw,
+  FEED_REST_MS,
+  feedItems,
+  finalDamage,
+  fits,
+  FLAG_GROUND,
+  FLAG_POLE,
+  FLAG_WATER,
   flagBlocks,
   flagContains,
-  isBuildingBuiltAt,
-  missingCost,
-  siteCenter,
-  siteContains,
-  siteOf,
-  villageLevel,
-  CHEST_SLOTS,
-  type Stamina,
-  beamOf,
-  lookDirOf,
-  staminaMaxFor,
-  tryFire,
+  type FlagMark,
+  FLUID_FULL,
+  FluidSim,
+  foodOf,
+  generateVillage,
   type GiftDef,
-  chestPrimary,
-  emptyChest,
-  moveBetween,
-  resizeChest,
   type GiftNotice,
-  type NestSlotInfo,
-  RIDE_RANGE,
-  type RidingInfo,
-  SADDLE_ITEM,
-  feedItems,
-  growAtOf,
-  perchOf,
-  perchYaw,
+  give,
   GROUND_Y,
-  NEST,
-  OLD_NEST_SITES,
-  dragonOfEgg,
+  growAtOf,
+  GUARD_MAX_MS,
+  hasGenerator,
+  hasWaterNear,
   hatchCost,
+  HIT_REACH,
+  hitReachOf,
+  hoeOf,
+  HP_MAX,
+  type InvDropMsg,
+  type Inventory,
+  type InvMoveMsg,
+  isBuildingBuiltAt,
+  isMountKind,
   isNestBuiltAt,
+  isPotionItem,
+  itemForPlacing,
+  itemName,
+  LAVA_BUCKET,
+  levelSiteBlocks,
+  lookDirOf,
+  MAX_PLAYERS,
+  miningXp,
+  missingCost,
+  move,
+  moveBetween,
+  NEST,
+  NEST_MAX_SLOTS,
   nestBlocks,
   nestBlocksAt,
   nestContains,
+  type NestDragonInfo,
+  type NestSlotInfo,
   nestSlotPos,
-  eggSlotsOpen,
-  NEST_MAX_SLOTS,
-  spendLevels,
-  encodeXpState,
-  miningXp,
-  XP_SOURCE,
-  encodeInvSlots,
-  encodePlayersState,
-  generateVillage,
-  expeditionUnlocked,
-  hasGenerator,
-  itemName,
+  oakTreeBlocks,
+  OLD_NEST_SITES,
   OLD_SITES,
-  clearSiteBlocks,
-  FLAG_POLE,
-  type FlagMark,
+  ORB_PICKUP_RANGE,
+  type OrbInfo,
+  perchOf,
+  perchYaw,
+  PHASE_NUM,
+  type PhraseRegistry,
+  type PlayerInfo,
+  type PlayerMoveMsg,
+  type PlayerStateEntry,
+  potionFromItemId,
+  potionItemId,
+  type PotionRegistry,
+  PREBUILT,
   RAID_AGGRO_R,
-  WEEK_MS,
-  attackDamageOf,
-  treasureLootFor,
-  dragonMaxHp,
-  DRAGON_REST_MS,
-  FEED_REST_MS,
-  type Equipment,
-  type EquipSlot,
-  armorApplies,
-  armorTotals,
-  bowOf,
-  bowDamage,
-  equipSlotOf,
-  finalDamage,
-  GUARD_MAX_MS,
+  type RecipeRegistry,
+  regenAt,
+  REJECT,
+  resizeChest,
+  RIDE_RANGE,
+  type RidingInfo,
+  SADDLE_ITEM,
   sanitizeEquipment,
-  ANIMAL_ID_BASE,
-  encodeMobsState,
-  VILLAGER_HOUSES,
-  levelSiteBlocks,
-  isMountKind,
-  foodOf,
   shovelOf,
-  hoeOf,
+  siteCenter,
+  siteContains,
+  siteOf,
+  type SleepInfo,
+  type Slot,
+  spendLevels,
+  type Stamina,
+  staminaMaxFor,
+  type StarterKit,
+  STORAGE_REACH,
+  take,
+  takeFromSlot,
   TILLABLE,
-  hasWaterNear,
-  BONE_MEAL,
-  explosionDamage,
+  toolOf,
+  trackFall,
+  treasureLootFor,
+  tryFire,
+  VILLAGE_GEN_VERSION,
+  type VillageInfo,
+  villageLevel,
+  VILLAGER_HOUSES,
+  type VoxelWorld,
+  WATER_BUCKET,
+  WEEK_MS,
+  XP_SOURCE,
+  xpAfterDeath,
 } from '@dragon-village/shared';
 import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
@@ -208,6 +209,8 @@ const TNT_RADIUS = 4;
 const TNT_DAMAGE = 10;
 const FLINT_AND_STEEL = 'flint_and_steel';
 const CROP_CHECK_MS = 10_000;
+/** 침대 윗면 (#204): 메셔 BED_HEIGHT 와 같다 */
+const BED_TOP = 9 / 16;
 
 export type Send = (data: Uint8Array | string) => void;
 export type WorldKind = 'village' | 'expedition';
@@ -248,6 +251,8 @@ export interface RoomPlayer {
   guardUntil: number;
   /** 남들에게 마지막으로 알린 막기 상태 (#144) */
   guardShown: boolean;
+  /** 침대에 누워 있음 (#204). 접속 동안만 */
+  sleeping: SleepInfo | null;
   /** 탄 드래곤의 기력 (M6-5). 탈 때 가득 찬다. 사이는 회복 공식으로 채운다 */
   stamina: Stamina;
   /** 다음에 빔을 쏠 수 있는 시각 */
@@ -1303,7 +1308,7 @@ export class VillageRoom {
   }
 
   private toInfo(p: RoomPlayer): PlayerInfo {
-    return { idx: p.idx, nick: p.nick, color: p.color, x: p.pos.x, y: p.pos.y, z: p.pos.z, yaw: p.pos.yaw, pitch: p.pos.pitch, riding: p.riding, held: p.held, equip: p.equip };
+    return { idx: p.idx, nick: p.nick, color: p.color, x: p.pos.x, y: p.pos.y, z: p.pos.z, yaw: p.pos.yaw, pitch: p.pos.pitch, riding: p.riding, sleeping: p.sleeping, held: p.held, equip: p.equip };
   }
 
   /** 손에 든 것 (#96): 가방에 없는 아이템이면 빈손으로 본다. 같은 세계 사람들에게 알린다 */
@@ -1358,7 +1363,7 @@ export class VillageRoom {
         gifts.push({ id: g.id, name: g.name, message: g.message });
       }
     }
-    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0, equip: parseEquipment(saved?.equipment ?? null), bowReadyAt: 0, dragonHp: 0, guardUntil: 0, guardShown: false };
+    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0, equip: parseEquipment(saved?.equipment ?? null), bowReadyAt: 0, dragonHp: 0, guardUntil: 0, guardShown: false, sleeping: null };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     // 타고 있다가 나갔으면 다시 탄다 (#103, 아빠 요청). 드래곤이 없어졌거나 남이 타고 있으면 광장에서 (공중에 남지 않게)
@@ -1752,6 +1757,40 @@ export class VillageRoom {
     return null;
   }
 
+  /**
+   * 침대에 눕기 (#204, 아빠 2026-10-20 "캐릭터가 침대 위에 누울 수 있다"): 발·머리 어느 칸을 탭해도 된다.
+   * 두 칸 가운데·침대 윗면으로 옮겨 눕고, at 이 null 이면 일어난다. 남이 누운 침대엔 못 눕는다. 밤 건너뛰기는 없다
+   */
+  sleep(idx: number, at: { x: number; y: number; z: number } | null): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (!at) {
+      if (p.sleeping) {
+        p.sleeping = null;
+        this.broadcastJson({ t: 'sleep', idx, at: null }, -1, p.world);
+      }
+      return null;
+    }
+    if (p.riding) return 'RIDING';
+    const world = this.worldOf(p);
+    if (!world.inBounds(at.x, at.y, at.z)) return 'NO_BED';
+    const def = this.registry.get(world.getBlock(at.x, at.y, at.z));
+    if (!def.bed) return 'NO_BED';
+    const [dx, dz] = DOOR_DIR[def.bed.facing]!;
+    const fx = def.bed.head ? at.x - dx : at.x,
+      fz = def.bed.head ? at.z - dz : at.z;
+    const spot: SleepInfo = { x: fx + 0.5 + dx * 0.5, y: at.y + BED_TOP, z: fz + 0.5 + dz * 0.5, facing: def.bed.facing };
+    if (Math.hypot(p.pos.x - spot.x, p.pos.z - spot.z) > 6 || Math.abs(p.pos.y - at.y) > 3) return 'TOO_FAR';
+    for (const o of this.players.values()) if (o !== p && o.world === p.world && o.sleeping && Math.abs(o.sleeping.x - spot.x) < 0.01 && Math.abs(o.sleeping.z - spot.z) < 0.01 && Math.abs(o.sleeping.y - spot.y) < 0.01) return 'OCCUPIED';
+    p.sleeping = spot;
+    p.pos.x = spot.x;
+    p.pos.y = spot.y;
+    p.pos.z = spot.z;
+    p.fallPeak = null;
+    this.broadcastJson({ t: 'sleep', idx, at: spot }, -1, p.world);
+    return null;
+  }
+
   /** 가방 slot 의 갑옷·방패를 입는다 (M8-2). 그 자리에 있던 것은 가방으로 */
   equip(idx: number, slot: number): string | null {
     const p = this.players.get(idx);
@@ -2089,6 +2128,12 @@ export class VillageRoom {
         this.broadcast(encodeBlockChanged({ x: bedOther.x, y: req.y, z: bedOther.z, id: this.registry.get(other).id, by: idx }), -1, p.world);
       }
     }
+    // 침대가 부서지면 거기 누운 사람은 일어난다 (#204)
+    if (prev.bed && num === AIR_ID && bedOther) {
+      const cx = (req.x + bedOther.x) / 2 + 0.5,
+        cz = (req.z + bedOther.z) / 2 + 0.5;
+      for (const o of [...this.players.values()]) if (o.sleeping && o.world === p.world && Math.abs(o.sleeping.x - cx) < 0.01 && Math.abs(o.sleeping.z - cz) < 0.01) this.sleep(o.idx, null);
+    }
     const isToggle = def.door !== null && prev.door !== null;
     // 농사 (#165): 심으면 자라기 시작, 부수면(또는 다른 블록이 되면) 기록을 지운다
     if (p.world === 'village') {
@@ -2121,7 +2166,8 @@ export class VillageRoom {
       // 아무것도 안 함
     } else if (num === AIR_ID) {
       const seed = p.world === 'expedition' && this.expedition ? this.expedition.seed : this.info.seed;
-      const drop = dropOf(prev.door ? this.registry.get(prev.door.base) : prev, req.x, req.y, req.z, seed);
+      // 문·침대는 어느 칸을 부숴도 원래 아이템 하나 (#71·#204 — 전엔 침대 머리 칸을 부수면 아무것도 안 나왔다)
+      const drop = dropOf(prev.door ? this.registry.get(prev.door.base) : prev.bed ? this.registry.get(prev.bed.base) : prev, req.x, req.y, req.z, seed);
       if (drop) {
         if (drop.needsBucket) take(p.inv, BUCKET, 1, changed);
         this.giveTo(p, drop.item, drop.count, changed);

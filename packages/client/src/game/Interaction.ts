@@ -46,6 +46,8 @@ export interface InteractionEvents {
   onIgnite?(x: number, y: number, z: number): void;
   /** 상자를 탭했다 (#84) — 놓기 대신 연다 */
   onOpenChest?(x: number, y: number, z: number): void;
+  /** 침대를 빈손으로 탭 → 눕기 (#204) */
+  onSleepBed?(x: number, y: number, z: number): void;
 }
 
 /** 조준·부수기·놓기. 서버가 생기면(M2) setBlock 이 요청으로 바뀌고 나머지는 그대로. */
@@ -321,6 +323,11 @@ export class Interaction {
     if (tdef.chest) {
       this.events.onOpenChest?.(t.x, t.y, t.z);
       this.events.onSwing();
+      return;
+    }
+    // 침대를 빈손으로 탭하면 눕는다 (#204). 뭔가 들고 있으면 평소처럼 놓는다
+    if (tdef.bed && this.selectedBlock <= 0 && !this.heldItem) {
+      this.events.onSleepBed?.(t.x, t.y, t.z);
       return;
     }
     if (this.selectedBlock <= 0) return;

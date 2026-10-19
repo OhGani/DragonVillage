@@ -20,6 +20,8 @@ import type { InputState } from '../input/InputState';
 export const PLAYER_SIZE: BodySize = { w: 0.6, h: 1.8 };
 const EYE_STAND = 1.62;
 const EYE_SNEAK = 1.27;
+/** 침대에 누웠을 때 눈 높이 (#204): 베개 위 */
+const EYE_SLEEP = 0.3;
 const WALK = 4.317;
 const SPRINT = 5.612;
 const SNEAK = 1.31;
@@ -55,6 +57,8 @@ export class Player {
   pitch = 0;
   onGround = false;
   sneaking = false;
+  /** 침대에 누움 (#204): 안 움직이고 눈이 낮다. Game 이 서버 응답으로 켜고 끈다 */
+  sleeping = false;
   /** 🛡️ 막는 중 (#118): 걸음이 guardSlow 배 */
   guarding = false;
   guardSlow = 0.5;
@@ -163,6 +167,16 @@ export class Player {
   }
 
   update(input: InputState, dt: number): void {
+    if (this.sleeping) {
+      // 누워 있는 동안은 둘러보기만 (#204)
+      this.applyLook(input.lookDX, input.lookDY);
+      this.vel.x = this.vel.y = this.vel.z = 0;
+      this.onGround = true;
+      this.horizontalSpeed = 0;
+      this.eyeHeight += (EYE_SLEEP - this.eyeHeight) * Math.min(1, 22 * dt);
+      this.accumulator = 0;
+      return;
+    }
     this.applyLook(input.lookDX, input.lookDY);
     this.accumulator = Math.min(this.accumulator + dt, STEP * 8);
     while (this.accumulator >= STEP) {

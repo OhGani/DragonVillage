@@ -3,7 +3,7 @@
  * 서버 위치(20Hz)를 받아 부드럽게 따라간다 (지수 보간, 약 100ms 지연).
  * 인형 생김새는 `render/playerModel.ts` — 얼굴·머리카락·손·신발이 있고 색 16가지마다 다른 사람이다 (#86).
  */
-import { FLAG_RIDING, FLAG_SNEAK, type PlayerInfo, type PlayerStateEntry, type RidingInfo, blockOf, skyOf } from '@dragon-village/shared';
+import { blockOf, DOOR_DIR, FLAG_RIDING, FLAG_SNEAK, type PlayerInfo, type PlayerStateEntry, type RidingInfo, skyOf, type SleepInfo } from '@dragon-village/shared';
 import { mountMesh, mountSeat } from '../render/DragonMesh';
 import { sanitizeEquipment } from '@dragon-village/shared';
 import { COMBAT } from '@dragon-village/shared/data';
@@ -32,6 +32,8 @@ interface Figure {
   walk: number;
   /** 🛡️ 막는 중 (#144): 왼팔을 앞으로 올려 방패가 몸 앞에 온다 */
   guarding: boolean;
+  /** 침대에 누움 (#204): 등을 대고 머리는 머리판 쪽 */
+  sleeping: SleepInfo | null;
   lastMove: number;
   bubble: { sprite: THREE.Sprite; until: number } | null;
   /** 타고 있는 드래곤 (M6-4) */
@@ -133,6 +135,7 @@ export class RemotePlayers {
     group.add(label);
     group.position.set(info.x, info.y, info.z);
     body.rotation.y = info.yaw;
+    body.rotation.order = 'YXZ'; // 누울 땐 먼저 눕히고(x) 그다음 돌린다(y) (#204)
     this.group.add(group);
     this.figures.set(info.idx, {
       info,
@@ -151,6 +154,7 @@ export class RemotePlayers {
       cur: { x: info.x, y: info.y, z: info.z, yaw: info.yaw },
       walk: 0,
       guarding: false,
+      sleeping: null,
       lastMove: 0,
       bubble: null,
       mount: null,
@@ -158,6 +162,7 @@ export class RemotePlayers {
       lum: 1,
     });
     if (info.riding) this.setMount(info.idx, info.riding);
+    if (info.sleeping) this.setSleeping(info.idx, info.sleeping);
     if (info.held) this.setHeld(info.idx, info.held);
     if (info.equip) this.setEquip(info.idx, info.equip);
   }
@@ -167,6 +172,12 @@ export class RemotePlayers {
   positionOf(idx: number): { x: number; y: number; z: number } | null {
     const f = this.figures.get(idx);
     return f ? { x: f.cur.x, y: f.cur.y, z: f.cur.z } : null;
+  }
+
+  /** 침대에 눕기·일어나기 (#204) */
+  setSleeping(idx: number, at: SleepInfo | null): void {
+    const f = this.figures.get(idx);
+    if (f) f.sleeping = at;
   }
 
   /** 🛡️ 막기 켜고 끄기 (#144) */
@@ -359,6 +370,19 @@ export class RemotePlayers {
       const sneak = (t.flags & FLAG_SNEAK) !== 0;
       f.body.scale.y = sneak ? 0.85 : 1;
       f.label.position.y = (sneak ? FIGURE_H * 0.85 : FIGURE_H) - drop + 0.3;
+      if (f.sleeping) {
+        // 침대에 누움 (#204): 발은 발치 끝, 머리는 머리판 쪽, 등을 대고(x 로 90° 눕힘) 팔다리는 곧게
+        const [sdx, sdz] = DOOR_DIR[f.sleeping.facing]!;
+        c.x = f.sleeping.x;
+        c.y = f.sleeping.y;
+        c.z = f.sleeping.z;
+        f.group.position.set(c.x - sdx * 0.95, c.y + 0.12, c.z - sdz * 0.95);
+        f.body.rotation.set(Math.PI / 2, Math.atan2(sdx, sdz), 0);
+        f.head.rotation.x = 0;
+        f.legL.rotation.x = f.legR.rotation.x = f.armL.rotation.x = f.armR.rotation.x = 0;
+        f.armL.rotation.y = 0;
+        f.label.position.y = 0.9;
+      } else f.body.rotation.x = 0;
       if (light) {
         // 가슴 높이 칸의 빛. 한 칸 넘어갈 때 뚝 끊기지 않게 부드럽게 따라간다
         const lum = lightColor(light.get(Math.floor(c.x), Math.floor(c.y + 1), Math.floor(c.z)), skyLight, TINT);
