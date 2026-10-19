@@ -514,6 +514,17 @@
       "shape": "sign"
     },
     {
+      "id": "slime_block",
+      "name": "슬라임 블록",
+      "hardness": 0.0,
+      "tool": null,
+      "lightEmit": 0,
+      "textureTop": "slime_block_top",
+      "textureSide": "slime_block_side",
+      "textureBottom": "slime_block_top",
+      "_note": "슬라임 볼 9개 (#196, 아들 그림 2026-10-19 — 슬라임 얼굴이 옆면에 있다). 통통 튀는 건 아직 없다"
+    },
+    {
       "id": "tnt",
       "name": "TNT",
       "hardness": 0.0,
