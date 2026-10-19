@@ -8,7 +8,7 @@ import { portalContains } from './island';
 
 const SEED = 777;
 /** 생성기를 바꾸면 갱신. (chunks 수, 지문) */
-const SNAPSHOT = '576:bff9500:2134826';
+const SNAPSHOT = '576:876cb0:2135655';
 
 const gen = generateCave(BLOCKS, SEED, 4);
 const { world, spawn, layout } = gen;
@@ -183,7 +183,7 @@ describe('generateExpedition 분배', () => {
     const g = generateExpedition(cave, BLOCKS, SEED);
     expect(g.portal).toEqual(layout.portal);
     expect(g.treasures.length).toBe(cave.treasures);
-    expect(g.genVersion).toBe(1);
+    expect(g.genVersion).toBe(2);
     const isl = generateExpedition(EXPEDITIONS.require('grass_island'), BLOCKS, SEED);
     expect(isl.world.sizeX).toBe(256);
     expect(isl.den).toBeNull();

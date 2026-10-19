@@ -1695,6 +1695,34 @@
       "_note": "선인장을 화로에 구우면 초록 염료 (마인크래프트)"
     },
     {
+      "id": "bowl",
+      "name": "그릇",
+      "station": "crafting_table",
+      "pattern": ["p p", " p "],
+      "key": {"p": "planks"},
+      "in": {
+        "planks": 3
+      },
+      "out": {
+        "bowl": 4
+      },
+      "_note": "버섯 스튜 담는 그릇 (#207, 마인크래프트)"
+    },
+    {
+      "id": "mushroom_stew",
+      "name": "버섯 스튜",
+      "station": "inventory",
+      "in": {
+        "bowl": 1,
+        "brown_mushroom": 1,
+        "red_mushroom": 1
+      },
+      "out": {
+        "mushroom_stew": 1
+      },
+      "_note": "가방 2×2 칸에서 (#207, 마인크래프트). 먹으면 data/food.json 만큼"
+    },
+    {
       "id": "brown_dye",
       "name": "갈색 염료",
       "station": "inventory",

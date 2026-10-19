@@ -17,6 +17,7 @@
     { "id": "cooked_chicken", "name": "익힌 닭고기", "heals": 6 },
     { "id": "potato", "name": "감자", "heals": 1, "_note": "좀비가 가끔 떨군다. 화로에 구우면 구운 감자" },
     { "id": "baked_potato", "name": "구운 감자", "heals": 5 },
+    { "id": "mushroom_stew", "name": "버섯 스튜", "heals": 6, "_note": "그릇 + 갈색 버섯 + 빨간 버섯 (#207). 먹으면 그릇은 안 돌아온다(단순하게)" },
     { "id": "poisonous_potato", "name": "독 감자", "heals": 2, "_note": "아들 그림 2026-10-20. 아직 나오는 곳은 없다(감자 농사가 생기면 가끔). 독 효과는 안 넣었다" },
     { "id": "cake", "name": "케이크", "heals": 7 }
   ]

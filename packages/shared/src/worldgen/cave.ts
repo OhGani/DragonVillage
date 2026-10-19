@@ -26,7 +26,7 @@ import type { SpawnPoint } from './village';
 
 export const CAVE_BOUNDS: WorldBounds = { sizeCX: 12, sizeCY: 4, sizeCZ: 12 };
 /** 생성기를 고치면 올린다 (클라·서버 버전 불일치 감지) */
-export const CAVE_GEN_VERSION = 1;
+export const CAVE_GEN_VERSION = 2; // 2: 바닥 버섯 (#207)
 /** 이 높이 아래의 굴은 용암 */
 export const LAVA_Y = 9;
 /** 도착 방 바닥(단) 높이 */
@@ -69,7 +69,9 @@ export function generateCave(registry: BlockRegistry, seed: number, treasures = 
     gold = B('gold_ore'),
     redstone = B('redstone_ore'),
     lapis = B('lapis_ore'),
-    diamond = B('diamond_ore');
+    diamond = B('diamond_ore'),
+    brownMushroom = B('brown_mushroom'),
+    redMushroom = B('red_mushroom');
 
   // ---- 노이즈: 4칸 격자에서 재고 보간 ----
   const n3 = (salt: number) => createNoise3D(mulberry32((seed ^ (salt * 0x9e3779b9)) >>> 0));
@@ -154,6 +156,12 @@ export function generateCave(registry: BlockRegistry, seed: number, treasures = 
               // 천장에 드문드문 발광석
               if (id === AIR_ID && aboveStone && hash3(x, y, z, seed ^ 0x5eed) < 0.012) colIds[ci(lx, y + 1, lz)] = glowstone;
             } else id = oreAt(x, y, z);
+            // 돌 바닥 위 빈 칸에 드문드문 버섯 (#207): 갈색이 더 흔하다. 용암 높이보다 위에만
+            if (id !== AIR_ID && id !== lava && y > LAVA_Y && y + 1 < HEIGHT && colIds[ci(lx, y + 1, lz)] === AIR_ID) {
+              const m = hash3(x, y, z, seed ^ 0x3b00);
+              if (m < 0.01) colIds[ci(lx, y + 1, lz)] = brownMushroom;
+              else if (m < 0.016) colIds[ci(lx, y + 1, lz)] = redMushroom;
+            }
             colIds[ci(lx, y, lz)] = id;
             aboveStone = id !== AIR_ID && id !== lava;
           }

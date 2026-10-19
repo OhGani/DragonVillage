@@ -909,6 +909,28 @@
       "texture": "rose_bush"
     },
     {
+      "id": "brown_mushroom",
+      "name": "갈색 버섯",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "shape": "cross",
+      "texture": "brown_mushroom",
+      "_note": "버섯 (#207, 아들 그림 2026-10-20): 동굴 원정지 바닥에 드문드문 난다(worldgen/cave.ts). 캐면 그대로. 꽃처럼 잔디·흙 위에 놓을 수 있다. 갈색 염료·발효된 거미 눈·버섯 스튜 재료"
+    },
+    {
+      "id": "red_mushroom",
+      "name": "빨간 버섯",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "shape": "cross",
+      "texture": "red_mushroom",
+      "_note": "버섯 (#207): 동굴에 갈색보다 드물게. 버섯 스튜 재료"
+    },
+    {
       "id": "peony",
       "name": "작약",
       "hardness": 0.0,
