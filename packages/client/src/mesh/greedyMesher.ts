@@ -2,7 +2,7 @@
  * Greedy meshing + 정점 AO + 정점 빛(부드러운 조명). 순수 함수 — 워커와 테스트가 같이 쓴다.
  *
  * 입력: 18×18×18 패딩 블록 번호 배열(paddedIndex 순서), 블록 정보 표, (선택) 같은 모양의 빛 배열.
- * 출력: 불투명(컷아웃 포함)·반투명 두 버퍼. meta = [텍스처, AO, 면, 빛(스카이<<4|블록)].
+ * 출력: 불투명(컷아웃 포함)·반투명 두 버퍼. meta = [텍스처, AO, 면, 빛(스카이<<4|블록)] (Uint16 — 텍스처 레이어가 255 를 넘는다, #202).
  *
  * 꼭짓점 빛 = 그 꼭짓점에 닿는 바깥쪽 4칸(면 앞 칸 + 옆 2칸 + 모서리 칸)의 평균. 불투명 칸은 빼고 센다.
  * 빛 배열이 없으면(손에 든 블록) 하늘 15·블록 0.
@@ -87,7 +87,7 @@ const FLUID_SIDES: readonly (readonly [number, number, number])[] = [
 class GeomBuilder {
   positions: Float32Array;
   uvs: Float32Array;
-  meta: Uint8Array;
+  meta: Uint16Array; // 텍스처가 256장을 넘어 8비트로는 모자란다 (#202)
   indices: Uint32Array;
   vc = 0;
   ic = 0;
@@ -95,13 +95,13 @@ class GeomBuilder {
   constructor(quads = 512) {
     this.positions = new Float32Array(quads * 4 * 3);
     this.uvs = new Float32Array(quads * 4 * 2);
-    this.meta = new Uint8Array(quads * 4 * 4);
+    this.meta = new Uint16Array(quads * 4 * 4);
     this.indices = new Uint32Array(quads * 6);
   }
 
   private ensure(): void {
     if ((this.vc + 4) * 3 <= this.positions.length) return;
-    const grow = <T extends Float32Array | Uint8Array | Uint32Array>(arr: T): T => {
+    const grow = <T extends Float32Array | Uint8Array | Uint16Array | Uint32Array>(arr: T): T => {
       const next = new (arr.constructor as new (n: number) => T)(arr.length * 2);
       next.set(arr);
       return next;

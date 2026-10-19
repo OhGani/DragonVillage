@@ -37,7 +37,7 @@ export interface MeshBuffers {
   positions: Float32Array; // xyz
   uvs: Float32Array; // uv (블록 단위, 반복)
   /** [텍스처 레이어, AO 0..3, 면 0..5, 빛 (스카이 << 4 | 블록)] */
-  meta: Uint8Array;
+  meta: Uint16Array; // 레이어는 16비트 — 텍스처 256장 넘김 (#202)
   indices: Uint32Array;
   vertexCount: number;
   indexCount: number;

@@ -17,6 +17,7 @@ const registry = parseBlocks({
     { id: 'dandelion', name: '민들레', hardness: 0, solid: false, shape: 'cross', texture: 'dandelion' },
     { id: 'bed', name: '침대', hardness: 0.2, shape: 'bed', textureTop: 'bed_top', textureSide: 'bed_side', textureBottom: 'dirt' },
     { id: 'sign', name: '표지판', hardness: 1, solid: false, shape: 'sign', texture: 'sign_board' },
+    { id: 'far', name: '먼 그림', hardness: 1, texture: 'far' },
   ],
 });
 const texIndex = new Map([
@@ -36,6 +37,7 @@ const texIndex = new Map([
   ['bed_top_head', 13],
   ['bed_side', 14],
   ['sign_board', 15],
+  ['far', 300], // 텍스처가 256장을 넘는다 (#202)
 ]);
 const info = buildMeshBlockInfo(registry, texIndex);
 const STONE = registry.numOf('stone');
@@ -376,6 +378,16 @@ describe('침대 (#188)', () => {
     const withBed = greedyMesh(padded((x, y, z) => (y < 5 ? GRASS : x === 5 && y === 5 && z === 5 ? BED_FOOT_N : 0)), info).opaque!;
     const bare = greedyMesh(padded((_x, y) => (y < 5 ? GRASS : 0)), info).opaque!;
     expect(withBed.indexCount).toBe(bare.indexCount + 6 * 6);
+  });
+});
+
+describe('텍스처 레이어 256 이상 (#202)', () => {
+  it('레이어 300 이 meta 에 그대로 남는다 (8비트면 44 로 감겨 엉뚱한 그림이 나왔다 — 아빠 폰 물이 빨간 침대 무늬)', () => {
+    const FAR = registry.numOf('far');
+    const m = greedyMesh(padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? FAR : 0)), info).opaque!;
+    expect(m.meta).toBeInstanceOf(Uint16Array);
+    expect(m.vertexCount).toBe(24);
+    for (let i = 0; i < m.vertexCount; i++) expect(m.meta[i * 4]).toBe(300);
   });
 });
 
