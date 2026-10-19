@@ -1,6 +1,13 @@
 import type { BlockRegistry } from '@dragon-village/shared';
 import { DRAGONS } from '@dragon-village/shared/data';
-import { dragonOfEgg } from '@dragon-village/shared';
+import { dragonOfEgg, potionFromItemId } from '@dragon-village/shared';
+
+/** 물약 변형(potion.healing.long, splash_potion.x …)은 기본 물약 그림을 쓴다 (#175·유리병 자동 색칠) */
+function potionSpriteId(id: string, atlas: IconSource): string {
+  if (atlas.images.has(id)) return id;
+  const p = potionFromItemId(id);
+  return p ? `potion.${p.id}` : id;
+}
 import { renderBlockIcon } from './icons';
 
 export interface IconSource {
@@ -373,9 +380,9 @@ export function itemIcon(id: string, size: number, registry: BlockRegistry, atla
   } else if (def && def.textures) {
     const missing = atlas.images.get('missing')!;
     canvas = renderBlockIcon(atlas.images.get(def.textures[0]) ?? missing, atlas.images.get(def.textures[1]) ?? missing, size);
-  } else if (atlas.images.get(id)) {
+  } else if (atlas.images.get(potionSpriteId(id, atlas))) {
     // 아이템 이름과 같은 16×16 그림이 textures/ 에 있으면 그대로 (#175, 아들 다이아몬드 그림) — 블록이 아닌 아이템은 이 길이 먼저
-    canvas = renderSpriteIcon(atlas.images.get(id)!, size);
+    canvas = renderSpriteIcon(atlas.images.get(potionSpriteId(id, atlas))!, size);
   } else {
     const dpr = Math.min(3, window.devicePixelRatio || 1);
     canvas = document.createElement('canvas');
