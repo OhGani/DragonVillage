@@ -124,6 +124,7 @@ import {
   type NestSlotInfo,
   nestSlotPos,
   oakTreeBlocks,
+  hugeMushroomBlocks,
   OLD_NEST_SITES,
   OLD_SITES,
   ORB_PICKUP_RANGE,
@@ -1179,6 +1180,23 @@ export class VillageRoom {
     if (Math.hypot(x + 0.5 - p.pos.x, y + 0.5 - (p.pos.y + EYE), z + 0.5 - p.pos.z) > HIT_REACH + 1) return 'TOO_FAR';
     const key = `${x},${y},${z}`;
     const cur = this.world.inBounds(x, y, z) ? this.registry.get(this.world.getBlock(x, y, z)) : null;
+    // 버섯에 뼛가루 → 거대 버섯 (#208, 마인크래프트): 줄기 4~5 + 갓. 빈 칸에만 들어간다
+    if (cur && (cur.id === 'red_mushroom' || cur.id === 'brown_mushroom')) {
+      const changedInv = new Set<number>();
+      if (!takeFromSlot(p.inv, slot, 1, changedInv)) return 'NO_BONE_MEAL';
+      this.sendInv(p, changedInv);
+      const stem = this.registry.require('mushroom_stem'),
+        cap = this.registry.require(cur.id === 'red_mushroom' ? 'red_mushroom_block' : 'brown_mushroom_block');
+      for (const b of hugeMushroomBlocks({ x, y, z }, cur.id === 'red_mushroom' ? 'red' : 'brown', this.info.seed, (bx, by, bz) => this.world.inBounds(bx, by, bz) && this.world.getBlock(bx, by, bz) === AIR_ID)) {
+        const id = b.kind === 'stem' ? stem : cap;
+        this.world.setBlock(b.x, b.y, b.z, id.num);
+        this.markDirtyBlock(b.x, b.y, b.z);
+        this.broadcast(encodeBlockChanged({ x: b.x, y: b.y, z: b.z, id: id.id, by: -1 }), -1, 'village');
+      }
+      this.broadcastJson({ t: 'mob', ev: 'love', id: -1, mob: 'crop', x: x + 0.5, y: y + 0.5, z: z + 0.5 }, -1, 'village');
+      this.log(`마을 ${this.info.code}: ${p.nick} 뼛가루로 거대 ${cur.name} (${x},${y},${z})`);
+      return null;
+    }
     if (!cur || !cur.grows || cur.growsWhenOpen) return 'NOT_GROWING'; // 흙 → 잔디는 작물이 아니다
     if (cur.plantOn) return 'NO_EFFECT'; // 네더 사마귀엔 뼛가루가 안 듣는다 (#206, 마인크래프트)
     const changed = new Set<number>();

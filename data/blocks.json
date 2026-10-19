@@ -931,6 +931,42 @@
       "_note": "버섯 (#207): 동굴에 갈색보다 드물게. 버섯 스튜 재료"
     },
     {
+      "id": "red_mushroom_block",
+      "name": "빨간 버섯 갓",
+      "hardness": 0.2,
+      "tool": "axe",
+      "lightEmit": 0,
+      "textureTop": "red_mushroom_block_top",
+      "textureSide": "red_mushroom_block_side",
+      "textureBottom": "mushroom_pores",
+      "drops": "red_mushroom",
+      "dropCount": [0, 2],
+      "_note": "거대 버섯 (#208, 아들 입체 그림 2026-10-20): 빨간 버섯에 뼛가루를 쓰면 줄기 4~5 위에 갓이 선다. 부수면 빨간 버섯 0~2"
+    },
+    {
+      "id": "brown_mushroom_block",
+      "name": "갈색 버섯 갓",
+      "hardness": 0.2,
+      "tool": "axe",
+      "lightEmit": 0,
+      "textureTop": "brown_mushroom_block",
+      "textureSide": "brown_mushroom_block",
+      "textureBottom": "mushroom_pores",
+      "drops": "brown_mushroom",
+      "dropCount": [0, 2],
+      "_note": "거대 갈색 버섯 (#208): 갈색 버섯에 뼛가루 → 줄기 위에 넓은 7×7 갓. 그림은 임시(아들이 그려 주면 교체)"
+    },
+    {
+      "id": "mushroom_stem",
+      "name": "버섯 줄기",
+      "hardness": 0.2,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "mushroom_stem",
+      "drops": null,
+      "_note": "거대 버섯 줄기 (#208). 부수면 아무것도 안 나온다(마인크래프트)"
+    },
+    {
       "id": "peony",
       "name": "작약",
       "hardness": 0.0,

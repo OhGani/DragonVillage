@@ -598,6 +598,25 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(countOf(p.inv, 'nether_wart')).toBeLessThanOrEqual(5);
   });
 
+  it('거대 버섯 (#208): 빨간 버섯에 뼛가루 → 줄기 4~5 + 빨간 갓, 뼛가루 하나 소모', () => {
+    const { room, ia } = setup();
+    const p = room.players.get(ia)!;
+    room.giveItems(ia, 'bone_meal', 1);
+    const x = 70,
+      y = GROUND_Y + 1,
+      z = 70;
+    room.world.setBlock(x, y, z, BLOCKS.numOf('red_mushroom'));
+    room.onMove(ia, { x: x + 0.5, y, z: z + 2.5, yaw: 0, pitch: 0, flags: 0 });
+    const meal = p.inv.findIndex((s) => s?.item === 'bone_meal');
+    expect(room.boneMeal(ia, meal, x, y, z, 1000)).toBeNull();
+    expect(countOf(p.inv, 'bone_meal')).toBe(0);
+    expect(BLOCKS.get(room.world.getBlock(x, y, z)).id).toBe('mushroom_stem');
+    expect(BLOCKS.get(room.world.getBlock(x, y + 3, z)).id).toBe('mushroom_stem');
+    let caps = 0;
+    for (let dx = -2; dx <= 2; dx++) for (let dy = 0; dy <= 6; dy++) for (let dz = -2; dz <= 2; dz++) if (BLOCKS.get(room.world.getBlock(x + dx, y + dy, z + dz)).id === 'red_mushroom_block') caps++;
+    expect(caps).toBeGreaterThanOrEqual(9 + 16); // 꼭대기 3×3 + 테두리 두 층(각 16) — 위가 비어 있어야 다 들어간다
+  });
+
   it('초당 상한을 넘으면 RATE', () => {
     const { room, a, ia } = setup();
     for (let i = 0; i < RATE_PER_SEC + 2; i++) room.onBlockChange(ia, { seq: 100 + i, x: 62 + (i % 5), y: GROUND_Y + 2 + Math.floor(i / 5), z: 62, id: 'stone' }, 1000 + i * 10);
