@@ -987,6 +987,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         }
       } else if (m.ev === 'hit') hitSound();
       else if (m.ev === 'love' || m.ev === 'tame' || m.ev === 'grow' || m.ev === 'milk') ding();
+      else if (m.ev === 'shear') {
+        ding();
+        hud.toast('✂️ 양털을 깎았어요 — 가방에 들어왔어요 (5분 뒤 다시)', 2500);
+      }
       else if (m.ev === 'wake') {
         roar();
         hud.hurtFlash();

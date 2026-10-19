@@ -555,6 +555,7 @@ export class AnimalSystem {
       a.dirty = true;
       this.hooks.reward(p.idx, [{ item: WOOL_ITEM, count: n }], 0, { x: a.x, y: a.y + 1, z: a.z }, now);
       this.hooks.json({ t: 'mob', ev: 'shear', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
+      this.hooks.log(`양털 ${n}개를 깎았어요 (양 #${a.id}, 다시 5분 뒤)`);
       return null;
     }
     // 우유 (#163): 빈 양동이를 들고 어른 소를 탭 → 양동이 하나가 우유 양동이로. 케이크 재료
