@@ -1,6 +1,6 @@
-# 아이콘 그림이 없는 아이템 (91개)
+# 아이콘 그림이 없는 아이템 (70개)
 
-파일 이름은 `textures/<id>.png` (16×16). 활은 당기는 단계 그림 `bow_pulling_0.png`·`bow_pulling_1.png`·`bow_pulling_2.png`(점점 휘는 활)를 그리면 쏠 때 그 그림이 나온다(#184). 블록은 전부 그림이 있어서 뺐다. 물약은 병 모양 하나에 색만 다르니 `potion` 병 하나만 그려도 된다.
+파일 이름은 `textures/<id>.png` (16×16). 활은 당기는 단계 그림 `bow_pulling_0.png`·`bow_pulling_1.png`·`bow_pulling_2.png`(점점 휘는 활)를 그리면 쏠 때 그 그림이 나온다(#184). 블록은 전부 그림이 있어서 뺐다. 물약은 아들의 유리병 그림에 색만 채워 자동으로 만든다(`glass_bottle.png` 를 바꾸면 물약 그림도 같이 바뀐다).
 
 ## 도구·무기 (23)
 - 황금 도끼 — `golden_axe`
@@ -31,29 +31,6 @@
 - 철 흉갑 — `iron_chestplate`
 - 방패 — `shield`
 - 거북 등딱지 — `turtle_shell`
-
-## 물약 (21)
-- 유리병 — `glass_bottle`
-- 화염 저항의 물약 — `potion.fire_resistance`
-- 고통의 물약 — `potion.harming`
-- 치유의 물약 — `potion.healing`
-- 벌레 먹음의 물약 — `potion.infested`
-- 투명화 물약 — `potion.invisibility`
-- 도약의 물약 — `potion.leaping`
-- 야간 투시의 물약 — `potion.night_vision`
-- 장역화 물약 — `potion.oozing`
-- 독 물약 — `potion.poison`
-- 재생의 물약 — `potion.regeneration`
-- 느린 낙하의 물약 — `potion.slow_falling`
-- 감속의 물약 — `potion.slowness`
-- 신속의 물약 — `potion.speed`
-- 힘의 물약 — `potion.strength`
-- 거북 도사의 물약 — `potion.turtle_master`
-- 수중 호흡의 물약 — `potion.water_breathing`
-- 나약함의 물약 — `potion.weakness`
-- 방직의 물약 — `potion.weaving`
-- 돌풍의 물약 — `potion.wind_charged`
-- 물병 — `water_bottle`
 
 ## 재료·드롭 (18)
 - 뼛가루 — `bone_meal`
