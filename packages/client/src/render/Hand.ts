@@ -36,6 +36,16 @@ export const BOW_TUNE = {
   arrowPos: [-0.25, 0.42, -0.05],
   arrowDrawPos: [-0.5, 0.5, -0.35],
 };
+/** 왼손 방패 자세 (#198): 쉴 때 rot/pos, 막을 때 guardRot/guardPos, pull = 막을 때 손(피벗)이 [dx, dy, dz, rx] 만큼 가운데로 */
+export const SHIELD_TUNE = {
+  rot: [0.1, 0.7, -0.1],
+  guardRot: [0.05, 0.35, 0],
+  pos: [0.2, 0.12, 0],
+  guardPos: [0.05, 0.1, -0.05],
+  scale: 1.0,
+  guardScale: 1.3,
+  pull: [0.4, 0.2, -0.1, -0.1],
+};
 /** 쇠뇌 자세 (#194, 아들 2026-10-19 마인크래프트 쇠뇌 화면): 가로로 눕혀 앞을 겨눈다. 장전(당김)하면 가운데 아래로 내려와 화살이 위에 얹힌다 */
 export const CROSSBOW_TUNE = {
   rot: [0.2, -0.6, 0.6],
@@ -86,6 +96,13 @@ export class HandView {
   private draw = 0;
   private currentBlock = -1;
   private currentItem: string | null = null;
+  /** 왼손 방패 (#198, 아들 2026-10-19 "방패는 왼손, 무기는 오른쪽"): 끼고 있으면 화면 왼쪽 아래에, 막으면 가운데로 올라온다 */
+  private readonly offPivot = new THREE.Group();
+  private shield: THREE.Mesh | null = null;
+  private guard = 0;
+  private guardTarget = 0;
+  /** 방패 자세 값 (#198) — 개발 콘솔 __dv.hand.shieldTune */
+  shieldTune = SHIELD_TUNE;
 
   constructor(
     private readonly materials: ChunkMaterials,
@@ -95,6 +112,28 @@ export class HandView {
     this.anchor.add(this.pivot);
     this.pivot.position.set(0, 0, HAND_Z);
     this.pivot.rotation.set(HAND_TILT, HAND_TURN, 0);
+    this.anchor.add(this.offPivot);
+    this.offPivot.position.set(0, 0, HAND_Z);
+    this.offPivot.rotation.set(HAND_TILT, -HAND_TURN, 0);
+  }
+
+  /** 왼손 방패 (#198): 끼면 보이고 벗으면 사라진다. icon 은 방패 그림 */
+  setShield(icon: HTMLCanvasElement | null): void {
+    if ((icon === null) === (this.shield === null)) return;
+    if (this.shield) {
+      this.offPivot.remove(this.shield);
+      this.shield.geometry.dispose();
+      (this.shield.material as THREE.Material).dispose();
+      this.shield = null;
+    }
+    if (!icon) return;
+    this.shield = this.iconMesh(icon);
+    if (this.shield) this.offPivot.add(this.shield);
+  }
+
+  /** 막는 중이면 방패가 가운데로 올라온다 (#198) */
+  setGuard(on: boolean): void {
+    this.guardTarget = on ? 1 : 0;
   }
 
   private clearMesh(): void {
@@ -200,6 +239,7 @@ export class HandView {
   update(dt: number, camera: THREE.PerspectiveCamera, walkCycle: number, walkStrength: number): void {
     this.anchor.position.copy(camera.position);
     this.anchor.quaternion.copy(camera.quaternion);
+    this.updateShield(dt, camera, walkCycle, walkStrength);
 
     // 화면 모서리 고정: HAND_Z 거리에서 보이는 반폭·반높이 × NDC
     const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * -HAND_Z;
@@ -253,8 +293,28 @@ export class HandView {
     this.pivot.rotation.x = HAND_TILT + rx;
   }
 
+  /** 왼손 방패 자리 (#198): 오른손과 대칭인 왼쪽 아래. 막으면 가운데·위로 올라와 화면을 가린다 */
+  private updateShield(dt: number, camera: THREE.PerspectiveCamera, walkCycle: number, walkStrength: number): void {
+    if (!this.shield) return;
+    this.guard += (this.guardTarget - this.guard) * Math.min(1, 14 * dt);
+    const g = this.guard;
+    const t = this.shieldTune;
+    const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * -HAND_Z;
+    const halfW = halfH * camera.aspect;
+    const baseX = -HAND_NDC_X * halfW;
+    const baseY = HAND_NDC_Y * halfH;
+    const dx = Math.sin(walkCycle) * 0.02 * walkStrength + g * t.pull[0]!;
+    const dy = -Math.abs(Math.cos(walkCycle)) * 0.025 * walkStrength + g * t.pull[1]!;
+    this.offPivot.position.set(baseX + dx, baseY + dy, HAND_Z + g * t.pull[2]!);
+    this.offPivot.rotation.x = HAND_TILT + g * t.pull[3]!;
+    const mix = (k: number) => t.rot[k]! + (t.guardRot[k]! - t.rot[k]!) * g;
+    this.shield.rotation.set(mix(0), mix(1), mix(2));
+    this.shield.position.set(t.pos[0]! + (t.guardPos[0]! - t.pos[0]!) * g, t.pos[1]! + (t.guardPos[1]! - t.pos[1]!) * g, t.pos[2]! + (t.guardPos[2]! - t.pos[2]!) * g);
+    this.shield.scale.setScalar(t.scale + (t.guardScale - t.scale) * g);
+  }
+
   render(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void {
-    if (!this.mesh) return;
+    if (!this.mesh && !this.shield) return;
     renderer.clearDepth();
     renderer.render(this.scene, camera);
   }

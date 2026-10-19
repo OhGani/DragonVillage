@@ -1724,8 +1724,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     ctx.portal.update(now / 1000);
     {
       const b = heldBlock();
-      if (guarding) hand.setItem('shield', iconOf('shield', 16)); // 막는 동안은 방패를 든다 (#118)
-      else if (b > 0) hand.setBlock(registry.get(b).shape === 'bed' && registry.isBed(b) ? registry.bedVariant(b, 0, false) : b); // 침대는 발 쪽 변형으로 (#188)
+      hand.setShield(myEquip.shield ? iconOf('shield', 16) : null); // 방패는 왼손 (#198) — 무기는 그대로 오른손
+      hand.setGuard(guarding);
+      if (b > 0) hand.setBlock(registry.get(b).shape === 'bed' && registry.isBed(b) ? registry.bedVariant(b, 0, false) : b); // 침대는 발 쪽 변형으로 (#188)
       else if (hud.selectedItem && bowOf(COMBAT, hud.selectedItem)) {
         // 활 (#184): 당기는 동안 bow_pulling_0/1/2.png 가 있으면 그 단계 그림으로, 화살은 arrow 그림으로 시위에 먹인다
         const base = hud.selectedItem;
