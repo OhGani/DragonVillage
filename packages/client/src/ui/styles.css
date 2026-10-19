@@ -1173,6 +1173,25 @@ body {
   cursor: pointer;
 }
 /* 📜 조합법 (#133) */
+.book-search {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 16px; /* 16 미만이면 아이폰이 확대한다 */
+  color: #fff;
+  padding: 8px 10px;
+  min-height: 40px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  outline: none;
+}
+.book-search:focus {
+  border-color: #9ff09f;
+}
+.book-search::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
 .book-list {
   display: flex;
   flex-direction: column;

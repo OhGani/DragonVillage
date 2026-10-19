@@ -3,6 +3,12 @@ import type { InputSource, InputState } from './InputState';
 const MOUSE_SENS = 0.0022; // 라디안/픽셀
 
 /** 키보드 + 마우스(Pointer Lock). PC 조작. */
+/** 글자 입력 칸(조합법 검색 #200 등)에 치는 중인가 — 그동안은 E·숫자·WASD 같은 게임 키를 안 받는다 */
+export function isTyping(e: Event): boolean {
+  const t = e.target as HTMLElement | null;
+  return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+}
+
 export class KeyboardMouse implements InputSource {
   private readonly keys = new Set<string>();
   private lookDX = 0;
@@ -24,7 +30,7 @@ export class KeyboardMouse implements InputSource {
   enabled = false;
 
   private readonly onKeyDown = (e: KeyboardEvent) => {
-    if (e.repeat) return;
+    if (e.repeat || isTyping(e)) return;
     this.lastActive = performance.now();
     this.keys.add(e.code);
     if (e.code.startsWith('Digit')) {
@@ -39,6 +45,7 @@ export class KeyboardMouse implements InputSource {
     if (e.code === 'Space' || e.code === 'Tab') e.preventDefault();
   };
   private readonly onKeyUp = (e: KeyboardEvent) => {
+    if (isTyping(e)) return;
     this.keys.delete(e.code);
   };
   private readonly onBlur = () => {

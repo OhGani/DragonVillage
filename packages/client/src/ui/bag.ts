@@ -78,6 +78,8 @@ export class BagView {
    * 제작 격자 (#132, 마인크래프트 제작대와 같게): 가방 2×2 또는 제작대·대장간 옆 3×3. 가방 물건을 "놓아 둔" 것처럼 보이지만
    * 실제로는 만들기를 누를 때 서버가 가방에서 뺀다(서버가 진실). ghost 는 조합법 책에서 고른 모양 중 가방에 없는 재료
    */
+  /** 📜 조합법 검색어 (#200, 아빠 2026-10-19 "리스트에서 검색할 수 있게"). 비어 있지 않으면 맞는 줄만, 묶음은 다 펴서 */
+  private bookQuery = '';
   /** 📜 조합법에서 펴 둔 묶음 (#143). null 이면 아직 안 열어 봄 → 처음엔 옆에 있는 작업대 묶음만 */
   private bookOpen: Set<string> | null = null;
   private craftCells: GridCell[] = new Array(9).fill(null);
@@ -336,6 +338,7 @@ export class BagView {
     const cardTop = keep ? (card?.scrollTop ?? 0) : 0;
     const listTop = keep ? (this.side.querySelector<HTMLElement>('.craft-list, .codex-grid, .book-list')?.scrollTop ?? 0) : 0;
 
+    const typing = (document.activeElement as HTMLElement | null)?.classList.contains('book-search') ?? false;
     this.side.innerHTML = '';
     this.grid.hidden = this.tab === 'codex' || this.tab === 'book';
     if (this.tab === 'bag') this.renderBagSide();
@@ -349,6 +352,13 @@ export class BagView {
     const list = this.side.querySelector<HTMLElement>('.craft-list, .codex-grid, .book-list');
     if (list && listTop > 0) list.scrollTop = listTop;
     if (card && cardTop > 0) card.scrollTop = cardTop;
+    if (typing) {
+      const s = this.side.querySelector<HTMLInputElement>('.book-search');
+      if (s) {
+        s.focus();
+        s.setSelectionRange(s.value.length, s.value.length);
+      }
+    }
   }
 
   /** 이 레시피의 작업대가 지금 옆에 있나 (가방은 언제나) */
@@ -390,8 +400,43 @@ export class BagView {
     tip.className = 'bag-tip';
     tip.textContent = '초록 줄은 지금 만들 수 있는 것. 작업대 옆에서 줄을 탭하면 🔨 격자에 모양대로 채워져요';
     this.side.appendChild(tip);
+    // 검색 (#200): 이름·재료·작업대 이름에 글자가 들어 있으면. 치는 동안엔 목록만 다시 그린다(입력 칸은 그대로)
+    const search = document.createElement('input');
+    search.type = 'search';
+    search.className = 'book-search';
+    search.placeholder = '🔍 이름이나 재료로 찾기 (예: 괭이, 철)';
+    search.autocomplete = 'off';
+    search.value = this.bookQuery;
+    search.addEventListener('input', () => {
+      this.bookQuery = search.value;
+      fill();
+    });
+    search.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === 'Escape') search.blur(); // 폰 자판 닫기
+      e.stopPropagation();
+    });
+    this.side.appendChild(search);
     const list = document.createElement('div');
     list.className = 'book-list';
+    const fill = () => {
+      list.innerHTML = '';
+      this.fillBook(list, all);
+    };
+    fill();
+    this.side.appendChild(list);
+  }
+
+  /** 검색어가 레시피에 맞나 (#200): 결과 이름·결과 아이템·재료 이름·작업대 이름. 띄어쓰기는 무시 */
+  private bookMatches(r: RecipeDef, q: string): boolean {
+    const outId = Object.keys(r.out)[0]!;
+    const hay = [r.name, this.deps.nameOf(outId), outId, ...Object.keys(r.in).map((id) => this.deps.nameOf(id)), this.deps.nameOf(r.station)].join(' ').toLowerCase().replace(/\s+/g, '');
+    return hay.includes(q);
+  }
+
+  /** 📜 목록 채우기: 묶음별 접기/펴기, 검색 중이면 맞는 줄만 다 펴서 */
+  private fillBook(list: HTMLElement, all: RecipeDef[]): void {
+    const q = this.bookQuery.trim().toLowerCase().replace(/\s+/g, '');
+    if (q) all = all.filter((r) => this.bookMatches(r, q));
     // 드래곤 알은 따로 한 묶음 (아빠 2026-10-07) — 제작대 묶음 바로 뒤에
     const isEgg = (r: RecipeDef) => isEggItem(Object.keys(r.out)[0]!);
     // 묶음 접기/펴기 (#143): 처음 열면 지금 옆에 있는 작업대 묶음만 펴 두고, 제목을 탭하면 토글. 열어 둔 상태는 가방을 닫아도 남는다
@@ -403,22 +448,27 @@ export class BagView {
     const addGroup = (key: string, title: string, rows: RecipeDef[]) => {
       if (rows.length === 0) return;
       const head = document.createElement('button');
-      head.className = 'book-head' + (open.has(key) ? ' open' : '');
+      head.className = 'book-head' + (open.has(key) || q ? ' open' : '');
       const craftableNow = rows.filter((r) => r.station !== 'world' && this.stationNear(r.station) && canCraft(this.inv, r)).length;
-      head.innerHTML = `<span class="book-caret">${open.has(key) ? '▾' : '▸'}</span> ${title} · ${rows.length}${craftableNow ? ` <span class="book-now">지금 ${craftableNow}</span>` : ''}`;
+      head.innerHTML = `<span class="book-caret">${open.has(key) || q ? '▾' : '▸'}</span> ${title} · ${rows.length}${craftableNow ? ` <span class="book-now">지금 ${craftableNow}</span>` : ''}`;
       head.addEventListener('click', () => {
         if (open.has(key)) open.delete(key);
         else open.add(key);
         this.renderSide();
       });
       list.appendChild(head);
-      if (open.has(key)) for (const r of rows) list.appendChild(this.bookRow(r));
+      if (open.has(key) || q) for (const r of rows) list.appendChild(this.bookRow(r));
     };
     for (const [st, title] of BOOK_GROUPS) {
       addGroup(st, title, all.filter((r) => r.station === st && !isEgg(r)));
       if (st === 'crafting_table') addGroup('egg', '🥚 드래곤 알 (제작대 옆에서)', all.filter(isEgg));
     }
-    this.side.appendChild(list);
+    if (q && all.length === 0) {
+      const none = document.createElement('div');
+      none.className = 'bag-tip';
+      none.textContent = `"${this.bookQuery.trim()}" 이(가) 들어간 조합법이 없어요`;
+      list.appendChild(none);
+    }
   }
 
   private bookRow(r: RecipeDef): HTMLElement {

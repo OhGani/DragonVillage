@@ -79,7 +79,7 @@ import * as THREE from 'three';
 import { beam as beamSound, bell, ding, explosion as explosionSound, hit as hitSound, hurt as hurtSound, levelUp, lose, roar } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
 import { InputManager } from '../input/InputManager';
-import { KeyboardMouse } from '../input/keyboard';
+import { KeyboardMouse, isTyping } from '../input/keyboard';
 import { TouchControls } from '../input/touch';
 import { buildMeshBlockInfo } from '../mesh/blockInfo';
 import type { ExpeditionResult, NetClient, Welcome, WorldEnter } from '../net/NetClient';
@@ -1264,7 +1264,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     else net.sendCallPets();
   });
   window.addEventListener('keydown', (e) => {
-    if (!started || disconnected) return;
+    if (!started || disconnected || isTyping(e)) return;
     if (e.code === 'KeyE') {
       if (bag.visible) closeBag();
       else if (!chat.visible && !hud.overlayVisible && !hud.helpVisible && !hud.resultVisible) openBag();
@@ -1369,7 +1369,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const KEY_HINT = isTouch ? '' : '  (Enter)';
   const onActionKey = (e: KeyboardEvent) => {
     if (e.code !== 'Enter' && e.code !== 'NumpadEnter') return;
-    if (!started || !hud.actionVisible || hud.resultVisible || hud.overlayVisible || hud.helpVisible) return;
+    if (isTyping(e) || !started || !hud.actionVisible || hud.resultVisible || hud.overlayVisible || hud.helpVisible) return;
     e.preventDefault();
     hud.triggerAction();
   };
