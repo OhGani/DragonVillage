@@ -298,11 +298,13 @@ export class FluidSim {
       }
     }
 
-    // 2) 옆으로 — 2 이상 낮은 이웃에게 차이의 절반. 이웃 순서는 틱마다 돌린다
+    // 2) 옆으로 — 2 이상 낮은 이웃들 **모두와 한꺼번에** 높이를 맞춘다 (#201, 아빠 2026-10-19 "물이 왜 화살 모양이지?"):
+    //    전엔 이웃 하나씩 차례로 절반을 줘서 양동이 하나가 한쪽으로 치우친 화살 모양 웅덩이가 됐다.
+    //    목표 높이 L = (내 양 + 낮은 이웃들 양) ÷ (이웃 수 + 1), 이웃마다 L 까지 채워 주고 나머지는 내가 갖는다 → 사방이 같은 마름모
     if (v < 2) return;
-    const start = this.tickCount & 3;
-    for (let i = 0; i < 4 && v >= 2; i++) {
-      const [dx, dz] = SIDES[(start + i) & 3];
+    const lower: { nx: number; nz: number; nv: number; room: number }[] = [];
+    let total = v;
+    for (const [dx, dz] of SIDES) {
       const nx = x + dx,
         nz = z + dz;
       if (!world.inBounds(nx, y, nz)) continue;
@@ -315,11 +317,25 @@ export class FluidSim {
       if (room === 0) continue;
       const nd = this.registry.get(nid);
       const nv = nd.fluid === kind ? nd.fluidVolume : 0;
-      const diff = v - nv;
-      if (diff < 2) continue;
-      const give = Math.min(diff >> 1, room);
-      this.setFinite(nx, y, nz, source, nv + give);
-      v -= give;
+      if (v - nv < 2) continue;
+      lower.push({ nx, nz, nv, room });
+      total += nv;
+    }
+    if (lower.length > 0) {
+      let level = Math.floor(total / (lower.length + 1));
+      let keep = level; // 내가 남길 양
+      if (level === 0) {
+        // 고르게 나누면 0 — 이웃 수만큼은 있으면 1씩 주고 나는 비어도 된다(물이 허공에 떠 있지 않게), 모자라면 그대로
+        if (v < lower.length) return;
+        level = 1;
+        keep = 0;
+      }
+      for (const n of lower) {
+        const give = Math.min(Math.max(0, level - n.nv), n.room, v - keep);
+        if (give <= 0) continue;
+        this.setFinite(n.nx, y, n.nz, source, n.nv + give);
+        v -= give;
+      }
     }
     if (v !== def.fluidVolume) this.setFinite(x, y, z, source, v);
   }

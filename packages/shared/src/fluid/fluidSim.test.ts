@@ -124,17 +124,39 @@ describe('FluidSim — 플레이어가 놓은 고인 액체 (양 보존, 결정 
   const vol = (w: VoxelWorld, x: number, y: number, z: number): number => registry.get(w.getBlock(x, y, z)).fluidVolume;
   const FULL = registry.fluidFinite(WATER, 8);
 
-  it('양동이 하나(8)는 평지에서 8칸의 얇은 웅덩이가 되어 멈추고, 양은 그대로 8', () => {
+  it('양동이 하나(8)는 평지에서 사방 똑같은 + 모양 웅덩이(가운데 4, 네 옆 1)가 되어 멈추고, 양은 그대로 8 (#201)', () => {
     const w = flatWorld();
     const sim = new FluidSim(w, registry);
     w.setBlock(16, 1, 16, FULL);
     sim.touch(16, 1, 16);
     run(sim, 200);
     expect(volume(w)).toBe(8);
-    expect(countKind(w, 'water')).toBe(8); // 1/8 짜리 8칸
-    for (let x = 0; x < 32; x++) for (let z = 0; z < 32; z++) if (vol(w, x, 1, z)) expect(vol(w, x, 1, z)).toBe(1);
+    expect(countKind(w, 'water')).toBe(5);
+    expect(vol(w, 16, 1, 16)).toBe(4);
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) expect(vol(w, 16 + dx!, 1, 16 + dz!)).toBe(1); // 한쪽으로 안 치우친다 (전엔 화살 모양)
     expect(sim.pendingCount).toBe(0); // 안정
-    expect(registry.get(w.getBlock(16, 1, 16)).fluidLevel).toBe(7); // 얕음 = 단계 7 (렌더 높이 1/9)
+    expect(registry.get(w.getBlock(17, 1, 16)).fluidLevel).toBe(7); // 가장자리 = 얕음 단계 7
+  });
+
+  it('양동이 셋(24)도 사방 대칭 마름모로 퍼진다', () => {
+    const w = flatWorld();
+    const sim = new FluidSim(w, registry);
+    for (let k = 0; k < 3; k++) {
+      // 둘째·셋째 양동이는 웅덩이 위(y=2)에 붓는다 — 아래로 먼저 내려가 가운데를 채우고 나머지가 옆으로
+      w.setBlock(16, k === 0 ? 1 : 2, 16, FULL);
+      sim.touch(16, k === 0 ? 1 : 2, 16);
+      run(sim, 60);
+    }
+    run(sim, 300);
+    expect(volume(w)).toBe(24);
+    for (let x = 0; x < 32; x++) for (let z = 0; z < 32; z++) expect(w.getBlock(x, 2, z)).toBe(0); // 위에 떠 있는 물 없음
+    for (let dx = -8; dx <= 8; dx++)
+      for (let dz = -8; dz <= 8; dz++) {
+        const v = vol(w, 16 + dx, 1, 16 + dz);
+        expect(v).toBe(vol(w, 16 - dx, 1, 16 + dz)); // 좌우 대칭
+        expect(v).toBe(vol(w, 16 + dz, 1, 16 + dx)); // 대각 대칭
+      }
+    expect(sim.pendingCount).toBe(0);
   });
 
   it('여러 양동이를 부어도 양은 보존되고 높이가 고르게 된다', () => {
@@ -225,7 +247,7 @@ describe('FluidSim — 플레이어가 놓은 고인 액체 (양 보존, 결정 
     sim2.touch(16, 1, 16);
     run(sim2, FLUID_RULES.lava.interval * 40);
     expect(volume(w2, 'lava')).toBe(8);
-    expect(countKind(w2, 'lava')).toBe(8);
+    expect(countKind(w2, 'lava')).toBe(5); // 물과 같은 + 모양 (#201)
   });
 
   it('두 번 돌려도 결과가 같다 (결정론)', () => {
