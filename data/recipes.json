@@ -230,6 +230,18 @@
       }
     },
     {
+      "id": "baked_potato",
+      "name": "구운 감자",
+      "station": "furnace",
+      "in": {
+        "potato": 1,
+        "coal": 1
+      },
+      "out": {
+        "baked_potato": 1
+      }
+    },
+    {
       "id": "netherite",
       "name": "네더라이트",
       "station": "forge",

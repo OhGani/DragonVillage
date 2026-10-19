@@ -1,4 +1,4 @@
-# 아이콘 그림이 없는 아이템 (19개)
+# 아이콘 그림이 없는 아이템 (18개)
 
 파일 이름은 `textures/<id>.png` (16×16). 활은 당기는 단계 그림 `bow_pulling_0.png`·`bow_pulling_1.png`·`bow_pulling_2.png`(점점 휘는 활)를 그리면 쏠 때 그 그림이 나온다(#184). 블록은 전부 그림이 있어서 뺐다. 물약은 아들의 유리병 그림에 색만 채워 자동으로 만든다(`glass_bottle.png` 를 바꾸면 물약 그림도 같이 바뀐다).
 
@@ -13,7 +13,6 @@
 - 먹물 — `ink_sac`
 - 마그마 크림 — `magma_cream`
 - 인갑 — `scute`
-- 슬라임 볼 — `slime_ball`
 - 눈덩이 — `snowball`
 - 거미 눈 — `spider_eye`
 - 위더 스켈레톤 머리 — `wither_skeleton_skull`
