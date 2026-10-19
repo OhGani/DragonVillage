@@ -1,4 +1,4 @@
-# 아이콘 그림이 없는 아이템 (53개)
+# 아이콘 그림이 없는 아이템 (52개)
 
 파일 이름은 `textures/<id>.png` (16×16). 활은 당기는 단계 그림 `bow_pulling_0.png`·`bow_pulling_1.png`·`bow_pulling_2.png`(점점 휘는 활)를 그리면 쏠 때 그 그림이 나온다(#184). 블록은 전부 그림이 있어서 뺐다. 물약은 아들의 유리병 그림에 색만 채워 자동으로 만든다(`glass_bottle.png` 를 바꾸면 물약 그림도 같이 바뀐다).
 
@@ -27,8 +27,7 @@
 - 나무 곡괭이 — `wooden_pickaxe`
 - 나무 검 — `wooden_sword`
 
-## 갑옷·방패 (2)
-- 철 흉갑 — `iron_chestplate`
+## 갑옷·방패 (1)
 - 거북 등딱지 — `turtle_shell`
 
 ## 재료·드롭 (13)
