@@ -190,7 +190,7 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(a.json.some((m) => m.t === 'health' && m.cause === 'tnt')).toBe(true);
   });
 
-  it('괭이·뼛가루 (#193): 물가 잔디는 괭이로 밭이 되고(멀면 NO_FARMLAND, 괭이 없으면 TOOL), 뼛가루는 싹을 바로 익힌다', () => {
+  it('괭이·뼛가루 (#193·#199): 괭이로 흙이 밭이 되고(괭이 없으면 TOOL), 물에서 먼 밭도 갈리지만 작물이 안 자라고, 뼛가루는 싹을 바로 익힌다', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
     const a = inbox();
@@ -216,7 +216,7 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(rejected(a)).toHaveLength(1);
     expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y, fz)).id).toBe('farmland');
     expect(countOf(p.inv, 'wooden_hoe')).toBe(1);
-    // 물에서 먼 잔디(광장 동쪽 끝 너머)는 안 된다
+    // 물에서 먼 잔디(광장 동쪽 끝 너머)도 갈린다 (#199) — 심은 밀은 물이 없는 동안 안 자라고, 물을 놓으면 자란다
     const isWater = (wx: number, wy: number, wz: number) => room.world.inBounds(wx, wy, wz) && BLOCKS.get(room.world.getBlock(wx, wy, wz)).fluid === 'water';
     let gx = -1,
       gz = -1;
@@ -229,7 +229,16 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(gx).toBeGreaterThan(0);
     room.onMove(ra.idx, { x: gx + 0.5, y: GROUND_Y + 1, z: gz + 2.5, yaw: 0, pitch: 0, flags: 0 });
     room.onBlockChange(ra.idx, { seq: 3, x: gx, y: GROUND_Y, z: gz, id: 'farmland', slot: hoe }, 1200);
-    expect(rejected(a)).toEqual([{ seq: 1, reason: REJECT.TOOL }, { seq: 3, reason: REJECT.NO_FARMLAND }]);
+    expect(rejected(a)).toEqual([{ seq: 1, reason: REJECT.TOOL }]);
+    expect(BLOCKS.get(room.world.getBlock(gx, GROUND_Y, gz)).id).toBe('farmland');
+    give(p.inv, 'wheat_seeds', 1);
+    room.onBlockChange(ra.idx, { seq: 4, x: gx, y: GROUND_Y + 1, z: gz, id: 'wheat_young' }, 1300);
+    expect(BLOCKS.get(room.world.getBlock(gx, GROUND_Y + 1, gz)).id).toBe('wheat_young');
+    room.checkCrops(1300 + 9 * 60_000);
+    expect(BLOCKS.get(room.world.getBlock(gx, GROUND_Y + 1, gz)).id).toBe('wheat_young'); // 마른 밭: 그대로
+    room.world.setBlock(gx + 2, GROUND_Y, gz, BLOCKS.numOf('water'));
+    room.checkCrops(1300 + 10 * 60_000);
+    expect(BLOCKS.get(room.world.getBlock(gx, GROUND_Y + 1, gz)).id).toBe('wheat_ripe'); // 물을 놓으면 자란다
     // 뼛가루: 밀 씨를 심고 바로 익힌다
     give(p.inv, 'wheat_seeds', 1);
     give(p.inv, 'bone_meal', 2);

@@ -1099,12 +1099,18 @@ export class VillageRoom {
       return false;
     }
     if (!force && now - plantedAt < (cur.growMinutes ?? 0) * 60_000) return false;
+    if (cur.seed && !force && !this.hasWaterNear(x, y - 1, z)) return false; // 마른 밭의 작물은 안 자란다 (#199, 뼛가루는 예외)
     if (cur.growsWhenOpen && this.world.inBounds(x, y + 1, z) && this.registry.get(this.world.getBlock(x, y + 1, z)).solid) return false; // 위가 막혔으면 그대로 흙 (#171)
     this.world.setBlock(x, y, z, next.num);
     this.markDirtyBlock(x, y, z);
     done();
     this.broadcast(encodeBlockChanged({ x, y, z, id: next.id, by: -1 }), -1, 'village');
     return true;
+  }
+
+  /** 밭(x,y,z) 4칸 안에 물이 있나 (#193·#199) */
+  private hasWaterNear(x: number, y: number, z: number): boolean {
+    return hasWaterNear((wx, wy, wz) => this.world.inBounds(wx, wy, wz) && this.registry.get(this.world.getBlock(wx, wy, wz)).fluid === 'water', x, y, z);
   }
 
   /** 불붙은 TNT (#195): at 에 터진다 */
@@ -1973,11 +1979,10 @@ export class VillageRoom {
       const heldForPath = req.slot !== undefined && req.slot >= 0 && req.slot < p.inv.length ? (p.inv[req.slot]?.item ?? null) : null;
       return shovelOf(TOOLS, heldForPath) ? null : REJECT.TOOL;
     }
-    // 괭이로 밭 갈기 (#193): 흙·잔디·잔디 길 위에 농지를 '놓는' 요청은 괭이를 들고, 물이 4칸 안에 있을 때만
+    // 괭이로 밭 갈기 (#193·#199): 흙·잔디·잔디 길 위에 농지를 '놓는' 요청은 괭이를 들고 있을 때만. 물은 자랄 때 본다
     if (def.id === 'farmland' && TILLABLE.has(cur.id)) {
       const heldForTill = req.slot !== undefined && req.slot >= 0 && req.slot < p.inv.length ? (p.inv[req.slot]?.item ?? null) : null;
-      if (!hoeOf(TOOLS, heldForTill)) return REJECT.TOOL;
-      return hasWaterNear((wx, wy, wz) => world.inBounds(wx, wy, wz) && this.registry.get(world.getBlock(wx, wy, wz)).fluid === 'water', x, y, z) ? null : REJECT.NO_FARMLAND;
+      return hoeOf(TOOLS, heldForTill) ? null : REJECT.TOOL;
     }
     // 놓기: 액체는 플레이어가 놓는 고인 액체 8/8 만(자연 원천·흐름은 못 놓는다), 그 외 내부 블록 불가, 자리는 공기·액체만, 누가 서 있으면 안 됨
     if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch && !def.bed) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82)

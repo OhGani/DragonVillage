@@ -271,13 +271,8 @@ export class Interaction {
 
   private place(): void {
     const t = this.target;
-    // 괭이로 밭 갈기 (#193): 괭이를 들고 흙·잔디 윗면을 탭 → 농지. 물이 4칸 안에 있어야 한다
+    // 괭이로 밭 갈기 (#193·#199): 괭이를 들고 흙·잔디 윗면을 탭 → 농지. 마인크래프트처럼 어디든 갈린다(물은 자랄 때 본다)
     if (t && t.ny > 0 && hoeOf(TOOLS, this.heldItem) && TILLABLE.has(this.registry.get(t.id).id)) {
-      const isWater = (wx: number, wy: number, wz: number) => this.world.inBounds(wx, wy, wz) && this.registry.get(this.world.getBlock(wx, wy, wz)).fluid === 'water';
-      if (!hasWaterNear(isWater, t.x, t.y, t.z)) {
-        this.events.onHint?.('💧 물이 4칸 안에 있어야 밭이 돼요 — 옆에 물을 한 칸 부어요');
-        return;
-      }
       const farm = this.registry.numOf('farmland');
       const r = this.world.setBlock(t.x, t.y, t.z, farm);
       if (r.changed) {
@@ -358,6 +353,11 @@ export class Interaction {
       return;
     }
     if (def.solid && bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y, z)) return; // 내 몸 안에는 못 놓는다
+    // 씨앗 (#199): 농지에 물이 4칸 안에 없으면 심기는 되지만 안 자란다 — 미리 알려 준다
+    if (def.seed) {
+      const isWater = (wx: number, wy: number, wz: number) => this.world.inBounds(wx, wy, wz) && this.registry.get(this.world.getBlock(wx, wy, wz)).fluid === 'water';
+      if (!hasWaterNear(isWater, x, y - 1, z)) this.events.onHint?.('💧 물이 4칸 안에 없으면 안 자라요 — 옆에 물을 한 칸 부어요');
+    }
     // 꽃·풀 (#180): 잔디·흙·농지 위에만
     if (def.shape === 'cross') {
       const below = this.world.inBounds(x, y - 1, z) ? this.registry.get(this.world.getBlock(x, y - 1, z)).id : '';
