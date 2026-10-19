@@ -15,6 +15,7 @@
     { "id": "cooked_mutton", "name": "익힌 양고기", "heals": 6 },
     { "id": "chicken", "name": "닭고기", "heals": 2 },
     { "id": "cooked_chicken", "name": "익힌 닭고기", "heals": 6 },
+    { "id": "potato", "name": "감자", "heals": 1, "_note": "좀비가 가끔 떨군다. 굽기는 아직(그림이 오면)" },
     { "id": "cake", "name": "케이크", "heals": 7 }
   ]
 }
