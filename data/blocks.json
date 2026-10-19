@@ -546,7 +546,7 @@
       "textureSide": "bed_side",
       "textureBottom": "planks",
       "shape": "bed",
-      "_note": "빨간 침대 (#188, 아들 그림 2026-10-17). 두 칸(발·머리)으로 놓이고 높이 9/16. 윗면 그림은 bed_top_foot / bed_top_head. 색 침대는 아래 14개 — 그 색 양털 3 + 판자 3. 네더·엔드에서 클릭 시 폭발은 아직"
+      "_note": "빨간 침대 (#188·#203). 두 칸(발·머리)으로 놓이고 높이 9/16, 다리 3/16 위에 몸통. 윗면 그림은 bed_top_foot / bed_top_head(베개), 옆면 bed_side(위 담요·아래 나무 틀), 다리는 textureBottom(판자). 아이콘은 아들 입체 그림 bed.png. 색 침대는 아래 14개 — 그 색 양털 3 + 판자 3. 네더·엔드에서 클릭 시 폭발은 아직"
     },
     {
       "id": "orange_bed",

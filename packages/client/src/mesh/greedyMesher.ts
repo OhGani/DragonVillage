@@ -30,6 +30,8 @@ const TORCH_WALL_Y = 3 / 16;
 export const PLANT_HALF = 0.5 * 0.7071;
 /** 침대 높이 (#188): 마인크래프트 9/16 */
 export const BED_HEIGHT = 9 / 16;
+/** 침대 다리 (#203): 3/16 높이·굵기, 몸통은 그 위에 떠 있다 */
+export const BED_LEG = 3 / 16;
 /** 표지판 (#197): 기둥 반폭, 기둥 높이, 판 반폭·아래·위·반두께 */
 export const SIGN_POST_HALF = 1 / 16;
 export const SIGN_POST_TOP = 9 / 16;
@@ -433,19 +435,30 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
   };
 
   /**
-   * 침대 전용 패스 (#188): 9/16 높이 상자. 옆·아래는 boxFace, 윗면은 그림의 위(머리 쪽)가 facing 방향을 보게 UV 를 돌린다
+   * 침대 전용 패스 (#188·#203, 마인크래프트 모양): 다리 3/16 위에 뜬 몸통(3/16~9/16) + 바깥 끝 모서리 다리 둘.
+   * 옆면은 boxFace(세계 좌표 v 로 잘려 위 담요·아래 나무 틀), 짝 반쪽을 향한 옆면은 안 그린다.
+   * 윗면은 그림의 위(머리 쪽)가 facing 방향을 보게 UV 를 돌린다. 다리는 아랫면 그림(판자)
    */
   const emitBeds = () => {
+    const faceToward = (fx: number, fz: number) => (fx > 0 ? 0 : fx < 0 ? 1 : fz > 0 ? 4 : 5);
     for (let y = 0; y < N; y++)
       for (let z = 0; z < N; z++)
         for (let x = 0; x < N; x++) {
           const bi = info[padded[paddedIndex(x, y, z)]];
           if (bi === undefined || bi.bed === null) continue;
           const lt = lightOfCell(x, y, z);
-          const mn = [x, y, z],
-            mx = [x + 1, y + BED_HEIGHT, z + 1];
-          for (const f of [0, 1, 3, 4, 5]) boxFace(opaque, f, mn, mx, bi.tex[f], lt);
           const [dx, dz] = DOOR_DIR[bi.bed[0]]!;
+          const head = bi.bed[1] === 1;
+          // 바깥 끝 방향: 발 쪽은 -facing, 머리 쪽은 +facing. 짝은 그 반대
+          const ex = head ? dx : -dx,
+            ez = head ? dz : -dz;
+          const partner = faceToward(-ex, -ez);
+          const mn = [x, y + BED_LEG, z],
+            mx = [x + 1, y + BED_HEIGHT, z + 1];
+          for (const f of [0, 1, 3, 4, 5]) if (f !== partner) boxFace(opaque, f, mn, mx, bi.tex[f], lt);
+          // 다리 둘: 바깥 끝의 두 모서리
+          const legs: [number, number][] = ex !== 0 ? [[ex > 0 ? x + 1 - BED_LEG : x, z], [ex > 0 ? x + 1 - BED_LEG : x, z + 1 - BED_LEG]] : [[x, ez > 0 ? z + 1 - BED_LEG : z], [x + 1 - BED_LEG, ez > 0 ? z + 1 - BED_LEG : z]];
+          for (const [lx, lz] of legs) for (const f of [0, 1, 3, 4, 5]) boxFace(opaque, f, [lx, y, lz], [lx + BED_LEG, y + BED_LEG, lz + BED_LEG], bi.tex[3], lt);
           const rx = -dz,
             rz = dx;
           // 꼭짓점 순서는 +Y 법선 (0,0)→(0,1)→(1,1)→(1,0)

@@ -360,9 +360,9 @@ describe('꽃·풀 (#180)', () => {
 });
 
 describe('침대 (#188)', () => {
-  it('발·머리 각각 9/16 높이 상자 6면, 윗면 그림은 발 foot·머리 head, 밑의 잔디 윗면은 그대로', () => {
+  it('발·머리 각각 몸통 5면(짝 쪽 빼고) + 다리 둘 × 5면 = 15면, 윗면 그림은 발 foot·머리 head, 밑의 잔디 윗면은 그대로 (#203)', () => {
     const m = greedyMesh(padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? BED_FOOT_N : x === 5 && y === 5 && z === 4 ? BED_HEAD_N : 0)), info).opaque!;
-    expect(m.indexCount / 6).toBe(12);
+    expect(m.indexCount / 6).toBe(30);
     let top = 0;
     const layers = new Set<number>();
     for (let i = 0; i < m.vertexCount; i++) {
@@ -374,10 +374,14 @@ describe('침대 (#188)', () => {
     }
     expect(top).toBe(8); // 윗면 두 장 × 4 꼭짓점
     expect(layers.has(12) && layers.has(13) && layers.has(14)).toBe(true);
+    // 다리: y 5~5+3/16 꼭짓점이 있고, 몸통 옆면 밑은 5+3/16 (바닥에서 떠 있다)
+    let legVerts = 0;
+    for (let i = 0; i < m.vertexCount; i++) if (Math.abs(m.positions[i * 3 + 1]! - 5) < 1e-6) legVerts++;
+    expect(legVerts).toBe(48); // 다리마다 옆 4면 × 2 + 바닥 4 = 12, 다리 둘 × 반쪽 둘
     checkWinding(m);
     const withBed = greedyMesh(padded((x, y, z) => (y < 5 ? GRASS : x === 5 && y === 5 && z === 5 ? BED_FOOT_N : 0)), info).opaque!;
     const bare = greedyMesh(padded((_x, y) => (y < 5 ? GRASS : 0)), info).opaque!;
-    expect(withBed.indexCount).toBe(bare.indexCount + 6 * 6);
+    expect(withBed.indexCount).toBe(bare.indexCount + 15 * 6);
   });
 });
 
