@@ -1,8 +1,8 @@
-# 아이콘 그림이 없는 아이템 (96개)
+# 아이콘 그림이 없는 아이템 (95개)
 
 파일 이름은 `textures/<id>.png` (16×16). 활은 당기는 단계 그림 `bow_pulling_0.png`·`bow_pulling_1.png`·`bow_pulling_2.png`(점점 휘는 활)를 그리면 쏠 때 그 그림이 나온다(#184). 블록은 전부 그림이 있어서 뺐다. 물약은 병 모양 하나에 색만 다르니 `potion` 병 하나만 그려도 된다.
 
-## 도구·무기 (28)
+## 도구·무기 (27)
 - 황금 도끼 — `golden_axe`
 - 금 곡괭이 — `golden_pickaxe`
 - 황금 검 — `golden_sword`
@@ -23,7 +23,6 @@
 - 철 검 — `iron_sword`
 - 네더라이트 도끼 — `netherite_axe`
 - 네더라이트 검 — `netherite_sword`
-- 가위 — `shears`
 - 돌 도끼 — `stone_axe`
 - 돌 곡괭이 — `stone_pickaxe`
 - 돌 검 — `stone_sword`
