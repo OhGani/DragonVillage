@@ -473,6 +473,8 @@ export type ClientJson =
   | { t: 'eat'; slot: number }
   /** 뼛가루 (#193): 손에 든 칸의 뼛가루를 그 자리 작물에 → 바로 다 자란다 */
   | { t: 'boneMeal'; x: number; y: number; z: number; slot: number }
+  /** TNT 에 불 붙이기 (#195): 라이터를 든 칸, 그 자리 TNT → 4초 뒤 폭발 */
+  | { t: 'ignite'; x: number; y: number; z: number; slot: number }
   /** 타고 있는 드래곤의 스킬 (M6-5). 지금은 'beam' 만 */
   | { t: 'skill'; id: string }
   /** 마을 창고 열기 (M6-6) — 창고 건물 옆에서 */

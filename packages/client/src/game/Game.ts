@@ -549,6 +549,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         light.markChanged(x, y, z);
         sendBlock(x, y, z, id, prev);
       },
+      onIgnite: (x, y, z) => {
+        net.sendIgnite(x, y, z, hud.selectedIndex); // TNT (#195)
+        hud.toast('💣 4초 뒤에 터져요 — 멀리 가요!', 3000);
+      },
       onBoneMeal: (x, y, z) => {
         net.sendBoneMeal(x, y, z, hud.selectedIndex); // 뼛가루 (#193)
       },
@@ -917,6 +921,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         if (m.cause === 'poison') hud.toast('🕷️ 독에 물렸어요 — 잠깐 아파요', 1500);
       }
       if (m.cause === 'blocked') hud.toast('🛡️ 방패로 막았어요', 1200);
+      if (m.cause === 'tnt') hud.toast('💥 TNT 가 터졌어요!', 1500);
       if (m.cause === 'eat') hud.toast(`😋 냠냠! 하트 ${((m.hp - hp) / 2).toFixed(1).replace('.0', '')}개 회복`, 1500); // 먹기 (#186)
       hp = m.hp;
       hud.setHealth(m.hp, m.max);

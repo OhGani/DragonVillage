@@ -398,6 +398,11 @@ export class NetClient {
     this.sendJson({ t: 'startRaid' });
   }
   /** 동물에게 손에 든 것 쓰기 (M8-1) */
+  /** TNT 불 붙이기 (#195) */
+  sendIgnite(x: number, y: number, z: number, slot: number): void {
+    this.sendJson({ t: 'ignite', x, y, z, slot });
+  }
+
   /** 뼛가루 (#193) */
   sendBoneMeal(x: number, y: number, z: number, slot: number): void {
     this.sendJson({ t: 'boneMeal', x, y, z, slot });

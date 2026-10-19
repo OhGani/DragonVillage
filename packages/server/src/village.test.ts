@@ -165,6 +165,31 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(storage.listPlaced(INFO.code)).toEqual([]);
   });
 
+  it('TNT (#195): 라이터로 불을 붙이면 4초 뒤 블록이 사라지고 옆 사람이 다친다. 라이터 없으면 NO_FLINT', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    give(p.inv, 'tnt', 1);
+    give(p.inv, 'flint_and_steel', 1);
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 1, x: 66, y: GROUND_Y + 1, z: 64, id: 'tnt' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 64)).id).toBe('tnt');
+    const flint = p.inv.findIndex((s) => s?.item === 'flint_and_steel');
+    expect(room.ignite(ra.idx, 0, 66, GROUND_Y + 1, 64, 2000)).toBe('NO_FLINT');
+    expect(room.ignite(ra.idx, flint, 66, GROUND_Y + 1, 64, 2000)).toBeNull();
+    expect(a.json.some((m) => m.t === 'mob' && m.ev === 'fuse')).toBe(true);
+    room.tick(5000);
+    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 64)).id).toBe('tnt'); // 아직 3초
+    const hp0 = room.hpOf(ra.idx);
+    room.tick(6100);
+    expect(room.world.getBlock(66, GROUND_Y + 1, 64)).toBe(0);
+    expect(room.hpOf(ra.idx)).toBeLessThan(hp0); // 2칸 옆에 서 있었다
+    expect(a.json.some((m) => m.t === 'mob' && m.ev === 'explode' && m.mob === 'tnt')).toBe(true);
+    expect(a.json.some((m) => m.t === 'health' && m.cause === 'tnt')).toBe(true);
+  });
+
   it('괭이·뼛가루 (#193): 물가 잔디는 괭이로 밭이 되고(멀면 NO_FARMLAND, 괭이 없으면 TOOL), 뼛가루는 싹을 바로 익힌다', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });

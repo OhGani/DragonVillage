@@ -42,6 +42,8 @@ export interface InteractionEvents {
   onHint?(text: string): void;
   /** 뼛가루를 그 자리 작물에 (#193) */
   onBoneMeal?(x: number, y: number, z: number): void;
+  /** TNT 에 불 (#195) */
+  onIgnite?(x: number, y: number, z: number): void;
   /** 상자를 탭했다 (#84) — 놓기 대신 연다 */
   onOpenChest?(x: number, y: number, z: number): void;
 }
@@ -283,6 +285,14 @@ export class Interaction {
         this.events.onPlaced?.(t.x, t.y, t.z, farm, t.id);
         this.events.onSwing();
       }
+      return;
+    }
+    // 라이터 (#195): 들고 TNT 를 탭 → 4초 뒤 폭발
+    if (t && this.heldItem === 'flint_and_steel') {
+      if (this.registry.get(t.id).id === 'tnt') {
+        this.events.onIgnite?.(t.x, t.y, t.z);
+        this.events.onSwing();
+      } else this.events.onHint?.('🔥 라이터는 TNT 에 불을 붙여요');
       return;
     }
     // 뼛가루 (#193): 들고 작물 싹·묘목을 탭 → 서버가 바로 키운다

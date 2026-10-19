@@ -173,6 +173,7 @@ import {
   TILLABLE,
   hasWaterNear,
   BONE_MEAL,
+  explosionDamage,
 } from '@dragon-village/shared';
 import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
@@ -201,7 +202,12 @@ export const GROWTH_CHECK_MS = 5_000;
 export const GOLEM_MAX = 2;
 export const GOLEM_ID_BASE = 60_000;
 /** 작물 익음 확인 주기 (#165) */
-export const CROP_CHECK_MS = 10_000;
+export /** TNT (#195): 심지 4초, 반지름 4칸, 가운데 피해 10 (크리퍼 7) */
+const TNT_FUSE_MS = 4000;
+const TNT_RADIUS = 4;
+const TNT_DAMAGE = 10;
+const FLINT_AND_STEEL = 'flint_and_steel';
+const CROP_CHECK_MS = 10_000;
 
 export type Send = (data: Uint8Array | string) => void;
 export type WorldKind = 'village' | 'expedition';
@@ -1099,6 +1105,53 @@ export class VillageRoom {
     done();
     this.broadcast(encodeBlockChanged({ x, y, z, id: next.id, by: -1 }), -1, 'village');
     return true;
+  }
+
+  /** 불붙은 TNT (#195): at 에 터진다 */
+  private fuses: { x: number; y: number; z: number; world: 'village' | 'expedition'; at: number }[] = [];
+
+  /** TNT 에 불 붙이기 (#195): 라이터를 들고 TNT 를 탭. 오류: NO_FLINT · NOT_TNT · TOO_FAR */
+  ignite(idx: number, slot: number, x: number, y: number, z: number, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    const held = slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
+    if (held !== FLINT_AND_STEEL) return 'NO_FLINT';
+    const world = this.worldOf(p);
+    if (!world.inBounds(x, y, z) || this.registry.get(world.getBlock(x, y, z)).id !== 'tnt') return 'NOT_TNT';
+    if (Math.hypot(x + 0.5 - p.pos.x, y + 0.5 - (p.pos.y + EYE), z + 0.5 - p.pos.z) > HIT_REACH + 1) return 'TOO_FAR';
+    this.lightFuse(x, y, z, p.world, now + TNT_FUSE_MS);
+    return null;
+  }
+
+  private lightFuse(x: number, y: number, z: number, world: 'village' | 'expedition', at: number): void {
+    if (this.fuses.some((f) => f.x === x && f.y === y && f.z === z && f.world === world)) return;
+    this.fuses.push({ x, y, z, world, at });
+    this.broadcastJson({ t: 'mob', ev: 'fuse', id: -1, mob: 'tnt', x: x + 0.5, y: y + 0.5, z: z + 0.5 }, -1, world);
+  }
+
+  /** 틱마다: 시간이 된 TNT 를 터뜨린다 — 블록은 없어지고 4칸 안의 사람이 다친다. 옆 TNT 는 0.5초 뒤 같이 */
+  private tickFuses(now: number): void {
+    if (this.fuses.length === 0) return;
+    const due = this.fuses.filter((f) => f.at <= now);
+    if (due.length === 0) return;
+    this.fuses = this.fuses.filter((f) => f.at > now);
+    for (const f of due) {
+      const world = f.world === 'village' ? this.world : (this.expedition?.world ?? null);
+      if (!world || !world.inBounds(f.x, f.y, f.z) || this.registry.get(world.getBlock(f.x, f.y, f.z)).id !== 'tnt') continue; // 그새 캐 갔다
+      world.setBlock(f.x, f.y, f.z, AIR_ID);
+      if (f.world === 'village') this.markDirtyBlock(f.x, f.y, f.z);
+      this.broadcast(encodeBlockChanged({ x: f.x, y: f.y, z: f.z, id: 'air', by: -1 }), -1, f.world);
+      const cx = f.x + 0.5,
+        cy = f.y + 0.5,
+        cz = f.z + 0.5;
+      for (const q of this.playersIn(f.world)) {
+        const dmg = explosionDamage(Math.hypot(q.pos.x - cx, q.pos.y + 0.9 - cy, q.pos.z - cz), TNT_RADIUS, TNT_DAMAGE);
+        if (dmg > 0) this.hurt(q, dmg, 'tnt', now);
+      }
+      this.broadcastJson({ t: 'mob', ev: 'explode', id: -1, mob: 'tnt', x: cx, y: cy, z: cz }, -1, f.world);
+      for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as const)
+        if (world.inBounds(f.x + dx, f.y + dy, f.z + dz) && this.registry.get(world.getBlock(f.x + dx, f.y + dy, f.z + dz)).id === 'tnt') this.lightFuse(f.x + dx, f.y + dy, f.z + dz, f.world, now + 500);
+    }
   }
 
   /** 뼛가루 (#193): 손에 든 칸의 뼛가루 하나를 쓰고 그 자리 작물(싹·묘목)을 바로 다 키운다. 오류: NO_BONE_MEAL · NOT_GROWING · TOO_FAR */
@@ -2507,6 +2560,7 @@ export class VillageRoom {
       this.dirty.set(key, c);
       this.modified.set(key, c);
     }
+    this.tickFuses(now); // TNT (#195)
     if (this.batch.length) {
       // 같은 칸이 한 틱에 여러 번 바뀌면 마지막 값만
       const last = new Map<string, { x: number; y: number; z: number; id: string }>();

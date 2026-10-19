@@ -514,6 +514,17 @@
       "shape": "sign"
     },
     {
+      "id": "tnt",
+      "name": "TNT",
+      "hardness": 0.0,
+      "tool": null,
+      "lightEmit": 0,
+      "textureTop": "tnt_top",
+      "textureSide": "tnt_side",
+      "textureBottom": "tnt_side",
+      "_note": "TNT (#195, 아들 그림 2026-10-19): 화약 5 + 모래 4. 놓고 라이터를 들고 탭하면 4초 뒤 터진다 — 4칸 안의 사람·몹이 다친다(가운데 10). 블록은 안 부서진다(마을 보호, 크리퍼와 같은 규칙). 옆 TNT 는 같이 터진다"
+    },
+    {
       "id": "bed",
       "name": "침대",
       "hardness": 0.2,
