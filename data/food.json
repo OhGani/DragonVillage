@@ -13,6 +13,8 @@
     { "id": "cooked_beef", "name": "스테이크", "heals": 8 },
     { "id": "mutton", "name": "양고기", "heals": 2 },
     { "id": "cooked_mutton", "name": "익힌 양고기", "heals": 6 },
+    { "id": "chicken", "name": "닭고기", "heals": 2 },
+    { "id": "cooked_chicken", "name": "익힌 닭고기", "heals": 6 },
     { "id": "cake", "name": "케이크", "heals": 7 }
   ]
 }

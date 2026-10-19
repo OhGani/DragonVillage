@@ -51,6 +51,7 @@ export const ITEM_FALLBACK_KO: Readonly<Record<string, string>> = {
   cooked_porkchop: '익힌 돼지고기',
   cooked_beef: '스테이크',
   cooked_mutton: '익힌 양고기',
+  cooked_chicken: '익힌 닭고기',
   chicken: '닭고기',
   rotten_flesh: '썩은 고기',
   gunpowder: '화약',

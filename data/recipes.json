@@ -218,6 +218,18 @@
       }
     },
     {
+      "id": "cooked_chicken",
+      "name": "익힌 닭고기",
+      "station": "furnace",
+      "in": {
+        "chicken": 1,
+        "coal": 1
+      },
+      "out": {
+        "cooked_chicken": 1
+      }
+    },
+    {
       "id": "netherite",
       "name": "네더라이트",
       "station": "forge",
