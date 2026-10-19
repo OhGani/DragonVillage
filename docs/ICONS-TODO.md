@@ -1,4 +1,4 @@
-# 아이콘 그림이 없는 아이템 (62개)
+# 아이콘 그림이 없는 아이템 (61개)
 
 파일 이름은 `textures/<id>.png` (16×16). 활은 당기는 단계 그림 `bow_pulling_0.png`·`bow_pulling_1.png`·`bow_pulling_2.png`(점점 휘는 활)를 그리면 쏠 때 그 그림이 나온다(#184). 블록은 전부 그림이 있어서 뺐다. 물약은 아들의 유리병 그림에 색만 채워 자동으로 만든다(`glass_bottle.png` 를 바꾸면 물약 그림도 같이 바뀐다).
 
@@ -47,14 +47,13 @@
 - 실 — `string`
 - 위더 스켈레톤 머리 — `wither_skeleton_skull`
 
-## 음식 (8)
+## 음식 (7)
 - 갈색 버섯 — `brown_mushroom`
 - 반짝이는 수박 조각 — `glistering_melon`
 - 황금 사과 — `golden_apple`
 - 황금 당근 — `golden_carrot`
 - 수박 조각 — `melon_slice`
 - 우유 양동이 — `milk_bucket`
-- 설탕 — `sugar`
 - 밀 씨 — `wheat_seeds`
 
 ## 탈것·기타 (15)
