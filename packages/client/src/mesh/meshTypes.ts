@@ -29,6 +29,8 @@ export interface MeshBlockInfo {
   cross: boolean;
   /** 침대(#188): [facing(발→머리), 머리면 1]. 9/16 높이 상자, 윗면 그림은 머리 쪽이 위 */
   bed: readonly [number, number] | null;
+  /** 표지판(#197): 기둥 + 판 두 상자로 그린다 */
+  sign: boolean;
 }
 
 export interface MeshBuffers {

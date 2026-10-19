@@ -30,6 +30,13 @@ const TORCH_WALL_Y = 3 / 16;
 export const PLANT_HALF = 0.5 * 0.7071;
 /** 침대 높이 (#188): 마인크래프트 9/16 */
 export const BED_HEIGHT = 9 / 16;
+/** 표지판 (#197): 기둥 반폭, 기둥 높이, 판 반폭·아래·위·반두께 */
+export const SIGN_POST_HALF = 1 / 16;
+export const SIGN_POST_TOP = 9 / 16;
+export const SIGN_BOARD_HALF = 7 / 16;
+export const SIGN_BOARD_Y0 = 8 / 16;
+export const SIGN_BOARD_Y1 = 16 / 16;
+export const SIGN_BOARD_T = 1 / 16;
 
 /**
  * 드래곤 알 (결정 #85): 마인크래프트 알처럼 위로 갈수록 좁아지는 상자 여섯 층.
@@ -447,6 +454,22 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
         }
   };
 
+  /** 표지판 전용 패스 (#197): 기둥 상자 + 판 상자(동서로 선다). 판·기둥 다 옆면 그림 */
+  const emitSigns = () => {
+    for (let y = 0; y < N; y++)
+      for (let z = 0; z < N; z++)
+        for (let x = 0; x < N; x++) {
+          const bi = info[padded[paddedIndex(x, y, z)]];
+          if (bi === undefined || !bi.sign) continue;
+          const lt = lightOfCell(x, y, z);
+          const layer = bi.tex[0];
+          const post = [[x + 0.5 - SIGN_POST_HALF, y, z + 0.5 - SIGN_POST_HALF], [x + 0.5 + SIGN_POST_HALF, y + SIGN_POST_TOP, z + 0.5 + SIGN_POST_HALF]];
+          for (let f = 0; f < 6; f++) boxFace(opaque, f, post[0]!, post[1]!, layer, lt);
+          const board = [[x + 0.5 - SIGN_BOARD_HALF, y + SIGN_BOARD_Y0, z + 0.5 - SIGN_BOARD_T], [x + 0.5 + SIGN_BOARD_HALF, y + SIGN_BOARD_Y1, z + 0.5 + SIGN_BOARD_T]];
+          for (let f = 0; f < 6; f++) boxFace(opaque, f, board[0]!, board[1]!, layer, lt);
+        }
+  };
+
   /**
    * 알 전용 패스 (#85): 상자 여섯 층. 층끼리 맞닿는 면은 넓은 쪽만 그린다(같은 자리에 두 면이 겹쳐 깜빡이지 않게).
    */
@@ -571,7 +594,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
             kb = 0,
             kfl = 0,
             kbl = 0;
-          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg && !bi.cross && bi.bed === null) {
+          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg && !bi.cross && bi.bed === null && !bi.sign) {
             p[d] = i + 1;
             const idF = padded[paddedIndex(p[0], p[1], p[2])];
             p[d] = i;
@@ -620,6 +643,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
   emitEggs();
   emitPlants();
   emitBeds();
+  emitSigns();
 
   return { opaque: opaque.build(), translucent: trans.build() };
 }

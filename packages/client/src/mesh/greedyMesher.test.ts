@@ -16,6 +16,7 @@ const registry = parseBlocks({
     { id: 'dragon_egg', name: '드래곤 알', transparent: true, lightEmit: 4, shape: 'egg', texture: 'dragon_egg' },
     { id: 'dandelion', name: '민들레', hardness: 0, solid: false, shape: 'cross', texture: 'dandelion' },
     { id: 'bed', name: '침대', hardness: 0.2, shape: 'bed', textureTop: 'bed_top', textureSide: 'bed_side', textureBottom: 'dirt' },
+    { id: 'sign', name: '표지판', hardness: 1, solid: false, shape: 'sign', texture: 'sign_board' },
   ],
 });
 const texIndex = new Map([
@@ -34,6 +35,7 @@ const texIndex = new Map([
   ['bed_top_foot', 12],
   ['bed_top_head', 13],
   ['bed_side', 14],
+  ['sign_board', 15],
 ]);
 const info = buildMeshBlockInfo(registry, texIndex);
 const STONE = registry.numOf('stone');
@@ -48,6 +50,7 @@ const EGG = registry.numOf('dragon_egg');
 const FLOWER = registry.numOf('dandelion');
 const BED_FOOT_N = registry.bedVariant(registry.numOf('bed'), 0, false);
 const BED_HEAD_N = registry.bedVariant(registry.numOf('bed'), 0, true);
+const SIGN = registry.numOf('sign');
 
 function padded(fill: (x: number, y: number, z: number) => number): Uint16Array {
   const arr = new Uint16Array(PADDED_VOLUME);
@@ -373,6 +376,21 @@ describe('침대 (#188)', () => {
     const withBed = greedyMesh(padded((x, y, z) => (y < 5 ? GRASS : x === 5 && y === 5 && z === 5 ? BED_FOOT_N : 0)), info).opaque!;
     const bare = greedyMesh(padded((_x, y) => (y < 5 ? GRASS : 0)), info).opaque!;
     expect(withBed.indexCount).toBe(bare.indexCount + 6 * 6);
+  });
+});
+
+describe('표지판 (#197)', () => {
+  it('기둥 + 판 = 상자 둘 12면, 판은 8/16~16/16 높이에 동서로 넓고 얇다', () => {
+    const m = greedyMesh(padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? SIGN : 0)), info).opaque!;
+    expect(m.indexCount / 6).toBe(12);
+    let zs = new Set<number>();
+    for (let i = 0; i < m.vertexCount; i++) {
+      expect(m.meta[i * 4]).toBe(15);
+      const y = m.positions[i * 3 + 1]!;
+      if (y > 5.6) zs.add(Math.round(m.positions[i * 3 + 2]! * 16) / 16); // 판 꼭짓점의 z
+    }
+    expect([...zs].sort()).toEqual([5 + 7 / 16, 5 + 9 / 16]); // 판 두께 2/16 (앞뒤 1/16)
+    checkWinding(m);
   });
 });
 

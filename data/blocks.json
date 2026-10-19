@@ -510,8 +510,9 @@
       "tool": "axe",
       "solid": false,
       "lightEmit": 0,
-      "texture": "sign",
-      "shape": "sign"
+      "texture": "sign_board",
+      "shape": "sign",
+      "_note": "기둥 위에 판이 선 모양 (#197, 아들 그림 2026-10-19 는 아이콘 sign.png). 글씨는 못 쓴다(자유 입력 없음, 규칙 3). 판은 동서로 선다"
     },
     {
       "id": "slime_block",

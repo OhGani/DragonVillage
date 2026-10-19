@@ -374,7 +374,7 @@ export function itemIcon(id: string, size: number, registry: BlockRegistry, atla
   if (hit) return cloneCanvas(hit);
   const def = registry.find(id);
   let canvas: HTMLCanvasElement;
-  const sprite = def && def.textures ? (def.shape === 'cross' ? atlas.images.get(def.textures[0]) : def.shape === 'bed' ? atlas.images.get(id) : undefined) : undefined;
+  const sprite = def && def.textures ? (def.shape === 'cross' ? atlas.images.get(def.textures[0]) : def.shape === 'bed' || def.shape === 'sign' ? atlas.images.get(id) : undefined) : undefined;
   if (sprite) {
     canvas = renderSpriteIcon(sprite, size); // 꽃·풀 (#180)·침대 (#188): 정육면체가 아니라 그림 그대로
   } else if (def && def.textures) {
