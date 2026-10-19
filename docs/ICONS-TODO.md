@@ -1,4 +1,4 @@
-# 아이콘 그림이 없는 아이템 (69개)
+# 아이콘 그림이 없는 아이템 (62개)
 
 파일 이름은 `textures/<id>.png` (16×16). 활은 당기는 단계 그림 `bow_pulling_0.png`·`bow_pulling_1.png`·`bow_pulling_2.png`(점점 휘는 활)를 그리면 쏠 때 그 그림이 나온다(#184). 블록은 전부 그림이 있어서 뺐다. 물약은 아들의 유리병 그림에 색만 채워 자동으로 만든다(`glass_bottle.png` 를 바꾸면 물약 그림도 같이 바뀐다).
 
@@ -32,18 +32,13 @@
 - 방패 — `shield`
 - 거북 등딱지 — `turtle_shell`
 
-## 재료·드롭 (18)
+## 재료·드롭 (13)
 - 뼛가루 — `bone_meal`
-- 블레이즈 가루 — `blaze_powder`
 - 블레이즈 막대기 — `blaze_rod`
 - 드래곤의 숨결 — `dragon_breath`
-- 에메랄드 — `emerald`
-- 엔더 진주 — `ender_pearl`
 - 발효된 거미 눈 — `fermented_spider_eye`
-- 화약 — `gunpowder`
 - 먹물 — `ink_sac`
 - 마그마 크림 — `magma_cream`
-- 네더라이트 — `netherite`
 - 레드스톤 가루 — `redstone`
 - 인갑 — `scute`
 - 슬라임 볼 — `slime_ball`
@@ -52,9 +47,8 @@
 - 실 — `string`
 - 위더 스켈레톤 머리 — `wither_skeleton_skull`
 
-## 음식 (9)
+## 음식 (8)
 - 갈색 버섯 — `brown_mushroom`
-- 달걀 — `egg`
 - 반짝이는 수박 조각 — `glistering_melon`
 - 황금 사과 — `golden_apple`
 - 황금 당근 — `golden_carrot`
@@ -63,7 +57,7 @@
 - 설탕 — `sugar`
 - 밀 씨 — `wheat_seeds`
 
-## 탈것·기타 (16)
+## 탈것·기타 (15)
 - 보트 — `boat`
 - 책 — `book`
 - 양동이 — `bucket`
@@ -77,6 +71,5 @@
 - 종이 — `paper`
 - 슬라임 블록 — `slime_block`
 - 거미 왕관 — `spider_crown`
-- 불사의 토템 — `totem_of_undying`
 - 물 양동이 — `water_bucket`
 - 깃펜과 책 — `writable_book`
