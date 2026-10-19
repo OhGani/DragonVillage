@@ -7,7 +7,12 @@
     { "id": "golden_carrot", "name": "황금 당근", "heals": 6 },
     { "id": "golden_apple", "name": "황금 사과", "heals": 8 },
     { "id": "melon_slice", "name": "수박 조각", "heals": 2 },
-    { "id": "porkchop", "name": "돼지고기", "heals": 3 },
+    { "id": "porkchop", "name": "돼지고기", "heals": 3, "_note": "고기 (#205): 날것은 조금, 화로에 구우면 많이 (마인크래프트 값)" },
+    { "id": "cooked_porkchop", "name": "익힌 돼지고기", "heals": 8 },
+    { "id": "beef", "name": "소고기", "heals": 3 },
+    { "id": "cooked_beef", "name": "스테이크", "heals": 8 },
+    { "id": "mutton", "name": "양고기", "heals": 2 },
+    { "id": "cooked_mutton", "name": "익힌 양고기", "heals": 6 },
     { "id": "cake", "name": "케이크", "heals": 7 }
   ]
 }

@@ -181,6 +181,43 @@
       }
     },
     {
+      "id": "cooked_porkchop",
+      "name": "익힌 돼지고기",
+      "station": "furnace",
+      "in": {
+        "porkchop": 1,
+        "coal": 1
+      },
+      "out": {
+        "cooked_porkchop": 1
+      },
+      "_note": "고기 굽기 (#205, 아들 그림 2026-10-20): 화로에서 날고기 + 석탄. 먹으면 data/food.json 만큼 하트"
+    },
+    {
+      "id": "cooked_beef",
+      "name": "스테이크",
+      "station": "furnace",
+      "in": {
+        "beef": 1,
+        "coal": 1
+      },
+      "out": {
+        "cooked_beef": 1
+      }
+    },
+    {
+      "id": "cooked_mutton",
+      "name": "익힌 양고기",
+      "station": "furnace",
+      "in": {
+        "mutton": 1,
+        "coal": 1
+      },
+      "out": {
+        "cooked_mutton": 1
+      }
+    },
+    {
       "id": "netherite",
       "name": "네더라이트",
       "station": "forge",
