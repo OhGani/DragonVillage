@@ -1,9 +1,8 @@
-# 아이콘 그림이 없는 아이템 (101개)
+# 아이콘 그림이 없는 아이템 (100개)
 
 파일 이름은 `textures/<id>.png` (16×16). 활은 당기는 단계 그림 `bow_pulling_0.png`·`bow_pulling_1.png`·`bow_pulling_2.png`(점점 휘는 활)를 그리면 쏠 때 그 그림이 나온다(#184). 블록은 전부 그림이 있어서 뺐다. 물약은 병 모양 하나에 색만 다르니 `potion` 병 하나만 그려도 된다.
 
-## 도구·무기 (33)
-- 쇠뇌 — `crossbow`
+## 도구·무기 (32)
 - 다이아몬드 도끼 — `diamond_axe`
 - 다이아몬드 곡괭이 — `diamond_pickaxe`
 - 다이아몬드 검 — `diamond_sword`

@@ -36,6 +36,19 @@ export const BOW_TUNE = {
   arrowPos: [-0.25, 0.42, -0.05],
   arrowDrawPos: [-0.5, 0.5, -0.35],
 };
+/** 쇠뇌 자세 (#194, 아들 2026-10-19 마인크래프트 쇠뇌 화면): 가로로 눕혀 앞을 겨눈다. 장전(당김)하면 가운데 아래로 내려와 화살이 위에 얹힌다 */
+export const CROSSBOW_TUNE = {
+  rot: [0.2, -0.6, 0.6],
+  drawRot: [-1.0, 0, 0.78],
+  pos: [-0.35, 0.3, 0.1],
+  drawPos: [-0.5, -0.02, -0.1],
+  scale: 1.2,
+  drawScale: 1.6,
+  pull: [0.3, 0.05, 0.05, -0.05],
+  arrowRot: [0.1, 1.35, -0.78],
+  arrowPos: [-0.4, 0.35, -0.05],
+  arrowDrawPos: [-0.5, 0.08, -0.15],
+};
 
 /** 아이콘 캔버스(정사각, 16 또는 그 배수)를 16×16 격자로 읽어 픽셀마다 상자 하나. y 는 위가 15 */
 function iconVoxels(icon: HTMLCanvasElement): Voxel[] {
@@ -66,8 +79,8 @@ export class HandView {
   /** 활에 먹인 화살 (#184): 당길수록 뒤로 빠진다 */
   private arrow: THREE.Mesh | null = null;
   private bow = false;
-  /** 활 자세 값 (#184) — 개발 콘솔에서 바로 고쳐 볼 수 있다 */
-  readonly tune = BOW_TUNE;
+  /** 활 자세 값 (#184) — 개발 콘솔에서 바로 고쳐 볼 수 있다. 쇠뇌는 CROSSBOW_TUNE (#194) */
+  tune = BOW_TUNE;
   private swingT = 1;
   /** 활 당김 0~1 (#119): 손이 뒤로 당겨진다 */
   private draw = 0;
@@ -124,6 +137,7 @@ export class HandView {
     if (!this.mesh) return;
     const bow = /^(bow|crossbow)(#|$)/.test(id); // 당기는 단계 그림은 'bow#1' 처럼 온다 (#184)
     if (bow) {
+      this.tune = /^crossbow/.test(id) ? CROSSBOW_TUNE : BOW_TUNE;
       // 활 (#184, 아들 2026-10-17 마인크래프트 화면): 오른쪽에 비스듬히 세워 들고, 당기면 update 가 가운데로 끌어온다
       this.bow = true;
       if (arrowIcon) {
