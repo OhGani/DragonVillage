@@ -62,8 +62,8 @@ function lightColor(packed: number, skyLight: number, out: THREE.Color): number 
 const FIGURE_H = 32 * VOXEL;
 /** 앉은 자세 (#192): 다리 길이(12칸)만큼 내려앉고, 다리는 앞으로 거의 수평, 팔은 조금 앞으로 */
 const SIT_DROP = 12 * VOXEL;
-const SIT_LEG = 1.45; // 인형 앞이 -z 라 +가 앞 (아들 2026-10-19 "팔·다리가 뒤로 가 있다" 고침)
-const SIT_ARM = 0.45;
+const SIT_LEG = Math.PI / 2; // 인형 앞이 -z 라 +가 앞. 정확히 90° — 몸은 수직, 다리는 수평 (아들 2026-10-19)
+const SIT_ARM = 0.6;
 
 /**
  * 부위 복셀 → 메시. buildVoxelGeometry 는 드래곤(홀수 폭, x 대칭)에 맞춰 반 칸 옮기므로,
