@@ -1104,7 +1104,7 @@ export class VillageRoom {
       return false;
     }
     if (!force && now - plantedAt < (cur.growMinutes ?? 0) * 60_000) return false;
-    if (cur.seed && !force && !this.hasWaterNear(x, y - 1, z)) return false; // 마른 밭의 작물은 안 자란다 (#199, 뼛가루는 예외)
+    if (cur.seed && !cur.plantOn && !force && !this.hasWaterNear(x, y - 1, z)) return false; // 마른 밭의 작물은 안 자란다 (#199, 뼛가루는 예외). 영혼 모래 작물은 물이 필요 없다 (#206)
     if (cur.growsWhenOpen && this.world.inBounds(x, y + 1, z) && this.registry.get(this.world.getBlock(x, y + 1, z)).solid) return false; // 위가 막혔으면 그대로 흙 (#171)
     this.world.setBlock(x, y, z, next.num);
     this.markDirtyBlock(x, y, z);
@@ -1176,6 +1176,7 @@ export class VillageRoom {
     const key = `${x},${y},${z}`;
     const cur = this.world.inBounds(x, y, z) ? this.registry.get(this.world.getBlock(x, y, z)) : null;
     if (!cur || !cur.grows || cur.growsWhenOpen) return 'NOT_GROWING'; // 흙 → 잔디는 작물이 아니다
+    if (cur.plantOn) return 'NO_EFFECT'; // 네더 사마귀엔 뼛가루가 안 듣는다 (#206, 마인크래프트)
     const changed = new Set<number>();
     if (!takeFromSlot(p.inv, slot, 1, changed)) return 'NO_BONE_MEAL';
     this.sendInv(p, changed);
@@ -2031,12 +2032,12 @@ export class VillageRoom {
     if (def.seed) {
       // 농사 (#165): 작물(씨앗으로 심는 것)은 농지 위에만. 흙처럼 그냥 자라는 블록(#171)은 아무 데나
       const below = world.inBounds(x, y - 1, z) ? this.registry.get(world.getBlock(x, y - 1, z)).id : '';
-      if (below !== 'farmland') return REJECT.NO_FARMLAND;
+      if (below !== (def.plantOn ?? 'farmland')) return REJECT.NO_FARMLAND; // 네더 사마귀는 영혼 모래 (#206)
     }
     if (def.shape === 'cross') {
       // 꽃·풀 (#180): 잔디·흙·농지 위에만 (클라가 먼저 안내하고, 서버는 조용히 되돌린다)
       const below = world.inBounds(x, y - 1, z) ? this.registry.get(world.getBlock(x, y - 1, z)).id : '';
-      if (below !== 'grass' && below !== 'dirt' && below !== 'farmland') return REJECT.NO_FARMLAND;
+      if (def.plantOn ? below !== def.plantOn : below !== 'grass' && below !== 'dirt' && below !== 'farmland') return REJECT.NO_FARMLAND;
     }
     const item = itemForPlacing(def.id, this.registry);
     if (!item || countOf(p.inv, item) < 1) return REJECT.NO_ITEM;

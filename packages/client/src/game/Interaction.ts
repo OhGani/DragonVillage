@@ -361,15 +361,16 @@ export class Interaction {
     }
     if (def.solid && bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y, z)) return; // 내 몸 안에는 못 놓는다
     // 씨앗 (#199): 농지에 물이 4칸 안에 없으면 심기는 되지만 안 자란다 — 미리 알려 준다
-    if (def.seed) {
+    if (def.seed && !def.plantOn) {
       const isWater = (wx: number, wy: number, wz: number) => this.world.inBounds(wx, wy, wz) && this.registry.get(this.world.getBlock(wx, wy, wz)).fluid === 'water';
       if (!hasWaterNear(isWater, x, y - 1, z)) this.events.onHint?.('💧 물이 4칸 안에 없으면 안 자라요 — 옆에 물을 한 칸 부어요');
     }
     // 꽃·풀 (#180): 잔디·흙·농지 위에만
     if (def.shape === 'cross') {
       const below = this.world.inBounds(x, y - 1, z) ? this.registry.get(this.world.getBlock(x, y - 1, z)).id : '';
-      if (!PLANT_GROUND.has(below)) {
-        this.events.onHint?.(`🌼 ${def.name}은(는) 잔디나 흙 위에만 심을 수 있어요`);
+      if (def.plantOn ? below !== def.plantOn : !PLANT_GROUND.has(below)) {
+        // 네더 사마귀는 영혼 모래 위에만 (#206)
+        this.events.onHint?.(def.plantOn ? `🔥 ${def.name}은(는) ${this.registry.find(def.plantOn)?.name ?? def.plantOn} 위에만 심을 수 있어요` : `🌼 ${def.name}은(는) 잔디나 흙 위에만 심을 수 있어요`);
         return;
       }
     }

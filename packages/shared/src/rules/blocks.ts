@@ -39,6 +39,8 @@ const RawBlock = z.object({
   fluid: z.enum(['water', 'lava']).optional(),
   /** 농사 (#165): 이 아이템을 들고 농지 위에 놓으면 이 블록이 된다 (밀 씨 → 밀 싹) */
   seed: z.string().optional(),
+  /** 심는 자리 (#206): 없으면 농지. 네더 사마귀는 영혼 모래. 이 작물은 물·뼛가루 없이 시간만으로 자란다 */
+  plantOn: z.string().optional(),
   /** 자라면 이 블록으로 바뀐다 (밀 싹 → 익은 밀) */
   grows: z.string().optional(),
   /** 자라는 데 걸리는 분 */
@@ -90,6 +92,7 @@ const FIELD_KO: Record<string, string> = {
   release: 'release(버전)',
   variants: 'variants(종류 목록)',
   seed: 'seed(심는 아이템)',
+  plantOn: 'plantOn(심는 블록)',
   grows: 'grows(자라면 되는 블록)',
   growMinutes: 'growMinutes(자라는 분)',
   fluid: 'fluid(액체 종류)',
@@ -151,6 +154,8 @@ export interface BlockDef {
   readonly internal: boolean;
   /** 농사 (#165): 이 아이템을 농지 위에 놓으면 이 블록 (밀 씨 → 밀 싹). 작물 아니면 없음 */
   readonly seed?: string | null;
+  /** 심는 블록 id (#206). 없으면 농지. 있으면(영혼 모래) 물·뼛가루 없이 자란다 */
+  readonly plantOn?: string | null;
   /** 자라면 바뀌는 블록 id (밀 싹 → 익은 밀). 없으면 안 자란다 */
   readonly grows?: string | null;
   /** 자라는 데 걸리는 분 */
@@ -486,6 +491,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       internal: false,
       seed: b.seed ?? null,
       grows: b.grows ?? null,
+      plantOn: b.plantOn ?? null,
       growMinutes: b.growMinutes ?? 0,
       growsWhenOpen: b.growsWhenOpen ?? false,
       door: null,

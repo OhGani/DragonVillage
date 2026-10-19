@@ -565,6 +565,39 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(p.sleeping).toBeNull();
   });
 
+  it('네더 사마귀 농사 (#206): 영혼 모래 위에만 심고, 물 없이 4분마다 한 단계, 다 자라면 2~4개, 뼛가루는 안 듣는다', () => {
+    const { room, a, ia } = setup();
+    const p = room.players.get(ia)!;
+    room.giveItems(ia, 'nether_wart', 2);
+    room.giveItems(ia, 'bone_meal', 1);
+    const x = 66,
+      y = GROUND_Y + 1,
+      z = 68;
+    // 잔디 위에는 못 심는다
+    room.onBlockChange(ia, { seq: 1, x, y, z, id: 'nether_wart_young' }, 1000);
+    expect(rejected(a).at(-1)).toEqual({ seq: 1, reason: REJECT.NO_FARMLAND });
+    // 영혼 모래로 바꾸면 심어진다 (물은 근처에 없다)
+    room.world.setBlock(x, y - 1, z, BLOCKS.numOf('soul_sand'));
+    room.onBlockChange(ia, { seq: 2, x, y, z, id: 'nether_wart_young' }, 1100);
+    expect(BLOCKS.get(room.world.getBlock(x, y, z)).id).toBe('nether_wart_young');
+    expect(countOf(p.inv, 'nether_wart')).toBe(1);
+    // 뼛가루는 안 듣는다 (닿는 거리 안으로 간다)
+    room.onMove(ia, { x: x + 0.5, y, z: z - 1.5, yaw: 0, pitch: 0, flags: 0 });
+    const meal = p.inv.findIndex((s) => s?.item === 'bone_meal');
+    expect(room.boneMeal(ia, meal, x, y, z, 1200)).toBe('NO_EFFECT');
+    expect(countOf(p.inv, 'bone_meal')).toBe(1);
+    // 4분 → 중간, 8분 → 다 자람 (물 없이)
+    room.checkCrops(1100 + 4 * 60_000 + 1);
+    expect(BLOCKS.get(room.world.getBlock(x, y, z)).id).toBe('nether_wart_mid');
+    room.checkCrops(1100 + 8 * 60_000 + 2);
+    expect(BLOCKS.get(room.world.getBlock(x, y, z)).id).toBe('nether_wart_ripe');
+    // 캐면 2~4개
+    room.onBlockChange(ia, { seq: 3, x, y, z, id: 'air' }, 1100 + 9 * 60_000);
+    expect(room.world.getBlock(x, y, z)).toBe(0);
+    expect(countOf(p.inv, 'nether_wart')).toBeGreaterThanOrEqual(3);
+    expect(countOf(p.inv, 'nether_wart')).toBeLessThanOrEqual(5);
+  });
+
   it('초당 상한을 넘으면 RATE', () => {
     const { room, a, ia } = setup();
     for (let i = 0; i < RATE_PER_SEC + 2; i++) room.onBlockChange(ia, { seq: 100 + i, x: 62 + (i % 5), y: GROUND_Y + 2 + Math.floor(i / 5), z: 62, id: 'stone' }, 1000 + i * 10);

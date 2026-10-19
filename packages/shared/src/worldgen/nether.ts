@@ -24,7 +24,7 @@ import type { SpawnPoint } from './village';
 
 export const NETHER_BOUNDS: WorldBounds = { sizeCX: 16, sizeCY: 6, sizeCZ: 16 };
 /** 생성기를 고치면 올린다 (클라·서버 버전 불일치 감지) */
-export const NETHER_GEN_VERSION = 1;
+export const NETHER_GEN_VERSION = 2; // 2: 네더 사마귀 밭이 다 자란 블록(nether_wart_ripe)으로 (#206)
 /** 용암 바다 수면 — 이 아래로 꺼진 땅은 용암 */
 export const LAVA_SEA_Y = 24;
 /** 평균 땅 높이 */
@@ -65,7 +65,7 @@ export function generateNether(registry: BlockRegistry, seed: number, treasures 
     lava = B('lava'),
     glowstone = B('glowstone'),
     soul = B('soul_sand'),
-    wart = B('nether_wart'),
+    wart = B('nether_wart_ripe'), // 다 자란 것 (#206)
     quartz = B('nether_quartz_ore'),
     debris = B('ancient_debris'),
     bricks = B('nether_bricks'),

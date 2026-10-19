@@ -45,6 +45,7 @@ export const ITEM_FALLBACK_KO: Readonly<Record<string, string>> = {
   water_source_block: '물',
   // 몹·동물 드롭 (mobs.json drops) — M7·M8. 이름이 없으면 가방에 영문 id 가 그대로 보인다
   bone: '뼈',
+  nether_wart: '네더 사마귀',
   beef: '소고기',
   porkchop: '돼지고기',
   mutton: '양고기',

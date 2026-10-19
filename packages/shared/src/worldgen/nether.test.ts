@@ -9,7 +9,7 @@ import { FORT_HALF, LAVA_SEA_Y, NETHER_BOUNDS, generateNether } from './nether';
 
 const SEED = 777;
 /** 생성기를 바꾸면 갱신. (chunks 수, 지문) */
-const SNAPSHOT = '1337:33db0b3a:4044664';
+const SNAPSHOT = '1337:a6f6e35c:4044664';
 
 const gen = generateNether(BLOCKS, SEED, 3);
 const { world, spawn, layout } = gen;
@@ -95,7 +95,7 @@ describe('generateNether 배치', () => {
           expect(t).toBe(LAVA_SEA_Y);
         }
         if (id(x, t, z) === 'soul_sand') soul++;
-        if (id(x, t + 1, z) === 'nether_wart') wart++;
+        if (id(x, t + 1, z) === 'nether_wart_ripe') wart++;
         // 천장: 위에서 내려오며 첫 공기 바로 위 블록
         let c = 94;
         while (c > t + 1 && !passable(x, c, z)) c--;
@@ -142,7 +142,7 @@ describe('generateNether 배치', () => {
     expect(id(f.x, f.y + 5, f.z)).toBe('glowstone'); // 방 지붕 불
     expect(id(f.x, f.y + 2, f.z + 4)).toBe('air'); // 방 남쪽 문
     expect(id(f.x + 6, f.y, f.z - 6)).toBe('soul_sand');
-    expect(id(f.x + 6, f.y + 1, f.z - 6)).toBe('nether_wart');
+    expect(id(f.x + 6, f.y + 1, f.z - 6)).toBe('nether_wart_ripe');
     expect(layout.treasures.length).toBe(3);
     const seen = reachable(spawn);
     for (const c of layout.treasures) {
