@@ -1108,7 +1108,11 @@ export class VillageRoom {
     if (cur.growsWhenOpen && this.world.inBounds(x, y + 1, z) && this.registry.get(this.world.getBlock(x, y + 1, z)).solid) return false; // 위가 막혔으면 그대로 흙 (#171)
     this.world.setBlock(x, y, z, next.num);
     this.markDirtyBlock(x, y, z);
-    done();
+    if (next.grows && !next.growsWhenOpen) {
+      // 여러 단계 작물 (#206 네더 사마귀): 다음 단계도 자라야 하니 심은 시각을 지금으로 바꿔 기록을 남긴다
+      this.crops.set(key, now);
+      this.storage?.setCrop(this.info.code, x, y, z, now);
+    } else done();
     this.broadcast(encodeBlockChanged({ x, y, z, id: next.id, by: -1 }), -1, 'village');
     return true;
   }
