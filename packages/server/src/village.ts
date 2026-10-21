@@ -1831,6 +1831,19 @@ export class VillageRoom {
     return null;
   }
 
+  /** 폭죽 (#211): 폭죽 하나를 쓰고 같은 세계 모두에게 알린다. 오류: NO_ITEM · TOO_FAR */
+  firework(idx: number, x: number, y: number, z: number, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (Math.hypot(x - p.pos.x, y - (p.pos.y + EYE), z - p.pos.z) > HIT_REACH + 3) return 'TOO_FAR';
+    const changed = new Set<number>();
+    if (!take(p.inv, 'firework', 1, changed)) return 'NO_ITEM';
+    this.sendInv(p, changed);
+    const seed = ((now & 0xffff) * 31 + p.idx * 7 + Math.floor(x) + Math.floor(z) * 13) & 0x7fffffff;
+    this.broadcastJson({ t: 'firework', x, y, z, seed }, -1, p.world);
+    return null;
+  }
+
   /** 가방 slot 의 갑옷·방패를 입는다 (M8-2). 그 자리에 있던 것은 가방으로 */
   equip(idx: number, slot: number): string | null {
     const p = this.players.get(idx);

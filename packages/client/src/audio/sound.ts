@@ -142,3 +142,39 @@ export function explosion(): void {
   src.connect(g).connect(c.destination);
   src.start(t);
 }
+
+/** 폭죽 발사 (#211): 휘파람처럼 올라가는 소리 */
+export function fireworkLaunch(): void {
+  const c = audio();
+  if (!c) return;
+  const t = c.currentTime;
+  const o = c.createOscillator();
+  const g = c.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(400, t);
+  o.frequency.exponentialRampToValueAtTime(1400, t + 0.9);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.05, t + 0.05);
+  g.gain.exponentialRampToValueAtTime(0.0005, t + 1.0);
+  o.connect(g).connect(c.destination);
+  o.start(t);
+  o.stop(t + 1.05);
+}
+/** 폭죽 터짐 (#211): 짧은 "펑" + 반짝 */
+export function fireworkPop(): void {
+  const c = audio();
+  if (!c) return;
+  const t = c.currentTime;
+  const buf = c.createBuffer(1, Math.floor(c.sampleRate * 0.25), c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (rnd() * 2 - 1) * (1 - i / d.length) ** 2;
+  const src = c.createBufferSource();
+  const g = c.createGain();
+  src.buffer = buf;
+  g.gain.setValueAtTime(0.14, t);
+  g.gain.exponentialRampToValueAtTime(0.0005, t + 0.25);
+  src.connect(g).connect(c.destination);
+  src.start(t);
+  tone(1800 + rnd() * 600, t + 0.05, 0.3, 0.03, 'triangle');
+  tone(2400 + rnd() * 600, t + 0.12, 0.3, 0.025, 'triangle');
+}

@@ -51,6 +51,8 @@ export interface InteractionEvents {
   onSleepBed?(x: number, y: number, z: number): void;
   /** 보트를 들고 물을 탭 → 띄우기 (#209) */
   onPlaceBoat?(x: number, y: number, z: number): void;
+  /** 폭죽을 들고 탭 → 그 자리에서 발사 (#211). 블록을 겨눴으면 그 위, 아니면 내 발 앞 */
+  onFirework?(x: number, y: number, z: number): void;
 }
 
 /** 조준·부수기·놓기. 서버가 생기면(M2) setBlock 이 요청으로 바뀌고 나머지는 그대로. */
@@ -276,6 +278,13 @@ export class Interaction {
 
   private place(): void {
     const t = this.target;
+    // 폭죽 (#211): 들고 탭하면 겨눈 블록 위(없으면 내 앞)에서 쏜다
+    if (this.heldItem === 'firework') {
+      if (t) this.events.onFirework?.(t.x + 0.5 + t.nx * 0.5, t.y + 0.5 + t.ny * 0.6, t.z + 0.5 + t.nz * 0.5);
+      else this.events.onFirework?.(this.player.pos.x + this.player.lookDir.x * 2.5, this.player.pos.y + 0.2, this.player.pos.z + this.player.lookDir.z * 2.5);
+      this.events.onSwing();
+      return;
+    }
     // 보트 (#209): 보트를 들고 물을 탭하면 띄운다. 물이 아니면 안내
     if (t && this.heldItem === BOAT) {
       if (this.registry.get(t.id).fluid === 'water') this.events.onPlaceBoat?.(t.x, t.y, t.z);

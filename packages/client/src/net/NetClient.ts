@@ -160,6 +160,8 @@ export interface NetEvents {
   onGuard(m: { idx: number; on: boolean }): void;
   /** 누가 침대에 눕고 일어났다 (#204, 나 포함) */
   onSleep(m: { idx: number; at: SleepInfo | null }): void;
+  /** 누가 폭죽을 쐈다 (#211) */
+  onFirework(m: { x: number; y: number; z: number; seed: number }): void;
   /** 내 드래곤 체력 (#113) */
   onDragonHp(m: { hp: number; max: number }): void;
   /** 내 드래곤이 쓰러졌다 (#113) */
@@ -427,6 +429,10 @@ export class NetClient {
   sendGuard(on: boolean): void {
     this.sendJson({ t: 'guard', on });
   }
+  /** 폭죽 쏘기 (#211) */
+  sendFirework(x: number, y: number, z: number): void {
+    this.sendJson({ t: 'firework', x, y, z });
+  }
   /** 보트 띄우기 (#209): 물 칸 */
   sendPlaceBoat(x: number, y: number, z: number): void {
     this.sendJson({ t: 'placeBoat', x, y, z });
@@ -615,6 +621,7 @@ export class NetClient {
     else if (msg.t === 'shot') ev.onShot(msg);
     else if (msg.t === 'guard') ev.onGuard(msg);
     else if (msg.t === 'sleep') ev.onSleep(msg);
+    else if (msg.t === 'firework') ev.onFirework(msg);
     else if (msg.t === 'arrow') ev.onArrow(msg);
     else if (msg.t === 'pets') ev.onPets(msg.list);
     else if (msg.t === 'companions') ev.onCompanions(msg.list);

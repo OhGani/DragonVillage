@@ -505,6 +505,8 @@ export type ClientJson =
   | { t: 'sleep'; x?: number; y?: number; z?: number }
   /** 보트 띄우기 (#209): 보트를 들고 물 칸을 탭 */
   | { t: 'placeBoat'; x: number; y: number; z: number }
+  /** 폭죽 쏘기 (#211): 폭죽을 들고 탭한 자리 */
+  | { t: 'firework'; x: number; y: number; z: number }
   /** 내 펫 이름 짓기 (M8-1 4차): pet-names.json 의 이름만 */
   | { t: 'nameMob'; id: number; name: string }
   /** 내 펫 전부 부르기 (#174) */
@@ -582,6 +584,8 @@ export type ServerJson =
   | { t: 'guard'; idx: number; on: boolean }
   /** 누가 침대에 눕고 일어났다 (#204, 본인 포함). at 이 null 이면 일어남 */
   | { t: 'sleep'; idx: number; at: SleepInfo | null }
+  /** 누가 폭죽을 쐈다 (#211): 같은 세계 모두에게. seed 로 색·모양이 같게 */
+  | { t: 'firework'; x: number; y: number; z: number; seed: number }
   /** 펫 목록 (M8-1 4차): 길들인 동물의 이름과 내 것인지. 들어올 때와 바뀔 때 (받는 사람마다 mine 이 다르다) */
   | { t: 'pets'; list: { id: number; name: string | null; mine: boolean; mode?: 'follow' | 'sit' | 'free' }[] }
   /** 원정에 따라온 펫 (#145): 원정 세계 사람들에게. 클라가 주인을 따라다니게 그린다 (서버 목록엔 없다) */

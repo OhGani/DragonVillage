@@ -79,7 +79,7 @@ import {
 } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
-import { beam as beamSound, bell, ding, explosion as explosionSound, hit as hitSound, hurt as hurtSound, levelUp, lose, roar } from '../audio/sound';
+import { beam as beamSound, bell, ding, explosion as explosionSound, fireworkLaunch, fireworkPop, hit as hitSound, hurt as hurtSound, levelUp, lose, roar } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
 import { InputManager } from '../input/InputManager';
 import { KeyboardMouse, isTyping } from '../input/keyboard';
@@ -103,6 +103,7 @@ import { ChestView } from '../ui/chest';
 import { Hud, type HotbarSlot } from '../ui/hud';
 import { NestView } from '../ui/nest';
 import { MountView, NestDragons } from '../render/DragonMesh';
+import { FireworkView } from '../render/FireworkView';
 import { BeamView } from '../render/BeamView';
 import { StorageView } from '../ui/storageView';
 import { OrbView } from '../render/OrbView';
@@ -316,6 +317,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const orbView = new OrbView(scene);
   /** 블록 부스러기 (캐는 중 톡톡, 부서지면 와르르) */
   const particles = new Particles(scene);
+  const fireworks = new FireworkView(scene); // 폭죽 (#211)
+  fireworks.onPop = () => fireworkPop();
   const blockColorCache = new Map<number, number>();
   const blockColor = (num: number): number => {
     let c = blockColorCache.get(num);
@@ -569,6 +572,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         particles.burst(x, y, z, blockColor(prev));
       },
       onPlaceBoat: (x, y, z) => net.sendPlaceBoat(x, y, z), // 보트 (#209)
+      onFirework: (x, y, z) => net.sendFirework(x, y, z), // 폭죽 (#211)
       onSleepBed: (x, y, z) => {
         if (!mySleep && !myRiding) net.sendSleep({ x, y, z }); // 침대 빈손 탭 → 눕기 (#204)
       },
@@ -831,6 +835,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     },
     onGuard: (m) => {
       if (m.idx !== myIdx) remote.setGuarding(m.idx, m.on);
+    },
+    onFirework: (m) => {
+      fireworks.launch(m.x, m.y, m.z, m.seed); // 폭죽 (#211): 모두 같은 색·모양
+      fireworkLaunch();
     },
     onSleep: (m) => {
       if (m.idx !== myIdx) {
@@ -1720,6 +1728,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       }
     } else highlight.clearTarget();
     particles.update(dt);
+    fireworks.update(dt);
     hud.setProgress(drawProgress > 0 ? drawProgress : interaction.progress); // 활 당김도 같은 고리로 (#119)
     {
       // 나침반 점: 마을에선 광장, 원정지에선 포탈 방향 (#103 — 마을이 넓어져 길을 잃지 않게). 보스가 살아 있으면 보스 (#127)

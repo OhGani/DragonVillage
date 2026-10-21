@@ -657,6 +657,20 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(countOf(p.inv, 'boat')).toBe(1);
   });
 
+  it('폭죽 (#211): 들고 탭하면 하나 빠지고 모두에게 firework 가 간다, 없으면 NO_ITEM', () => {
+    const { room, a, ia } = setup();
+    const p = room.players.get(ia)!;
+    expect(room.firework(ia, p.pos.x + 1, p.pos.y, p.pos.z + 1)).toBe('NO_ITEM');
+    room.giveItems(ia, 'firework', 2);
+    a.clear();
+    expect(room.firework(ia, p.pos.x + 1, p.pos.y, p.pos.z + 1, 5000)).toBeNull();
+    expect(countOf(p.inv, 'firework')).toBe(1);
+    const m = a.json.find((x) => x.t === 'firework') as { x: number; seed: number } | undefined;
+    expect(m).toBeTruthy();
+    expect(typeof m!.seed).toBe('number');
+    expect(room.firework(ia, p.pos.x + 40, p.pos.y, p.pos.z)).toBe('TOO_FAR');
+  });
+
   it('초당 상한을 넘으면 RATE', () => {
     const { room, a, ia } = setup();
     for (let i = 0; i < RATE_PER_SEC + 2; i++) room.onBlockChange(ia, { seq: 100 + i, x: 62 + (i % 5), y: GROUND_Y + 2 + Math.floor(i / 5), z: 62, id: 'stone' }, 1000 + i * 10);
