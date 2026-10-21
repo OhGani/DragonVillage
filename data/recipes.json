@@ -1524,7 +1524,6 @@
       "out": {
         "warped_fungus_on_a_stick": 1
       },
-      "release": "v1.1",
       "_note": "스트라이더 타기"
     },
     {
@@ -2218,7 +2217,6 @@
       "out": {
         "slime_block": 1
       },
-      "release": "v2",
       "_note": "장역화 물약 재료 (1.21). 슬라임이 게임에 들어올 때"
     }
   ]
