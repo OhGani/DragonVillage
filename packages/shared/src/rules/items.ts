@@ -38,6 +38,7 @@ export const ITEM_FALLBACK_KO: Readonly<Record<string, string>> = {
   brown_mushroom: '갈색 버섯',
   red_mushroom: '빨간 버섯',
   bowl: '그릇',
+  boat: '보트',
   mushroom_stew: '버섯 스튜',
   melon_slice: '수박 조각',
   slime_ball: '슬라임 볼',

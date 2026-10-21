@@ -222,7 +222,7 @@ export class AnimalSystem {
 
   /** 서로 밀어내기 (#174): 0.9칸보다 가까운 둘은 살짝 떨어뜨린다 (앉은 것·탄 말·원정 간 것은 빼고). 밀린 자리에 땅이 없으면 그대로 */
   private separate(): void {
-    const list = [...this.animals.values()].filter((a) => !a.away && a.ridden === null && !a.sitting);
+    const list = [...this.animals.values()].filter((a) => !a.away && a.ridden === null && !a.sitting && a.kind !== 'boat');
     // 1칸 격자에 넣고 이웃 칸끼리만 본다 (동물 40마리 × 매 틱이라 전부 비교하면 시험이 느려진다)
     const cell = new Map<string, Animal[]>();
     for (const a of list) {
@@ -388,6 +388,7 @@ export class AnimalSystem {
   }
 
   private step(a: Animal, players: AnimalViewer[], dt: number, now: number): void {
+    if (a.kind === 'boat') return; // 보트는 제자리에 떠 있다 (#209)
     const def = this.defs.get(a.kind);
     // 닭은 6분마다 달걀을 하나 품는다 (최대 3, 아기는 아직)
     if (a.kind === 'chicken' && !this.isBaby(a, now) && now - a.lastEggAt >= EGG_EVERY_MS) {
@@ -663,7 +664,7 @@ export class AnimalSystem {
   /** 이 동물이 내 말·돼지인가 (#166·#185) */
   isMyHorse(mobId: number, token: string): boolean {
     const a = this.find(mobId);
-    return !!a && isMountKind(a.kind) && a.owner === token;
+    return !!a && isMountKind(a.kind) && (a.owner === token || a.kind === 'boat'); // 보트는 누구나 (#209)
   }
 
   /** 동물 종류 (없으면 null) */
@@ -676,7 +677,7 @@ export class AnimalSystem {
     const a = this.find(mobId);
     if (!a) return 'NO_MOB';
     if (!isMountKind(a.kind)) return 'NOT_HORSE';
-    if (a.owner !== p.token) return 'NOT_MINE';
+    if (a.owner !== p.token && a.kind !== 'boat') return 'NOT_MINE';
     if (a.ridden !== null) return 'OCCUPIED';
     if (Math.hypot(a.x - p.x, a.y + mobSize(a.kind).h * 0.5 - p.eyeY, a.z - p.z) > HIT_REACH + 1) return 'TOO_FAR';
     a.ridden = p.idx;
@@ -684,6 +685,12 @@ export class AnimalSystem {
     a.sitting = false;
     a.dirty = true;
     return null;
+  }
+
+  /** 보트 띄우기 (#209): 물 칸(x,y,z) 위에 보트를 놓는다. 보트 번호(몹 id)를 돌려준다 */
+  placeBoat(x: number, y: number, z: number, now: number): number {
+    const a = this.add({ kind: 'boat', x: x + 0.5, y: y + 0.9, z: z + 0.5, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: x + 0.5, homeZ: z + 0.5, woolAt: 0, eggs: 0, lastEggAt: now, name: null }, now);
+    return ANIMAL_ID_BASE + a.id;
   }
 
   /** 내리기 (#166): 그 사람이 타던 말을 그 자리에 세운다. 말 id 를 돌려준다(없으면 null) */

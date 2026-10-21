@@ -15,12 +15,12 @@ import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
 import { hash3 } from '../math/prng';
 
-export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem';
-export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem'];
-export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23 };
-export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem'];
+export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat';
+export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat'];
+export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24 };
+export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat'];
 /** 순한 동물 (마을, M8-1). 규칙은 animals.ts */
-const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'iron_golem'];
+const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'iron_golem', 'boat']; // 보트도 passive 목록에서 드롭을 읽는다 (#209)
 
 /** 굴 보스 (M7-4, 거미 왕). 보스는 밤 스폰 목록에 안 들어가고, 원정지 구조물(거미 굴)에 하나만. 소환사(M7-5)는 방어전 마지막 파도의 보스 */
 export const BOSS_KIND: MobKind = 'spider_king';
@@ -123,6 +123,8 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   villager: { id: 'villager', hp: 20, damage: 0, speed: 1.6, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   // 철 골렘 (#169): 방어전 때 주민이 부른다. 우민을 7씩 때린다 (서버 MobSystem 의 지킴이 동행)
   iron_golem: { id: 'iron_golem', hp: 100, damage: 7, speed: 2.5, reach: 2.2, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  // 보트 (#209): 탈것. 안 움직이고 안 때린다, 몇 대 치면 부서져 아이템으로
+  boat: { id: 'boat', hp: 4, damage: 0, speed: 0, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
 };
 
 const RawPassive = z
@@ -271,6 +273,7 @@ export const SPAWN_EVERY_MS = 4000;
 /** 몹 몸 판정 (넓이·높이) — 좀비·크리퍼. 거미는 넓고 낮다 */
 export const MOB_SIZE = { w: 0.6, h: 1.9 } as const;
 export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = {
+  boat: { w: 1.4, h: 0.6 }, // 보트 (#209): 납작하고 길다
   zombie: MOB_SIZE,
   creeper: MOB_SIZE,
   spider: { w: 1.4, h: 0.9 },

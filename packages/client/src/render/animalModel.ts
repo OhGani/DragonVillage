@@ -214,6 +214,8 @@ export function animalParts(kind: string, variant: number, opts: { sheared?: boo
       return chicken(variant);
     case 'horse':
       return horse(variant);
+    case 'boat':
+      return boat();
     default:
       return dog(variant);
   }
@@ -267,4 +269,19 @@ export function collarVoxels(): Voxel[] {
   for (let x = -3; x <= 2; x++) for (let y = 10; y <= 15; y++) if (x === -3 || x === 2 || y === 10 || y === 15) out.push({ x, y, z: -8, c: '#e53935' });
   out.push({ x: -1, y: 9, z: -8, c: '#ffd54f' }, { x: 0, y: 9, z: -8, c: '#ffd54f' }); // 이름표
   return out;
+}
+
+// ---------------------------------------------------------------- 보트 (#209)
+/** 마인크래프트 참나무 보트: 바닥 판 + 낮은 옆판, 앞뒤가 조금 좁다. 앞이 −z. 노는 탄 사람 팔 대신 생략 */
+function boat(): AnimalParts {
+  const plank = solid(0xb8945f),
+    dark = solid(0x8f6f3f),
+    light = solid(0xd1ad73);
+  const b = new Builder();
+  b.box(-6, 5, 0, 1, -12, 11, dark); // 바닥 12×2×24
+  b.box(-7, -6, 1, 5, -10, 9, plank).box(6, 7, 1, 5, -10, 9, plank); // 옆판
+  b.box(-5, 4, 1, 5, -13, -12, light).box(-5, 4, 1, 5, 12, 13, light); // 뱃머리·고물
+  b.box(-6, -5, 1, 4, -12, -11, plank).box(5, 6, 1, 4, -12, -11, plank).box(-6, -5, 1, 4, 11, 12, plank).box(5, 6, 1, 4, 11, 12, plank); // 모서리
+  b.box(-6, 5, 1, 2, -4, -3, light).box(-6, 5, 1, 2, 4, 5, light); // 가로 좌석 판 둘
+  return { body: b.out, head: part(new Builder(), [0, 0, 0]), legs: [], tail: null, wings: [], babyHead: 1 };
 }

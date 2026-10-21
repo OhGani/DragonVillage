@@ -19,6 +19,7 @@ import {
   type BlockChangeReqMsg,
   type BlockDef,
   type BlockRegistry,
+  BOAT,
   bodyOverlapsBlock,
   BONE_MEAL,
   bowDamage,
@@ -98,6 +99,7 @@ import {
   hitReachOf,
   hoeOf,
   HP_MAX,
+  hugeMushroomBlocks,
   type InvDropMsg,
   type Inventory,
   type InvMoveMsg,
@@ -124,7 +126,6 @@ import {
   type NestSlotInfo,
   nestSlotPos,
   oakTreeBlocks,
-  hugeMushroomBlocks,
   OLD_NEST_SITES,
   OLD_SITES,
   ORB_PICKUP_RANGE,
@@ -1705,7 +1706,7 @@ export class VillageRoom {
       p.riding = { id: mobId, dragon: kind };
       p.dragonHp = 0;
       this.broadcastJson({ t: 'mount', idx, riding: p.riding }, -1, p.world);
-      this.log(`마을 ${this.info.code}: ${p.nick} ${kind === 'pig' ? '돼지' : '말'} 탑승`);
+      this.log(`마을 ${this.info.code}: ${p.nick} ${kind === 'pig' ? '돼지' : kind === 'boat' ? '보트' : '말'} 탑승`);
       return null;
     }
     const err = this.animals.use({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held }, mobId, held, now);
@@ -1812,6 +1813,21 @@ export class VillageRoom {
     p.pos.z = spot.z;
     p.fallPeak = null;
     this.broadcastJson({ t: 'sleep', idx, at: spot }, -1, p.world);
+    return null;
+  }
+
+  /** 보트 띄우기 (#209): 보트 아이템을 들고 물 칸을 탭 → 가방에서 하나 빼고 그 위에 보트. 오류: NO_WATER · NO_ITEM · TOO_FAR */
+  placeBoat(idx: number, x: number, y: number, z: number, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (p.world !== 'village') return 'NO_WATER';
+    if (!this.world.inBounds(x, y, z) || this.registry.get(this.world.getBlock(x, y, z)).fluid !== 'water') return 'NO_WATER';
+    if (Math.hypot(x + 0.5 - p.pos.x, y + 0.5 - (p.pos.y + EYE), z + 0.5 - p.pos.z) > HIT_REACH + 2) return 'TOO_FAR';
+    const changed = new Set<number>();
+    if (!take(p.inv, BOAT, 1, changed)) return 'NO_ITEM';
+    this.sendInv(p, changed);
+    this.animals.placeBoat(x, y, z, now);
+    this.log(`마을 ${this.info.code}: ${p.nick} 보트 띄움 (${x},${y},${z})`);
     return null;
   }
 

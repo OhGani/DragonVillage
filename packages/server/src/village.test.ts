@@ -617,6 +617,46 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(caps).toBeGreaterThanOrEqual(9 + 16); // 꼭대기 3×3 + 테두리 두 층(각 16) — 위가 비어 있어야 다 들어간다
   });
 
+  it('보트 (#209): 보트를 들고 물을 탭하면 떠 있고(잔디는 NO_WATER), 빈손 탭으로 누구나 타고, 내리면 그 자리에, 때려 부수면 보트가 가방으로', () => {
+    // 저장소가 있어야 동물 번호가 양수다(없으면 임시 음수 번호라 몹 id 가 ANIMAL_ID_BASE 아래로 내려간다)
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
+    const p = room.players.get(ia)!;
+    room.giveItems(ia, 'boat', 1);
+    // 강(북쪽)의 물 칸 하나
+    let wx = -1,
+      wy = -1,
+      wz = -1;
+    for (let z = 20; z < 36 && wx < 0; z++)
+      for (let x = 56; x < 72 && wx < 0; x++)
+        for (let y = 34; y < 42; y++)
+          if (BLOCKS.get(room.world.getBlock(x, y, z)).fluid === 'water' && room.world.getBlock(x, y + 1, z) === 0) {
+            wx = x;
+            wy = y;
+            wz = z;
+            break;
+          }
+    expect(wx).toBeGreaterThan(0);
+    room.onMove(ia, { x: wx + 0.5, y: wy + 1, z: wz + 2.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.placeBoat(ia, 64, GROUND_Y, 64)).toBe('NO_WATER');
+    expect(room.placeBoat(ia, wx, wy, wz, 1000)).toBeNull();
+    expect(countOf(p.inv, 'boat')).toBe(0);
+    const boat = a.json.find((m) => m.t === 'mob' && m.ev === 'spawn' && m.mob === 'boat') as { id: number } | undefined;
+    expect(boat).toBeTruthy();
+    // 빈손 탭 → 탄다 (주인 없어도)
+    expect(room.useMob(ia, boat!.id, undefined, 1100)).toBeNull();
+    expect(p.riding).toEqual({ id: boat!.id, dragon: 'boat' });
+    // 내리기 → 보트는 내린 자리에
+    expect(room.dismount(ia)).toBeNull();
+    expect(p.riding).toBeNull();
+    // 때려 부수면 보트 아이템
+    room.onMove(ia, { x: wx + 0.5, y: wy + 1, z: wz + 2.5, yaw: 0, pitch: 0, flags: 0 });
+    for (let i = 0; i < 6 && countOf(p.inv, 'boat') === 0; i++) room.hitMob(ia, boat!.id, -1, 2000 + i * 700);
+    expect(countOf(p.inv, 'boat')).toBe(1);
+  });
+
   it('초당 상한을 넘으면 RATE', () => {
     const { room, a, ia } = setup();
     for (let i = 0; i < RATE_PER_SEC + 2; i++) room.onBlockChange(ia, { seq: 100 + i, x: 62 + (i % 5), y: GROUND_Y + 2 + Math.floor(i / 5), z: 62, id: 'stone' }, 1000 + i * 10);

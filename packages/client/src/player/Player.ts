@@ -1,18 +1,21 @@
 import {
   type BlockRegistry,
+  BOAT_LAND_SPEED,
+  BOAT_SEAT_Y,
+  BOAT_SPEED,
   type BodySize,
+  hasGroundBelow,
   HORSE_SEAT_Y,
+  type MountKind,
+  moveBody,
   type MoveResult,
+  PIG_SEAT_Y,
+  PIG_SLOW,
+  PIG_SPEED,
   RIDE_SEAT_Y,
+  tryStepUp,
   type Vec3,
   type VoxelWorld,
-  hasGroundBelow,
-  moveBody,
-  tryStepUp,
-  type MountKind,
-  PIG_SEAT_Y,
-  PIG_SPEED,
-  PIG_SLOW,
 } from '@dragon-village/shared';
 import type * as THREE from 'three';
 import type { InputState } from '../input/InputState';
@@ -118,9 +121,22 @@ export class Player {
     return { x: this.pos.x, y: this.pos.y + this.eyeHeight, z: this.pos.z };
   }
 
+  /** 보트 (#209): 발 자리 둘레에서 가장 높은 물 칸의 수면 높이. 물이 없으면 null */
+  private waterSurface(pos: Vec3): number | null {
+    const by = Math.floor(pos.y + 0.05);
+    for (const dy of [0, -1, 1]) {
+      const y = by + dy;
+      if (this.isWaterAt(pos.x, y + 0.5, pos.z)) {
+        // 그 위도 물이면(깊은 곳 한가운데) 더 위 칸의 수면
+        return this.isWaterAt(pos.x, y + 1.5, pos.z) ? y + 1 + 0.9 : y + 0.9;
+      }
+    }
+    return null;
+  }
+
   /** 탈것에 앉은 높이 (#178): 타고 있으면 몸 상자가 이만큼 아래로 길어져 탈것이 땅속에 안 들어간다 */
   get seatY(): number {
-    return this.riding ? (this.mountKind === 'horse' ? HORSE_SEAT_Y : this.mountKind === 'pig' ? PIG_SEAT_Y : RIDE_SEAT_Y) : 0;
+    return this.riding ? (this.mountKind === 'horse' ? HORSE_SEAT_Y : this.mountKind === 'pig' ? PIG_SEAT_Y : this.mountKind === 'boat' ? BOAT_SEAT_Y : RIDE_SEAT_Y) : 0;
   }
 
   /** 발 아래 seat 만큼 중 땅에 안 박힌 길이 — 탈것 자리가 땅에 걸쳐 있으면(낮은 천장 아래서 탔을 때 등) 그만큼만 상자를 늘려 안 끼인다 */
@@ -204,8 +220,9 @@ export class Player {
       wz /= wl;
     }
     const flying = this.riding && this.mountKind === null;
-    const speed = (this.mountKind === 'horse' ? HORSE_SPEED : this.mountKind === 'pig' ? (this.carrotStick ? PIG_SPEED : PIG_SLOW) : this.riding ? RIDE_SPEED : this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK) * (this.guarding ? this.guardSlow : 1);
-    const accel = flying ? 8 : this.inWater ? 6 : this.onGround ? (this.mountKind !== null ? 10 : 18) : 3.5;
+    const boatSurface = this.mountKind === 'boat' ? this.waterSurface(pos) : null;
+    const speed = (this.mountKind === 'boat' ? (boatSurface !== null ? BOAT_SPEED : BOAT_LAND_SPEED) : this.mountKind === 'horse' ? HORSE_SPEED : this.mountKind === 'pig' ? (this.carrotStick ? PIG_SPEED : PIG_SLOW) : this.riding ? RIDE_SPEED : this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK) * (this.guarding ? this.guardSlow : 1);
+    const accel = flying ? 8 : this.mountKind === 'boat' ? 4 : this.inWater ? 6 : this.onGround ? (this.mountKind !== null ? 10 : 18) : 3.5;
     const k = Math.min(1, accel * h);
     // 날 때 앞·뒤로 밀면 보는 쪽(위아래)으로 난다 (#97). 살짝 내려보는 건 수평으로 치고, 많이 기울일수록 가파르게
     let pitchT = 0;
@@ -222,6 +239,15 @@ export class Player {
       const look = pitchT * Math.sign(input.moveZ) * RIDE_SPEED * 0.8;
       const target = look + (input.jump ? RIDE_CLIMB : input.sneak ? -RIDE_CLIMB : 0);
       vel.y += (target - vel.y) * Math.min(1, 8 * h);
+    } else if (this.mountKind === 'boat') {
+      // 보트 (#209): 물 위에 뜬다 — 발을 수면에 맞추고 중력 없음. 물이 없으면 떨어진다(땅에선 느릿느릿)
+      if (boatSurface !== null) {
+        const target = (boatSurface + BOAT_SEAT_Y - pos.y) * 8; // 보트 바닥이 수면에 뜨고 내 발은 그 위 좌석
+        vel.y += (Math.max(-6, Math.min(6, target)) - vel.y) * Math.min(1, 10 * h);
+      } else {
+        vel.y -= GRAVITY * h;
+        if (vel.y < -TERMINAL) vel.y = -TERMINAL;
+      }
     } else if (this.inWater) {
       // 얕은 물(발 위 한 칸이 물이 아님)에서 바닥을 딛고 있으면 진짜 점프 — 밭 물길에서 뛰어나올 수 있다
       if (input.jump && this.onGround && !this.isWaterAt(pos.x, pos.y + 1.0, pos.z)) {

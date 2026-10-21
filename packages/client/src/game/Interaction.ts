@@ -1,25 +1,26 @@
 import {
   AIR_ID,
-  BUCKET,
-  FLUID_FULL,
   type BlockDef,
   type BlockRegistry,
-  type ChunkCoord,
-  type RayHit,
-  type VoxelWorld,
+  BOAT,
   bodyOverlapsBlock,
+  BONE_MEAL,
   breakSeconds,
+  BUCKET,
+  type ChunkCoord,
+  DOOR_DIR,
   doorHinge,
   facingOf,
-  needToolText,
-  toolOf,
-  raycastVoxels,
-  DOOR_DIR,
-  shovelOf,
-  hoeOf,
-  TILLABLE,
+  FLUID_FULL,
   hasWaterNear,
-  BONE_MEAL,
+  hoeOf,
+  needToolText,
+  raycastVoxels,
+  type RayHit,
+  shovelOf,
+  TILLABLE,
+  toolOf,
+  type VoxelWorld,
 } from '@dragon-village/shared';
 import { TOOLS } from '@dragon-village/shared/data';
 import type { InputState } from '../input/InputState';
@@ -48,6 +49,8 @@ export interface InteractionEvents {
   onOpenChest?(x: number, y: number, z: number): void;
   /** 침대를 빈손으로 탭 → 눕기 (#204) */
   onSleepBed?(x: number, y: number, z: number): void;
+  /** 보트를 들고 물을 탭 → 띄우기 (#209) */
+  onPlaceBoat?(x: number, y: number, z: number): void;
 }
 
 /** 조준·부수기·놓기. 서버가 생기면(M2) setBlock 이 요청으로 바뀌고 나머지는 그대로. */
@@ -161,7 +164,7 @@ export class Interaction {
   }
 
   get bucketMode(): boolean {
-    if (this.heldItem === BUCKET) return true;
+    if (this.heldItem === BUCKET || this.heldItem === BOAT) return true; // 보트도 물을 겨냥해야 한다 (#209)
     return this.selectedBlock > 0 && this.registry.get(this.selectedBlock).fluid !== null;
   }
 
@@ -197,8 +200,8 @@ export class Interaction {
         // 양동이처럼 바로 떠낸다: 자연 원천(무한) 또는 고인 액체(얕은 웅덩이도 닦아낸다). 자연 흐름은 원천이 사라지면 저절로 마른다
         this.progress = 0;
         // 가득한 칸은 빈 양동이를 들고 있어야 뜬다(물·용암 양동이를 들고는 붓기만). 얕은 웅덩이는 그냥 닦인다
-        const canScoop = def.fluidLevel === 0 ? this.heldItem === BUCKET : def.fluidVolume > 0;
-        if (!canScoop && this.hintKey !== key) {
+        const canScoop = def.fluidLevel === 0 ? this.heldItem === BUCKET : def.fluidVolume > 0 && this.heldItem !== BOAT;
+        if (!canScoop && this.hintKey !== key && this.heldItem !== BOAT) {
           // 왜 안 떠지는지 알려 준다 (아빠 2026-10-10 "용암이 양동이로 안 떠짐"): 흐르는 것은 원천이 아니고, 원천은 빈 양동이라야
           this.hintKey = key;
           const name = def.fluid === 'lava' ? '용암' : '물';
@@ -273,6 +276,12 @@ export class Interaction {
 
   private place(): void {
     const t = this.target;
+    // 보트 (#209): 보트를 들고 물을 탭하면 띄운다. 물이 아니면 안내
+    if (t && this.heldItem === BOAT) {
+      if (this.registry.get(t.id).fluid === 'water') this.events.onPlaceBoat?.(t.x, t.y, t.z);
+      else this.events.onHint?.('🛶 보트는 물 위에 띄워요 — 강이나 연못을 탭해요');
+      return;
+    }
     // 괭이로 밭 갈기 (#193·#199): 괭이를 들고 흙·잔디 윗면을 탭 → 농지. 마인크래프트처럼 어디든 갈린다(물은 자랄 때 본다)
     if (t && t.ny > 0 && hoeOf(TOOLS, this.heldItem) && TILLABLE.has(this.registry.get(t.id).id)) {
       const farm = this.registry.numOf('farmland');

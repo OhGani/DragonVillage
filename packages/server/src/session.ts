@@ -441,6 +441,13 @@ export class Session {
         if (err) return this.error(err, err === 'NO_BONE_MEAL' ? '뼛가루를 들고 탭해요' : err === 'NOT_GROWING' ? '자라는 것(싹·묘목)에만 쓸 수 있어요' : err === 'NO_EFFECT' ? '네더 사마귀엔 뼛가루가 안 들어요 — 시간이 지나면 자라요' : err === 'TOO_FAR' ? '너무 멀어요 — 가까이 가요' : '지금은 할 수 없어요');
         return;
       }
+      case 'placeBoat': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.x) || !Number.isInteger(msg.y) || !Number.isInteger(msg.z)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.placeBoat(this.idx, msg.x as number, msg.y as number, msg.z as number);
+        if (err) return this.error(err, err === 'NO_WATER' ? '보트는 물 위에만 띄워요' : err === 'NO_ITEM' ? '보트가 가방에 없어요' : err === 'TOO_FAR' ? '너무 멀어요 — 가까이 가요' : '지금은 할 수 없어요');
+        return;
+      }
       case 'eat': {
         // 먹기 (#186)
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');

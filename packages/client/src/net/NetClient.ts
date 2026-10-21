@@ -427,6 +427,10 @@ export class NetClient {
   sendGuard(on: boolean): void {
     this.sendJson({ t: 'guard', on });
   }
+  /** 보트 띄우기 (#209): 물 칸 */
+  sendPlaceBoat(x: number, y: number, z: number): void {
+    this.sendJson({ t: 'placeBoat', x, y, z });
+  }
   /** 침대에 눕기 (#204): 침대 칸, null 이면 일어나기 */
   sendSleep(at: { x: number; y: number; z: number } | null): void {
     this.sendJson(at ? { t: 'sleep', x: at.x, y: at.y, z: at.z } : { t: 'sleep' });

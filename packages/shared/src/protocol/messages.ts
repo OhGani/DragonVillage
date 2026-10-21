@@ -503,6 +503,8 @@ export type ClientJson =
   | { t: 'guard'; on: boolean }
   /** 침대에 눕기 (#204): 침대 칸(발·머리 아무 쪽). x·y·z 가 없으면 일어난다 */
   | { t: 'sleep'; x?: number; y?: number; z?: number }
+  /** 보트 띄우기 (#209): 보트를 들고 물 칸을 탭 */
+  | { t: 'placeBoat'; x: number; y: number; z: number }
   /** 내 펫 이름 짓기 (M8-1 4차): pet-names.json 의 이름만 */
   | { t: 'nameMob'; id: number; name: string }
   /** 내 펫 전부 부르기 (#174) */

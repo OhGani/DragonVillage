@@ -5,6 +5,7 @@ import {
   armorTotals,
   beamOf,
   type BlockChangedMsg,
+  BOAT_SEAT_Y,
   BOSS_EMOJI,
   bowOf,
   canStartExpedition,
@@ -202,6 +203,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   // 탑승 (M6-4): 내가 탄 드래곤은 서버가 mount/dismount 로 알려 준다. 세계를 바꿔도(원정) 그대로 타고 간다
   /** 타고 있는 드래곤. 다시 들어올 때 서버가 준 것으로 시작 (#103 — 탑승 유지) */
   let myRiding: RidingInfo | null = welcome.spawn.riding ?? null;
+  /** 마지막으로 탭한 동물의 자리 (#209 보트 올라타기용) */
+  let lastUseMobAt: { id: number; x: number; y: number; z: number } | null = null;
   /** 침대에 누워 있음 (#204). 서버 응답으로만 바뀐다 */
   let mySleep: SleepInfo | null = null;
   // 첫 걸음 안내 (M8-3): 처음 들어온 사람을 포탈 → 원정 출발 → 귀환까지 데려간다. 진행은 이 기기에 남긴다(새로고침해도 이어짐)
@@ -565,6 +568,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         sendBlock(x, y, z, AIR_ID, prev);
         particles.burst(x, y, z, blockColor(prev));
       },
+      onPlaceBoat: (x, y, z) => net.sendPlaceBoat(x, y, z), // 보트 (#209)
       onSleepBed: (x, y, z) => {
         if (!mySleep && !myRiding) net.sendSleep({ x, y, z }); // 침대 빈손 탭 → 눕기 (#204)
       },
@@ -891,6 +895,21 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         hud.setRiding(true, '빔', false);
         stamina = null;
         hud.toast(`🐴 말을 탔어요! 앞으로 밀면 달려요 · ${isTouch ? '▲' : 'Space'} 점프 · 내리기는 🐉 버튼`, 6000);
+        return;
+      }
+      if (riding.dragon === 'boat') {
+        // 보트 (#209): 말은 사람에게 오지만 보트는 물 위에 있으니 내가 보트 자리로 올라탄다. 물 위에 떠서 노를 젓는다. 빔·기력 없음
+        const at = mobView.positionOf(riding.id) ?? (lastUseMobAt && lastUseMobAt.id === riding.id ? lastUseMobAt : null);
+        if (at) {
+          ctx.player.pos.x = at.x;
+          ctx.player.pos.y = at.y + BOAT_SEAT_Y;
+          ctx.player.pos.z = at.z;
+          ctx.player.vel.x = ctx.player.vel.y = ctx.player.vel.z = 0;
+          sendMove();
+        }
+        hud.setRiding(true, '빔', false);
+        stamina = null;
+        hud.toast(`🛶 보트를 탔어요! 스틱으로 노를 저어요 · 내리기는 🐉 버튼`, 6000);
         return;
       }
       if (riding.dragon === 'pig') {
@@ -1646,6 +1665,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       } else if (fk && MOB_KIND_OF[fk.kind] === 'villager') {
         openTalk(aimedMob);
       } else {
+        const at = mobView.positionOf(aimedMob);
+        lastUseMobAt = at ? { id: aimedMob, ...at } : null; // 보트에 타면 그 자리로 가려고 (#209)
         net.sendUseMob(aimedMob, hud.selectedIndex);
         hand.swing();
       }
@@ -1663,7 +1684,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const baby = (f.state & ANIMAL_FLAG.baby) !== 0;
         const tamed = (f.state & ANIMAL_FLAG.tamed) !== 0;
         const foods = def.food.map((i) => nameOf(i)).join('·');
-        const tip = def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (isMountKind(def.id) ? (pets.get(aimedMob)?.mine ? `빈손 탭 → ${def.id === 'pig' ? '🐷' : '🐴'} 타기${def.id === 'pig' ? ' · 🥕 당근 낚싯대를 들면 빨라요' : ''} · 보면서 🐾 버튼 → 이름 짓기` : `남의 ${def.name}이에요`) : pets.get(aimedMob)?.mine ? `${{ follow: '🐾 따라오는 중 · 빈손 탭 → 앉기', sit: '🐾 앉아 있음 · 빈손 탭 → 풀어놓기', free: '🐾 자유 · 빈손 탭 → 따라오기' }[pets.get(aimedMob)!.mode]} · 보면서 🐾 버튼 → 이름 짓기` : '남이 길들인 강아지예요') : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.id === 'pig' && !baby ? `🏇 안장을 들고 탭 → 내 돼지로 · ${foods}을(를) 들고 탭 → 먹이기` : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
+        const tip = def.id === 'boat' ? '🛶 빈손 탭 → 타기 · 때리면 보트가 가방으로' : def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (isMountKind(def.id) ? (pets.get(aimedMob)?.mine ? `빈손 탭 → ${def.id === 'pig' ? '🐷' : '🐴'} 타기${def.id === 'pig' ? ' · 🥕 당근 낚싯대를 들면 빨라요' : ''} · 보면서 🐾 버튼 → 이름 짓기` : `남의 ${def.name}이에요`) : pets.get(aimedMob)?.mine ? `${{ follow: '🐾 따라오는 중 · 빈손 탭 → 앉기', sit: '🐾 앉아 있음 · 빈손 탭 → 풀어놓기', free: '🐾 자유 · 빈손 탭 → 따라오기' }[pets.get(aimedMob)!.mode]} · 보면서 🐾 버튼 → 이름 짓기` : '남이 길들인 강아지예요') : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.id === 'pig' && !baby ? `🏇 안장을 들고 탭 → 내 돼지로 · ${foods}을(를) 들고 탭 → 먹이기` : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
         const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : def.id === 'cow' && !baby ? ' · 🪣 빈 양동이 들고 탭 → 우유' : def.id === 'villager' ? ' · 탭 → 💬 대화' : '';
         hud.toast(`${def.name}${baby ? ' (아기)' : ''}${tamed ? ' 🐾' : ''} · ${tip}${extra}`, 3000);
       }

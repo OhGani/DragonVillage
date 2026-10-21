@@ -40,7 +40,7 @@ const HUMANOID: Partial<Record<string, SkinPalette>> = {
 
 const CREEPER_GREEN = 0x4caf50;
 const SPIDER_DARK = 0x2a2320;
-const ANIMAL_NAMES = new Set(['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse']);
+const ANIMAL_NAMES = new Set(['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'boat']); // 보트도 동물 체계로 그린다 (#209)
 const KING_DARK = 0x3a2344;
 const KING_BELLY = 0x4a2a4e;
 const GOLD = 0xffd54f;
