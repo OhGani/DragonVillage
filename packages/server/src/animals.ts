@@ -6,51 +6,53 @@
 import {
   ANIMAL_FLAG,
   ANIMAL_ID_BASE,
+  animalMaxHp,
   ANIMALS_MAX,
+  animalSpotCandidate,
   BABY_MS,
+  BLACKSMITH_NAME,
+  type BlockRegistry,
   BREED_COOLDOWN_MS,
   BREED_RANGE,
   EGG_EVERY_MS,
   EGG_ITEM,
   EGG_MAX,
-  type BlockRegistry,
   FEED_GROW_MS,
   FOLLOW_RANGE,
   FOLLOW_STOP,
   GROUND_Y,
+  herdSpotCandidate,
   HIT_COOLDOWN_MS,
   HIT_REACH,
   INITIAL_ANIMALS,
+  isAnimalSpot,
+  isMountKind,
   LOVE_MS,
   MOB_KIND_NUM,
   MOB_STATE,
   type MobEntry,
   type MobKind,
   type MobRegistry,
+  mobSize,
   PET_FOLLOW_STOP,
   PET_TELEPORT_RANGE,
   RESPAWN_BATCH,
-  SHEARS_ITEM,
-  WOOL_ITEM,
-  WOOL_REGROW_MS,
-  shearRoll,
   RESPAWN_EVERY_MS,
+  rollDrops,
+  SADDLE,
+  shearRoll,
+  SHEARS_ITEM,
+  siteOf,
+  tameRoll,
+  VILLAGER_SPEED_MULT,
+  villagerSpot,
   type VoxelWorld,
   WANDER_SPEED_MULT,
-  animalMaxHp,
-  animalSpotCandidate,
-  herdSpotCandidate,
-  isAnimalSpot,
-  mobSize,
-  rollDrops,
-  tameRoll,
   wanderPause,
   wanderPick,
-  SADDLE,
-  villagerSpot,
-  BLACKSMITH_NAME,
-  siteOf,
-  isMountKind,
+  wanderPickVillager,
+  WOOL_ITEM,
+  WOOL_REGROW_MS,
 } from '@dragon-village/shared';
 
 export interface AnimalRow {
@@ -453,15 +455,16 @@ export class AnimalSystem {
       }
     }
     let speed = def.speed;
+    const roams = a.kind === 'villager' && a.name !== BLACKSMITH_NAME; // 주민은 마을 전체를 돌아다닌다 (#210). 대장장이는 대장간 앞에
     if (!goal) {
-      speed *= WANDER_SPEED_MULT;
+      speed *= roams ? VILLAGER_SPEED_MULT : WANDER_SPEED_MULT;
       if (a.target && Math.hypot(a.target.x - a.x, a.target.z - a.z) < 0.6) {
         a.target = null;
         a.pauseUntil = now + wanderPause(this.seed, a.id, a.turn) * 1000;
       }
       if (!a.target && now >= a.pauseUntil) {
         a.turn++;
-        a.target = wanderPick(this.seed, a.id, a.turn, a, { x: a.homeX, z: a.homeZ });
+        a.target = roams ? wanderPickVillager(this.seed, a.id, a.turn, a) : wanderPick(this.seed, a.id, a.turn, a, { x: a.homeX, z: a.homeZ });
       }
       if (a.target) goal = { x: a.target.x, z: a.target.z, stop: 0.3 };
     } else a.target = { x: goal.x, z: goal.z };

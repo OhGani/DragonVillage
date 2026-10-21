@@ -105,6 +105,28 @@ export function wanderPick(seed: number, id: number, turn: number, cur: { x: num
   return { x, z };
 }
 
+/** 주민 (#210, 아빠 2026-10-21 "주민들이 주민 집에만 있음 — 마을 전체를 돌아다니게"): 집 둘레가 아니라 광장 가운데(64,64)에서 이 반지름 안을 돌아다닌다 */
+export const VILLAGER_ROAM_CENTER = { x: 64.5, z: 64.5 };
+export const VILLAGER_ROAM_RANGE = 64;
+/** 주민 한 걸음 길이 4~14 (동물의 2~6 보다 멀리) · 걸음 속도는 몹 speed 의 이 배 */
+export const VILLAGER_HOP_MIN = 4;
+export const VILLAGER_HOP_MAX = 14;
+export const VILLAGER_SPEED_MULT = 0.85;
+/** 주민이 다음에 갈 곳 (#210): 마을 어디든. 가끔(5번 중 1번) 광장 쪽으로 향해 사람 사는 데로 모인다 */
+export function wanderPickVillager(seed: number, id: number, turn: number, cur: { x: number; z: number }): { x: number; z: number } {
+  const toPlaza = hash3(id, turn, 14, seed) < 0.2;
+  const a = toPlaza ? Math.atan2(VILLAGER_ROAM_CENTER.z - cur.z, VILLAGER_ROAM_CENTER.x - cur.x) : hash3(id, turn, 11, seed) * Math.PI * 2;
+  const d = VILLAGER_HOP_MIN + hash3(id, turn, 12, seed) * (VILLAGER_HOP_MAX - VILLAGER_HOP_MIN);
+  let x = cur.x + Math.cos(a) * d,
+    z = cur.z + Math.sin(a) * d;
+  const hd = Math.hypot(x - VILLAGER_ROAM_CENTER.x, z - VILLAGER_ROAM_CENTER.z);
+  if (hd > VILLAGER_ROAM_RANGE) {
+    x = VILLAGER_ROAM_CENTER.x + ((x - VILLAGER_ROAM_CENTER.x) / hd) * VILLAGER_ROAM_RANGE * 0.9;
+    z = VILLAGER_ROAM_CENTER.z + ((z - VILLAGER_ROAM_CENTER.z) / hd) * VILLAGER_ROAM_RANGE * 0.9;
+  }
+  return { x, z };
+}
+
 /** 이번 걸음 뒤 서 있는 시간(초) 2~5 */
 export function wanderPause(seed: number, id: number, turn: number): number {
   return 2 + hash3(id, turn, 13, seed) * 3;

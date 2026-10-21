@@ -132,7 +132,7 @@ describe('마을 동물 (M8-1)', () => {
     const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
     room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
     for (let t = T0; t < T0 + 120_000; t += 200) room.tick(t);
-    for (const an of room.animals.animals.values()) expect(Math.hypot(an.x - an.homeX, an.z - an.homeZ)).toBeLessThanOrEqual(25);
+    for (const an of room.animals.animals.values()) if (an.kind !== 'villager') expect(Math.hypot(an.x - an.homeX, an.z - an.homeZ)).toBeLessThanOrEqual(25); // 주민은 마을 전체를 돈다 (#210)
     const moved = [...room.animals.animals.values()].filter((an) => Math.hypot(an.x - an.homeX, an.z - an.homeZ) > 0.5);
     expect(moved.length).toBeGreaterThan(0);
     const states = a.bin.filter((m) => m.type === MSG.MobsState);

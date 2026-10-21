@@ -188,3 +188,20 @@ describe('창 (#183)', () => {
     expect(() => parseTools(raw)).toThrow(/reach/);
   });
 });
+
+describe('주민 돌아다니기 (#210)', () => {
+  it('어디서 시작해도 다음 자리는 광장 가운데에서 VILLAGER_ROAM_RANGE 안, 한 걸음은 4~14', async () => {
+    const { wanderPickVillager, VILLAGER_ROAM_CENTER, VILLAGER_ROAM_RANGE, VILLAGER_HOP_MAX } = await import('./animals');
+    let cur = { x: 20, z: 100 }; // 주민 집 근처(남서쪽)
+    let far = 0;
+    for (let turn = 0; turn < 300; turn++) {
+      const next = wanderPickVillager(7, 3, turn, cur);
+      const hop = Math.hypot(next.x - cur.x, next.z - cur.z);
+      expect(hop).toBeLessThanOrEqual(VILLAGER_HOP_MAX + 1e-6);
+      expect(Math.hypot(next.x - VILLAGER_ROAM_CENTER.x, next.z - VILLAGER_ROAM_CENTER.z)).toBeLessThanOrEqual(VILLAGER_ROAM_RANGE + 1e-6);
+      if (Math.hypot(next.x - 20, next.z - 100) > 30) far++;
+      cur = next;
+    }
+    expect(far).toBeGreaterThan(50); // 집 둘레(동물 HOME_RANGE 24)를 훌쩍 벗어나 마을을 돈다
+  });
+});
