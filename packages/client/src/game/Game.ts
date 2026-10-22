@@ -1661,7 +1661,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
     // 먹기 (#186): 먹을 것을 들고 (몹을 안 보며) 탭 → 서버가 하나 빼고 하트를 채운다
     const heldFood = foodOf(FOOD, hud.selectedItem);
-    if (heldFood && inp.secondaryTap && aimedMob === null && !guarding && !anyPanelOpen() && started && !disconnected) {
+    // 당근·감자처럼 먹을 것이자 씨앗인 것은 농지를 겨눴을 땐 심기만 한다 (#212 — 전엔 심으면서 하나를 더 먹었다)
+    const planting = interaction.target !== null && interaction.selectedBlock > 0 && registry.get(interaction.target.id).id === 'farmland';
+    if (heldFood && !planting && inp.secondaryTap && aimedMob === null && !guarding && !anyPanelOpen() && started && !disconnected) {
       net.sendEat(hud.selectedIndex);
       hand.swing();
     }

@@ -671,6 +671,33 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(room.firework(ia, p.pos.x + 40, p.pos.y, p.pos.z)).toBe('TOO_FAR');
   });
 
+  it('감자 농사 (#212): 감자를 들고 농지에 심으면 싹, 8분 뒤 익은 감자, 부수면 감자 1~4', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
+    const p = room.players.get(ia)!;
+    room.giveItems(ia, 'potato', 1);
+    let fx = -1,
+      fz = -1;
+    for (let z = 50; z < 80 && fx < 0; z++)
+      for (let x = 22; x < 44; x++)
+        if (BLOCKS.get(room.world.getBlock(x, GROUND_Y, z)).id === 'farmland' && room.world.getBlock(x, GROUND_Y + 1, z) === 0) {
+          fx = x;
+          fz = z;
+          break;
+        }
+    room.onMove(ia, { x: fx + 0.5, y: GROUND_Y + 1, z: fz + 2.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ia, { seq: 1, x: fx, y: GROUND_Y + 1, z: fz, id: 'potato_young' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y + 1, fz)).id).toBe('potato_young');
+    expect(countOf(p.inv, 'potato')).toBe(0);
+    room.checkCrops(1000 + 8 * 60_000 + 1);
+    expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y + 1, fz)).id).toBe('potato_ripe');
+    room.onBlockChange(ia, { seq: 2, x: fx, y: GROUND_Y + 1, z: fz, id: 'air' }, 1000 + 9 * 60_000);
+    expect(countOf(p.inv, 'potato')).toBeGreaterThanOrEqual(1);
+    expect(countOf(p.inv, 'potato')).toBeLessThanOrEqual(4);
+  });
+
   it('초당 상한을 넘으면 RATE', () => {
     const { room, a, ia } = setup();
     for (let i = 0; i < RATE_PER_SEC + 2; i++) room.onBlockChange(ia, { seq: 100 + i, x: 62 + (i % 5), y: GROUND_Y + 2 + Math.floor(i / 5), z: 62, id: 'stone' }, 1000 + i * 10);

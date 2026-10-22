@@ -1203,6 +1203,32 @@
       "lightEmit": 0,
       "texture": "carrot_ripe",
       "_note": "부수면 당근 2~3"
+    },
+    {
+      "id": "potato_young",
+      "name": "감자 싹",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "drops": "potato",
+      "seed": "potato",
+      "grows": "potato_ripe",
+      "growMinutes": 8,
+      "lightEmit": 0,
+      "texture": "potato_young",
+      "_note": "감자 농사 (#212, 아들 14차 9번 '감자 농사도?'): 감자를 들고 농지 위를 탭하면 심어진다(당근처럼 씨앗이 따로 없다). 8분 뒤 익은 감자"
+    },
+    {
+      "id": "potato_ripe",
+      "name": "익은 감자",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "drops": "potato",
+      "dropCount": [1, 4],
+      "lightEmit": 0,
+      "texture": "potato_ripe",
+      "_note": "부수면 감자 1~4 (마인크래프트). 독 감자는 좀비가 가끔 떨군다"
     }
   ]
 }
