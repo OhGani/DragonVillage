@@ -698,6 +698,42 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(countOf(p.inv, 'potato')).toBeLessThanOrEqual(4);
   });
 
+  it('사탕수수 (#213): 물 옆에 심으면 3분마다 3칸까지 자라고, 아래를 부수면 위까지 전부 가방으로', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
+    const p = room.players.get(ia)!;
+    room.giveItems(ia, 'sugar_cane', 2);
+    // 광장 옆 잔디 한 칸 옆에 물을 놓고 심는다
+    const x = 70,
+      y = GROUND_Y + 1,
+      z = 60;
+    room.world.setBlock(x, GROUND_Y, z, BLOCKS.numOf('grass'));
+    room.world.setBlock(x + 4, GROUND_Y, z, BLOCKS.numOf('grass'));
+    for (let k = 1; k <= 3; k++) room.world.setBlock(x, y + k, z, 0);
+    room.world.setBlock(x + 1, GROUND_Y, z, BLOCKS.numOf('water'));
+    room.onMove(ia, { x: x + 0.5, y, z: z + 2.5, yaw: 0, pitch: 0, flags: 0 });
+    // 물에서 먼 곳은 안 된다
+    room.onBlockChange(ia, { seq: 1, x: x + 4, y, z, id: 'sugar_cane' }, 1000);
+    expect(rejected(a).at(-1)).toEqual({ seq: 1, reason: REJECT.NO_FARMLAND });
+    room.onBlockChange(ia, { seq: 2, x, y, z, id: 'sugar_cane' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(x, y, z)).id).toBe('sugar_cane');
+    expect(countOf(p.inv, 'sugar_cane')).toBe(1);
+    room.checkCrops(1000 + 3 * 60_000 + 1);
+    expect(BLOCKS.get(room.world.getBlock(x, y + 1, z)).id).toBe('sugar_cane');
+    room.checkCrops(1000 + 6 * 60_000 + 2);
+    expect(BLOCKS.get(room.world.getBlock(x, y + 2, z)).id).toBe('sugar_cane');
+    room.checkCrops(1000 + 30 * 60_000);
+    expect(room.world.getBlock(x, y + 3, z)).toBe(0); // 3칸에서 멈춘다
+    // 맨 아래를 부수면 셋 다 떨어진다
+    room.onBlockChange(ia, { seq: 3, x, y, z, id: 'air' }, 1000 + 31 * 60_000);
+    expect(room.world.getBlock(x, y, z)).toBe(0);
+    expect(room.world.getBlock(x, y + 1, z)).toBe(0);
+    expect(room.world.getBlock(x, y + 2, z)).toBe(0);
+    expect(countOf(p.inv, 'sugar_cane')).toBe(4);
+  });
+
   it('초당 상한을 넘으면 RATE', () => {
     const { room, a, ia } = setup();
     for (let i = 0; i < RATE_PER_SEC + 2; i++) room.onBlockChange(ia, { seq: 100 + i, x: 62 + (i % 5), y: GROUND_Y + 2 + Math.floor(i / 5), z: 62, id: 'stone' }, 1000 + i * 10);

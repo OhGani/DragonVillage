@@ -7,6 +7,7 @@ import {
   BONE_MEAL,
   breakSeconds,
   BUCKET,
+  canPlantUpward,
   type ChunkCoord,
   DOOR_DIR,
   doorHinge,
@@ -386,7 +387,15 @@ export class Interaction {
     // 꽃·풀 (#180): 잔디·흙·농지 위에만
     if (def.shape === 'cross') {
       const below = this.world.inBounds(x, y - 1, z) ? this.registry.get(this.world.getBlock(x, y - 1, z)).id : '';
-      if (def.plantOn ? below !== def.plantOn : !PLANT_GROUND.has(below)) {
+      if (def.growsUp) {
+        // 사탕수수 (#213): 물 바로 옆 잔디·흙·모래, 또는 사탕수수 위
+        const idOf = (wx: number, wy: number, wz: number) => (this.world.inBounds(wx, wy, wz) ? this.registry.get(this.world.getBlock(wx, wy, wz)).id : '');
+        const isWater = (wx: number, wy: number, wz: number) => this.world.inBounds(wx, wy, wz) && this.registry.get(this.world.getBlock(wx, wy, wz)).fluid === 'water';
+        if (!canPlantUpward(def.id, idOf, isWater, x, y, z)) {
+          this.events.onHint?.(`🎋 ${def.name}는 물 바로 옆 잔디·흙·모래 위에 심어요`);
+          return;
+        }
+      } else if (def.plantOn ? below !== def.plantOn : !PLANT_GROUND.has(below)) {
         // 네더 사마귀는 영혼 모래 위에만 (#206)
         this.events.onHint?.(def.plantOn ? `🔥 ${def.name}은(는) ${this.registry.find(def.plantOn)?.name ?? def.plantOn} 위에만 심을 수 있어요` : `🌼 ${def.name}은(는) 잔디나 흙 위에만 심을 수 있어요`);
         return;

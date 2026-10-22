@@ -150,6 +150,16 @@ export function hasWaterNear(isWater: (x: number, y: number, z: number) => boole
         if (isWater(x + dx, y + dy, z + dz)) return true;
   return false;
 }
+/** 사탕수수 (#213, 마인크래프트): 잔디·흙·모래 위인데 그 바닥 칸 바로 옆(동서남북)에 물이 있어야 심는다. 사탕수수 위엔 그냥 쌓인다 */
+export const CANE_GROUND = new Set(['grass', 'dirt', 'sand']);
+/** (x,y,z) 에 위로 자라는 식물(blockId)을 심을 수 있나. idOf 는 그 칸의 블록 id, isWater 는 물인지 */
+export function canPlantUpward(blockId: string, idOf: (x: number, y: number, z: number) => string, isWater: (x: number, y: number, z: number) => boolean, x: number, y: number, z: number): boolean {
+  const below = idOf(x, y - 1, z);
+  if (below === blockId) return true;
+  if (!CANE_GROUND.has(below)) return false;
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) if (isWater(x + dx, y - 1, z + dz)) return true;
+  return false;
+}
 /** 뼛가루 (#193): 자라는 것(작물 싹·묘목)에 쓰면 바로 다 자란다 */
 export const BONE_MEAL = 'bone_meal';
 

@@ -205,3 +205,17 @@ describe('주민 돌아다니기 (#210)', () => {
     expect(far).toBeGreaterThan(50); // 집 둘레(동물 HOME_RANGE 24)를 훌쩍 벗어나 마을을 돈다
   });
 });
+
+describe('사탕수수 심는 자리 (#213)', () => {
+  it('물 바로 옆 잔디·흙·모래, 또는 사탕수수 위에만', async () => {
+    const { canPlantUpward } = await import('./tools');
+    const ground: Record<string, string> = { '5,9,5': 'grass', '7,9,5': 'stone', '5,10,9': 'sugar_cane', '9,9,9': 'sand' };
+    const water = new Set(['6,9,5', '9,9,11']);
+    const idOf = (x: number, y: number, z: number) => ground[`${x},${y},${z}`] ?? 'air';
+    const isWater = (x: number, y: number, z: number) => water.has(`${x},${y},${z}`);
+    expect(canPlantUpward('sugar_cane', idOf, isWater, 5, 10, 5)).toBe(true); // 잔디 + 동쪽 물
+    expect(canPlantUpward('sugar_cane', idOf, isWater, 7, 10, 5)).toBe(false); // 돌 위
+    expect(canPlantUpward('sugar_cane', idOf, isWater, 5, 11, 9)).toBe(true); // 사탕수수 위
+    expect(canPlantUpward('sugar_cane', idOf, isWater, 9, 10, 9)).toBe(false); // 모래지만 물이 두 칸 떨어짐
+  });
+});

@@ -47,6 +47,8 @@ const RawBlock = z.object({
   growMinutes: z.number().min(0, '0 이상이어야 해요').optional(),
   /** 위가 비어 있을 때만 자란다 (흙 → 잔디, #171) */
   growsWhenOpen: z.boolean().optional(),
+  /** 위로 자라는 식물의 최대 키 (#213 사탕수수 3): growMinutes 마다 꼭대기에 한 칸씩 */
+  growsUp: z.number().int().min(2, '2 이상이어야 해요').max(8, '8 이하여야 해요').optional(),
 });
 
 /** 꽃 5종 (#180, 아들 그림): 생성기가 잔디 위에 흩뿌리고, 가방 2×2 칸에서 염료가 된다 */
@@ -95,6 +97,7 @@ const FIELD_KO: Record<string, string> = {
   plantOn: 'plantOn(심는 블록)',
   grows: 'grows(자라면 되는 블록)',
   growMinutes: 'growMinutes(자라는 분)',
+  growsUp: 'growsUp(위로 자라는 최대 키)',
   fluid: 'fluid(액체 종류)',
 };
 
@@ -162,6 +165,8 @@ export interface BlockDef {
   readonly growMinutes?: number;
   /** 위 칸이 비어 있어야(단단한 블록이 없어야) 자란다 — 쌓은 흙은 맨 위만 잔디 (#171) */
   readonly growsWhenOpen?: boolean;
+  /** 위로 자라는 최대 키 (#213 사탕수수). 0 이면 위로 안 자란다 */
+  readonly growsUp?: number;
   /** 문 변형이면 어느 문의 어떤 상태인지. 문 아니면 null (JSON 의 문 자체도 null — 세계에는 변형만 놓인다) */
   readonly door: DoorInfo | null;
   /** 횃불이면 어디에 붙었는지 (결정 #82). 횃불 아니면 null */
@@ -494,6 +499,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       plantOn: b.plantOn ?? null,
       growMinutes: b.growMinutes ?? 0,
       growsWhenOpen: b.growsWhenOpen ?? false,
+      growsUp: b.growsUp ?? 0,
       door: null,
       torch: null,
       chest: null,

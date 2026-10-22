@@ -28,6 +28,7 @@ import {
   buildingBlocks,
   BY_SERVER,
   canBreakWith,
+  canPlantUpward,
   CHEST_SLOTS,
   chestPrimary,
   CHUNK_SIZE,
@@ -1100,6 +1101,26 @@ export class VillageRoom {
       done();
       return true;
     }
+    if (cur.growsUp) {
+      // 위로 자라는 식물 (#213 사탕수수): 꼭대기 칸만 기록된다. 키가 다 찼으면 기록을 지우고, 위가 막혔으면 기다린다
+      if (!force && now - plantedAt < (cur.growMinutes ?? 0) * 60_000) return false;
+      let h = 1;
+      while (h < 16 && this.world.inBounds(x, y - h, z) && this.world.getBlock(x, y - h, z) === cur.num) h++;
+      if (h >= cur.growsUp) {
+        done();
+        return false;
+      }
+      if (!this.world.inBounds(x, y + 1, z) || this.world.getBlock(x, y + 1, z) !== AIR_ID) return false;
+      this.world.setBlock(x, y + 1, z, cur.num);
+      this.markDirtyBlock(x, y + 1, z);
+      done();
+      if (h + 1 < cur.growsUp) {
+        this.crops.set(`${x},${y + 1},${z}`, now);
+        this.storage?.setCrop(this.info.code, x, y + 1, z, now);
+      }
+      this.broadcast(encodeBlockChanged({ x, y: y + 1, z, id: cur.id, by: -1 }), -1, 'village');
+      return true;
+    }
     const next = cur.grows ? this.registry.find(cur.grows) : undefined;
     if (!next) {
       done();
@@ -2089,7 +2110,12 @@ export class VillageRoom {
     if (def.shape === 'cross') {
       // 꽃·풀 (#180): 잔디·흙·농지 위에만 (클라가 먼저 안내하고, 서버는 조용히 되돌린다)
       const below = world.inBounds(x, y - 1, z) ? this.registry.get(world.getBlock(x, y - 1, z)).id : '';
-      if (def.plantOn ? below !== def.plantOn : below !== 'grass' && below !== 'dirt' && below !== 'farmland') return REJECT.NO_FARMLAND;
+      if (def.growsUp) {
+        // 사탕수수 (#213): 물 바로 옆 잔디·흙·모래, 또는 사탕수수 위
+        const idOf = (wx: number, wy: number, wz: number) => (world.inBounds(wx, wy, wz) ? this.registry.get(world.getBlock(wx, wy, wz)).id : '');
+        const isWater = (wx: number, wy: number, wz: number) => world.inBounds(wx, wy, wz) && this.registry.get(world.getBlock(wx, wy, wz)).fluid === 'water';
+        if (!canPlantUpward(def.id, idOf, isWater, x, y, z)) return REJECT.NO_FARMLAND;
+      } else if (def.plantOn ? below !== def.plantOn : below !== 'grass' && below !== 'dirt' && below !== 'farmland') return REJECT.NO_FARMLAND;
     }
     const item = itemForPlacing(def.id, this.registry);
     if (!item || countOf(p.inv, item) < 1) return REJECT.NO_ITEM;
@@ -2191,7 +2217,9 @@ export class VillageRoom {
     // 농사 (#165): 심으면 자라기 시작, 부수면(또는 다른 블록이 되면) 기록을 지운다
     if (p.world === 'village') {
       const ckey = `${req.x},${req.y},${req.z}`;
-      if (def.grows) {
+      if (def.grows || def.growsUp) {
+        // 사탕수수(#213)는 꼭대기만 기록한다 — 위에 쌓았으면 아래 칸 기록은 지운다
+        if (def.growsUp && world.inBounds(req.x, req.y - 1, req.z) && world.getBlock(req.x, req.y - 1, req.z) === num && this.crops.delete(`${req.x},${req.y - 1},${req.z}`)) this.storage?.delCrop(this.info.code, req.x, req.y - 1, req.z);
         this.crops.set(ckey, now);
         this.storage?.setCrop(this.info.code, req.x, req.y, req.z, now);
       } else if (this.crops.delete(ckey)) this.storage?.delCrop(this.info.code, req.x, req.y, req.z);
@@ -2231,6 +2259,20 @@ export class VillageRoom {
       if (mined > 0) this.addXp(p, mined, XP_SOURCE.mining, req.x + 0.5, req.y + 0.5, req.z + 0.5);
       // 상자를 부수면 안에 있던 것이 내 가방으로 (#84). 아직 안 연 원정 보물은 여기서 채워져 그대로 들어온다
       if (prev.chest) this.breakChest(p, req.x, req.y, req.z, prev, changed, now);
+      // 사탕수수 (#213, 마인크래프트): 아래 칸을 부수면 위에 쌓인 것도 같이 떨어져 가방으로. 남은 아래 칸이 다시 자란다
+      if (prev.growsUp) {
+        for (let yy = req.y + 1; world.inBounds(req.x, yy, req.z) && world.getBlock(req.x, yy, req.z) === prev.num; yy++) {
+          world.setBlock(req.x, yy, req.z, AIR_ID);
+          touched(req.x, yy, req.z);
+          this.broadcast(encodeBlockChanged({ x: req.x, y: yy, z: req.z, id: 'air', by: -1 }), -1, p.world);
+          this.giveTo(p, prev.drops ?? prev.id, 1, changed);
+          if (p.world === 'village' && this.crops.delete(`${req.x},${yy},${req.z}`)) this.storage?.delCrop(this.info.code, req.x, yy, req.z);
+        }
+        if (p.world === 'village' && world.inBounds(req.x, req.y - 1, req.z) && world.getBlock(req.x, req.y - 1, req.z) === prev.num) {
+          this.crops.set(`${req.x},${req.y - 1},${req.z}`, now);
+          this.storage?.setCrop(this.info.code, req.x, req.y - 1, req.z, now);
+        }
+      }
     } else if ((req.id === 'grass_path' && prev.id === 'grass') || (req.id === 'farmland' && TILLABLE.has(prev.id))) {
       // 삽으로 다듬은 잔디 길 (#191)·괭이로 간 밭 (#193): 가방에서 나가는 건 없다
     } else {

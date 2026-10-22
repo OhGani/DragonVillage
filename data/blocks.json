@@ -367,7 +367,10 @@
       "solid": false,
       "lightEmit": 0,
       "texture": "sugar_cane",
-      "_note": "물가에서 자란다"
+      "shape": "cross",
+      "growsUp": 3,
+      "growMinutes": 3,
+      "_note": "사탕수수 농사 (#213, 아들 14차 9번): 물 바로 옆 잔디·흙·모래 위에 심으면 3분마다 한 칸씩 3칸까지 자란다. 아래 칸을 부수면 위도 같이 떨어진다 — 맨 아래 하나를 남기고 캐면 또 자란다. 섬·사막 원정지 물가에서 처음 얻는다"
     },
     {
       "id": "pumpkin",
