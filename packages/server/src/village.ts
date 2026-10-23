@@ -1732,7 +1732,6 @@ export class VillageRoom {
     }
     const err = this.animals.use({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held }, mobId, held, now);
     if (!err && this.animals.petsFor(p.token).length !== before) this.broadcastPets(); // 길들여졌다
-    if (err && err !== 'COOLDOWN') this.log(`마을 ${this.info.code}: ${p.nick} 동물 탭 거절 ${err} (든 것 ${held ?? '빈손'}, 몹 ${this.animals.kindOf(mobId) ?? '?'})`); // 조사용 (아빠 2026-10-20 "양털이 안 깎임")
     return err;
   }
 

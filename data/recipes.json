@@ -2190,21 +2190,6 @@
       "_note": "화염 저항의 물약 재료. 네더 마그마 큐브가 생기면 거기서도 나옴"
     },
     {
-      "id": "turtle_shell",
-      "name": "거북 등딱지",
-      "station": "crafting_table",
-      "pattern": ["sss", "s s"],
-      "key": {"s": "scute"},
-      "in": {
-        "scute": 5
-      },
-      "out": {
-        "turtle_shell": 1
-      },
-      "release": "v1.1",
-      "_note": "거북 도사의 물약 재료. 인갑은 아기 거북이가 자라며 떨어뜨림 — 거북이가 게임에 들어올 때"
-    },
-    {
       "id": "slime_block",
       "name": "슬라임 블록",
       "station": "crafting_table",

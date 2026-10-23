@@ -225,7 +225,7 @@
     "magma_cream": { "name": "마그마 크림", "source": "슬라임 볼 + 블레이즈 가루 (recipes.json), 또는 네더 마그마 큐브 (아직 없음)" },
     "pufferfish": { "name": "복어", "source": "바다 낚시 (초원 섬)" },
     "golden_carrot": { "name": "황금 당근", "source": "당근 + 금 8 (recipes.json)" },
-    "turtle_shell": { "name": "거북 등딱지", "source": "인갑 5 (아기 거북이가 자라며 떨어뜨림) — 거북이 아직 없음" },
+    "turtle_shell": { "name": "거북 등딱지", "source": "인갑 5 (제작대, 투구 모양). 인갑은 초원 섬 보물 상자 (#214)" },
     "phantom_membrane": { "name": "팬텀 막대", "source": "팬텀 — 아직 없음" },
     "breeze_rod": { "name": "브리즈 막대기", "source": "시련의 방 브리즈 — 아직 없음" },
     "cobweb": { "name": "거미줄", "source": "폐광·거미 왕 굴 (칼로 캔다)" },

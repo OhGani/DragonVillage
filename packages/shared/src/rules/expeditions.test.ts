@@ -107,11 +107,15 @@ describe('보물 상자 랜덤 보상 (#117)', () => {
     expect(rules.pool).toHaveLength(30); // 아들 13차 "30가지로 늘려줘" (#129)
   });
 
-  it('원정지 보너스 (#159): 사막 상자는 4가지 + 금 1~2 꼭, 초원 섬은 공용 그대로', () => {
+  it('원정지 보너스 (#159·#214): 사막 상자는 4가지 + 금 1~2 꼭, 초원 섬은 공용 + 인갑 1~2', () => {
     const rules = EXPEDITIONS.rules.treasureChestLoot;
     const island = EXPEDITIONS.require('grass_island');
-    expect(island.treasureBonus).toBeNull();
-    expect(treasureLootFor(rules, island, 12345, 0)).toEqual(treasureLoot(rules, 12345, 0));
+    expect(island.treasureBonus).toEqual({ extraPicks: 0, always: [{ item: 'scute', min: 1, max: 2 }] }); // 인갑 (#214)
+    const isl = treasureLootFor(rules, island, 12345, 0);
+    const common = treasureLoot(rules, 12345, 0);
+    for (const c of common.filter((c) => c.item !== 'scute')) expect(isl).toContainEqual(c);
+    const scute = isl.find((l) => l.item === 'scute')!;
+    expect(scute.count).toBeGreaterThanOrEqual(1);
     const desert = EXPEDITIONS.require('desert');
     expect(desert.treasureBonus).toEqual({ extraPicks: 1, always: [{ item: 'gold_ingot', min: 1, max: 2 }] });
     for (let i = 0; i < 20; i++) {

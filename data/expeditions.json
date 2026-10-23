@@ -47,6 +47,17 @@
       "durationSec": 600,
       "nightStartsAt": 360,
       "treasures": 3,
+      "treasureBonus": {
+        "_comment": "섬 상자엔 인갑(거북 껍데기 조각)이 꼭 (#214, 마인크래프트에선 바닷가 거북이 떨군다 — 거북은 아직 없어서). 인갑 5 = 거북 등딱지",
+        "extraPicks": 0,
+        "always": [
+          {
+            "item": "scute",
+            "min": 1,
+            "max": 2
+          }
+        ]
+      },
       "unlockedBy": "portal_1",
       "danger": 1,
       "materials": [

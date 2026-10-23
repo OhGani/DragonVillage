@@ -68,14 +68,14 @@
     ],
     "extra": [
       {
-        "id": "turtle_helmet",
+        "id": "turtle_shell",
         "name": "거북 등딱지",
         "slot": "helmet",
         "defense": 2,
         "toughness": 0,
         "station": "crafting_table",
         "in": { "scute": 5 },
-        "_note": "철 투구와 같은 방어. 물속 호흡은 아직 없음"
+        "_note": "철 투구와 같은 방어 (#214). 인갑 5 를 투구 모양으로. 인갑은 초원 섬 보물 상자에 1~2 개씩 꼭 들어 있다. 거북 도사의 물약 재료이기도 하다. 물속 호흡은 없다(우리 게임엔 숨 막힘이 없다)"
       }
     ]
   },

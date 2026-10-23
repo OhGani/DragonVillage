@@ -23,6 +23,7 @@ import {
   REJECT,
   type ServerBinary,
   treasureLoot,
+  treasureLootFor,
   VILLAGE_GEN_VERSION,
 } from '@dragon-village/shared';
 import { DRAGONS, EXPEDITIONS, BLOCKS } from '@dragon-village/shared/data';
@@ -1230,8 +1231,9 @@ describe('상자 (#84)', () => {
     a.clear();
     expect(room.openChest(ra.idx, t.x, t.y, t.z, 2000)).toBeNull();
     const slots = json(a)!.slots.filter(Boolean);
-    const loot = treasureLoot(EXPEDITIONS.rules.treasureChestLoot, room.expedition!.seed, 0); // 랜덤 보상 (#117, 시드로 결정)
+    const loot = treasureLootFor(EXPEDITIONS.rules.treasureChestLoot, EXPEDITIONS.require('grass_island'), room.expedition!.seed, 0); // 랜덤 보상 (#117) + 섬 인갑 (#214)
     expect(slots).toEqual(loot);
+    expect(loot.some((l) => l.item === 'scute')).toBe(true);
     expect(a.bin.find((m) => m.type === MSG.XpGained)).toMatchObject({ msg: { amount: 5, source: 2 } });
     // 두 번 열어도 또 생기지는 않는다
     a.clear();

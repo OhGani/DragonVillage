@@ -152,7 +152,10 @@ export function parseCombat(raw: unknown, fileName = 'data/combat.json'): Combat
   for (const e of d.armor.extra ?? []) {
     armor.set(e.id, { id: e.id, name: e.name, slot: e.slot, tier: e.id.replace(/_[a-z]+$/, ''), defense: e.defense, toughness: e.toughness, knockbackResist: 0, durability: 0 });
     names.set(e.id, e.name);
-    recipes.push(recipe(e.id, e.name, e.station, e.in, { [e.id]: 1 }));
+    // 재료가 하나면 그 부위 모양으로 (#214 거북 등딱지: 인갑 5 를 투구 모양)
+    const only = Object.keys(e.in);
+    const [ePat, eKey] = only.length === 1 ? shaped(e.station, e.in, ARMOR_PATTERN[e.slot], { m: only[0]! }) : [undefined, undefined];
+    recipes.push(recipe(e.id, e.name, e.station, e.in, { [e.id]: 1 }, ePat, eKey));
   }
   const shield: ShieldRule = { id: d.shield.id, name: d.shield.name, meleeBlock: d.shield.meleeBlock, arrowBlock: d.shield.arrowBlock, guardBlock: d.shield.guardBlock ?? 1, guardSlow: d.shield.guardSlow ?? 0.5, ignoredBy: d.shield.ignoredBy ?? [] };
   names.set(shield.id, shield.name);

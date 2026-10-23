@@ -29,7 +29,7 @@ describe('전투 장비 (M8-2, combat.json)', () => {
   it('장비 칸: 갑옷은 부위대로, 방패는 shield, 나머지는 null', () => {
     expect(equipSlotOf(COMBAT, 'golden_leggings')).toBe('leggings');
     expect(equipSlotOf(COMBAT, 'shield')).toBe('shield');
-    expect(equipSlotOf(COMBAT, 'turtle_helmet')).toBe('helmet');
+    expect(equipSlotOf(COMBAT, 'turtle_shell')).toBe('helmet'); // #214: 아들 그림·물약 재료와 같은 id
     expect(equipSlotOf(COMBAT, 'iron_sword')).toBeNull();
     expect(equipSlotOf(COMBAT, null)).toBeNull();
   });
