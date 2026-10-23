@@ -334,6 +334,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   let bossInfo: { x: number; z: number; hp: number; kind: MobKind } | null = null;
   // 원정 몹 (M7-2): 서버 상태를 그리고, 조준한 몹을 탭/클릭하면 때린다
   const mobView = new MobView(scene);
+  mobView.onFireHit = () => fireworkPop(); // 가스트·블레이즈 불덩이가 터지는 소리 (#215)
   let hitCooldown = 0;
   let stamina: { value: number; max: number; at: number; readyAt: number } | null = null;
   let serverClockOffset = 0; // 서버 now - 내 Date.now()

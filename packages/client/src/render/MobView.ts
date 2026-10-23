@@ -301,7 +301,9 @@ export class MobView {
   private readonly bursts: Burst[] = [];
   private readonly pops: Pop[] = [];
   /** 날아가는 화살 (M8-2): 0.25초 동안 from → to */
-  private readonly shots: { mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; born: number; ms: number }[] = [];
+  private readonly shots: { mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; born: number; ms: number; fire: boolean }[] = [];
+  /** 불덩이가 닿아 터질 때 (#215): Game 이 소리를 붙인다 */
+  onFireHit: (() => void) | null = null;
 
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
@@ -349,7 +351,7 @@ export class MobView {
     mesh.position.copy(f);
     mesh.lookAt(t);
     this.group.add(mesh);
-    this.shots.push({ mesh, from: f, to: t, born: -1, ms: fire ? 450 : 250 });
+    this.shots.push({ mesh, from: f, to: t, born: -1, ms: fire ? 450 : 250, fire });
   }
 
   /** 조준 안내용: 그 몹의 종류·상태 */
@@ -779,9 +781,20 @@ export class MobView {
       if (k >= 1) {
         this.group.remove(s.mesh);
         this.shots.splice(i, 1);
+        if (s.fire) {
+          // 불덩이 터짐 (#215, 아들 14차 7번 "불덩이(터짐)로 바꿀까?"): 닿는 자리에서 불꽃 + 연기가 흩어진다
+          this.burst(s.to.x, s.to.y, s.to.z, 0xff8a2a, 18, now);
+          this.burst(s.to.x, s.to.y, s.to.z, 0x4a4a4a, 8, now);
+          this.onFireHit?.();
+        }
         continue;
       }
       s.mesh.position.lerpVectors(s.from, s.to, k);
+      if (s.fire) {
+        // 날아가며 불꽃처럼 일렁인다
+        const w = 1 + 0.2 * Math.sin(now * 0.04);
+        s.mesh.scale.set(w, w, w);
+      }
     }
     for (let i = this.pops.length - 1; i >= 0; i--) {
       const p = this.pops[i]!;
