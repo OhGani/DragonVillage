@@ -177,7 +177,10 @@ import {
   WATER_BUCKET,
   WEEK_MS,
   XP_SOURCE,
-  xpAfterDeath, CRYSTAL_SHOT_RANGE } from '@dragon-village/shared';
+  xpAfterDeath, CRYSTAL_SHOT_RANGE,
+  GLASS_BOTTLE,
+  WATER_BOTTLE,
+} from '@dragon-village/shared';
 import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS, TRADES } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
@@ -1873,6 +1876,28 @@ export class VillageRoom {
     this.sendInv(p, changed);
     this.noteCodex(p, TRADES.currency, now);
     this.log(`마을 ${this.info.code}: ${p.nick} 주민 거래 ${kind} ${t.item}×${t.count} (💎 ${t.price})`);
+    return null;
+  }
+
+  /**
+   * 유리병에 물 담기 (#226, 아빠 2026-10-24 "병이 없어서 양조가 안 됨"): 유리병을 들고 물을 탭 → 물병 하나. 물은 안 없어진다(마인크래프트).
+   * 마을·원정 어디서나. 오류: NO_BOTTLE · NOT_WATER · TOO_FAR · BAG_FULL
+   */
+  fillBottle(idx: number, slot: number, x: number, y: number, z: number): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    const held = slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
+    if (held !== GLASS_BOTTLE) return 'NO_BOTTLE';
+    if (Math.hypot(x + 0.5 - p.pos.x, y + 0.5 - (p.pos.y + EYE), z + 0.5 - p.pos.z) > HIT_REACH + 1) return 'TOO_FAR';
+    const world = this.worldOf(p);
+    if (!world.inBounds(x, y, z) || this.registry.get(world.getBlock(x, y, z)).fluid !== 'water') return 'NOT_WATER';
+    const trial = cloneInventory(p.inv);
+    take(trial, GLASS_BOTTLE, 1);
+    if (!fits(trial, [{ item: WATER_BOTTLE, count: 1 }])) return 'BAG_FULL';
+    const changed = new Set<number>();
+    takeFromSlot(p.inv, slot, 1, changed);
+    this.giveTo(p, WATER_BOTTLE, 1, changed);
+    this.sendInv(p, changed);
     return null;
   }
 

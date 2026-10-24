@@ -414,6 +414,10 @@ export class NetClient {
   sendBoneMeal(x: number, y: number, z: number, slot: number): void {
     this.sendJson({ t: 'boneMeal', x, y, z, slot });
   }
+  /** 유리병에 물 담기 (#226) */
+  sendFillBottle(x: number, y: number, z: number, slot: number): void {
+    this.sendJson({ t: 'fillBottle', x, y, z, slot });
+  }
 
   /** 먹기 (#186) */
   sendEat(slot: number): void {

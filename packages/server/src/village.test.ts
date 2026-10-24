@@ -671,6 +671,38 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(room.firework(ia, p.pos.x + 40, p.pos.y, p.pos.z)).toBe('TOO_FAR');
   });
 
+  it('유리병에 물 담기 (#226): 유리병을 들고 물을 탭하면 물병 하나, 물은 그대로. 유리병 없으면·물 아니면·멀면 거절', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
+    const p = room.players.get(ia)!;
+    let wx = -1,
+      wy = -1,
+      wz = -1;
+    for (let z = 0; z < 128 && wx < 0; z++)
+      for (let x = 0; x < 128 && wx < 0; x++)
+        for (let y = GROUND_Y + 1; y >= GROUND_Y - 4; y--)
+          if (BLOCKS.get(room.world.getBlock(x, y, z)).fluid === 'water') {
+            wx = x;
+            wy = y;
+            wz = z;
+            break;
+          }
+    expect(wx).toBeGreaterThanOrEqual(0);
+    room.onMove(ia, { x: wx + 0.5, y: wy + 1, z: wz + 1.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.fillBottle(ia, 0, wx, wy, wz)).toBe('NO_BOTTLE');
+    room.giveItems(ia, 'glass_bottle', 2);
+    const slot = p.inv.findIndex((s) => s?.item === 'glass_bottle');
+    expect(room.fillBottle(ia, slot, wx, wy + 3, wz)).toBe('NOT_WATER');
+    expect(room.fillBottle(ia, slot, wx, wy, wz)).toBeNull();
+    expect(countOf(p.inv, 'water_bottle')).toBe(1);
+    expect(countOf(p.inv, 'glass_bottle')).toBe(1);
+    expect(BLOCKS.get(room.world.getBlock(wx, wy, wz)).fluid).toBe('water'); // 물은 그대로
+    room.onMove(ia, { x: wx + 20, y: wy + 1, z: wz + 1.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.fillBottle(ia, slot, wx, wy, wz)).toBe('TOO_FAR');
+  });
+
   it('주민 거래 (#225): 에메랄드로 사고 물건을 팔아 에메랄드를 받는다, 모자라면 거절, 멀면 TOO_FAR', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });

@@ -21,7 +21,7 @@ import {
   missing,
   potionFromItemId,
 } from '@dragon-village/shared';
-import { HOTBAR_SLOTS, INV_SLOTS } from '@dragon-village/shared';
+import { GLASS_BOTTLE, HOTBAR_SLOTS, INV_SLOTS } from '@dragon-village/shared';
 
 export interface BagDeps {
   recipes: RecipeRegistry;
@@ -39,6 +39,8 @@ export interface BagDeps {
   onDrop(slot: number, count: number): void;
   onCraft(recipe: string): void;
   onBrew(bottles: number[], ingredient: number): void;
+  /** 안내 말풍선 (#226 유리병) */
+  onHint?(text: string): void;
   onClose(): void;
   /** 장비 (M8-2): 지금 입은 것, 아이템이 들어가는 칸, 방어 합, 입기/벗기 요청 */
   equipment(): Readonly<Record<string, string | null>>;
@@ -294,6 +296,11 @@ export class BagView {
     if (this.tab === 'brew') {
       // 양조: 물병·물약 칸은 병으로(3개까지), 그 외는 재료로
       if (!s) return;
+      if (s.item === GLASS_BOTTLE) {
+        // 빈 유리병은 병 칸에 못 들어간다 (#226): 물을 담아 와야 한다
+        this.deps.onHint?.('🧪 빈 유리병이에요 — 유리병을 들고 강이나 연못 물을 탭하면 물병이 돼요');
+        return;
+      }
       if (isPotionItem(s.item)) {
         const k = this.bottles.indexOf(i);
         if (k >= 0) this.bottles.splice(k, 1);
@@ -793,7 +800,7 @@ export class BagView {
     box.appendChild(head);
     const tip = document.createElement('div');
     tip.className = 'bag-tip';
-    tip.textContent = `가방에서 물병·물약을 탭하면 병 칸(최대 ${stand.bottles}개), 다른 것을 탭하면 재료. 연료: ${this.deps.nameOf(stand.fuel)} 1개 = ${stand.brewsPerFuel}번`;
+    tip.textContent = `가방에서 물병·물약을 탭하면 병 칸(최대 ${stand.bottles}개), 다른 것을 탭하면 재료. 물병은 유리병을 들고 물을 탭하면 돼요. 연료: ${this.deps.nameOf(stand.fuel)} 1개 = ${stand.brewsPerFuel}번`;
     box.appendChild(tip);
     const ing = this.ingredient >= 0 ? this.inv[this.ingredient] : null;
     const preview = document.createElement('ul');

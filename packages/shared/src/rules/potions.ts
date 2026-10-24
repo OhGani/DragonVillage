@@ -13,6 +13,8 @@ const Id = z.string().regex(NAME_RE, '영문 소문자·숫자·밑줄(_)만 쓸
 
 /** 물약 상태 id 두 개는 JSON 의 potions 가 아니라 base 에 있다 */
 export const WATER_BOTTLE = 'water_bottle';
+/** 빈 유리병 (#226): 들고 물을 탭하면 물병 */
+export const GLASS_BOTTLE = 'glass_bottle';
 export const AWKWARD = 'awkward';
 
 export const MODIFIER_KINDS = ['extend', 'amplify', 'splash', 'lingering', 'corrupt'] as const;

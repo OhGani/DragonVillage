@@ -5,6 +5,7 @@ import {
   BOAT,
   bodyOverlapsBlock,
   BONE_MEAL,
+  GLASS_BOTTLE,
   breakSeconds,
   BUCKET,
   canPlantUpward,
@@ -44,6 +45,8 @@ export interface InteractionEvents {
   onHint?(text: string): void;
   /** 뼛가루를 그 자리 작물에 (#193) */
   onBoneMeal?(x: number, y: number, z: number): void;
+  /** 유리병을 들고 물을 탭 (#226) */
+  onFillBottle?(x: number, y: number, z: number): void;
   /** TNT 에 불 (#195) */
   onIgnite?(x: number, y: number, z: number): void;
   /** 상자를 탭했다 (#84) — 놓기 대신 연다 */
@@ -167,7 +170,7 @@ export class Interaction {
   }
 
   get bucketMode(): boolean {
-    if (this.heldItem === BUCKET || this.heldItem === BOAT) return true; // 보트도 물을 겨냥해야 한다 (#209)
+    if (this.heldItem === BUCKET || this.heldItem === BOAT || this.heldItem === GLASS_BOTTLE) return true; // 보트·유리병도 물을 겨냥해야 한다 (#209·#226)
     return this.selectedBlock > 0 && this.registry.get(this.selectedBlock).fluid !== null;
   }
 
@@ -204,7 +207,10 @@ export class Interaction {
         this.progress = 0;
         // 가득한 칸은 빈 양동이를 들고 있어야 뜬다(물·용암 양동이를 들고는 붓기만). 얕은 웅덩이는 그냥 닦인다
         const canScoop = def.fluidLevel === 0 ? this.heldItem === BUCKET : def.fluidVolume > 0 && this.heldItem !== BOAT;
-        if (!canScoop && this.hintKey !== key && this.heldItem !== BOAT) {
+        if (!canScoop && this.hintKey !== key && this.heldItem === GLASS_BOTTLE) {
+          this.hintKey = key;
+          this.events.onHint?.('🧪 유리병은 꾹 누르지 말고 톡 탭하면 물병이 돼요'); // #226
+        } else if (!canScoop && this.hintKey !== key && this.heldItem !== BOAT) {
           // 왜 안 떠지는지 알려 준다 (아빠 2026-10-10 "용암이 양동이로 안 떠짐"): 흐르는 것은 원천이 아니고, 원천은 빈 양동이라야
           this.hintKey = key;
           const name = def.fluid === 'lava' ? '용암' : '물';
@@ -284,6 +290,14 @@ export class Interaction {
       if (t) this.events.onFirework?.(t.x + 0.5 + t.nx * 0.5, t.y + 0.5 + t.ny * 0.6, t.z + 0.5 + t.nz * 0.5);
       else this.events.onFirework?.(this.player.pos.x + this.player.lookDir.x * 2.5, this.player.pos.y + 0.2, this.player.pos.z + this.player.lookDir.z * 2.5);
       this.events.onSwing();
+      return;
+    }
+    // 유리병 (#226, 아빠 "병이 없어서 양조가 안 됨"): 들고 물을 탭하면 물병 — 양조의 시작
+    if (t && this.heldItem === GLASS_BOTTLE) {
+      if (this.registry.get(t.id).fluid === 'water') {
+        this.events.onFillBottle?.(t.x, t.y, t.z);
+        this.events.onSwing();
+      } else this.events.onHint?.('🧪 유리병을 들고 물(강·연못)을 탭하면 물병이 돼요');
       return;
     }
     // 보트 (#209): 보트를 들고 물을 탭하면 띄운다. 물이 아니면 안내

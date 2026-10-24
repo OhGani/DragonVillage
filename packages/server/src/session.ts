@@ -450,6 +450,14 @@ export class Session {
         if (err) return this.error(err, err === 'NO_FLINT' ? '라이터를 들고 탭해요' : err === 'NOT_TNT' ? 'TNT 에만 불을 붙여요' : err === 'TOO_FAR' ? '너무 멀어요 — 가까이 가요' : '지금은 할 수 없어요');
         return;
       }
+      case 'fillBottle': {
+        // 유리병에 물 담기 (#226)
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.x) || !Number.isInteger(msg.y) || !Number.isInteger(msg.z) || !Number.isInteger(msg.slot)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.fillBottle(this.idx, msg.slot as number, msg.x as number, msg.y as number, msg.z as number);
+        if (err) return this.error(err, err === 'NO_BOTTLE' ? '유리병을 들고 탭해요' : err === 'NOT_WATER' ? '물을 탭해야 물병이 돼요' : err === 'TOO_FAR' ? '너무 멀어요 — 가까이 가요' : err === 'BAG_FULL' ? '가방이 가득 찼어요' : '지금은 할 수 없어요');
+        return;
+      }
       case 'boneMeal': {
         // 뼛가루 (#193)
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');

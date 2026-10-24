@@ -428,6 +428,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     armorDefense: () => armorTotals(COMBAT, myEquip).defense,
     onEquip: (slot) => net.sendEquip(slot),
     onUnequip: (part) => net.sendUnequip(part),
+    onHint: (text) => hud.toast(text, 3000), // 양조 탭 안내 (#226)
     onBrew: (bottles, ingredient) => {
       net.sendBrew(bottles, ingredient);
       bag.clearBrewSelection();
@@ -597,6 +598,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       },
       onBoneMeal: (x, y, z) => {
         net.sendBoneMeal(x, y, z, hud.selectedIndex); // 뼛가루 (#193)
+      },
+      onFillBottle: (x, y, z) => {
+        net.sendFillBottle(x, y, z, hud.selectedIndex); // 유리병 → 물병 (#226)
+        hud.toast('🧪 물병이 됐어요 — 양조기에서 네더 사마귀부터', 2000);
       },
       onBroken: (x, y, z, prev) => {
         light.markChanged(x, y, z);
