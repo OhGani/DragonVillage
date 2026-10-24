@@ -577,7 +577,9 @@
     {
       "id": "snow_golem",
       "name": "눈 골렘",
-      "habitat": "snowfield"
+      "habitat": "snowfield",
+      "drops": [["snowball", [0, 2], 1.0]],
+      "_note": "살아 있는 눈 골렘 (#223, 아들 14차 5번): 설원 포탈 둘레에 셋. 먼저 공격하지 않고, 때리면 20초 동안 눈덩이를 던진다 — 맞아도 하트는 안 닳고 밀려나기만"
     }
   ],
   "spawner": {

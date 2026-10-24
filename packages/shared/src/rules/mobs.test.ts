@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MOBS } from './data';
-import { BOSS_KIND, MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, isBoss, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob, bossMinionKind } from './mobs';
+import { BOSS_KIND, MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, isBoss, isLookingAt, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob, bossMinionKind } from './mobs';
 
 const flat = () => 41; // 어디나 발 높이 41
 
@@ -196,5 +196,21 @@ describe('거미와 원정지별 몹 (M7-3)', () => {
     m.y = 27;
     stepMob(m, MOBS.get('zombie'), { x: 110, y: 27, z: 100 }, 0.1, 1000, g);
     expect(seen.at(-1)).toBe(27);
+  });
+});
+
+describe('쳐다보기 (#222 엔더맨)', () => {
+  const me = { x: 0, z: 0, eyeY: 1.6, yaw: 0, pitch: 0 };
+  it('yaw 0 은 -z 를 본다: 앞 10칸은 보고, 옆·뒤·너무 먼 건 안 본다', () => {
+    expect(isLookingAt(me, { x: 0, y: 0, z: -10, kind: 'enderman' })).toBe(true);
+    expect(isLookingAt(me, { x: 0, y: 0, z: 10, kind: 'enderman' })).toBe(false);
+    expect(isLookingAt(me, { x: 10, y: 0, z: 0, kind: 'enderman' })).toBe(false);
+    expect(isLookingAt(me, { x: 0, y: 0, z: -40, kind: 'enderman' })).toBe(false);
+    expect(isLookingAt({ ...me, yaw: Math.PI }, { x: 0, y: 0, z: 10, kind: 'enderman' })).toBe(true);
+    expect(isLookingAt({ ...me, yaw: Math.PI / 2 }, { x: -10, y: 0, z: 0, kind: 'enderman' })).toBe(true);
+  });
+  it('조금만 빗나가도 아니다 (8°)', () => {
+    expect(isLookingAt(me, { x: 2, y: 0, z: -10, kind: 'enderman' })).toBe(false);
+    expect(isLookingAt(me, { x: 0.3, y: 0, z: -10, kind: 'enderman' })).toBe(true);
   });
 });

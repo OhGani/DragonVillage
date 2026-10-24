@@ -173,7 +173,9 @@ export interface NetEvents {
   /** 엔딩 포탈이 열렸다 (#170) */
   onEnding(at: { x: number; y: number; z: number }): void;
   /** 몹이 쏜 화살 (M8-2 3차) */
-  onArrow(m: { from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean }): void;
+  onArrow(m: { from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean; snow?: boolean }): void;
+  /** 피해 없이 밀린다 (#223) */
+  onKnock(m: { x: number; z: number; power: number }): void;
   /** 마을 방어전 상태 (M7-5). null = 끝/없음 */
   onRaid(raid: RaidStateInfo | null): void;
   /** 누가 빔을 쐈다 (M6-5) */
@@ -195,7 +197,7 @@ export interface NetEvents {
   onOrbGone(id: number, by: number): void;
   /** 원정 몹 상태 (20Hz, M7-2) */
   onMobs(list: MobEntry[]): void;
-  onMobEvent(m: { ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk'; id: number; mob: string; x: number; y: number; z: number; dmg?: number }): void;
+  onMobEvent(m: { ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk' | 'stare' | 'teleport' | 'heal'; id: number; mob: string; x: number; y: number; z: number; dmg?: number }): void;
   onDismount(idx: number): void;
 }
 
@@ -623,6 +625,7 @@ export class NetClient {
     else if (msg.t === 'sleep') ev.onSleep(msg);
     else if (msg.t === 'firework') ev.onFirework(msg);
     else if (msg.t === 'arrow') ev.onArrow(msg);
+    else if (msg.t === 'knock') ev.onKnock(msg);
     else if (msg.t === 'pets') ev.onPets(msg.list);
     else if (msg.t === 'companions') ev.onCompanions(msg.list);
     else if (msg.t === 'ending') ev.onEnding({ x: msg.x, y: msg.y, z: msg.z });

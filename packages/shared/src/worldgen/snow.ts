@@ -23,7 +23,7 @@ import type { SpawnPoint } from './village';
 
 export const SNOW_BOUNDS: WorldBounds = { sizeCX: 16, sizeCY: 6, sizeCZ: 16 };
 /** 생성기를 고치면 올린다 (클라·서버 버전 불일치 감지) */
-export const SNOW_GEN_VERSION = 1;
+export const SNOW_GEN_VERSION = 2; // 2: 눈 골렘 조각상 → 살아 있는 몹 (#223)
 /** 평균 땅 높이 */
 export const SNOW_GROUND_Y = 40;
 /** 호수 얼음 높이 — 이 아래로 꺼진 땅은 물이 차고 맨 위가 얼음 */
@@ -41,7 +41,7 @@ const IGLOO_R = 4.5;
 export interface SnowLayout extends IslandLayout {
   /** 이글루 가운데(바닥 높이) */
   igloos: { x: number; y: number; z: number }[];
-  /** 눈 골렘 조각상 발 자리 */
+  /** 눈 골렘 발 자리 (살아 있는 몹, #223) */
   golems: { x: number; y: number; z: number }[];
 }
 
@@ -73,7 +73,6 @@ export function generateSnow(registry: BlockRegistry, seed: number, treasures = 
     glowstone = B('glowstone'),
     chest = B('chest'),
     torch = B('torch'),
-    pumpkin = B('carved_pumpkin'),
     coal = B('coal_ore'),
     iron = B('iron_ore'),
     lapis = B('lapis_ore');
@@ -202,16 +201,13 @@ export function generateSnow(registry: BlockRegistry, seed: number, treasures = 
   const keepClear: { x: number; z: number; r: number }[] = [{ x: CENTER, z: CENTER, r: PORTAL_FLAT_R + 6 }];
   const isClear = (x: number, z: number, extra = 0) => keepClear.every((c) => Math.hypot(c.x - x, c.z - z) > c.r + extra);
 
-  // ---- 눈 골렘 조각상 셋: 포탈 둘레 11칸 ----
+  // ---- 눈 골렘 셋: 포탈 둘레 11칸 — 조각상이 아니라 살아 있는 몹이 선다 (#223, 서버가 spawns 로 세운다). 자리만 적는다
   const golems: SnowLayout['golems'] = [];
   for (let i = 0; i < 3; i++) {
     const a = (i / 3) * Math.PI * 2 + 0.6;
     const gx = Math.round(CENTER + Math.cos(a) * 11),
       gz = Math.round(CENTER + Math.sin(a) * 11);
     const h = hAt(gx, gz);
-    set(gx, h + 1, gz, snow);
-    set(gx, h + 2, gz, snow);
-    set(gx, h + 3, gz, pumpkin);
     golems.push({ x: gx, y: h + 1, z: gz });
   }
 

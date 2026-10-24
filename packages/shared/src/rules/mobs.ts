@@ -15,12 +15,12 @@ import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
 import { hash3 } from '../math/prng';
 
-export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat';
-export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat'];
-export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24 };
-export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat'];
+export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat' | 'snow_golem';
+export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem'];
+export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24, snow_golem: 25 };
+export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem'];
 /** 순한 동물 (마을, M8-1). 규칙은 animals.ts */
-const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'iron_golem', 'boat']; // 보트도 passive 목록에서 드롭을 읽는다 (#209)
+const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem']; // 보트도 passive 목록에서 드롭을 읽는다 (#209)
 
 /** 굴 보스 (M7-4, 거미 왕). 보스는 밤 스폰 목록에 안 들어가고, 원정지 구조물(거미 굴)에 하나만. 소환사(M7-5)는 방어전 마지막 파도의 보스 */
 export const BOSS_KIND: MobKind = 'spider_king';
@@ -116,7 +116,7 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   wither_skeleton: { id: 'wither_skeleton', hp: 20, damage: 4, speed: 2.3, reach: 1.9, attackEveryMs: 2000, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   ghast: { id: 'ghast', hp: 10, damage: 5, speed: 1.4, reach: 14, attackEveryMs: 4000, fuseMs: 0, explodeRadius: 0, poisonMs: 0, hover: 6 },
   // 엔드 (v1.1-4, #162): 엔더 드래곤 — 사람 위 7칸에서 5초마다 내려꽂히며 문다(6). 엔더맨을 부른다. hp·xp·드롭은 bosses.json
-  ender_dragon: { id: 'ender_dragon', hp: 200, damage: 6, speed: 6, reach: 3.5, attackEveryMs: 3000, fuseMs: 0, explodeRadius: 0, poisonMs: 0, hover: 7, swoop: 5000 },
+  ender_dragon: { id: 'ender_dragon', hp: 300, damage: 7, speed: 6, reach: 3.5, attackEveryMs: 3000, fuseMs: 0, explodeRadius: 0, poisonMs: 0, hover: 7, swoop: 5000 }, // hp 300·물면 7 (#224)
   // 말 (v1.1-5, #166): 마을 숲 동물. 안장을 씌우면 내 말, 빈손 탭으로 탄다
   horse: { id: 'horse', hp: 15, damage: 0, speed: 2.2, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   // 주민 (v1.1, #168): 마을 남서쪽 주민 집 세 채에 산다. 때릴 수 없고, 빵을 주면 아기 주민
@@ -125,6 +125,8 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   iron_golem: { id: 'iron_golem', hp: 100, damage: 7, speed: 2.5, reach: 2.2, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   // 보트 (#209): 탈것. 안 움직이고 안 때린다, 몇 대 치면 부서져 아이템으로
   boat: { id: 'boat', hp: 4, damage: 0, speed: 0, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  // 눈 골렘 (#223, 아들 14차 5번): 설원 포탈 둘레에 산다. 중립 — 먼저 안 덤비고, 맞으면 20초 동안 눈덩이를 던진다(8칸). 피해 0, 맞으면 밀려날 뿐
+  snow_golem: { id: 'snow_golem', hp: 10, damage: 0, speed: 2.0, reach: 8, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 0, neutral: true },
 };
 
 const RawPassive = z
@@ -274,6 +276,7 @@ export const SPAWN_EVERY_MS = 4000;
 export const MOB_SIZE = { w: 0.6, h: 1.9 } as const;
 export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = {
   boat: { w: 1.4, h: 0.6 }, // 보트 (#209): 납작하고 길다
+  snow_golem: { w: 0.7, h: 1.3 }, // 눈 골렘 (#223): 눈 둘 + 호박 머리
   zombie: MOB_SIZE,
   creeper: MOB_SIZE,
   spider: { w: 1.4, h: 0.9 },
@@ -309,6 +312,8 @@ export function isRangedMob(def: { reach: number }): boolean {
 }
 /** 독: 초당 1 */
 export const POISON_EVERY_MS = 1000;
+/** 엔드 수정 (#224): 활을 들고 이 거리까지 겨눠 쏘면 깨진다 */
+export const CRYSTAL_SHOT_RANGE = 40;
 export const POISON_DAMAGE = 1;
 /** 중립 몹이 맞고 화나 있는 시간 (#161) */
 export const ANGRY_MS = 20_000;
@@ -346,6 +351,11 @@ export interface MobState {
   lastAttackAt: number;
   /** 중립 몹(좀비 피글린): 이 시각까지 화나 있다 — 맞으면 20초 (#161) */
   angryUntil?: number;
+  /** 철 골렘 (#221): 이 사람만 쫓는다(주민을 때린 사람). despawnAt 이 지나면 사라진다 */
+  grudge?: number;
+  despawnAt?: number;
+  /** 엔더맨 (#222): 다음 순간이동 가능 시각 */
+  nextTeleportAt?: number;
 }
 
 /** 통신용 (MobsState) */
@@ -448,6 +458,22 @@ export function stepMob(m: MobState, def: MobDef, target: { x: number; y: number
     }
   }
   return null;
+}
+
+/**
+ * 사람이 몹을 쳐다보고 있나 (#222 엔더맨, 아들 14차 2번 "쳐다보면 화남"): 눈에서 몹 가슴점까지가 maxDist 안이고 시선과 8° 안.
+ * yaw 0 = -z 를 본다(플레이어 인형과 같은 규약), pitch 는 위가 +
+ */
+export function isLookingAt(p: { x: number; z: number; eyeY: number; yaw: number; pitch: number }, m: { x: number; y: number; z: number; kind: MobKind }, maxDist = 24, cosLimit = 0.99): boolean {
+  const cx = m.x - p.x,
+    cy = m.y + mobSize(m.kind).h * 0.5 - p.eyeY,
+    cz = m.z - p.z;
+  const d = Math.hypot(cx, cy, cz);
+  if (d < 0.01 || d > maxDist) return false;
+  const fx = -Math.sin(p.yaw) * Math.cos(p.pitch),
+    fy = Math.sin(p.pitch),
+    fz = -Math.cos(p.yaw) * Math.cos(p.pitch);
+  return (cx * fx + cy * fy + cz * fz) / d >= cosLimit;
 }
 
 /** 폭발 피해: 가운데 damage, 반지름에서 0 */

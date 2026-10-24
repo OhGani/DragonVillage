@@ -9,7 +9,7 @@ import { portalContains } from './island';
 
 const SEED = 777;
 /** 생성기를 바꾸면 갱신. (chunks 수, 지문) */
-const SNAPSHOT = '483:8e08dbd7:324492';
+const SNAPSHOT = '483:f8956dab:324492';
 
 const gen = generateEnd(BLOCKS, SEED, 2);
 const { world, spawn, layout } = gen;
@@ -90,9 +90,11 @@ describe('generateEnd 배치', () => {
     expect(id(d.x, d.y, d.z)).toBe('air');
     expect(id(d.x + 2, d.y - 3, d.z + 2)).toBe('bedrock');
     expect(layout.pillars.length).toBe(PILLAR_COUNT);
+    expect(layout.crystals.length).toBe(PILLAR_COUNT); // 엔드 수정 (#224)
     for (const p of layout.pillars) {
       const t = topOf(p.x, p.z);
-      expect(id(p.x, t, p.z)).toBe('glowstone');
+      expect(id(p.x, t, p.z)).toBe('end_crystal');
+      expect(layout.crystals).toContainEqual({ x: p.x, y: t, z: p.z });
       expect(id(p.x, t - 1, p.z)).toBe('obsidian');
       expect(id(p.x + 1, t - 1, p.z + 1)).toBe('obsidian');
       expect(t - 1 - (SURFACE_Y - 3)).toBeGreaterThanOrEqual(16);

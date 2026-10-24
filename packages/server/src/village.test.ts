@@ -24,8 +24,7 @@ import {
   type ServerBinary,
   treasureLoot,
   treasureLootFor,
-  VILLAGE_GEN_VERSION,
-} from '@dragon-village/shared';
+  VILLAGE_GEN_VERSION, MOB_KIND_NUM } from '@dragon-village/shared';
 import { DRAGONS, EXPEDITIONS, BLOCKS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
 import { Storage } from './storage';
@@ -670,6 +669,31 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(m).toBeTruthy();
     expect(typeof m!.seed).toBe('number');
     expect(room.firework(ia, p.pos.x + 40, p.pos.y, p.pos.z)).toBe('TOO_FAR');
+  });
+
+  it('주민을 때리면 철 골렘 (#221, 아들 14차 11번): 주민은 안 다치고, 골렘이 때린 사람만 쫓다가 30초 뒤 사라진다', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
+    const p = room.players.get(ia)!;
+    const v = room.animals.entries(1000).find((e) => e.kind === MOB_KIND_NUM.villager)!;
+    expect(v).toBeDefined();
+    room.onMove(ia, { x: v.x + 1.5, y: v.y, z: v.z, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.hitMob(ia, v.id, undefined, 1000)).toBe('VILLAGER');
+    expect(room.guardMobs).not.toBeNull();
+    const golem = [...room.guardMobs!.mobs.values()][0]!;
+    expect(golem.kind).toBe('iron_golem');
+    expect(golem.grudge).toBe(ia);
+    expect(a.json.some((m) => m.t === 'error' && m.code === 'GOLEM_ANGRY')).toBe(true);
+    expect(room.hitMob(ia, v.id, undefined, 1500)).toBe('VILLAGER'); // 또 때려도 30초 안엔 한 마리만
+    expect(room.guardMobs!.mobs.size).toBe(1);
+    const hp0 = p.hp;
+    for (let t = 1100; t < 6000; t += TICK_MS) room.tick(t);
+    expect(p.hp).toBeLessThan(hp0); // 골렘한테 맞았다
+    expect(p.hp).toBeGreaterThan(0); // 3씩 2초마다 — 바로 죽지는 않는다
+    for (let t = 6000; t < 40_000; t += TICK_MS) room.tick(t);
+    expect(room.guardMobs).toBeNull(); // 30초 뒤 사라진다
   });
 
   it('감자 농사 (#212): 감자를 들고 농지에 심으면 싹, 8분 뒤 익은 감자, 부수면 감자 1~4', () => {

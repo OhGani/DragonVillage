@@ -1232,6 +1232,18 @@
       "lightEmit": 0,
       "texture": "potato_ripe",
       "_note": "부수면 감자 1~4 (마인크래프트). 독 감자는 좀비가 가끔 떨군다"
+    },
+    {
+      "id": "end_crystal",
+      "name": "엔드 수정",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "drops": null,
+      "lightEmit": 12,
+      "shape": "cross",
+      "texture": "end_crystal",
+      "_note": "엔드 흑요석 기둥 꼭대기 8개 (#224, 아들 14차 8번 '엔더 드래곤 회복도 있어'): 남아 있는 만큼 드래곤이 1초마다 회복한다(셋에 1). 활을 들고 겨눠 쏘면 40칸에서도 깨진다(마인크래프트처럼). 아이템으로는 안 나온다"
     }
   ]
 }

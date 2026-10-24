@@ -9,7 +9,7 @@ import { LAKE_Y, SNOW_BOUNDS, SNOW_GROUND_Y, generateSnow } from './snow';
 
 const SEED = 777;
 /** 생성기를 바꾸면 갱신. (chunks 수, 지문) */
-const SNAPSHOT = '1161:6e07a02a:3614224';
+const SNAPSHOT = '1161:3f59a9c2:3614215';
 
 const gen = generateSnow(BLOCKS, SEED, 3);
 const { world, spawn, layout } = gen;
@@ -104,10 +104,11 @@ describe('generateSnow 배치', () => {
     expect(portalContains(p, p.x, p.y + 1, p.z + 0.5)).toBe(true);
     expect(layout.golems.length).toBe(3);
     for (const g of layout.golems) {
-      expect(id(g.x, g.y, g.z)).toBe('snow_block');
-      expect(id(g.x, g.y + 1, g.z)).toBe('snow_block');
-      expect(id(g.x, g.y + 2, g.z)).toBe('carved_pumpkin');
+      // 조각상이 아니라 살아 있는 눈 골렘 자리 (#223): 비어 있고 땅 위
+      expect(id(g.x, g.y, g.z)).toBe('air');
+      expect(id(g.x, g.y - 1, g.z)).not.toBe('air');
     }
+    expect(generateExpedition(EXPEDITIONS.require('snowfield'), BLOCKS, SEED).spawns.map((s) => s.kind)).toEqual(['snow_golem', 'snow_golem', 'snow_golem']);
   });
 
   it('얼어붙은 호수: 얼음 아래 물, 호수에 서 있는 나무는 없다', () => {

@@ -642,6 +642,12 @@ export class AnimalSystem {
   }
 
   /** 주민 자리 (#169): 방어전 때 철 골렘이 설 곳 */
+  /** 동물·주민 하나의 자리 (#221 철 골렘이 설 곳). 없으면 null */
+  positionOf(mobId: number): { x: number; y: number; z: number } | null {
+    const a = this.find(mobId);
+    return a ? { x: a.x, y: a.y, z: a.z } : null;
+  }
+
   villagerPositions(): { x: number; y: number; z: number }[] {
     return [...this.animals.values()].filter((a) => a.kind === 'villager' && !a.away).map((a) => ({ x: a.x, y: a.y, z: a.z }));
   }

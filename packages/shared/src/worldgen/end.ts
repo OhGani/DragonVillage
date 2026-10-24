@@ -23,7 +23,7 @@ import type { SpawnPoint } from './village';
 
 export const END_BOUNDS: WorldBounds = { sizeCX: 16, sizeCY: 6, sizeCZ: 16 };
 /** 생성기를 고치면 올린다 (클라·서버 버전 불일치 감지) */
-export const END_GEN_VERSION = 1;
+export const END_GEN_VERSION = 2; // 2: 기둥 꼭대기 발광석 → 엔드 수정 (#224)
 /** 섬 윗면 높이 */
 export const SURFACE_Y = 50;
 /** 섬 반지름 */
@@ -43,6 +43,8 @@ export interface EndLayout extends IslandLayout {
   den: { x: number; y: number; z: number };
   /** 흑요석 기둥 발 자리와 높이 */
   pillars: { x: number; z: number; h: number }[];
+  /** 기둥 꼭대기 엔드 수정 자리 (#224) */
+  crystals: { x: number; y: number; z: number }[];
   /** 엔드 시티 탑 가운데(바닥 높이) */
   city: { x: number; y: number; z: number };
 }
@@ -67,6 +69,7 @@ export function generateEnd(registry: BlockRegistry, seed: number, treasures = 2
     cobble = B('cobblestone'),
     obsidian = B('obsidian'),
     glowstone = B('glowstone'),
+    crystal = B('end_crystal'),
     quartz = B('quartz_block'),
     glass = B('glass'),
     chest = B('chest'),
@@ -173,6 +176,7 @@ export function generateEnd(registry: BlockRegistry, seed: number, treasures = 2
 
   // ---- 흑요석 기둥 8개 ----
   const pillars: EndLayout['pillars'] = [];
+  const crystals: EndLayout['crystals'] = [];
   for (let i = 0; i < PILLAR_COUNT; i++) {
     const a = (i / PILLAR_COUNT) * Math.PI * 2 + 0.2;
     const px = Math.round(CENTER + Math.cos(a) * PILLAR_R),
@@ -180,7 +184,8 @@ export function generateEnd(registry: BlockRegistry, seed: number, treasures = 2
     const base = terrace(px, pz, 2, 4);
     const h = 16 + ((i * 5 + (seed % 7)) % 19);
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (let y = base + 1; y <= base + h; y++) set(px + dx, y, pz + dz, obsidian);
-    set(px, base + h + 1, pz, glowstone);
+    set(px, base + h + 1, pz, crystal); // 엔드 수정 (#224): 남아 있는 만큼 드래곤이 회복한다 — 활로 쏴서 깬다
+    crystals.push({ x: px, y: base + h + 1, z: pz });
     pillars.push({ x: px, z: pz, h });
   }
 
@@ -238,7 +243,7 @@ export function generateEnd(registry: BlockRegistry, seed: number, treasures = 2
   const city = { x: KX, y: floor, z: KZ };
 
   const spawn: SpawnPoint = { x: PX + 0.5, y: PY + 1, z: PZ + 3.5, yaw: 0 };
-  const layout: EndLayout = { center: { x: CENTER, z: CENTER }, portal, treasures: treasureChests, den, pillars, city };
+  const layout: EndLayout = { center: { x: CENTER, z: CENTER }, portal, treasures: treasureChests, den, pillars, crystals, city };
   const ms = typeof performance !== 'undefined' ? performance.now() - t0 : 0;
   return { world, spawn, layout, ms };
 }

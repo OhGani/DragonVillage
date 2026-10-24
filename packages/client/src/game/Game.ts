@@ -77,6 +77,8 @@ import {
   unlockedBetween,
   type VoxelWorld,
   xpProgress,
+  raycastVoxels,
+  CRYSTAL_SHOT_RANGE,
 } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP } from '@dragon-village/shared/data';
 import * as THREE from 'three';
@@ -526,6 +528,24 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     net.sendBlockChange({ seq, x, y, z, id: registry.get(newNum).id, slot: hud.selectedIndex });
     if (pending.size > 200) pending.delete(pending.keys().next().value!); // 응답이 영영 안 오면 오래된 것부터 잊는다
   };
+  /** 엔드 수정 (#224): 활을 들고 겨눈 수정이 40칸 안이면 깬다 (화살은 안 쓴다). 깼으면 true */
+  const shootCrystal = (): boolean => {
+    const w = ctx.world;
+    const eye = ctx.player.eye,
+      dir = ctx.player.lookDir;
+    const hit = raycastVoxels((x, y, z) => w.getBlock(x, y, z), (id) => id !== AIR_ID, eye.x, eye.y, eye.z, dir.x, dir.y, dir.z, CRYSTAL_SHOT_RANGE);
+    if (!hit) return false;
+    const prev = w.getBlock(hit.x, hit.y, hit.z);
+    if (registry.get(prev).id !== 'end_crystal') return false;
+    const res = w.setBlock(hit.x, hit.y, hit.z, AIR_ID);
+    if (!res.changed) return false;
+    ctx.chunks.markDirtyAll(res.dirty);
+    ctx.light.markChanged(hit.x, hit.y, hit.z);
+    sendBlock(hit.x, hit.y, hit.z, AIR_ID, prev);
+    particles.burst(hit.x, hit.y, hit.z, blockColor(prev));
+    hud.toast('💎 엔드 수정을 쐈어요!', 1200);
+    return true;
+  };
   const forgetPendingAt = (x: number, y: number, z: number) => {
     for (const [k, v] of pending) if (v.x === x && v.y === y && v.z === z) pending.delete(k);
   };
@@ -813,7 +833,16 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       hud.setGuardAvailable(myEquip.shield !== null);
       bag.refresh();
     },
-    onArrow: (m) => mobView.shot(m.from, m.to, m.fire === true), // 스켈레톤·약탈자 화살, 가스트·블레이즈 불덩이 (#173)
+    onArrow: (m) => mobView.shot(m.from, m.to, m.fire === true, m.snow === true), // 스켈레톤·약탈자 화살, 가스트·블레이즈 불덩이 (#173), 눈 골렘 눈덩이 (#223)
+    onKnock: (m) => {
+      // 눈덩이에 맞았다 (#223, 아들 14차 5번 "맞아도 에너지는 안 닳고 밀쳐짐"): 하트는 그대로, 뒤로 튕긴다
+      const pl = ctx.player;
+      pl.vel.x += m.x * m.power;
+      pl.vel.z += m.z * m.power;
+      pl.vel.y = Math.max(pl.vel.y, 4);
+      hitSound();
+      hud.toast('☃️ 눈덩이에 맞았어요 — 밀려났어요', 1200);
+    },
     onDragonHp: (m) => hud.setDragonHp(m.hp, m.max),
     onDragonDown: (m) => {
       const name = DRAGONS.find(m.dragon)?.name ?? m.dragon;
@@ -986,6 +1015,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         hud.hurtFlash();
         hurtSound();
         if (m.cause === 'poison') hud.toast('🕷️ 독에 물렸어요 — 잠깐 아파요', 1500);
+        if (m.cause === 'iron_golem') hud.toast('🗿 철 골렘한테 맞았어요 — 주민을 때리면 안 돼요', 1500); // #221
         if (m.cause === 'husk') {
           // 허스크 (#218, 아들 14차 3번 "느려짐"): 모래가 묻어 4초 동안 느리다
           ctx.player.slowLeft = HUSK_SLOW_SEC;
@@ -1040,6 +1070,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         roar();
         hud.hurtFlash();
       } else if (m.ev === 'summon') roar();
+      else if (m.ev === 'stare') {
+        // 엔더맨과 눈이 마주쳤다 (#222)
+        roar();
+        hud.toast('👁️ 엔더맨과 눈이 마주쳤어요! 화났어요 — 순간이동해서 쫓아와요', 2500);
+      }
     },
     onOrbs: (list) => orbView.set(list),
     onOrbGone: (id, by) => {
@@ -1656,6 +1691,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         if (aimedMob !== null && hitCooldown <= 0) {
           hitCooldown = bow.cooldownMs / 1000;
           net.sendShoot(aimedMob, hud.selectedIndex, chargeMs);
+          hand.swing();
+        } else if (shootCrystal()) {
+          hitCooldown = bow.cooldownMs / 1000;
           hand.swing();
         } else if (chargeMs > 300) hud.toast('몹을 노린 채 놓아야 화살이 나가요', 1200);
       }

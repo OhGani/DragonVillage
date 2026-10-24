@@ -160,6 +160,48 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
     expect(arrows[0]!.from.z).toBeLessThan(arrows[0]!.to.z); // 몹에서 사람 쪽으로
   });
 
+  it('엔더맨 (#222, 아들 14차 2번): 쳐다보면 화나고(stare), 화나면 3초마다 사람 옆으로 순간이동(teleport), 안 보면 가만히', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const json: { t: string; [k: string]: unknown }[] = [];
+    const hurt: string[] = [];
+    // 사람은 64.5,64.5 에서 -z 를 본다 (yaw 0) → 10칸 앞(z 54.5)의 엔더맨을 쳐다본다
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 64.5, eyeY: GROUND_Y + 1 + 1.6, yaw: 0, pitch: 0 };
+    const arena = { world: room.world, seed: 5, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0 };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: (_i, _a, cause) => hurt.push(cause), broadcast: () => {}, json: (o) => json.push(o as { t: string }), reward: () => {}, bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 24, goal: null, quiet: true });
+    const em = sys.spawnKind('enderman', 64.5, GROUND_Y + 1, 54.5);
+    me.yaw = Math.PI; // 등지고 있으면 아무 일 없다
+    for (let t = T0; t < T0 + 2000; t += 100) sys.tick(t);
+    expect(json.some((m) => m.t === 'mob' && m.ev === 'stare')).toBe(false);
+    expect(em.z).toBeCloseTo(54.5, 3);
+    me.yaw = 0; // 쳐다본다
+    for (let t = T0 + 2000; t < T0 + 9000; t += 100) sys.tick(t);
+    expect(json.some((m) => m.t === 'mob' && m.ev === 'stare')).toBe(true);
+    expect(json.some((m) => m.t === 'mob' && m.ev === 'teleport')).toBe(true);
+    expect(Math.hypot(em.x - me.x, em.z - me.z)).toBeLessThan(5); // 옆으로 왔다
+    expect(hurt).toContain('enderman');
+  });
+
+  it('눈 골렘 (#223, 아들 14차 5번): 설원에 시작부터 셋, 먼저 안 덤비고 때리면 눈덩이(arrow snow) — 피해 없이 knock 만', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const json: { t: string; [k: string]: unknown }[] = [];
+    const hurt: string[] = [];
+    const knocks: { idx: number; x: number; z: number }[] = [];
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 64.5, eyeY: GROUND_Y + 1 + 1.6 };
+    const arena = { world: room.world, seed: 5, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0, spawns: [{ kind: 'snow_golem' as const, x: 64.5, y: GROUND_Y + 1, z: 61.5 }] };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: (_i, _a, cause) => hurt.push(cause), knock: (idx, x, z) => knocks.push({ idx, x, z }), broadcast: () => {}, json: (o) => json.push(o as { t: string }), reward: () => {}, bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 24, goal: null, quiet: true });
+    expect(sys.countOf('snow_golem')).toBe(1);
+    const golem = [...sys.mobs.values()][0]!;
+    for (let t = T0; t < T0 + 3000; t += 100) sys.tick(t);
+    expect(knocks.length).toBe(0); // 먼저 안 덤빈다
+    expect(sys.hit(me, golem.id, 1, T0 + 3000)).toBeNull();
+    for (let t = T0 + 3100; t < T0 + 8000; t += 100) sys.tick(t);
+    expect(knocks.length).toBeGreaterThanOrEqual(1);
+    expect(knocks[0]!.z).toBeGreaterThan(0); // 골렘에서 사람 쪽(+z)으로 밀린다
+    expect(hurt).toEqual([]); // 하트는 안 닳는다
+    expect(json.filter((m) => m.t === 'arrow' && m.snow === true).length).toBe(knocks.length);
+    expect(MOBS.get('snow_golem').drops.map((d) => d.item)).toEqual(['snowball']);
+  });
+
   it('네더 (v1.1-3, #161): 좀비 피글린은 때리기 전엔 안 덤비고 맞으면 20초 화난다, 가스트는 떠서 14칸에서 쏜다', () => {
     const room = makeRoom(new Storage(':memory:'));
     const json: { t: string; [k: string]: unknown }[] = [];
@@ -187,7 +229,7 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
   });
 
   it('엔드 (v1.1-4, #162): 엔더 드래곤은 bosses.json 대로 hp 200·경험치 500·알 드롭, 떠서 내려꽂히며 물고, 엔더맨을 부른다', () => {
-    expect(MOBS.get('ender_dragon')).toMatchObject({ name: '엔더 드래곤', hp: 200, xp: 500 });
+    expect(MOBS.get('ender_dragon')).toMatchObject({ name: '엔더 드래곤', hp: 300, damage: 7, xp: 500 }); // 더 세게 (#224)
     expect(MOBS.get('ender_dragon').drops.map((d) => d.item)).toEqual(['dragon_egg', 'dragon_breath']);
     const room = makeRoom(new Storage(':memory:'));
     const json: { t: string; [k: string]: unknown }[] = [];

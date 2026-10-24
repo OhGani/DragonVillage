@@ -44,8 +44,7 @@ import {
   pickSpawn,
   rollDrops,
   spawnKinds,
-  stepMob,
-} from '@dragon-village/shared';
+  stepMob, isLookingAt, hash3 } from '@dragon-village/shared';
 
 /** 몹이 도는 무대 — 원정지(Expedition) 또는 마을(방어전) */
 export interface MobArena {
@@ -58,6 +57,10 @@ export interface MobArena {
   readonly den: { x: number; y: number; z: number } | null;
   /** 보스 종류 (expeditions.json boss.id). 없으면 거미 왕 */
   readonly boss?: MobKind | null;
+  /** 시작부터 서 있는 몹 (#223 설원 눈 골렘) */
+  readonly spawns?: readonly { kind: MobKind; x: number; y: number; z: number }[];
+  /** 엔드 수정 자리 (#224): 남아 있는 수정만큼 엔더 드래곤이 회복한다 */
+  readonly crystals?: readonly { x: number; y: number; z: number }[];
   readonly ended: boolean;
   elapsedSec(now: number): number;
 }
@@ -71,6 +74,8 @@ export interface MobSystemOptions {
   goal: { x: number; y: number; z: number } | null;
   /** true 면 tick 이 MobsState 를 스스로 보내지 않는다 (마을이 동물과 합쳐 보낸다) */
   quiet: boolean;
+  /** 첫 몹 번호 (#221): 마을에 방어전 우민과 주민이 부른 철 골렘이 같이 있을 때 번호가 안 겹치게 */
+  firstId: number;
 }
 
 export interface MobTarget {
@@ -80,12 +85,17 @@ export interface MobTarget {
   z: number;
   /** 눈높이 */
   eyeY: number;
+  /** 시선 (#222 엔더맨 쳐다보기). 없으면 안 본다 */
+  yaw?: number;
+  pitch?: number;
 }
 
 export interface MobHooks {
   /** 이 무대에 있는 사람들 */
   players(): MobTarget[];
   hurt(idx: number, amount: number, cause: string, now: number): void;
+  /** 피해 없이 밀기 (#223 눈 골렘 눈덩이): (x, z) 는 밀리는 방향 단위 벡터 */
+  knock?(idx: number, x: number, z: number, now: number): void;
   /** 이 무대 사람 모두에게 */
   broadcast(bytes: Uint8Array): void;
   json(obj: unknown): void;
@@ -130,7 +140,14 @@ export interface Companion {
 }
 /** 지킴이가 몹을 알아보는 거리 */
 const GUARD_AGGRO = 20;
-const DEFAULT_OPTS: MobSystemOptions = { autoSpawn: true, aggroRange: 40, goal: null, quiet: false };
+const DEFAULT_OPTS: MobSystemOptions = { autoSpawn: true, aggroRange: 40, goal: null, quiet: false, firstId: 1 };
+/** 엔더맨 (#222): 화나면 이 간격으로 사람 옆에 순간이동, 맞으면 반은 멀리 달아난다 */
+const ENDER_TELEPORT_EVERY_MS = 3000;
+const ENDER_NEAR = 2.5;
+const ENDER_AWAY = 7;
+/** 주민이 부른 철 골렘 (#221): 방어전 골렘(7)보다 약하게 — 초5가 4초 만에 죽지 않게. 3씩 2초마다 */
+const GRUDGE_DAMAGE = 3;
+const GRUDGE_ATTACK_MS = 2000;
 
 export class MobSystem {
   readonly mobs = new Map<number, MobState>();
@@ -146,6 +163,9 @@ export class MobSystem {
   boss: MobState | null = null;
   bossAwake = false;
   private lastSummonAt = 0;
+  /** 엔드 수정 회복 (#224): 마지막 회복 시각·마지막으로 센 수정 수 */
+  private lastHealAt = 0;
+  private lastCrystals = -1;
   /** 보스가 소환한 부하 id */
   readonly minions = new Set<number>();
   /** 원정에 따라온 펫 (#147) */
@@ -160,6 +180,7 @@ export class MobSystem {
     opts: Partial<MobSystemOptions> = {},
   ) {
     this.opts = { ...DEFAULT_OPTS, ...opts };
+    this.nextId = this.opts.firstId;
     this.kinds = spawnKinds(e.nightMobs);
     if (e.den) {
       const kind = e.boss ?? BOSS_KIND;
@@ -167,6 +188,7 @@ export class MobSystem {
       const y = (this.groundAt(e.den.x + 0.5, e.den.z + 0.5, e.den.y) ?? e.den.y) + hover;
       this.spawnBoss(kind, e.den.x + 0.5, y, e.den.z + 0.5, false); // 24칸 안에 사람이 오면 깬다 (거미 왕·엔더 드래곤 같음)
     }
+    for (const s of e.spawns ?? []) this.spawnKind(s.kind, s.x, this.groundAt(s.x, s.z, s.y) ?? s.y, s.z); // 시작부터 서 있는 몹 (#223 눈 골렘)
   }
 
   /** 밤인가 (항상 어두운 무대는 언제나) */
@@ -265,13 +287,38 @@ export class MobSystem {
           }
         }
         if (best > this.opts.aggroRange) target = null; // 너무 멀면 서성이거나 goal 로
-        if (def.neutral && (m.angryUntil ?? 0) < now) target = null; // 중립(좀비 피글린): 맞기 전엔 가만히 (#161)
+        if (m.grudge !== undefined) {
+          // 주민이 부른 철 골렘 (#221): 주민을 때린 사람만 쫓고, 그 사람이 없어지거나 시간이 지나면 사라진다
+          target = players.find((p) => p.idx === m.grudge) ?? null;
+          if (!target || (m.despawnAt !== undefined && now >= m.despawnAt)) {
+            this.vanish(m);
+            continue;
+          }
+        }
+        if (m.kind === 'enderman' && (m.angryUntil ?? 0) < now) {
+          // 엔더맨 (#222, 아들 14차 2번): 쳐다보면 화난다
+          for (const p of players)
+            if (p.yaw !== undefined && p.pitch !== undefined && isLookingAt({ x: p.x, z: p.z, eyeY: p.eyeY, yaw: p.yaw, pitch: p.pitch }, m)) {
+              m.angryUntil = now + ANGRY_MS;
+              this.hooks.json({ t: 'mob', ev: 'stare', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z });
+              break;
+            }
+        }
+        if (def.neutral && (m.angryUntil ?? 0) < now) target = null; // 중립(좀비 피글린·엔더맨·눈 골렘): 맞기 전엔 가만히 (#161)
+        if (target && m.kind === 'enderman') this.teleportNear(m, target, now);
         if (target) {
-          const ev = stepMob(m, def, target, dt, now, this.groundAt);
+          const ev = stepMob(m, m.grudge !== undefined ? { ...def, damage: GRUDGE_DAMAGE, attackEveryMs: GRUDGE_ATTACK_MS } : def, target, dt, now, this.groundAt);
           if (ev === 'attack') {
             // 원거리 몹은 화살이 날아가는 그림을 먼저 (피해는 바로)
-            if (isRangedMob(def)) this.hooks.json({ t: 'arrow', from: { x: m.x, y: m.y + mobSize(m.kind).h * 0.8, z: m.z }, to: { x: target.x, y: target.eyeY - 0.3, z: target.z }, fire: m.kind === 'ghast' || m.kind === 'blaze' }); // 가스트·블레이즈는 불덩이 (#173)
-            this.hooks.hurt(target.idx, def.damage, m.kind, now);
+            if (isRangedMob(def)) this.hooks.json({ t: 'arrow', from: { x: m.x, y: m.y + mobSize(m.kind).h * 0.8, z: m.z }, to: { x: target.x, y: target.eyeY - 0.3, z: target.z }, fire: m.kind === 'ghast' || m.kind === 'blaze', snow: m.kind === 'snow_golem' }); // 가스트·블레이즈는 불덩이 (#173), 눈 골렘은 눈덩이 (#223)
+            if (def.damage > 0) this.hooks.hurt(target.idx, m.grudge !== undefined ? GRUDGE_DAMAGE : def.damage, m.kind, now);
+            else {
+              // 눈 골렘 눈덩이 (#223): 안 아프고 밀려나기만
+              const kx = target.x - m.x,
+                kz = target.z - m.z;
+              const kd = Math.hypot(kx, kz) || 1;
+              this.hooks.knock?.(target.idx, kx / kd, kz / kd, now);
+            }
             if (def.poisonMs > 0) this.poisoned.set(target.idx, { until: now + def.poisonMs, nextAt: now + POISON_EVERY_MS });
           } else if (ev === 'explode') this.explode(m, def, players, now);
         } else if (this.opts.goal) {
@@ -295,6 +342,18 @@ export class MobSystem {
       return;
     }
     if (this.lastSummonAt === 0) this.lastSummonAt = now; // 첫 소환은 주기 뒤
+    if (b.kind === 'ender_dragon' && this.e.crystals?.length && now - this.lastHealAt >= 1000) {
+      // 엔드 수정 (#224, 아들 14차 8번 "회복도 있어"): 남은 수정 수만큼 1초마다 회복 (셋에 1, 최소 1). 깨지면 모두에게 알린다
+      this.lastHealAt = now;
+      const left = this.crystalsLeft();
+      if (this.lastCrystals >= 0 && left < this.lastCrystals) this.hooks.json({ t: 'error', code: 'CRYSTAL_DOWN', message: left > 0 ? `💎 엔드 수정이 깨졌어요! 남은 수정 ${left}개 — 드래곤 회복이 줄어요` : '💎 엔드 수정을 다 깼어요! 이제 드래곤은 회복하지 못해요' });
+      this.lastCrystals = left;
+      const max = this.defs.get(b.kind).hp;
+      if (left > 0 && b.hp < max) {
+        b.hp = Math.min(max, b.hp + Math.max(1, Math.ceil(left / 3)));
+        this.hooks.json({ t: 'mob', ev: 'heal', id: b.id, mob: b.kind, x: b.x, y: b.y, z: b.z });
+      }
+    }
     for (const id of [...this.minions]) if (!this.mobs.has(id)) this.minions.delete(id);
     if (now - this.lastSummonAt >= BOSS_SUMMON_EVERY_MS && this.minions.size < BOSS_MINIONS_MAX && players.length) {
       this.lastSummonAt = now;
@@ -315,6 +374,13 @@ export class MobSystem {
         this.hooks.json({ t: 'mob', ev: 'summon', id: b.id, mob: b.kind, x: b.x, y: b.y, z: b.z });
       }
     }
+  }
+
+  /** 아직 서 있는 엔드 수정 수 (#224) */
+  crystalsLeft(): number {
+    let n = 0;
+    for (const c of this.e.crystals ?? []) if (this.e.world.inBounds(c.x, c.y, c.z) && this.registry.get(this.e.world.getBlock(c.x, c.y, c.z)).id === 'end_crystal') n++;
+    return n;
   }
 
   private wake(b: MobState, now: number): void {
@@ -466,6 +532,7 @@ export class MobSystem {
         }
       }
       this.hooks.json({ t: 'mob', ev: 'hit', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z, dmg: dealt });
+      if (m.kind === 'enderman' && push && hash3(m.id, m.hp, 9, this.e.seed) < 0.5) this.teleportTo(m, m.x + push.x * ENDER_AWAY, m.z + push.z * ENDER_AWAY, m.y, now); // 맞으면 반은 멀리 달아난다 (#222)
       return;
     }
     const def = this.defs.get(m.kind);
@@ -477,6 +544,37 @@ export class MobSystem {
       return;
     }
     this.hooks.reward(byIdx, rollDrops(def, this.e.seed, m.id), def.xp, { x: m.x, y: m.y + 1, z: m.z }, now);
+  }
+
+  /** 조용히 사라진다 (#221 철 골렘): 드롭·경험치 없이. 클라는 die 로 지운다 */
+  private vanish(m: MobState): void {
+    this.mobs.delete(m.id);
+    this.hooks.json({ t: 'mob', ev: 'die', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z });
+  }
+
+  /** 엔더맨 순간이동 (#222): 설 수 있는 자리면 옮기고 모두에게 teleport 를 알린다. 됐으면 true */
+  private teleportTo(m: MobState, x: number, z: number, nearY: number, now: number): boolean {
+    const tx = Math.floor(x) + 0.5,
+      tz = Math.floor(z) + 0.5;
+    const y = this.groundAt(tx, tz, nearY);
+    if (y === null) return false;
+    m.x = tx;
+    m.y = y;
+    m.z = tz;
+    m.nextTeleportAt = now + ENDER_TELEPORT_EVERY_MS;
+    this.hooks.json({ t: 'mob', ev: 'teleport', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z });
+    return true;
+  }
+
+  /** 화난 엔더맨: 3초마다 사람 옆(2.5칸)으로 순간이동 — 방향은 결정론(시드·번호·시각) */
+  private teleportNear(m: MobState, target: MobTarget, now: number): void {
+    if (now < (m.nextTeleportAt ?? 0)) return;
+    if (Math.hypot(target.x - m.x, target.z - m.z) <= ENDER_NEAR + 1.5) {
+      m.nextTeleportAt = now + ENDER_TELEPORT_EVERY_MS;
+      return;
+    }
+    const a = hash3(m.id, Math.floor(now / 1000), 11, this.e.seed) * Math.PI * 2;
+    if (!this.teleportTo(m, target.x + Math.cos(a) * ENDER_NEAR, target.z + Math.sin(a) * ENDER_NEAR, target.y, now)) m.nextTeleportAt = now + 1000;
   }
 
   /** 지금 목록을 모두에게 (비었으면 빈 목록 — 클라가 인형을 지운다) */

@@ -178,6 +178,25 @@ function spiderBodyVoxels(king = false): Voxel[] {
 }
 
 /** 거미 다리 하나: 가로 14×2×2 막대 (x 0..13), 몸에 붙는 쪽이 x 0 */
+/** 눈 골렘 (#223): 눈덩이 둘 위에 조각된 호박 머리, 나뭇가지 팔. 1칸 = 1/16, 키 20칸 */
+function snowGolemVoxels(): Voxel[] {
+  const out: Voxel[] = [];
+  const fill = (x0: number, y0: number, z0: number, w: number, h: number, d: number, color: (x: number, y: number, z: number) => number) => {
+    for (let x = x0; x < x0 + w; x++) for (let y = y0; y < y0 + h; y++) for (let z = z0; z < z0 + d; z++) out.push({ x, y, z, c: css(color(x, y, z)) });
+  };
+  const snow = (x: number, y: number, z: number) => ((x * 3 + y * 5 + z * 7) & 7) === 0 ? 0xe4edf3 : 0xf7fbff;
+  fill(-4, 0, -4, 8, 8, 8, snow); // 아래 눈덩이
+  fill(-3, 8, -3, 6, 6, 6, snow); // 가운데 눈덩이
+  fill(-3, 14, -3, 6, 6, 6, (x, y, z) => {
+    // 조각된 호박 머리: 앞면(-z)에 눈·입
+    if (z === -3 && ((y === 17 && (x === -2 || x === 1)) || (y === 15 && x >= -1 && x <= 0))) return 0x1a1208;
+    return ((x + y + z) & 1) === 0 ? 0xd98a2b : 0xc97a22;
+  });
+  fill(-8, 11, -1, 4, 1, 1, () => 0x6b4a2a); // 나뭇가지 팔
+  fill(4, 11, -1, 4, 1, 1, () => 0x6b4a2a);
+  return out;
+}
+
 function spiderLegVoxels(): Voxel[] {
   const out: Voxel[] = [];
   for (let x = 0; x < 14; x++) for (let y = 0; y < 2; y++) for (let z = 0; z < 2; z++) out.push({ x, y, z, c: css(x > 9 ? 0x1a1614 : 0x241e1b) });
@@ -294,6 +313,9 @@ const SHOT_MAT = new THREE.MeshBasicMaterial({ color: 0xd9c8a0 });
 /** 불덩이 (#173): 가스트·블레이즈가 쏜다. 주황 공, 화살보다 천천히(0.45초) */
 const FIRE_GEOM = new THREE.SphereGeometry(0.3, 8, 6);
 const FIRE_MAT = new THREE.MeshBasicMaterial({ color: 0xff8a2a });
+/** 눈 골렘 눈덩이 (#223): 하얀 공 */
+const SNOW_GEOM = new THREE.SphereGeometry(0.16, 6, 6);
+const SNOW_MAT = new THREE.MeshBasicMaterial({ color: 0xf4f9ff });
 
 export class MobView {
   private readonly group = new THREE.Group();
@@ -344,8 +366,8 @@ export class MobView {
   }
 
   /** 화살 연출 (M8-2): 눈에서 몹까지 가느다란 막대가 날아간다 */
-  shot(from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }, fire = false): void {
-    const mesh = fire ? new THREE.Mesh(FIRE_GEOM, FIRE_MAT) : new THREE.Mesh(SHOT_GEOM, SHOT_MAT);
+  shot(from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }, fire = false, snow = false): void {
+    const mesh = fire ? new THREE.Mesh(FIRE_GEOM, FIRE_MAT) : snow ? new THREE.Mesh(SNOW_GEOM, SNOW_MAT) : new THREE.Mesh(SHOT_GEOM, SHOT_MAT);
     const f = new THREE.Vector3(from.x, from.y, from.z),
       t = new THREE.Vector3(to.x, to.y, to.z);
     mesh.position.copy(f);
@@ -406,6 +428,8 @@ export class MobView {
         spiderLegs.push(leg);
         body.add(leg);
       }
+    } else if (kindName === 'snow_golem') {
+      body.add(partMesh(snowGolemVoxels(), material)); // 눈 골렘 (#223)
     } else if (ANIMAL_NAMES.has(kindName)) {
       const parts = animalParts(kindName, animalVariant(m.id), { sheared: (m.state & ANIMAL_FLAG.sheared) !== 0 });
       body.add(partMesh(parts.body, material));
@@ -524,6 +548,18 @@ export class MobView {
       else if (ev === 'milk') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '🥛', '#ffffff', now);
       else if (ev === 'free') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '자유!', '#ffeb3b', now);
       else if (ev === 'follow') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '따라가요', '#ffffff', now);
+    } else if (ev === 'teleport' && f) {
+      // 엔더맨 순간이동 (#222): 있던 자리와 새 자리에 보랏빛 가루, 인형은 바로 옮긴다
+      this.burst(f.cur.x, f.cur.y + 1.2, f.cur.z, 0xb388ff, 14, now);
+      this.burst(x, y + 1.2, z, 0xb388ff, 14, now);
+      f.cur = { x, y, z, yaw: f.cur.yaw };
+      f.target = { x, y, z, yaw: f.target.yaw };
+      f.group.position.set(x, y, z);
+    } else if (ev === 'stare' && f) {
+      this.popText(x, y + mobSize(f.kind).h + 0.5, z, '👁', '#d36cff', now);
+      f.flashUntil = now + 400;
+    } else if (ev === 'heal' && f) {
+      this.popText(x, y + mobSize(f.kind).h + 0.5, z, '+', '#7cff7c', now); // 엔더 드래곤 회복 (#224)
     } else if (ev === 'summon' && f) {
       f.summonT = 0.8;
       this.burst(x, y + 0.6, z, 0xb388ff, 16, now);

@@ -177,8 +177,7 @@ import {
   WATER_BUCKET,
   WEEK_MS,
   XP_SOURCE,
-  xpAfterDeath,
-} from '@dragon-village/shared';
+  xpAfterDeath, CRYSTAL_SHOT_RANGE } from '@dragon-village/shared';
 import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
@@ -205,6 +204,12 @@ export const GROWTH_CHECK_MS = 5_000;
 /** 철 골렘 (#169): 방어전마다 주민 수만큼, 둘까지. 몹 번호는 동물과 안 겹치게 60000 부터 (u16) */
 export const GOLEM_MAX = 2;
 export const GOLEM_ID_BASE = 60_000;
+/** 주민이 부른 철 골렘 몹 번호 시작 (#221): 방어전 우민(1부터)·동물(40000부터)과 안 겹치게 */
+export const GUARD_ID_BASE = 30_000;
+/** 철 골렘이 쫓는 시간 */
+export const GOLEM_GRUDGE_MS = 30_000;
+/** 눈덩이에 밀리는 세기 (#223) */
+const KNOCK_POWER = 7;
 /** 작물 익음 확인 주기 (#165) */
 export /** TNT (#195): 심지 4초, 반지름 4칸, 가운데 피해 10 (크리퍼 7) */
 const TNT_FUSE_MS = 4000;
@@ -1035,7 +1040,7 @@ export class VillageRoom {
     // 드래곤 입 근처: 내 눈보다 아래(안장 위에 앉아 있으니)·앞 1.2칸. 1인칭에서 빔이 아래에서 조준점으로 모여 들어 총알처럼 보인다
     const from = { x: p.pos.x + dir.x * 1.2, y: p.pos.y + EYE - 0.8 + dir.y * 1.2, z: p.pos.z + dir.z * 1.2 };
     this.broadcastJson({ t: 'beam', idx, dragon: def.id, color: beam.color, power: beam.power, from, dir, range: BEAM_RANGE }, -1, p.world);
-    const sys = p.world === 'expedition' ? this.mobSys : (this.raid?.mobs ?? null);
+    const sys = p.world === 'expedition' ? this.mobSys : (this.raid?.mobs ?? this.guardMobs);
     if (sys) sys.beam(from, dir, BEAM_RANGE, beam.power, idx, now); // 몹에 4×세기 (M7-2). 사람·드래곤은 안 맞는다. 마을이면 방어전 우민
     this.sendJson(p, { t: 'stamina', value: r.stamina.value, max, readyAt: r.readyAt, now });
     return null;
@@ -1527,10 +1532,14 @@ export class VillageRoom {
   /** 몹 시스템 훅 — 그 세계(원정/마을) 사람들과 잇는다 */
   private mobHooks(world: WorldKind): MobHooks {
     return {
-      players: () => this.playersIn(world).filter((p) => p.hp > 0).map((p) => ({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE })),
+      players: () => this.playersIn(world).filter((p) => p.hp > 0).map((p) => ({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, yaw: p.pos.yaw, pitch: p.pos.pitch })),
       hurt: (idx, amount, cause, now) => {
         const p = this.players.get(idx);
         if (p && p.world === world) this.hurt(p, amount, cause, now);
+      },
+      knock: (idx, x, z) => {
+        const p = this.players.get(idx);
+        if (p && p.world === world && p.hp > 0) this.sendJson(p, { t: 'knock', x, z, power: KNOCK_POWER }); // 눈덩이 (#223): 안 아프고 밀리기만
       },
       broadcast: (bytes) => this.broadcast(bytes, -1, world),
       json: (obj) => this.broadcastJson(obj, -1, world),
@@ -1571,6 +1580,8 @@ export class VillageRoom {
       nightMobs: e.def.nightMobs,
       den: e.den,
       boss: e.bossKind,
+      spawns: e.spawns,
+      crystals: e.crystals,
       get ended() {
         return e.ended;
       },
@@ -1583,6 +1594,9 @@ export class VillageRoom {
 
   /** 진행 중인 방어전. 끝나면 null */
   raid: RaidSystem | null = null;
+  /** 주민이 부른 철 골렘 (#221, 아들 14차 11번 "주민을 때리면 철 골렘이 소환됨"): 때린 사람만 30초 쫓는다. 없으면 null */
+  guardMobs: MobSystem | null = null;
+  private readonly golemCalledAt = new Map<number, number>();
   /** 마을 동물 (M8-1) */
   animals!: AnimalSystem;
   private lastCreatureCount = 0;
@@ -1682,7 +1696,11 @@ export class VillageRoom {
     if (this.playersIn('village').length === 0) return;
     this.animals.tick(now);
     this.tickCrops(now);
-    const list = [...(this.raid?.mobs.entries() ?? []), ...this.animals.entries(now)];
+    if (this.guardMobs) {
+      this.guardMobs.tick(now); // 주민이 부른 철 골렘 (#221)
+      if (this.guardMobs.mobs.size === 0) this.guardMobs = null;
+    }
+    const list = [...(this.raid?.mobs.entries() ?? []), ...(this.guardMobs?.entries() ?? []), ...this.animals.entries(now)];
     if (list.length === 0 && this.lastCreatureCount === 0) return;
     this.lastCreatureCount = list.length;
     this.broadcast(encodeMobsState(list), -1, 'village');
@@ -1753,8 +1771,12 @@ export class VillageRoom {
     const tool = toolOf(TOOLS, held);
     const reach = hitReachOf(tool, HIT_REACH); // 창은 5칸 (#183)
     const me = { idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE };
-    if (p.world === 'village' && mobId >= ANIMAL_ID_BASE) return this.animals.hit({ ...me, token: p.token, held }, mobId, attackDamageOf(tool), now, reach); // 동물 (M8-1)
-    const sys = p.world === 'expedition' ? this.mobSys : (this.raid?.mobs ?? null);
+    if (p.world === 'village' && mobId >= ANIMAL_ID_BASE) {
+      const err = this.animals.hit({ ...me, token: p.token, held }, mobId, attackDamageOf(tool), now, reach); // 동물 (M8-1)
+      if (err === 'VILLAGER') this.callGolemOn(p, mobId, now); // 주민을 때리면 철 골렘 (#221)
+      return err;
+    }
+    const sys = p.world === 'expedition' ? this.mobSys : this.villageMobSys(mobId);
     if (!sys) return 'NO_MOB';
     return sys.hit(me, mobId, attackDamageOf(tool), now, reach);
   }
@@ -1771,9 +1793,11 @@ export class VillageRoom {
     const me = { idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE };
     let err: string | null;
     const dmg = bowDamage(bow, chargeMs); // 당긴 만큼 (#119)
-    if (p.world === 'village' && mobId >= ANIMAL_ID_BASE) err = this.animals.hit({ ...me, token: p.token, held }, mobId, dmg, now, bow.range);
-    else {
-      const sys = p.world === 'expedition' ? this.mobSys : (this.raid?.mobs ?? null);
+    if (p.world === 'village' && mobId >= ANIMAL_ID_BASE) {
+      err = this.animals.hit({ ...me, token: p.token, held }, mobId, dmg, now, bow.range);
+      if (err === 'VILLAGER') this.callGolemOn(p, mobId, now); // 화살로 쏴도 철 골렘 (#221)
+    } else {
+      const sys = p.world === 'expedition' ? this.mobSys : this.villageMobSys(mobId);
       err = sys ? sys.hit(me, mobId, dmg, now, bow.range) : 'NO_MOB';
     }
     if (err) return err;
@@ -1783,6 +1807,39 @@ export class VillageRoom {
     p.bowReadyAt = now + bow.cooldownMs;
     this.broadcastJson({ t: 'shot', idx, id: mobId, from: { x: p.pos.x, y: me.eyeY, z: p.pos.z } }, -1, p.world);
     return null;
+  }
+
+  /** 마을에서 이 몹이 있는 무대: 방어전 우민 또는 주민이 부른 철 골렘 (#221) */
+  private villageMobSys(mobId: number): MobSystem | null {
+    if (this.raid?.mobs.mobs.has(mobId)) return this.raid.mobs;
+    if (this.guardMobs?.mobs.has(mobId)) return this.guardMobs;
+    return this.raid?.mobs ?? this.guardMobs;
+  }
+
+  /**
+   * 주민을 때리면 철 골렘이 나타나 때린 사람만 30초 쫓는다 (#221, 아들 14차 11번). 주민은 안 다친다(#168 그대로).
+   * 한 사람에게 30초에 한 번. 골렘은 주민 옆(때린 사람 쪽 2칸)에 선다
+   */
+  private callGolemOn(p: RoomPlayer, villagerId: number, now: number): void {
+    const last = this.golemCalledAt.get(p.idx);
+    if (last !== undefined && now - last < GOLEM_GRUDGE_MS) return;
+    const at = this.animals.positionOf(villagerId);
+    if (!at) return;
+    this.golemCalledAt.set(p.idx, now);
+    if (!this.guardMobs) {
+      const arena: MobArena = { world: this.world, seed: this.info.seed, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0 };
+      this.guardMobs = new MobSystem(arena, this.registry, MOBS, this.mobHooks('village'), { autoSpawn: false, aggroRange: 60, goal: null, quiet: true, firstId: GUARD_ID_BASE });
+    }
+    const dx = p.pos.x - at.x,
+      dz = p.pos.z - at.z;
+    const d = Math.hypot(dx, dz) || 1;
+    const gx = Math.floor(at.x + (dx / d) * 2) + 0.5,
+      gz = Math.floor(at.z + (dz / d) * 2) + 0.5;
+    const m = this.guardMobs.spawnKind('iron_golem', gx, this.guardMobs.groundAt(gx, gz, at.y) ?? at.y, gz);
+    m.grudge = p.idx;
+    m.despawnAt = now + GOLEM_GRUDGE_MS;
+    this.sendJson(p, { t: 'error', code: 'GOLEM_ANGRY', message: '🗿 주민을 때리면 안 돼요! 철 골렘이 30초 동안 쫓아와요' });
+    this.log(`마을 ${this.info.code}: ${p.nick} 주민을 때려 철 골렘이 나타남`);
   }
 
   /** 🛡️ 막기 (#118): 방패를 끼고 있을 때만. 켜면 GUARD_MAX_MS 뒤 저절로 풀린다(클라가 5초마다 다시 켠다) */
@@ -2041,7 +2098,11 @@ export class VillageRoom {
     const dx = x + 0.5 - p.pos.x,
       dy = y + 0.5 - (p.pos.y + EYE),
       dz = z + 0.5 - p.pos.z;
-    if (dx * dx + dy * dy + dz * dz > REACH * REACH) return REJECT.TOO_FAR;
+    if (dx * dx + dy * dy + dz * dz > REACH * REACH) {
+      // 엔드 수정 (#224): 활을 들고 있으면 40칸에서 쏴서 깬다 (마인크래프트처럼)
+      const crystalShot = req.id === 'air' && this.registry.get(world.getBlock(x, y, z)).id === 'end_crystal' && bowOf(COMBAT, p.held) !== null && dx * dx + dy * dy + dz * dz <= CRYSTAL_SHOT_RANGE * CRYSTAL_SHOT_RANGE;
+      if (!crystalShot) return REJECT.TOO_FAR;
+    }
 
     const def = this.registry.find(req.id);
     if (!def) return REJECT.INVALID;

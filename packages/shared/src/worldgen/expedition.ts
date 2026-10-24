@@ -11,6 +11,7 @@ import { END_GEN_VERSION, generateEnd } from './end';
 import { NETHER_GEN_VERSION, generateNether } from './nether';
 import { SNOW_GEN_VERSION, generateSnow } from './snow';
 import { ISLAND_GEN_VERSION, generateIsland } from './island';
+import type { MobKind } from '../rules/mobs';
 import type { SpawnPoint } from './village';
 
 export interface ExpeditionWorld {
@@ -22,6 +23,10 @@ export interface ExpeditionWorld {
   treasures: { x: number; y: number; z: number }[];
   /** 보스 자리 (동굴의 거미 왕 굴 바닥 가운데, 엔드의 기반암 분수 꼭대기). 없으면 null. 어떤 보스인지는 expeditions.json boss.id */
   den: { x: number; y: number; z: number } | null;
+  /** 시작부터 서 있는 몹 (#223 설원 눈 골렘). 보통은 빈 목록 */
+  spawns: { kind: MobKind; x: number; y: number; z: number }[];
+  /** 엔드 수정 자리 (#224): 남아 있는 만큼 엔더 드래곤이 회복한다 */
+  crystals: { x: number; y: number; z: number }[];
   genVersion: number;
   ms: number;
 }
@@ -29,27 +34,27 @@ export interface ExpeditionWorld {
 const GENERATORS: Record<string, (registry: BlockRegistry, seed: number, treasures: number) => ExpeditionWorld> = {
   island: (registry, seed, treasures) => {
     const g = generateIsland(registry, seed, treasures);
-    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: null, genVersion: ISLAND_GEN_VERSION, ms: g.ms };
+    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: null, spawns: [], crystals: [], genVersion: ISLAND_GEN_VERSION, ms: g.ms };
   },
   cave: (registry, seed, treasures) => {
     const g = generateCave(registry, seed, treasures);
-    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: g.layout.den, genVersion: CAVE_GEN_VERSION, ms: g.ms };
+    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: g.layout.den, spawns: [], crystals: [], genVersion: CAVE_GEN_VERSION, ms: g.ms };
   },
   desert: (registry, seed, treasures) => {
     const g = generateDesert(registry, seed, treasures);
-    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: null, genVersion: DESERT_GEN_VERSION, ms: g.ms };
+    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: null, spawns: [], crystals: [], genVersion: DESERT_GEN_VERSION, ms: g.ms };
   },
   snow: (registry, seed, treasures) => {
     const g = generateSnow(registry, seed, treasures);
-    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: null, genVersion: SNOW_GEN_VERSION, ms: g.ms };
+    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: null, spawns: g.layout.golems.map((p) => ({ kind: 'snow_golem' as const, x: p.x + 0.5, y: p.y, z: p.z + 0.5 })), crystals: [], genVersion: SNOW_GEN_VERSION, ms: g.ms };
   },
   nether: (registry, seed, treasures) => {
     const g = generateNether(registry, seed, treasures);
-    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: null, genVersion: NETHER_GEN_VERSION, ms: g.ms };
+    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: null, spawns: [], crystals: [], genVersion: NETHER_GEN_VERSION, ms: g.ms };
   },
   end: (registry, seed, treasures) => {
     const g = generateEnd(registry, seed, treasures);
-    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: g.layout.den, genVersion: END_GEN_VERSION, ms: g.ms };
+    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: g.layout.den, spawns: [], crystals: g.layout.crystals, genVersion: END_GEN_VERSION, ms: g.ms };
   },
 };
 
