@@ -10,8 +10,8 @@
       { "item": "carrot", "min": 1, "max": 3, "weight": 3, "_note": "돼지 먹이 (#110)" },
       { "item": "iron_ingot", "min": 1, "max": 2, "weight": 3 },
       { "item": "gold_ingot", "min": 1, "max": 1, "weight": 2 },
-      { "item": "diamond", "min": 1, "max": 1, "weight": 1, "_note": "드물게" },
       { "item": "emerald", "min": 1, "max": 1, "weight": 1 },
+      { "item": "paper", "min": 2, "max": 5, "weight": 2, "_note": "다이아몬드 자리에 (#217). 책·폭죽 재료" },
       { "item": "glowstone_dust", "min": 2, "max": 4, "weight": 2 },
       { "item": "string", "min": 2, "max": 4, "weight": 2, "_note": "활 재료" },
       { "item": "feather", "min": 1, "max": 3, "weight": 2, "_note": "화살 재료" },
@@ -207,13 +207,19 @@
       ],
       "_note": "TNT용 모래, 피라미드 상자 금, 밤 엔더맨",
   "treasureBonus": {
-   "_comment": "사막 상자는 조금 더 (아빠 2026-10-08, #159): 공용 3가지에 1가지 더 뽑고, 금 1~2 는 꼭 들어간다",
+   "_comment": "사막 상자는 조금 더 (아빠 2026-10-08, #159): 공용 3가지에 1가지 더 뽑고, 금 1~2 는 꼭 들어간다. chance 는 그 확률로만 (없으면 꼭): 다이아몬드는 공용 pool 에서 빼고 사막·설원 상자에만 5% (아들 14차 1번 '매우 낮은 확률로 다이아몬드', #217)",
    "extraPicks": 1,
    "always": [
     {
      "item": "gold_ingot",
      "min": 1,
      "max": 2
+    },
+    {
+     "item": "diamond",
+     "min": 1,
+     "max": 1,
+     "chance": 0.05
     }
    ]
   },
@@ -238,6 +244,23 @@
       "durationSec": 600,
       "nightStartsAt": 300,
       "treasures": 3,
+      "treasureBonus": {
+        "_comment": "이글루 상자 (#217, 아들 14차 6번): 얼음 1~2 는 꼭, 다이아몬드는 5% 로만",
+        "extraPicks": 0,
+        "always": [
+          {
+            "item": "ice",
+            "min": 1,
+            "max": 2
+          },
+          {
+            "item": "diamond",
+            "min": 1,
+            "max": 1,
+            "chance": 0.05
+          }
+        ]
+      },
       "unlockedBy": "portal_3",
       "danger": 3,
       "materials": [

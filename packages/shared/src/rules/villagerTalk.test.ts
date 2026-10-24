@@ -17,7 +17,7 @@ describe('주민 대화 (#172)', () => {
     const base: TalkContext = { holding: null, hasDragon: true, level: 2, firstTalk: false, name: null };
     expect(VILLAGER_TALK.pick({ ...base, holding: 'bread' }, 1).id).toBe('bread');
     expect(VILLAGER_TALK.pick({ ...base, firstTalk: true }, 1).id).toBe('first_hello');
-    const seen = (ctx: TalkContext) => new Set(Array.from({ length: 60 }, (_, m) => VILLAGER_TALK.pick(ctx, 40_001 + m).id));
+    const seen = (ctx: TalkContext) => new Set(Array.from({ length: 200 }, (_, m) => VILLAGER_TALK.pick(ctx, 40_001 + m).id)); // 대화 26개 (#220)
     expect(seen({ ...base, hasDragon: false })).toContain('no_dragon'); // 드래곤 없으면 그 얘기가 섞여 나온다
     expect(seen({ ...base, hasDragon: false })).not.toContain('dragon');
     expect(seen({ ...base, level: 3 })).toContain('portal');
@@ -29,7 +29,7 @@ describe('주민 대화 (#172)', () => {
     expect(talkMatches('holding:wheat', { ...base, holding: 'wheat' })).toBe(true);
     expect(talkMatches('level>=5', base)).toBe(false);
     // 대장장이 (#173): 이름이 맞으면 그 대화만, 다른 주민은 안 한다
-    const smith = new Set(Array.from({ length: 30 }, (_, m) => VILLAGER_TALK.pick({ ...base, name: '대장장이' }, 40_101 + m).id));
+    const smith = new Set(Array.from({ length: 60 }, (_, m) => VILLAGER_TALK.pick({ ...base, name: '대장장이' }, 40_101 + m).id));
     for (const id of smith) expect(id.startsWith('smith_')).toBe(true);
     expect(smith.size).toBeGreaterThanOrEqual(2);
     expect([...seen({ ...base, name: '콩이' })].some((id) => id.startsWith('smith_'))).toBe(false);

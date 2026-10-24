@@ -44,6 +44,7 @@ import {
   HOTBAR_SLOTS,
   type Inventory,
   isMountKind,
+  horseStats,
   isPotionItem,
   itemName,
   itemToBlock,
@@ -87,7 +88,7 @@ import { TouchControls } from '../input/touch';
 import { buildMeshBlockInfo } from '../mesh/blockInfo';
 import type { ExpeditionResult, NetClient, Welcome, WorldEnter } from '../net/NetClient';
 import { RemotePlayers } from '../net/RemotePlayers';
-import { Player } from '../player/Player';
+import { HUSK_SLOW_SEC, Player } from '../player/Player';
 import { SKY_COLOR, createChunkMaterials } from '../render/ChunkMaterial';
 import { ChunkRenderer } from '../render/ChunkRenderer';
 import { HandView } from '../render/Hand';
@@ -260,10 +261,16 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const PET_AIM_KEEP_MS = 4000;
   /** 주민 대화 (#172): 빈손 탭 → 시트. 이번 접속에 말 걸어 본 주민 */
   const talkedTo = new Set<number>();
+  let talkSalt = 0; // 말 걸 때마다 다른 대화 (#220 "랜덤으로")
   const talk = new TalkSheet(
     root,
     (id, action) => {
       if (action === 'feed') net.sendUseMob(id, hud.selectedIndex); // "응, 먹어!" → 들고 있는 빵을 준다
+      if (action === 'tease') {
+        // 놀리기 (#220, 아들 14차 10번 "놀릴 수 있게"): 주민이 삐진다 — 연출뿐, 서버는 모른다
+        mobView.angryAt(id, performance.now());
+        hud.toast('😤 주민이 삐졌어요', 1500);
+      }
     },
     () => {
       if (started && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) resume();
@@ -272,7 +279,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const openTalk = (id: number) => {
     if (!started || disconnected || hud.resultVisible || anyPanelOpen()) return;
     const name = pets.get(id)?.name ?? VILLAGER_TALK.nameOf(id); // 서버가 준 이름(대장장이) 아니면 번호로
-    const def = VILLAGER_TALK.pick({ holding: hud.selectedItem, hasDragon: myDragons.some((d) => d.stage !== 'egg'), level: villageState.level, firstTalk: !talkedTo.has(id), name }, id + Math.floor(Date.now() / 60_000));
+    const def = VILLAGER_TALK.pick({ holding: hud.selectedItem, hasDragon: myDragons.some((d) => d.stage !== 'egg'), level: villageState.level, firstTalk: !talkedTo.has(id), name }, id + Math.floor(Date.now() / 60_000) + talkSalt++);
     talkedTo.add(id);
     hud.hideAction();
     input.paused = true;
@@ -850,6 +857,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       mySleep = m.at;
       ctx.player.sleeping = m.at !== null;
       if (m.at) {
+        if (hp < 20) hud.toast('💤 누워 있으면 하트가 4배 빨리 차요', 2500); // #216
         const [sdx, sdz] = DOOR_DIR[m.at.facing]!;
         ctx.player.pos.x = m.at.x + sdx * 0.5;
         ctx.player.pos.y = m.at.y;
@@ -900,7 +908,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       mount.set(riding);
       hud.hideAction();
       if (riding.dragon === 'horse') {
-        // 말 (#166): 날지 않고 달린다. 빔·기력 없음
+        // 말 (#166): 날지 않고 달린다. 빔·기력 없음. 말마다 속도·점프가 다르다 (#219)
+        const st = horseStats(riding.id);
+        ctx.player.horseSpeed = st.speed;
+        ctx.player.horseJump = st.jump;
+        hud.toast(`🐎 이 말 — 달리기 ${'★'.repeat(st.speedStars)}${'☆'.repeat(5 - st.speedStars)}  점프 ${'★'.repeat(st.jumpStars)}${'☆'.repeat(5 - st.jumpStars)}`, 3000);
         hud.setRiding(true, '빔', false);
         stamina = null;
         hud.toast(`🐴 말을 탔어요! 앞으로 밀면 달려요 · ${isTouch ? '▲' : 'Space'} 점프 · 내리기는 🐉 버튼`, 6000);
@@ -974,6 +986,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         hud.hurtFlash();
         hurtSound();
         if (m.cause === 'poison') hud.toast('🕷️ 독에 물렸어요 — 잠깐 아파요', 1500);
+        if (m.cause === 'husk') {
+          // 허스크 (#218, 아들 14차 3번 "느려짐"): 모래가 묻어 4초 동안 느리다
+          ctx.player.slowLeft = HUSK_SLOW_SEC;
+          hud.toast('🏜️ 허스크 모래가 묻었어요 — 잠깐 느려져요', 1500);
+        }
       }
       if (m.cause === 'blocked') hud.toast('🛡️ 방패로 막았어요', 1200);
       if (m.cause === 'tnt') hud.toast('💥 TNT 가 터졌어요!', 1500);
@@ -1287,6 +1304,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   if (myRiding) {
     // 타고 있던 채로 들어왔다 (#103): 드래곤·빔 버튼·기력을 바로 켠다 (mount 이벤트는 처음 탈 때만 온다)
     ctx.player.mountKind = isMountKind(myRiding.dragon) ? myRiding.dragon : null;
+    if (myRiding.dragon === 'horse') {
+      const st = horseStats(myRiding.id); // 말마다 다르다 (#219)
+      ctx.player.horseSpeed = st.speed;
+      ctx.player.horseJump = st.jump;
+    }
     ctx.player.liftForMount(); // (#178)
     mount.set(myRiding);
     hud.setRiding(true, DRAGONS.find(myRiding.dragon)?.skills.find((s) => s.type === 'beam')?.name ?? '빔');

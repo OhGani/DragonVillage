@@ -1,6 +1,6 @@
 /**
  * 주민 대화 (#172): data/villager-talk.json — 정해진 말만(규칙 3). 주민 이름은 번호로 결정론, 대화는 상황(when)에 맞는 것 중 번호·분으로 고른다.
- * 서버는 모른다(클라에서만) — 대답에 action: feed 가 있으면 클라가 useMob 을 보낸다.
+ * 서버는 모른다(클라에서만) — 대답에 action: feed 가 있으면 클라가 useMob 을 보낸다. tease 는 주민이 삐지는 연출만 (#220).
  */
 import { z } from 'zod';
 
@@ -8,7 +8,7 @@ const Reply = z
   .object({
     text: z.string().min(1, '대답이 비어 있어요').max(40, '대답은 40글자까지'),
     answer: z.string().min(1, '주민 answer 가 비어 있어요').max(120, 'answer 는 120글자까지'),
-    action: z.enum(['feed']).optional(),
+    action: z.enum(['feed', 'tease']).optional(),
   })
   .loose();
 const Talk = z
@@ -24,7 +24,8 @@ const Raw = z.object({ _comment: z.string().optional(), names: z.array(z.string(
 export interface TalkReply {
   readonly text: string;
   readonly answer: string;
-  readonly action: 'feed' | null;
+  /** feed = 들고 있는 걸 준다, tease = 놀렸다(주민이 삐진 연출, #220) */
+  readonly action: 'feed' | 'tease' | null;
 }
 export interface TalkDef {
   readonly id: string;
@@ -58,6 +59,13 @@ export function talkMatches(when: string, ctx: TalkContext): boolean {
   return false;
 }
 
+/** salt 를 섞는다 (#220): 연속된 번호에서도 고르게 돌아가도록 */
+function mix(salt: number): number {
+  let h = Math.imul(salt | 0, 2246822519) ^ 0x9e3779b9;
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
+  return (h ^ (h >>> 13)) >>> 0;
+}
+
 export class VillagerTalk {
   constructor(
     readonly names: readonly string[],
@@ -79,9 +87,9 @@ export class VillagerTalk {
     const tiers: ((w: string) => boolean)[] = [(w) => w.startsWith('holding:'), (w) => w === 'firstTalk', (w) => w.startsWith('name:'), () => true];
     for (const tier of tiers) {
       const pool = ok.filter((t) => tier(t.when));
-      if (pool.length > 0) return pool[((salt * 2246822519) >>> 0) % pool.length]!;
+      if (pool.length > 0) return pool[mix(salt) % pool.length]!;
     }
-    return this.talks[((salt * 2246822519) >>> 0) % this.talks.length]!;
+    return this.talks[mix(salt) % this.talks.length]!;
   }
 }
 

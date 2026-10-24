@@ -104,24 +104,24 @@ describe('보물 상자 랜덤 보상 (#117)', () => {
     const d = treasureLoot(rules, 777, 0);
     expect([JSON.stringify(c), JSON.stringify(d)].every((x) => x === JSON.stringify(a))).toBe(false);
     for (let i = 0; i < 50; i++) expect(treasureLoot(rules, 99, i).some((l) => l.item === 'leather')).toBe(false);
-    expect(rules.pool).toHaveLength(30); // 아들 13차 "30가지로 늘려줘" (#129)
+    expect(rules.pool).toHaveLength(30); // 아들 13차 "30가지로 늘려줘" (#129) — 다이아몬드 자리엔 종이 (#217)
   });
 
   it('원정지 보너스 (#159·#214): 사막 상자는 4가지 + 금 1~2 꼭, 초원 섬은 공용 + 인갑 1~2', () => {
     const rules = EXPEDITIONS.rules.treasureChestLoot;
     const island = EXPEDITIONS.require('grass_island');
-    expect(island.treasureBonus).toEqual({ extraPicks: 0, always: [{ item: 'scute', min: 1, max: 2 }] }); // 인갑 (#214)
+    expect(island.treasureBonus).toEqual({ extraPicks: 0, always: [{ item: 'scute', min: 1, max: 2, chance: 1 }] }); // 인갑 (#214)
     const isl = treasureLootFor(rules, island, 12345, 0);
     const common = treasureLoot(rules, 12345, 0);
     for (const c of common.filter((c) => c.item !== 'scute')) expect(isl).toContainEqual(c);
     const scute = isl.find((l) => l.item === 'scute')!;
     expect(scute.count).toBeGreaterThanOrEqual(1);
     const desert = EXPEDITIONS.require('desert');
-    expect(desert.treasureBonus).toEqual({ extraPicks: 1, always: [{ item: 'gold_ingot', min: 1, max: 2 }] });
+    expect(desert.treasureBonus).toEqual({ extraPicks: 1, always: [{ item: 'gold_ingot', min: 1, max: 2, chance: 1 }, { item: 'diamond', min: 1, max: 1, chance: 0.05 }] });
     for (let i = 0; i < 20; i++) {
       const loot = treasureLootFor(rules, desert, 777, i);
       expect(loot.length).toBeGreaterThanOrEqual(4);
-      expect(loot.length).toBeLessThanOrEqual(5);
+      expect(loot.length).toBeLessThanOrEqual(6); // 다이아몬드가 나오면 하나 더 (#217)
       const gold = loot.find((l) => l.item === 'gold_ingot')!;
       expect(gold).toBeDefined();
       expect(gold.count).toBeGreaterThanOrEqual(1);
@@ -129,5 +129,21 @@ describe('보물 상자 랜덤 보상 (#117)', () => {
       expect(new Set(loot.map((l) => l.item)).size).toBe(loot.length);
     }
     expect(treasureLootFor(rules, desert, 777, 3)).toEqual(treasureLootFor(rules, desert, 777, 3));
+  });
+
+  it('다이아몬드 (#217, 아들 14차 1·6번): 공용 pool 엔 없고 사막·설원 상자에 5% 로만 — 2000 상자에서 3~7%, 같은 시드면 같다', () => {
+    const rules = EXPEDITIONS.rules.treasureChestLoot;
+    for (const id of ['desert', 'snowfield'] as const) {
+      const def = EXPEDITIONS.require(id);
+      expect(def.treasureBonus!.always.find((a) => a.item === 'diamond')).toEqual({ item: 'diamond', min: 1, max: 1, chance: 0.05 });
+      let hits = 0;
+      for (let seed = 1; seed <= 500; seed++) for (let i = 0; i < 4; i++) if (treasureLootFor(rules, def, seed, i).some((l) => l.item === 'diamond')) hits++;
+      expect(hits).toBeGreaterThan(60);
+      expect(hits).toBeLessThan(140);
+      expect(treasureLootFor(rules, def, 42, 1)).toEqual(treasureLootFor(rules, def, 42, 1));
+    }
+    expect(rules.pool.some((p) => p.item === 'diamond')).toBe(false); // 공용 상자엔 없다
+    const snow = EXPEDITIONS.require('snowfield');
+    for (let i = 0; i < 10; i++) expect(treasureLootFor(rules, snow, 99, i).find((l) => l.item === 'ice')!.count).toBeGreaterThanOrEqual(1);
   });
 });

@@ -1721,7 +1721,7 @@ export class VillageRoom {
     const before = this.animals.petsFor(p.token).length;
     // 말·돼지 (#166·#185): 내 것을 빈손으로 탭 → 탄다 (드래곤 타기와 같은 mount 메시지, dragon: 'horse' | 'pig')
     if (!held && !p.riding && this.animals.isMyHorse(mobId, p.token)) {
-      const err = this.animals.mount({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held }, mobId);
+      const err = this.animals.mount({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held }, mobId, now);
       if (err) return err;
       const kind = this.animals.kindOf(mobId) ?? 'horse';
       p.riding = { id: mobId, dragon: kind };
@@ -2016,10 +2016,10 @@ export class VillageRoom {
     return null;
   }
 
-  /** 틱마다: 맞은 지 5초 지나면 3초에 1 회복 */
+  /** 틱마다: 맞은 지 3초 지나면 1초에 1 회복. 침대에 누워 있으면 4배 (#216) */
   private tickHealth(now: number): void {
     for (const p of this.players.values()) {
-      const g = regenAt(p.hp, p.lastHurtAt, p.lastRegenAt, now);
+      const g = regenAt(p.hp, p.lastHurtAt, p.lastRegenAt, now, p.sleeping !== null);
       if (g > 0) {
         p.hp = Math.min(HP_MAX, p.hp + g);
         p.lastRegenAt = now;

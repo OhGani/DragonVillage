@@ -674,13 +674,14 @@ export class AnimalSystem {
     return this.find(mobId)?.kind ?? null;
   }
 
-  /** 말 타기 (#166): 내 말(안장 씌운 것)이고 아무도 안 타고 있으면 탄다. 오류: NO_MOB · NOT_HORSE · NOT_MINE · OCCUPIED · TOO_FAR */
-  mount(p: AnimalViewer, mobId: number): string | null {
+  /** 말 타기 (#166): 내 말(안장 씌운 것)이고 아무도 안 타고 있으면 탄다. 오류: NO_MOB · NOT_HORSE · NOT_MINE · OCCUPIED · BABY_MOUNT · TOO_FAR */
+  mount(p: AnimalViewer, mobId: number, now = Date.now()): string | null {
     const a = this.find(mobId);
     if (!a) return 'NO_MOB';
     if (!isMountKind(a.kind)) return 'NOT_HORSE';
     if (a.owner !== p.token && a.kind !== 'boat') return 'NOT_MINE';
     if (a.ridden !== null) return 'OCCUPIED';
+    if (this.isBaby(a, now)) return 'BABY_MOUNT'; // 망아지·아기 돼지는 못 탄다 (#219)
     if (Math.hypot(a.x - p.x, a.y + mobSize(a.kind).h * 0.5 - p.eyeY, a.z - p.z) > HIT_REACH + 1) return 'TOO_FAR';
     a.ridden = p.idx;
     a.target = null;

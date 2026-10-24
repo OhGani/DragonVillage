@@ -50,6 +50,17 @@ export const SADDLE = 'saddle';
 /** 대장장이 (#173): 대장간이 지어지면 그 앞에 서는 주민의 이름. 잡혀가지 않는다 */
 export const BLACKSMITH_NAME = '대장장이';
 
+/**
+ * 말마다 다른 달리기·점프 (#219, 아들 14차 8번 "말마다 속도·점프 다르게"): 번호로 정해져 누가 봐도 같다.
+ * speed 8~11.5 칸/초(사람 달리기의 1.4~2배), jump 는 사람 점프의 1.0~1.45배. stars 는 1~5 (보여 주기용)
+ */
+export function horseStats(mobId: number): { speed: number; jump: number; speedStars: number; jumpStars: number } {
+  const h = Math.imul(mobId | 0, 2654435761) >>> 0;
+  const a = (h & 0xffff) / 65536;
+  const b = (h >>> 16) / 65536;
+  return { speed: 8 + a * 3.5, jump: 1 + b * 0.45, speedStars: 1 + Math.min(4, Math.floor(a * 5)), jumpStars: 1 + Math.min(4, Math.floor(b * 5)) };
+}
+
 export const BABY_MS = 20 * 60_000;
 /** 아기에게 먹이면 이만큼 빨리 자란다 */
 export const FEED_GROW_MS = 2 * 60_000;

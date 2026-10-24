@@ -15,6 +15,9 @@ export const FALL_SAFE = 3;
 export const REGEN_DELAY_MS = 3000;
 /** 회복 간격 (ms) — 1 씩. 3초 → 1.5초(#131) → 1초(#142): 다 차는 데 1분 → 20초 */
 export const REGEN_EVERY_MS = 1000;
+/** 침대에 누워 있을 때 (#216, 아들 14차 13번 "누워 있으면 하트가 빨리 참"): 맞은 지 1초만 지나면 0.5초마다 1 — 평소의 4배 */
+export const SLEEP_REGEN_DELAY_MS = 1000;
+export const SLEEP_REGEN_EVERY_MS = 500;
 /** 구슬을 되찾는 거리 (칸) */
 export const ORB_PICKUP_RANGE = 1.4;
 
@@ -46,11 +49,13 @@ export function xpAfterDeath(rules: XpRules, total: number): number {
   return rules.death.dropsXp ? 0 : total;
 }
 
-/** 회복: 마지막으로 맞은 뒤 REGEN_DELAY 가 지났고, 마지막 회복에서 REGEN_EVERY 가 지났으면 1 */
-export function regenAt(hp: number, lastHurtAt: number, lastRegenAt: number, now: number): number {
+/** 회복: 마지막으로 맞은 뒤 REGEN_DELAY 가 지났고, 마지막 회복에서 REGEN_EVERY 가 지났으면 1. 침대에 누워 있으면(#216) 둘 다 짧다 */
+export function regenAt(hp: number, lastHurtAt: number, lastRegenAt: number, now: number, sleeping = false): number {
   if (hp >= HP_MAX) return 0;
-  if (now - lastHurtAt < REGEN_DELAY_MS) return 0;
-  if (now - Math.max(lastRegenAt, lastHurtAt) < REGEN_EVERY_MS) return 0;
+  const delay = sleeping ? SLEEP_REGEN_DELAY_MS : REGEN_DELAY_MS;
+  const every = sleeping ? SLEEP_REGEN_EVERY_MS : REGEN_EVERY_MS;
+  if (now - lastHurtAt < delay) return 0;
+  if (now - Math.max(lastRegenAt, lastHurtAt) < every) return 0;
   return 1;
 }
 

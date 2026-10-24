@@ -30,7 +30,7 @@ const RawExpedition = z
     treasureBonus: z
       .object({
         extraPicks: z.number().int().min(0, '0 이상이어야 해요').optional(),
-        always: z.array(z.object({ item: z.string(), min: z.number().int().min(0), max: z.number().int().min(1) }).loose()).optional(),
+        always: z.array(z.object({ item: z.string(), min: z.number().int().min(0), max: z.number().int().min(1), chance: z.number().min(0, '0 이상이어야 해요').max(1, '1 이하여야 해요 (1 = 꼭)').optional() }).loose()).optional(),
       })
       .loose()
       .optional(),
@@ -112,7 +112,8 @@ export interface TreasureLootRules {
 }
 export interface TreasureBonus {
   readonly extraPicks: number;
-  readonly always: readonly { item: string; min: number; max: number }[];
+  /** chance (0~1, 없으면 1 = 꼭): 상자마다 이 확률로만 들어간다 (#217 다이아몬드) */
+  readonly always: readonly { item: string; min: number; max: number; chance: number }[];
 }
 
 /** 상자 index 의 보상 (결정론). 같은 종류는 한 번만, pool 이 모자라면 그만큼만 */
@@ -141,12 +142,13 @@ export function treasureLoot(rules: TreasureLootRules, seed: number, index: numb
   return out;
 }
 
-/** 원정지 보너스까지 더한 상자 보상 (#159): extraPicks 만큼 더 뽑고, always 는 꼭 넣는다(이미 뽑힌 것이면 개수를 더한다) */
+/** 원정지 보너스까지 더한 상자 보상 (#159): extraPicks 만큼 더 뽑고, always 는 꼭 넣는다(이미 뽑힌 것이면 개수를 더한다). chance 가 1 보다 작으면 그 확률로만 (#217) */
 export function treasureLootFor(rules: TreasureLootRules, def: Pick<ExpeditionDef, 'treasureBonus'>, seed: number, index: number): { item: string; count: number }[] {
   const bonus = def.treasureBonus;
   if (!bonus) return treasureLoot(rules, seed, index);
   const out = treasureLoot(rules, seed, index, rules.picks + bonus.extraPicks);
   bonus.always.forEach((a, j) => {
+    if (a.chance < 1 && hash3(index, 200 + j, 54, seed) >= a.chance) return; // 아주 낮은 확률의 보물 (#217): 원정 시드로 정해져 누가 열어도 같다
     const count = a.min + Math.floor(hash3(index, 100 + j, 53, seed) * (Math.max(a.min, a.max) - a.min + 1));
     if (count <= 0) return;
     const have = out.find((l) => l.item === a.item);
@@ -261,7 +263,7 @@ export function parseExpeditions(raw: unknown, fileName = 'data/expeditions.json
       danger: e.danger,
       materials: e.materials,
       release: e.release ?? 'v1',
-      treasureBonus: e.treasureBonus ? { extraPicks: e.treasureBonus.extraPicks ?? 0, always: (e.treasureBonus.always ?? []).map((a) => ({ item: a.item, min: a.min, max: a.max })) } : null,
+      treasureBonus: e.treasureBonus ? { extraPicks: e.treasureBonus.extraPicks ?? 0, always: (e.treasureBonus.always ?? []).map((a) => ({ item: a.item, min: a.min, max: a.max, chance: a.chance ?? 1 })) } : null,
       bossId: e.boss?.id ?? null,
       skyLight: e.skyLight ?? null,
     };

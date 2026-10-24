@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { XP } from './data';
-import { FALL_SAFE, HP_MAX, REGEN_DELAY_MS, REGEN_EVERY_MS, deathXpDrop, fallDamage, regenAt, trackFall, xpAfterDeath } from './health';
+import { FALL_SAFE, HP_MAX, REGEN_DELAY_MS, REGEN_EVERY_MS, SLEEP_REGEN_DELAY_MS, SLEEP_REGEN_EVERY_MS, deathXpDrop, fallDamage, regenAt, trackFall, xpAfterDeath } from './health';
 import { totalXpForLevel } from './xp';
 
 describe('체력·낙하·죽음 (M7-1)', () => {
@@ -52,5 +52,16 @@ describe('체력·낙하·죽음 (M7-1)', () => {
     const t = 10_000 + REGEN_DELAY_MS;
     expect(regenAt(11, 10_000, t, t + REGEN_EVERY_MS - 1)).toBe(0);
     expect(regenAt(11, 10_000, t, t + REGEN_EVERY_MS)).toBe(1);
+  });
+
+  it('침대에 누워 있으면 (#216) 1초 뒤부터 0.5초마다 1 — 4배', () => {
+    expect(SLEEP_REGEN_DELAY_MS * SLEEP_REGEN_EVERY_MS).toBeLessThan(REGEN_DELAY_MS * REGEN_EVERY_MS);
+    expect(regenAt(10, 10_000, 0, 10_000 + SLEEP_REGEN_DELAY_MS - 1, true)).toBe(0);
+    expect(regenAt(10, 10_000, 0, 10_000 + SLEEP_REGEN_DELAY_MS, true)).toBe(1);
+    expect(regenAt(10, 10_000, 0, 10_000 + SLEEP_REGEN_DELAY_MS, false)).toBe(0);
+    const t = 10_000 + SLEEP_REGEN_DELAY_MS;
+    expect(regenAt(11, 10_000, t, t + SLEEP_REGEN_EVERY_MS - 1, true)).toBe(0);
+    expect(regenAt(11, 10_000, t, t + SLEEP_REGEN_EVERY_MS, true)).toBe(1);
+    expect(regenAt(HP_MAX, 0, 0, 100_000, true)).toBe(0);
   });
 });

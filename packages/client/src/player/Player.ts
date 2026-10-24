@@ -34,8 +34,11 @@ const TERMINAL = 78;
 const JUMP_V = 9.0; // ≈ 1.27 블록
 /** 드래곤 탑승 (M6-4): 나는 속도·오르내리는 속도 (블록/초) */
 const RIDE_SPEED = 9;
-/** 말 (#166) */
+/** 말 (#166) — 말마다 다르다 (#219): 기본값 */
 const HORSE_SPEED = 9.5;
+/** 허스크에 맞으면 (#218): 이만큼(초) 동안 걸음이 SLOW_MUL 배 */
+export const HUSK_SLOW_SEC = 4;
+const SLOW_MUL = 0.55;
 const RIDE_CLIMB = 6;
 /** 날 때 시선 위아래를 따라가는 정도: 이 각도(라디안)까지는 수평, 그 뒤로 서서히 (#97) */
 const RIDE_PITCH_DEAD = 0.15;
@@ -65,6 +68,11 @@ export class Player {
   /** 🛡️ 막는 중 (#118): 걸음이 guardSlow 배 */
   guarding = false;
   guardSlow = 0.5;
+  /** 허스크 모래 (#218): 남은 느려짐 시간(초). Game 이 health 메시지로 켠다 */
+  slowLeft = 0;
+  /** 타고 있는 말의 달리기(칸/초)·점프 배율 (#219 말마다 다르다). Game 이 mount 때 넣는다 */
+  horseSpeed = HORSE_SPEED;
+  horseJump = 1.15;
   sprinting = false;
   inWater = false;
   /** 드래곤을 타고 있다 (M6-4): 중력 없음, 점프 = 상승, 웅크리기 = 하강. 충돌은 사람 몸 그대로 */
@@ -183,6 +191,7 @@ export class Player {
   }
 
   update(input: InputState, dt: number): void {
+    if (this.slowLeft > 0) this.slowLeft = Math.max(0, this.slowLeft - dt); // 허스크 (#218)
     if (this.sleeping) {
       // 누워 있는 동안은 둘러보기만 (#204)
       this.applyLook(input.lookDX, input.lookDY);
@@ -221,7 +230,7 @@ export class Player {
     }
     const flying = this.riding && this.mountKind === null;
     const boatSurface = this.mountKind === 'boat' ? this.waterSurface(pos) : null;
-    const speed = (this.mountKind === 'boat' ? (boatSurface !== null ? BOAT_SPEED : BOAT_LAND_SPEED) : this.mountKind === 'horse' ? HORSE_SPEED : this.mountKind === 'pig' ? (this.carrotStick ? PIG_SPEED : PIG_SLOW) : this.riding ? RIDE_SPEED : this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK) * (this.guarding ? this.guardSlow : 1);
+    const speed = (this.mountKind === 'boat' ? (boatSurface !== null ? BOAT_SPEED : BOAT_LAND_SPEED) : this.mountKind === 'horse' ? this.horseSpeed : this.mountKind === 'pig' ? (this.carrotStick ? PIG_SPEED : PIG_SLOW) : this.riding ? RIDE_SPEED : this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK) * (this.guarding ? this.guardSlow : 1) * (this.slowLeft > 0 ? SLOW_MUL : 1);
     const accel = flying ? 8 : this.mountKind === 'boat' ? 4 : this.inWater ? 6 : this.onGround ? (this.mountKind !== null ? 10 : 18) : 3.5;
     const k = Math.min(1, accel * h);
     // 날 때 앞·뒤로 밀면 보는 쪽(위아래)으로 난다 (#97). 살짝 내려보는 건 수평으로 치고, 많이 기울일수록 가파르게
@@ -264,7 +273,7 @@ export class Player {
       if (vel.y < -TERMINAL) vel.y = -TERMINAL;
       if (input.jump && this.onGround && this.mountKind !== 'pig') {
         // 말은 조금 높게 (#166), 돼지는 못 뛴다 (#185)
-        vel.y = this.mountKind === 'horse' ? JUMP_V * 1.15 : JUMP_V;
+        vel.y = this.mountKind === 'horse' ? JUMP_V * this.horseJump : JUMP_V; // 말마다 다르다 (#219)
         this.onGround = false;
       }
     }

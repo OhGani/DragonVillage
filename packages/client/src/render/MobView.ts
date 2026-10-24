@@ -604,6 +604,13 @@ export class MobView {
     this.pops.push({ sprite: c.sprite, born: now });
   }
 
+  /** 주민이 삐졌다 (#220 놀리기): 머리 위로 빨간 김이 난다 */
+  angryAt(id: number, now: number): void {
+    const at = this.positionOf(id);
+    if (!at) return;
+    this.burst(at.x, at.y + mobSize(this.figures.get(id)?.kind ?? 0).h + 0.2, at.z, 0xff5252, 12, now);
+  }
+
   private burst(x: number, y: number, z: number, color: number, n: number, now: number): void {
     const group = new THREE.Group();
     const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 });

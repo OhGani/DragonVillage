@@ -14,7 +14,7 @@ export class TalkSheet {
 
   constructor(
     root: HTMLElement,
-    private readonly onAction: (mobId: number, action: 'feed') => void,
+    private readonly onAction: (mobId: number, action: 'feed' | 'tease') => void,
     /** 닫힐 때 (게임 입력을 다시 켜기 위해) */
     private readonly onClose: () => void = () => {},
   ) {
@@ -66,7 +66,7 @@ export class TalkSheet {
     this.say.textContent = r.answer;
     this.list.replaceChildren();
     if (r.action && this.mobId !== null) this.onAction(this.mobId, r.action);
-    this.close.textContent = '고마워!';
+    this.close.textContent = r.action === 'tease' ? '미안, 농담이야' : '고마워!';
   }
 
   hide(): void {

@@ -82,6 +82,7 @@ const USE_ERROR_KO: Record<string, string> = {
   NO_MILK: '아기 소는 우유가 안 나와요',
   ALREADY_SADDLED: '벌써 누구의 말이에요',
   NOT_HORSE: '말이 아니에요',
+  BABY_MOUNT: '아기는 아직 못 타요 — 20분 뒤 어른이 돼요',
   OCCUPIED: '누가 타고 있어요',
 };
 
