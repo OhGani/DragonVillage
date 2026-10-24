@@ -1,6 +1,7 @@
 export * from './rules/blocks';
 export * from './rules/trees';
 export * from './rules/food';
+export * from './rules/trades';
 export * from './rules/potions';
 export * from './rules/redstone';
 export * from './rules/expeditions';

@@ -71,6 +71,14 @@ const EQUIP_ERROR_KO: Record<string, string> = {
   BAD_SLOT: '그런 칸은 없어요',
 };
 /** 동물에게 쓰기 오류 (M8-1) */
+/** 주민 거래 (#225) 거절 사유 */
+const TRADE_ERROR_KO: Record<string, string> = {
+  NOT_VILLAGER: '주민하고만 거래할 수 있어요',
+  NO_TRADE: '그건 여기서 거래하지 않아요',
+  NO_EMERALD: '에메랄드가 모자라요 — 보물 상자나 팔기로 모아요',
+  NOT_ENOUGH: '팔 물건이 모자라요',
+  BAG_FULL: '가방이 가득 찼어요 — 자리를 비워요',
+};
 const USE_ERROR_KO: Record<string, string> = {
   NO_MOB: '거기엔 아무것도 없어요',
   TOO_FAR: '너무 멀어요 — 가까이 가요',
@@ -424,6 +432,14 @@ export class Session {
         if (!Number.isInteger(msg.id)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
         const err = this.room.useMob(this.idx, msg.id, typeof msg.slot === 'number' ? msg.slot : undefined);
         if (err && err !== 'COOLDOWN') return this.error(err, USE_ERROR_KO[err] ?? '지금은 할 수 없어요');
+        return;
+      }
+      case 'trade': {
+        // 주민 거래 (#225)
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.id) || (msg.kind !== 'buy' && msg.kind !== 'sell') || typeof msg.item !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.trade(this.idx, msg.id, msg.kind, msg.item);
+        if (err) return this.error(err, TRADE_ERROR_KO[err] ?? USE_ERROR_KO[err] ?? '지금은 거래할 수 없어요');
         return;
       }
       case 'ignite': {

@@ -671,6 +671,32 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(room.firework(ia, p.pos.x + 40, p.pos.y, p.pos.z)).toBe('TOO_FAR');
   });
 
+  it('주민 거래 (#225): 에메랄드로 사고 물건을 팔아 에메랄드를 받는다, 모자라면 거절, 멀면 TOO_FAR', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
+    const p = room.players.get(ia)!;
+    const v = room.animals.entries(1000).find((e) => e.kind === MOB_KIND_NUM.villager)!;
+    room.onMove(ia, { x: v.x + 20, y: v.y, z: v.z, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.trade(ia, v.id, 'buy', 'bread', 1000)).toBe('TOO_FAR');
+    room.onMove(ia, { x: v.x + 1.5, y: v.y, z: v.z, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.trade(ia, v.id, 'buy', 'bread', 1000)).toBe('NO_EMERALD');
+    expect(room.trade(ia, v.id, 'buy', 'wheat', 1000)).toBe('NO_TRADE');
+    room.giveItems(ia, 'emerald', 2);
+    expect(room.trade(ia, v.id, 'buy', 'bread', 1000)).toBeNull();
+    expect(countOf(p.inv, 'bread')).toBe(3);
+    expect(countOf(p.inv, 'emerald')).toBe(1);
+    expect(room.trade(ia, v.id, 'sell', 'wheat', 1000)).toBe('NOT_ENOUGH');
+    room.giveItems(ia, 'wheat', 12);
+    expect(room.trade(ia, v.id, 'sell', 'wheat', 1000)).toBeNull();
+    expect(countOf(p.inv, 'wheat')).toBe(0);
+    expect(countOf(p.inv, 'emerald')).toBe(2);
+    expect(a.json.filter((m) => m.t === 'error' && m.code === 'TRADE_OK').length).toBe(2);
+    const cow = room.animals.entries(1000).find((e) => e.kind === MOB_KIND_NUM.cow);
+    if (cow) expect(room.trade(ia, cow.id, 'buy', 'bread', 1000)).toBe('NOT_VILLAGER');
+  });
+
   it('주민을 때리면 철 골렘 (#221, 아들 14차 11번): 주민은 안 다치고, 골렘이 때린 사람만 쫓다가 30초 뒤 사라진다', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });

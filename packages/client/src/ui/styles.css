@@ -2201,6 +2201,27 @@ body {
   text-align: left;
   padding-left: 14px;
 }
+/* 주민 가게 (#225) */
+.talk-trade-btn {
+  margin-top: 6px;
+  border-color: #6fd36f;
+}
+.talk-trade {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.talk-trade-icon {
+  width: 28px;
+  height: 28px;
+  image-rendering: pixelated;
+  flex: none;
+}
+.talk-trade-head {
+  color: #9fe29f;
+  font-size: 13px;
+  margin: 8px 0 2px 4px;
+}
 
 /* ---------- 드래곤 체력 (#113): 기력 바 아래 ---------- */
 .dragon-hp {

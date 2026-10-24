@@ -79,8 +79,9 @@ import {
   xpProgress,
   raycastVoxels,
   CRYSTAL_SHOT_RANGE,
+  countOf,
 } from '@dragon-village/shared';
-import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP } from '@dragon-village/shared/data';
+import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP, TRADES } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { beam as beamSound, bell, ding, explosion as explosionSound, fireworkLaunch, fireworkPop, hit as hitSound, hurt as hurtSound, levelUp, lose, roar } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
@@ -274,6 +275,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         hud.toast('😤 주민이 삐졌어요', 1500);
       }
     },
+    (id, kind, item) => net.sendTrade(id, kind, item), // 주민 거래 (#225): 서버가 판정하고 가방·토스트로 답한다
+    (id) => nameOf(id), // 아래에서 만들어지는 것들 — 열 때 쓴다
+    (id, size) => iconOf(id, size),
     () => {
       if (started && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) resume();
     },
@@ -287,7 +291,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     input.paused = true;
     kbm.enabled = false;
     if (kbm.locked) document.exitPointerLock();
-    talk.show(id, name, def);
+    talk.show(id, name, def, TRADES, countOf(inv, TRADES.currency)); // 주민은 누구나 가게도 한다 (#225)
   };
   const petNamer = new PetNamePicker(
     root,
@@ -1142,6 +1146,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       bag.setInventory(inv);
       nest.setInventory(inv);
       chest.setInventory(inv);
+      talk.setEmeralds(countOf(inv, TRADES.currency)); // 가게 제목 (#225)
       storageView.setInventory(inv);
     },
     onEmote: (m) => {

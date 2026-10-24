@@ -1,0 +1,28 @@
+{
+  "_comment": "주민 거래 (#225, 아들 14차 4번 '사고 팔 수 있게'). 마을 주민 아무나 빈손으로 탭 → 🛒 거래하기. buy = 에메랄드(price)를 내고 item 을 count 개 산다. sell = item 을 count 개 주고 에메랄드 price 개를 받는다. 아들이 값·물건을 마음대로 바꿔도 돼(물건 id 는 가방에 있는 그대로). 에메랄드는 보물 상자·팔기·에메랄드 광석에서.",
+  "currency": "emerald",
+  "buy": [
+    { "item": "bread", "count": 3, "price": 1, "_note": "빵 — 배고플 때" },
+    { "item": "torch", "count": 8, "price": 1 },
+    { "item": "arrow", "count": 8, "price": 1 },
+    { "item": "cooked_beef", "count": 2, "price": 1 },
+    { "item": "book", "count": 1, "price": 2 },
+    { "item": "golden_carrot", "count": 1, "price": 3, "_note": "말 번식" },
+    { "item": "ender_pearl", "count": 2, "price": 5 },
+    { "item": "saddle", "count": 1, "price": 6 },
+    { "item": "diamond", "count": 1, "price": 12, "_note": "비싸다 — 사막·설원 상자가 더 쉬울지도" }
+  ],
+  "sell": [
+    { "item": "wheat", "count": 12, "price": 1 },
+    { "item": "carrot", "count": 16, "price": 1 },
+    { "item": "potato", "count": 16, "price": 1 },
+    { "item": "wool", "count": 8, "price": 1 },
+    { "item": "leather", "count": 6, "price": 1 },
+    { "item": "rotten_flesh", "count": 20, "price": 1, "_note": "좀비 고기 — 마인크래프트 성직자처럼" },
+    { "item": "paper", "count": 12, "price": 1 },
+    { "item": "stick", "count": 32, "price": 1 },
+    { "item": "iron_ingot", "count": 4, "price": 1 },
+    { "item": "gold_ingot", "count": 2, "price": 1 },
+    { "item": "coal", "count": 10, "price": 1 }
+  ]
+}

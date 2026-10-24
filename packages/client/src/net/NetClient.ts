@@ -423,6 +423,10 @@ export class NetClient {
   sendUseMob(id: number, slot: number): void {
     this.sendJson({ t: 'useMob', id, slot });
   }
+  /** 주민 거래 (#225) */
+  sendTrade(id: number, kind: 'buy' | 'sell', item: string): void {
+    this.sendJson({ t: 'trade', id, kind, item });
+  }
   /** 활·쇠뇌로 쏘기 (M8-2) */
   sendShoot(id: number, slot: number, charge = 0): void {
     this.sendJson({ t: 'shoot', id, slot, charge: Math.round(charge) });

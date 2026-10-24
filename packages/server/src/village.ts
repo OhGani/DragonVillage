@@ -178,7 +178,7 @@ import {
   WEEK_MS,
   XP_SOURCE,
   xpAfterDeath, CRYSTAL_SHOT_RANGE } from '@dragon-village/shared';
-import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS } from '@dragon-village/shared/data';
+import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS, TRADES } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import { RAID_GOAL, RaidSystem } from './raid';
@@ -1840,6 +1840,40 @@ export class VillageRoom {
     m.despawnAt = now + GOLEM_GRUDGE_MS;
     this.sendJson(p, { t: 'error', code: 'GOLEM_ANGRY', message: '🗿 주민을 때리면 안 돼요! 철 골렘이 30초 동안 쫓아와요' });
     this.log(`마을 ${this.info.code}: ${p.nick} 주민을 때려 철 골렘이 나타남`);
+  }
+
+  /**
+   * 주민 거래 (#225, 아들 14차 4번): 마을 주민 6칸 안에서. buy = 에메랄드를 내고 산다, sell = 물건을 주고 에메랄드를 받는다.
+   * 오류: NOT_IN_VILLAGE · NO_MOB · NOT_VILLAGER · TOO_FAR · NO_TRADE · NO_EMERALD · NOT_ENOUGH · BAG_FULL
+   */
+  trade(idx: number, mobId: number, kind: 'buy' | 'sell', item: string, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (p.world !== 'village' || mobId < ANIMAL_ID_BASE) return 'NO_MOB';
+    if (this.animals.kindOf(mobId) !== 'villager') return 'NOT_VILLAGER';
+    const at = this.animals.positionOf(mobId);
+    if (!at || Math.hypot(at.x - p.pos.x, at.z - p.pos.z) > 6 || Math.abs(at.y - p.pos.y) > 3) return 'TOO_FAR';
+    const t = TRADES.find(kind, item);
+    if (!t) return 'NO_TRADE';
+    const changed = new Set<number>();
+    const name = itemName(t.item, this.registry, ITEM_NAMES);
+    if (kind === 'buy') {
+      if (countOf(p.inv, TRADES.currency) < t.price) return 'NO_EMERALD';
+      if (!fits(p.inv, [{ item: t.item, count: t.count }])) return 'BAG_FULL';
+      take(p.inv, TRADES.currency, t.price, changed);
+      this.giveTo(p, t.item, t.count, changed);
+      this.sendJson(p, { t: 'error', code: 'TRADE_OK', message: `🛒 ${name} ${t.count}개를 샀어요 (💎 ${t.price})` });
+    } else {
+      if (countOf(p.inv, t.item) < t.count) return 'NOT_ENOUGH';
+      if (!fits(p.inv, [{ item: TRADES.currency, count: t.price }])) return 'BAG_FULL';
+      take(p.inv, t.item, t.count, changed);
+      this.giveTo(p, TRADES.currency, t.price, changed);
+      this.sendJson(p, { t: 'error', code: 'TRADE_OK', message: `💰 ${name} ${t.count}개를 팔아 💎 ${t.price}개를 받았어요` });
+    }
+    this.sendInv(p, changed);
+    this.noteCodex(p, TRADES.currency, now);
+    this.log(`마을 ${this.info.code}: ${p.nick} 주민 거래 ${kind} ${t.item}×${t.count} (💎 ${t.price})`);
+    return null;
   }
 
   /** 🛡️ 막기 (#118): 방패를 끼고 있을 때만. 켜면 GUARD_MAX_MS 뒤 저절로 풀린다(클라가 5초마다 다시 켠다) */
