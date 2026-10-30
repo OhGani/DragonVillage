@@ -671,6 +671,37 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(room.firework(ia, p.pos.x + 40, p.pos.y, p.pos.z)).toBe('TOO_FAR');
   });
 
+  it('씨앗·벽 횃불을 놓아도 빈 양동이는 안 생긴다 (#227, 아빠 "당근 감자를 심으면 빈 물양동이가 생긴다"): 양동이는 물·용암을 부을 때만', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
+    const p = room.players.get(ia)!;
+    room.giveItems(ia, 'carrot', 1);
+    room.giveItems(ia, 'torch', 1);
+    room.giveItems(ia, 'water_bucket', 1);
+    let fx = -1,
+      fz = -1;
+    for (let z = 50; z < 80 && fx < 0; z++)
+      for (let x = 22; x < 44; x++)
+        if (BLOCKS.get(room.world.getBlock(x, GROUND_Y, z)).id === 'farmland' && room.world.getBlock(x, GROUND_Y + 1, z) === 0) {
+          fx = x;
+          fz = z;
+          break;
+        }
+    room.onMove(ia, { x: fx + 0.5, y: GROUND_Y + 1, z: fz + 2.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ia, { seq: 1, x: fx, y: GROUND_Y + 1, z: fz, id: 'carrot_young' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y + 1, fz)).id).toBe('carrot_young');
+    expect(countOf(p.inv, 'carrot')).toBe(0);
+    expect(countOf(p.inv, 'bucket')).toBe(0); // 씨앗을 심어도 양동이 없음
+    const wall = BLOCKS.find('torch@n');
+    if (wall) {
+      room.onBlockChange(ia, { seq: 2, x: fx + 1, y: GROUND_Y + 2, z: fz + 1, id: 'torch@n' }, 1100);
+      expect(countOf(p.inv, 'bucket')).toBe(0);
+    }
+    expect(countOf(p.inv, 'water_bucket')).toBe(1); // 물 양동이는 그대로 (붓기 → 빈 양동이는 #125·#137 테스트)
+  });
+
   it('유리병에 물 담기 (#226): 유리병을 들고 물을 탭하면 물병 하나, 물은 그대로. 유리병 없으면·물 아니면·멀면 거절', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });

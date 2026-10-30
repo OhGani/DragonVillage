@@ -2398,7 +2398,7 @@ export class VillageRoom {
       const item = itemForPlacing(req.id, this.registry);
       if (item) {
         take(p.inv, item, 1, changed);
-        if (item !== req.id) give(p.inv, BUCKET, 1, changed); // 양동이를 부으면 빈 양동이가 남는다
+        if (item === WATER_BUCKET || item === LAVA_BUCKET) give(p.inv, BUCKET, 1, changed); // 양동이를 부으면 빈 양동이가 남는다 (#227: 전엔 '아이템 ≠ 블록 id' 면 다 줘서 씨앗·벽 횃불·상자 반쪽을 놓을 때도 양동이가 생겼다)
       }
     }
     this.sendInv(p, changed);
