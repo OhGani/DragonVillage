@@ -114,7 +114,38 @@ export function buildItemNames(sources: { recipes?: unknown; dragons?: unknown; 
 }
 
 /** 아이템 한국어 이름: 블록이면 블록 이름, 아니면 모은 이름표, 없으면 id 그대로 */
+// ---------------------------------------------------------------- 인챈트 (#231)
+
+/** 인챈트가 붙은 아이템 id: `iron_sword.ench.sharpness.2` — 하나만 붙는다 */
+export const ENCH_SEP = '.ench.';
+export const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'] as const;
+export function encodeEnchanted(base: string, ench: string, level: number): string {
+  return `${base}${ENCH_SEP}${ench}.${level}`;
+}
+export function parseEnchanted(item: string | null | undefined): { base: string; ench: string; level: number } | null {
+  if (!item) return null;
+  const i = item.indexOf(ENCH_SEP);
+  if (i < 0) return null;
+  const rest = item.slice(i + ENCH_SEP.length);
+  const j = rest.lastIndexOf('.');
+  if (j < 0) return null;
+  const level = Number(rest.slice(j + 1));
+  if (!Number.isInteger(level) || level < 1) return null;
+  return { base: item.slice(0, i), ench: rest.slice(0, j), level };
+}
+/** 인챈트를 뗀 원래 아이템 id (안 붙어 있으면 그대로) */
+export function baseItemOf(item: string): string {
+  return parseEnchanted(item)?.base ?? item;
+}
+/** 이 아이템에 붙은 그 인챈트의 단계 (없으면 0) */
+export function enchantLevelOf(item: string | null | undefined, ench: string): number {
+  const e = parseEnchanted(item);
+  return e && e.ench === ench ? e.level : 0;
+}
+
 export function itemName(id: string, registry: BlockRegistry, names: ReadonlyMap<string, string>): string {
+  const e = parseEnchanted(id);
+  if (e) return `${itemName(e.base, registry, names)} ✨${names.get('ench.' + e.ench) ?? e.ench} ${ROMAN[e.level] ?? e.level}`; // 인챈트 이름은 data.ts 가 'ench.<id>' 로 넣는다 (#231)
   return registry.find(id)?.name ?? names.get(id) ?? id;
 }
 

@@ -2201,6 +2201,27 @@ body {
   text-align: left;
   padding-left: 14px;
 }
+/* 인챈트 탭 (#231) */
+.enchant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.enchant-name {
+  color: #e9d7ff;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.enchant-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.enchant-btns .big-btn.small {
+  font-size: 13px;
+  padding: 6px 10px;
+}
 /* 주민 가게 (#225) */
 .talk-trade-btn {
   margin-top: 6px;

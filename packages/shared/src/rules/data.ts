@@ -21,6 +21,7 @@ import starterKitJson from '../../../../data/starter-kit.json';
 import toolsJson from '../../../../data/tools.json';
 import foodJson from '../../../../data/food.json';
 import tradesJson from '../../../../data/trades.json';
+import enchantsJson from '../../../../data/enchants.json';
 import xpJson from '../../../../data/xp.json';
 import villagerTalkJson from '../../../../data/villager-talk.json';
 import { parseBlocks } from './blocks';
@@ -44,6 +45,7 @@ import { parseStarterKit } from './starterKit';
 import { parseTools } from './tools';
 import { parseFood } from './food';
 import { parseTrades } from './trades';
+import { parseEnchants } from './enchants';
 import { parseXp } from './xp';
 
 export const BLOCKS = parseBlocks(blocksJson);
@@ -73,6 +75,8 @@ export const TOOLS = parseTools(toolsJson);
 export const FOOD = parseFood(foodJson);
 /** 주민 거래 (#225) */
 export const TRADES = parseTrades(tradesJson);
+/** 인챈트 (#231) */
+export const ENCHANTS = parseEnchants(enchantsJson);
 /** 경험치 규칙 (M6-1, 마인크래프트 값 + 우리 것) */
 export const XP = parseXp(xpJson);
 /** 원정 밤의 몹 — 좀비·크리퍼 (M7-2). 드롭·이름은 mobs.json, 경험치는 xp.json */
@@ -86,3 +90,5 @@ export const GIFTS = parseGifts(giftsJson);
 /** 아이템 id → 한국어 이름 (블록 아닌 것). 블록은 BLOCKS 에서 */
 export const ITEM_NAMES = buildItemNames({ recipes: recipesJson, dragons: dragonsJson, potions: potionsJson, extra: COMBAT.itemNames });
 for (const d of DRAGONS.list) ITEM_NAMES.set(eggItem(d.id), `${d.name} 알`);
+for (const e of ENCHANTS.list) ITEM_NAMES.set('ench.' + e.id, e.name); // 인챈트 이름 (#231): itemName 이 '철 검 ✨날카로움 II' 로 쓴다
+ITEM_NAMES.set('lapis', ITEM_NAMES.get('lapis') ?? '청금석');

@@ -14,6 +14,7 @@ export const STACK = 64;
  * 물 3개를 들고 가려면 빈 양동이 3개 + 가방 3칸
  */
 export function stackOf(item: string): number {
+  if (item.includes('.ench.')) return 1; // 인챈트 붙은 것은 하나씩 (#231)
   if (item === 'bucket') return 16;
   if (item.endsWith('_bucket')) return 1;
   return STACK;

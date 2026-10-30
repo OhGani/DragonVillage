@@ -511,11 +511,11 @@ export function attackDamageOf(tool: { kind: string; tier: number; damage: numbe
 }
 
 /** 드롭 뽑기 (결정론: 시드·몹 id) */
-export function rollDrops(def: MobDef, seed: number, mobId: number): { item: string; count: number }[] {
+export function rollDrops(def: MobDef, seed: number, mobId: number, looting = 0): { item: string; count: number }[] {
   const out: { item: string; count: number }[] = [];
   def.drops.forEach((d, i) => {
     if (hash3(mobId, i, 7, seed) >= d.chance) return;
-    const n = d.min + Math.floor(hash3(mobId, i, 8, seed) * (d.max - d.min + 1));
+    const n = d.min + Math.floor(hash3(mobId, i, 8, seed) * (d.max - d.min + 1)) + (looting > 0 ? Math.floor(hash3(mobId, i, 9, seed) * (looting + 1)) : 0); // 약탈 인챈트 (#231): 0~단계 개 더
     if (n > 0) out.push({ item: d.item, count: n });
   });
   return out;

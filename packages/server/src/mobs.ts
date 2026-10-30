@@ -498,7 +498,8 @@ export class MobSystem {
 
   /** 때리기. 오류: NO_MOB · TOO_FAR · COOLDOWN. 보스는 몸이 커서 한 칸 더 멀리서도 닿는다 */
   /** 때리기. reach = 닿는 거리 (기본 손·검, 활은 사거리) */
-  hit(p: MobTarget, mobId: number, damage: number, now: number, reach = HIT_REACH): string | null {
+  /** ench (#231): bonus = 몹 종류별 추가 피해(강타·살충·날카로움), knock = 밀치기 배율, looting = 약탈 단계 */
+  hit(p: MobTarget, mobId: number, damage: number, now: number, reach = HIT_REACH, ench?: { bonus?: (kind: MobKind) => number; knock?: number; looting?: number }): string | null {
     const m = this.mobs.get(mobId);
     if (!m) return 'NO_MOB';
     if (m.kind === 'villager') return 'VILLAGER'; // 사막 마을 주민도 못 때린다 (#228, #168)
@@ -509,7 +510,7 @@ export class MobSystem {
     const dx = m.x - p.x,
       dz = m.z - p.z;
     const d = Math.hypot(dx, dz) || 1;
-    this.damage(m, damage, p.idx, now, { x: dx / d, z: dz / d });
+    this.damage(m, damage + (ench?.bonus?.(m.kind) ?? 0), p.idx, now, { x: dx / d, z: dz / d }, ench?.knock ?? 1, ench?.looting ?? 0);
     return null;
   }
 
@@ -527,15 +528,15 @@ export class MobSystem {
   }
 
   /** push = 밀려나는 방향(가로 단위 벡터). 보스는 밀리지 않고, 자다가 맞으면 깬다 */
-  private damage(m: MobState, amount: number, byIdx: number, now: number, push?: { x: number; z: number }): void {
+  private damage(m: MobState, amount: number, byIdx: number, now: number, push?: { x: number; z: number }, knock = 1, looting = 0): void {
     const dealt = Math.floor(amount);
     m.hp = Math.max(0, m.hp - dealt);
     m.angryUntil = now + ANGRY_MS; // 중립 몹은 맞으면 화난다 (#161)
     if (m === this.boss && !this.bossAwake) this.wake(m, now);
     if (m.hp > 0) {
       if (push && !isBoss(m.kind)) {
-        const nx = m.x + push.x * KNOCKBACK,
-          nz = m.z + push.z * KNOCKBACK;
+        const nx = m.x + push.x * KNOCKBACK * knock,
+          nz = m.z + push.z * KNOCKBACK * knock;
         const gy = this.groundAt(nx, nz, m.y);
         if (gy !== null && Math.abs(gy - m.y) <= 1) {
           m.x = nx;
@@ -555,7 +556,7 @@ export class MobSystem {
       this.hooks.bossDefeated(m.kind, rollDrops(def, this.e.seed, m.id), def.xp, { x: m.x, y: m.y + 1, z: m.z }, byIdx, now);
       return;
     }
-    this.hooks.reward(byIdx, rollDrops(def, this.e.seed, m.id), def.xp, { x: m.x, y: m.y + 1, z: m.z }, now);
+    this.hooks.reward(byIdx, rollDrops(def, this.e.seed, m.id, looting), def.xp, { x: m.x, y: m.y + 1, z: m.z }, now); // 약탈 (#231)
   }
 
   /** 원정 주민 산책 (#229): 2~6초마다 반은 집 3~10칸 안의 자리로 천천히(0.6배) 걷고, 반은 쉰다. 시드·번호·시각으로 결정론 */

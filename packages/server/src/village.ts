@@ -180,9 +180,8 @@ import {
   xpAfterDeath, CRYSTAL_SHOT_RANGE,
   GLASS_BOTTLE,
   WATER_BOTTLE,
-  effectiveBuys,
-} from '@dragon-village/shared';
-import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS, TRADES } from '@dragon-village/shared/data';
+  effectiveBuys, enchantLevelOf, meleeBonus, knockbackFactor, canEnchant, countBookshelves, encodeEnchanted, hash3 } from '@dragon-village/shared';
+import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS, TRADES, ENCHANTS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import { RAID_GOAL, RaidSystem } from './raid';
@@ -210,6 +209,8 @@ export const GOLEM_MAX = 2;
 export const GOLEM_ID_BASE = 60_000;
 /** 주민이 부른 철 골렘 몹 번호 시작 (#221): 방어전 우민(1부터)·동물(40000부터)과 안 겹치게 */
 export const GUARD_ID_BASE = 30_000;
+/** 인챈트에 쓰는 청금석 아이템 (#231) */
+const LAPIS = 'lapis';
 /** 철 골렘이 쫓는 시간 */
 export const GOLEM_GRUDGE_MS = 30_000;
 /** 눈덩이에 밀리는 세기 (#223) */
@@ -1777,13 +1778,13 @@ export class VillageRoom {
     const reach = hitReachOf(tool, HIT_REACH); // 창은 5칸 (#183)
     const me = { idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE };
     if (p.world === 'village' && mobId >= ANIMAL_ID_BASE) {
-      const err = this.animals.hit({ ...me, token: p.token, held }, mobId, attackDamageOf(tool), now, reach); // 동물 (M8-1)
+      const err = this.animals.hit({ ...me, token: p.token, held }, mobId, attackDamageOf(tool) + enchantLevelOf(held, 'sharpness'), now, reach); // 동물 (M8-1), 날카로움 (#231)
       if (err === 'VILLAGER') this.callGolemOn(p, mobId, now); // 주민을 때리면 철 골렘 (#221)
       return err;
     }
     const sys = p.world === 'expedition' ? this.mobSys : this.villageMobSys(mobId);
     if (!sys) return 'NO_MOB';
-    return sys.hit(me, mobId, attackDamageOf(tool), now, reach);
+    return sys.hit(me, mobId, attackDamageOf(tool), now, reach, { bonus: (kind) => meleeBonus(held, kind), knock: knockbackFactor(held), looting: enchantLevelOf(held, 'looting') }); // 인챈트 (#231)
   }
 
   /** 활·쇠뇌로 노린 몹을 쏜다 (M8-2): 든 칸이 활이고 화살이 있어야. 사거리·피해·간격은 combat.json. 화살 1개 소모, 모두에게 'shot' */
@@ -1797,7 +1798,7 @@ export class VillageRoom {
     if (now < p.bowReadyAt) return 'COOLDOWN';
     const me = { idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE };
     let err: string | null;
-    const dmg = bowDamage(bow, chargeMs); // 당긴 만큼 (#119)
+    const dmg = bowDamage(bow, chargeMs) + enchantLevelOf(held, 'power'); // 당긴 만큼 (#119) + 힘 인챈트 (#231)
     if (p.world === 'village' && mobId >= ANIMAL_ID_BASE) {
       err = this.animals.hit({ ...me, token: p.token, held }, mobId, dmg, now, bow.range);
       if (err === 'VILLAGER') this.callGolemOn(p, mobId, now); // 화살로 쏴도 철 골렘 (#221)
@@ -1935,6 +1936,66 @@ export class VillageRoom {
       if (n > 0) counts[r.item] = n;
     }
     this.sendJson(p, { t: 'demand', counts });
+  }
+
+  /**
+   * 인챈트 (#231): 인챈트 테이블 5칸 안에서 가방 slot 의 도구·활·갑옷 하나에 ench 를 level 단계로. 경험치 레벨·청금석을 쓴다.
+   * 단계는 테이블 둘레 책장 수로 열린다. 오류: NO_TABLE · NO_ITEM · ONE_ONLY · ALREADY · NOT_TARGET · BAD_ENCHANT · NEED_SHELVES:n · NO_LAPIS · NEED_LEVEL:cost:level
+   */
+  enchant(idx: number, slot: number, ench: string, level: number): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    const table = this.nearestBlock(p, 'enchanting_table');
+    if (!table) return 'NO_TABLE';
+    const s = slot >= 0 && slot < p.inv.length ? p.inv[slot] : null;
+    if (!s) return 'NO_ITEM';
+    if (s.count !== 1) return 'ONE_ONLY';
+    const can = canEnchant(s.item, TOOLS, COMBAT);
+    if (!can.ok) return can.reason;
+    const def = ENCHANTS.get(ench);
+    if (!def || !def.for.includes(can.target)) return 'BAD_ENCHANT';
+    const w = this.worldOf(p);
+    const shelves = countBookshelves((x, y, z) => (w.inBounds(x, y, z) ? this.registry.get(w.getBlock(x, y, z)).id : 'air'), table.x, table.y, table.z);
+    const maxLv = Math.min(def.max, ENCHANTS.maxLevelByShelves(shelves));
+    if (!Number.isInteger(level) || level < 1 || level > maxLv) return `NEED_SHELVES:${maxLv}`;
+    const cost = ENCHANTS.cost(level);
+    if (countOf(p.inv, LAPIS) < cost.lapis) return 'NO_LAPIS';
+    const spent = spendLevels(p.xp, cost.levels);
+    if (!spent.ok) return `NEED_LEVEL:${cost.levels}:${spent.level}`;
+    p.xp = spent.total;
+    p.send(encodeXpState({ total: p.xp }));
+    const changed = new Set<number>();
+    if (cost.lapis > 0) take(p.inv, LAPIS, cost.lapis, changed);
+    p.inv[slot] = { item: encodeEnchanted(s.item, ench, level), count: 1 };
+    changed.add(slot);
+    this.sendInv(p, changed);
+    const name = itemName(p.inv[slot]!.item, this.registry, ITEM_NAMES);
+    this.sendJson(p, { t: 'error', code: 'ENCHANT_OK', message: `✨ ${name}! (레벨 ${cost.levels}·청금석 ${cost.lapis} 씀)` });
+    this.log(`마을 ${this.info.code}: ${p.nick} 인챈트 ${name} (책장 ${shelves})`);
+    return null;
+  }
+
+  /** 이 블록이 STATION_REACH 안에 있으면 가장 가까운 자리 (#231) */
+  private nearestBlock(p: RoomPlayer, blockId: string): { x: number; y: number; z: number } | null {
+    const def = this.registry.find(blockId);
+    if (!def) return null;
+    const w = this.worldOf(p);
+    const cx = Math.floor(p.pos.x),
+      cy = Math.floor(p.pos.y + 1),
+      cz = Math.floor(p.pos.z);
+    let best: { x: number; y: number; z: number } | null = null;
+    let bd = Infinity;
+    for (let y = cy - STATION_REACH; y <= cy + STATION_REACH; y++)
+      for (let z = cz - STATION_REACH; z <= cz + STATION_REACH; z++)
+        for (let x = cx - STATION_REACH; x <= cx + STATION_REACH; x++) {
+          if (!w.inBounds(x, y, z) || w.getBlock(x, y, z) !== def.num) continue;
+          const d = Math.hypot(x - cx, y - cy, z - cz);
+          if (d < bd) {
+            bd = d;
+            best = { x, y, z };
+          }
+        }
+    return best;
   }
 
   /** 🛡️ 막기 (#118): 방패를 끼고 있을 때만. 켜면 GUARD_MAX_MS 뒤 저절로 풀린다(클라가 5초마다 다시 켠다) */
@@ -2406,7 +2467,10 @@ export class VillageRoom {
       const drop = dropOf(prev.door ? this.registry.get(prev.door.base) : prev.bed ? this.registry.get(prev.bed.base) : prev, req.x, req.y, req.z, seed);
       if (drop) {
         if (drop.needsBucket) take(p.inv, BUCKET, 1, changed);
-        this.giveTo(p, drop.item, drop.count, changed);
+        // 행운 인챈트 (#231): 곡괭이로 캐는 광석(드롭이 블록과 다른 것)이 0~단계 개 더 — 자리·시드로 결정론
+        const fortune = prev.tool === 'pickaxe' && drop.item !== prev.id ? enchantLevelOf(typeof req.slot === 'number' ? (p.inv[req.slot]?.item ?? null) : null, 'fortune') : 0;
+        const extra = fortune > 0 ? Math.floor(hash3(req.x ^ 0x5a5a, req.y, req.z, seed) * (fortune + 1)) : 0;
+        this.giveTo(p, drop.item, drop.count + extra, changed);
         if (drop.bonus) this.giveTo(p, drop.bonus.item, drop.bonus.count, changed);
       }
       // 경험치 (M6-1): 광석은 xp.json 값(자리·시드 결정론), 원정 보물 상자는 열기 = 부수기

@@ -8,6 +8,7 @@
  * - 곡괭이로 나무를, 도끼로 돌을 캐도 빨라지지 않는다 (종류가 맞아야 한다).
  * - 내구도·인챈트는 값만 두고 아직 안 쓴다 (M6-6 대장간, v1.1 인챈트).
  */
+import { baseItemOf } from './items';
 import { z } from 'zod';
 import { type BlockDef, DataError, koreanizeMessage } from './blocks';
 
@@ -110,32 +111,32 @@ export function parseTools(raw: unknown, fileName = 'data/tools.json'): ToolRule
 
 /** 손에 든 아이템이 곡괭이면 그 정의, 아니면 null */
 export function pickaxeOf(tools: ToolRules, item: string | null | undefined): ToolDef | null {
-  return item ? (tools.pickaxes.get(item) ?? null) : null;
+  return item ? (tools.pickaxes.get(baseItemOf(item)) ?? null) : null;
 }
 
 /** 손에 든 아이템이 도끼면 그 정의, 아니면 null */
 export function axeOf(tools: ToolRules, item: string | null | undefined): ToolDef | null {
-  return item ? (tools.axes.get(item) ?? null) : null;
+  return item ? (tools.axes.get(baseItemOf(item)) ?? null) : null;
 }
 
 /** 손에 든 아이템이 검이면 그 정의, 아니면 null */
 export function swordOf(tools: ToolRules, item: string | null | undefined): ToolDef | null {
-  return item ? (tools.swords.get(item) ?? null) : null;
+  return item ? (tools.swords.get(baseItemOf(item)) ?? null) : null;
 }
 
 /** 손에 든 아이템이 창이면 그 정의, 아니면 null (#183) */
 export function spearOf(tools: ToolRules, item: string | null | undefined): ToolDef | null {
-  return item ? (tools.spears.get(item) ?? null) : null;
+  return item ? (tools.spears.get(baseItemOf(item)) ?? null) : null;
 }
 
 /** 손에 든 아이템이 삽이면 그 정의, 아니면 null (#191) */
 export function shovelOf(tools: ToolRules, item: string | null | undefined): ToolDef | null {
-  return item ? (tools.shovels.get(item) ?? null) : null;
+  return item ? (tools.shovels.get(baseItemOf(item)) ?? null) : null;
 }
 
 /** 손에 든 아이템이 괭이면 그 정의, 아니면 null (#193) */
 export function hoeOf(tools: ToolRules, item: string | null | undefined): ToolDef | null {
-  return item ? (tools.hoes.get(item) ?? null) : null;
+  return item ? (tools.hoes.get(baseItemOf(item)) ?? null) : null;
 }
 
 /** 괭이로 밭을 갈 수 있는 땅 (#193) */

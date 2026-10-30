@@ -24,7 +24,7 @@ import {
   type ServerBinary,
   treasureLoot,
   treasureLootFor,
-  VILLAGE_GEN_VERSION, MOB_KIND_NUM } from '@dragon-village/shared';
+  VILLAGE_GEN_VERSION, MOB_KIND_NUM, totalXpForLevel, levelFromTotalXp, take } from '@dragon-village/shared';
 import { DRAGONS, EXPEDITIONS, BLOCKS, TRADES } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
 import { Storage } from './storage';
@@ -767,6 +767,47 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(a.json.filter((m) => m.t === 'error' && m.code === 'TRADE_OK').length).toBe(3);
     const cow = room.animals.entries(1000).find((e) => e.kind === MOB_KIND_NUM.cow);
     if (cow) expect(room.trade(ia, cow.id, 'buy', 'bread', 1000)).toBe('NOT_VILLAGER');
+  });
+
+  it('인챈트 (#231): 테이블 옆에서 레벨·청금석을 쓰고 철 검에 날카로움, 책장이 없으면 1단계만, 두 번은 안 된다', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
+    const p = room.players.get(ia)!;
+    const tx = 70,
+      tz = 70;
+    const ty = GROUND_Y + 1;
+    room.onMove(ia, { x: tx + 2.5, y: ty, z: tz + 0.5, yaw: 0, pitch: 0, flags: 0 });
+    room.giveItems(ia, 'iron_sword', 1);
+    room.giveItems(ia, 'lapis', 5);
+    const slot = p.inv.findIndex((s) => s?.item === 'iron_sword');
+    expect(room.enchant(ia, slot, 'sharpness', 1)).toBe('NO_TABLE');
+    room.world.setBlock(tx, ty, tz, BLOCKS.numOf('enchanting_table'));
+    p.xp = totalXpForLevel(10);
+    expect(room.enchant(ia, slot, 'sharpness', 2)).toBe('NEED_SHELVES:1'); // 책장 0 → 1단계만
+    expect(room.enchant(ia, slot, 'power', 1)).toBe('BAD_ENCHANT'); // 힘은 활에만
+    expect(room.enchant(ia, slot, 'sharpness', 1)).toBeNull();
+    expect(p.inv[slot]!.item).toBe('iron_sword.ench.sharpness.1');
+    expect(countOf(p.inv, 'lapis')).toBe(4);
+    expect(levelFromTotalXp(p.xp)).toBe(7); // 3레벨 씀
+    expect(room.enchant(ia, slot, 'sharpness', 1)).toBe('ALREADY');
+    // 책장 10개 → 3단계
+    for (let i = -2; i <= 2; i++) {
+      room.world.setBlock(tx + i, ty, tz - 2, BLOCKS.numOf('bookshelf'));
+      room.world.setBlock(tx + i, ty, tz + 2, BLOCKS.numOf('bookshelf'));
+    }
+    room.giveItems(ia, 'bow', 1);
+    const bslot = p.inv.findIndex((s) => s?.item === 'bow');
+    take(p.inv, 'lapis', 4);
+    expect(room.enchant(ia, bslot, 'power', 3)).toBe('NO_LAPIS'); // 청금석 3 필요
+    room.giveItems(ia, 'lapis', 10);
+    expect(room.enchant(ia, bslot, 'power', 3)).toMatch(/^NEED_LEVEL:9:7$/); // 3단계 = 9레벨, 지금 7
+    p.xp = totalXpForLevel(12);
+    expect(room.enchant(ia, bslot, 'power', 3)).toBeNull();
+    expect(p.inv[bslot]!.item).toBe('bow.ench.power.3');
+    expect(a.json.filter((m) => m.t === 'error' && m.code === 'ENCHANT_OK').length).toBe(2);
+    expect(room.enchant(ia, 99, 'power', 1)).toBe('NO_ITEM');
   });
 
   it('사면 비싸진다 (#230): 같은 물건 2번마다 💎1 씩, 3배까지, 사람마다 따로, 20분 지나면 내려온다, 저장된다', () => {

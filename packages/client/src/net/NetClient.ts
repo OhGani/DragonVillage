@@ -499,6 +499,10 @@ export class NetClient {
   sendBrew(bottles: number[], ingredient: number): void {
     this.sendJson({ t: 'brew', bottles, ingredient });
   }
+  /** 인챈트 (#231) */
+  sendEnchant(slot: number, ench: string, level: number): void {
+    this.sendJson({ t: 'enchant', slot, ench, level });
+  }
   sendEmote(kind: number, id: number): void {
     this.send(encodeEmote({ idx: 0, kind, id }));
   }

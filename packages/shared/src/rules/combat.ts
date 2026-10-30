@@ -6,6 +6,7 @@
  * - 방패(#107): 몹 근접·폭발 피해 절반, 약탈자 화살은 전부, 변명자 도끼는 무시. 폰이라 "들고 있는 동안만" 은 안 한다.
  * - 활·쇠뇌: 노린 몹을 향해 탭 → 화살 1개 소모, 사거리·피해·간격은 데이터. 화살이 날아가는 그림은 클라 연출.
  */
+import { baseItemOf, enchantLevelOf } from './items';
 import { z } from 'zod';
 import type { RecipeDef, Station } from './recipes';
 
@@ -183,14 +184,15 @@ export function bowDamage(bow: BowDef, chargeMs: number): number {
 /** 이 아이템이 들어가는 장비 칸 (없으면 null) */
 export function equipSlotOf(rules: CombatRules, item: string | null | undefined): EquipSlot | null {
   if (!item) return null;
-  if (item === rules.shield.id) return 'shield';
-  return rules.armor.get(item)?.slot ?? null;
+  const base = baseItemOf(item); // 인챈트 붙은 것도 (#231)
+  if (base === rules.shield.id) return 'shield';
+  return rules.armor.get(base)?.slot ?? null;
 }
 export function armorOf(rules: CombatRules, item: string | null | undefined): ArmorPiece | null {
-  return item ? (rules.armor.get(item) ?? null) : null;
+  return item ? (rules.armor.get(baseItemOf(item)) ?? null) : null;
 }
 export function bowOf(rules: CombatRules, item: string | null | undefined): BowDef | null {
-  return item ? (rules.bows.get(item) ?? null) : null;
+  return item ? (rules.bows.get(baseItemOf(item)) ?? null) : null;
 }
 
 /** 입은 갑옷의 방어·강도 합 (방패는 방어 수치가 없다) */
@@ -200,7 +202,7 @@ export function armorTotals(rules: CombatRules, eq: Equipment): { defense: numbe
   for (const slot of ARMOR_SLOTS) {
     const a = armorOf(rules, eq[slot]);
     if (a) {
-      defense += a.defense;
+      defense += a.defense + enchantLevelOf(eq[slot], 'protection'); // 보호 인챈트 (#231)
       toughness += a.toughness;
     }
   }
@@ -232,7 +234,7 @@ export const GUARD_TAP_MS = 1_500;
  * 🛡️ 막기 중(guarding)이면 (1 − guardBlock) — 변명자는 그래도 뚫는다. 방패가 없거나 갑옷이 안 통하는 피해(낙하·독)면 1
  */
 export function shieldFactor(rules: CombatRules, eq: Equipment, cause: string, guarding = false): number {
-  if (eq.shield !== rules.shield.id || !armorApplies(cause)) return 1;
+  if (baseItemOf(eq.shield ?? '') !== rules.shield.id || !armorApplies(cause)) return 1;
   if (rules.shield.ignoredBy.includes(cause)) return 1;
   if (guarding) return 1 - rules.shield.guardBlock;
   if (ARROW_CAUSES.includes(cause)) return 1 - rules.shield.arrowBlock;

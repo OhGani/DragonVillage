@@ -115,7 +115,10 @@
       "id": "leaves",
       "name": "나뭇잎",
       "bonusDrops": "sapling",
-      "bonusCount": [0, 1],
+      "bonusCount": [
+        0,
+        1
+      ],
       "_saplingNote": "나뭇잎을 부수면 묘목이 덤으로 0~1개 (아들: 확률 드롭). 나무 드래곤 알 재료",
       "hardness": 0.2,
       "tool": null,
@@ -123,7 +126,11 @@
       "lightEmit": 0,
       "lightFilter": 1,
       "texture": "leaves",
-      "shearDrops": ["stick", "sapling", "apple"],
+      "shearDrops": [
+        "stick",
+        "sapling",
+        "apple"
+      ],
       "_note": "아들 7차: 가위로 자르면 막대기나 그 나무 묘목이 나오고, 참나무에서는 사과도. 맨손으로 부수면 사라짐 (M4 아이템 드롭)"
     },
     {
@@ -218,7 +225,10 @@
       "hardness": 0.3,
       "tool": null,
       "bonusDrops": "glowstone_dust",
-      "bonusCount": [0, 3],
+      "bonusCount": [
+        0,
+        3
+      ],
       "_note": "캐면 발광석 블록 1개가 들어오고, 덤으로 발광석 가루 0~3개(bonusCount, 아빠 2026-09-19 — 아들 9차 '가루 2~4개'를 블록 + 덤으로 바꿈). 가루는 물약 단계 올리기 재료(potions.json). 개수 뽑기는 서버가 시드 PRNG 로",
       "lightEmit": 15,
       "texture": "glowstone"
@@ -345,7 +355,7 @@
       "tool": "pickaxe",
       "lightEmit": 7,
       "texture": "enchanting_table",
-      "release": "v1.1"
+      "_note": "인챈트 (#231) 로 v1 에 열림"
     },
     {
       "id": "cactus",
@@ -705,7 +715,6 @@
       "textureBottom": "planks",
       "shape": "bed"
     },
-
     {
       "id": "chest",
       "name": "상자",
@@ -943,7 +952,10 @@
       "textureSide": "red_mushroom_block_side",
       "textureBottom": "mushroom_pores",
       "drops": "red_mushroom",
-      "dropCount": [0, 2],
+      "dropCount": [
+        0,
+        2
+      ],
       "_note": "거대 버섯 (#208, 아들 입체 그림 2026-10-20): 빨간 버섯에 뼛가루를 쓰면 줄기 4~5 위에 갓이 선다. 부수면 빨간 버섯 0~2"
     },
     {
@@ -956,7 +968,10 @@
       "textureSide": "brown_mushroom_block",
       "textureBottom": "mushroom_pores",
       "drops": "brown_mushroom",
-      "dropCount": [0, 2],
+      "dropCount": [
+        0,
+        2
+      ],
       "_note": "거대 갈색 버섯 (#208): 갈색 버섯에 뼛가루 → 줄기 위에 넓은 7×7 갓. 그림은 임시(아들이 그려 주면 교체)"
     },
     {
@@ -1121,7 +1136,10 @@
       "shape": "cross",
       "plantOn": "soul_sand",
       "drops": "nether_wart",
-      "dropCount": [2, 4],
+      "dropCount": [
+        2,
+        4
+      ],
       "_note": "네더 요새 영혼 모래 밭에 이걸로 자라 있다 (worldgen/nether.ts). 캐면 2~4개"
     },
     {
@@ -1176,7 +1194,10 @@
       "solid": false,
       "drops": "wheat",
       "bonusDrops": "wheat_seeds",
-      "bonusCount": [1, 2],
+      "bonusCount": [
+        1,
+        2
+      ],
       "lightEmit": 0,
       "texture": "wheat_ripe",
       "_note": "부수면 밀 1 + 밀 씨 1~2 (다시 심을 수 있게)"
@@ -1202,7 +1223,10 @@
       "tool": null,
       "solid": false,
       "drops": "carrot",
-      "dropCount": [2, 3],
+      "dropCount": [
+        2,
+        3
+      ],
       "lightEmit": 0,
       "texture": "carrot_ripe",
       "_note": "부수면 당근 2~3"
@@ -1228,7 +1252,10 @@
       "tool": null,
       "solid": false,
       "drops": "potato",
-      "dropCount": [1, 4],
+      "dropCount": [
+        1,
+        4
+      ],
       "lightEmit": 0,
       "texture": "potato_ripe",
       "_note": "부수면 감자 1~4 (마인크래프트). 독 감자는 좀비가 가끔 떨군다"

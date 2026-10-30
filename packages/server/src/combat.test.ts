@@ -1,4 +1,4 @@
-import { ANIMAL_ID_BASE, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, HP_MAX, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, give, type ServerBinary, GUARD_MAX_MS } from '@dragon-village/shared';
+import { ANIMAL_ID_BASE, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, HP_MAX, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, give, type ServerBinary, GUARD_MAX_MS, meleeBonus, knockbackFactor, rollDrops, HIT_REACH } from '@dragon-village/shared';
 import { BLOCKS, MOBS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
 import { MobSystem } from './mobs';
@@ -158,6 +158,28 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
     expect(arrows.length).toBeGreaterThanOrEqual(1);
     expect(arrows.length).toBe(hurt.filter((c) => c === 'skeleton').length); // 화살 하나 = 스켈레톤 공격 하나
     expect(arrows[0]!.from.z).toBeLessThan(arrows[0]!.to.z); // 몹에서 사람 쪽으로
+  });
+
+  it('인챈트 효과 (#231): 강타 검은 좀비에 +4, 약탈은 드롭이 더, 밀치기는 더 멀리', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const json: { t: string; [k: string]: unknown }[] = [];
+    const rewards: { item: string; count: number }[][] = [];
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 64.5, eyeY: GROUND_Y + 1 + 1.6 };
+    const arena = { world: room.world, seed: 5, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0 };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: () => {}, broadcast: () => {}, json: (o) => json.push(o as { t: string }), reward: (_i, drops) => rewards.push(drops), bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 24, goal: null, quiet: true });
+    const z1 = sys.spawnKind('zombie', 64.5, GROUND_Y + 1, 62.5);
+    const held = 'iron_sword.ench.smite.2';
+    expect(sys.hit(me, z1.id, 7, T0, HIT_REACH, { bonus: (k) => meleeBonus(held, k), knock: knockbackFactor('iron_sword.ench.knockback.2'), looting: 0 })).toBeNull();
+    expect(z1.hp).toBe(20 - 11); // 7 + 강타 II 4
+    expect(z1.z).toBeLessThan(62.5 - 1.2); // 0.7 × 2.6 만큼 밀렸다
+    const z2 = sys.spawnKind('zombie', 64.5, GROUND_Y + 1, 62.5);
+    sys.hit(me, z2.id, 100, T0 + 1000, HIT_REACH, { looting: 3 });
+    const z3 = sys.spawnKind('zombie', 64.5, GROUND_Y + 1, 62.5);
+    sys.hit(me, z3.id, 100, T0 + 2000);
+    expect(rewards.length).toBe(2);
+    const sum = (d: { count: number }[]) => d.reduce((n, x) => n + x.count, 0);
+    expect(sum(rewards[0]!)).toBeGreaterThanOrEqual(sum(rollDrops(MOBS.get('zombie'), 5, z2.id)));
+    expect(rollDrops(MOBS.get('zombie'), 5, 77, 3).reduce((n, x) => n + x.count, 0)).toBeGreaterThanOrEqual(rollDrops(MOBS.get('zombie'), 5, 77).reduce((n, x) => n + x.count, 0));
   });
 
   it('엔더맨 (#222, 아들 14차 2번): 쳐다보면 화나고(stare), 화나면 3초마다 사람 옆으로 순간이동(teleport), 안 보면 가만히', () => {

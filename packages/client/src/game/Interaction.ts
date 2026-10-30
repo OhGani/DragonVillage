@@ -22,8 +22,7 @@ import {
   shovelOf,
   TILLABLE,
   toolOf,
-  type VoxelWorld,
-} from '@dragon-village/shared';
+  type VoxelWorld, enchantLevelOf } from '@dragon-village/shared';
 import { TOOLS } from '@dragon-village/shared/data';
 import type { InputState } from '../input/InputState';
 import { PLAYER_SIZE, type Player } from '../player/Player';
@@ -229,7 +228,7 @@ export class Interaction {
         this.progress = 0; // 부술 수 없음 (기반암)
       } else if (this.cooldown <= 0) {
         // 곡괭이 등급·속도 (아들 2026-09-20): 곡괭이가 필요한 블록은 든 곡괭이로 시간이 달라지고, 등급이 낮으면 못 캔다
-        const secs = breakSeconds(def, toolOf(TOOLS, this.heldItem));
+        const secs = breakSeconds(def, toolOf(TOOLS, this.heldItem), 1.5, enchantLevelOf(this.heldItem, 'efficiency'), TOOLS); // 효율 인챈트 (#231)
         if (secs === null) {
           this.progress = 0;
           this.hintTimer -= dt;

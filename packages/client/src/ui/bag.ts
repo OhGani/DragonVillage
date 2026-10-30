@@ -19,8 +19,7 @@ import {
   isPotionItem,
   matchGrid,
   missing,
-  potionFromItemId,
-} from '@dragon-village/shared';
+  potionFromItemId, canEnchant, ROMAN, TARGET_KO, type EnchantRules, type ToolRules, type CombatRules } from '@dragon-village/shared';
 import { GLASS_BOTTLE, HOTBAR_SLOTS, INV_SLOTS } from '@dragon-village/shared';
 
 export interface BagDeps {
@@ -48,12 +47,19 @@ export interface BagDeps {
   armorDefense(): number;
   onEquip(slot: number): void;
   onUnequip(part: string): void;
+  /** 인챈트 (#231): 규칙·내 레벨·근처 테이블 둘레 책장 수·요청 */
+  enchants: EnchantRules;
+  tools: ToolRules;
+  combat: CombatRules;
+  levels(): number;
+  shelves(): number;
+  onEnchant(slot: number, ench: string, level: number): void;
 }
 const EQUIP_LABEL: Record<string, string> = { helmet: '투구', chestplate: '흉갑', leggings: '레깅스', boots: '부츠', shield: '방패' };
 
 /** 근처에 있는 작업대 블록 */
-export type Stations = { crafting_table?: boolean; furnace?: boolean; brewing_stand?: boolean; forge?: boolean };
-type Tab = 'bag' | 'craft' | 'brew' | 'book' | 'codex';
+export type Stations = { crafting_table?: boolean; furnace?: boolean; brewing_stand?: boolean; forge?: boolean; enchanting_table?: boolean };
+type Tab = 'bag' | 'craft' | 'brew' | 'enchant' | 'book' | 'codex';
 /** 📜 조합법 탭의 묶음 순서와 제목 (#133) */
 const BOOK_GROUPS: readonly [Station, string][] = [
   ['inventory', '🎒 가방에서 (2×2) — 언제나'],
@@ -75,6 +81,8 @@ export class BagView {
   private confirmDrop = false;
   /** 양조 모드: 고른 병 칸들과 재료 칸 */
   private bottles: number[] = [];
+  /** 인챈트 탭에서 고른 칸 (#231) */
+  private enchSlot = -1;
   private ingredient = -1;
   /**
    * 제작 격자 (#132, 마인크래프트 제작대와 같게): 가방 2×2 또는 제작대·대장간 옆 3×3. 가방 물건을 "놓아 둔" 것처럼 보이지만
@@ -228,6 +236,7 @@ export class BagView {
     const changed = JSON.stringify(s) !== JSON.stringify(this.stations);
     this.stations = s;
     if (this.tab === 'brew' && !s.brewing_stand) this.tab = 'bag';
+    if (this.tab === 'enchant' && !s.enchanting_table) this.tab = 'bag';
     if (changed && this.visible) this.renderAll();
   }
 
@@ -243,6 +252,7 @@ export class BagView {
       ['craft', '🔨 만들기'],
     ];
     if (this.stations.brewing_stand) tabs.push(['brew', '⚗️ 양조']);
+    if (this.stations.enchanting_table) tabs.push(['enchant', '✨ 인챈트']);
     tabs.push(['book', '📜 조합법']);
     tabs.push(['codex', '📖 도감']);
     this.tabs.innerHTML = '';
@@ -271,7 +281,7 @@ export class BagView {
       c.innerHTML = '';
       c.classList.toggle('selected', i === this.selected);
       c.classList.toggle('bottle', this.tab === 'brew' && this.bottles.includes(i));
-      c.classList.toggle('ingredient', this.tab === 'brew' && this.ingredient === i);
+      c.classList.toggle('ingredient', (this.tab === 'brew' && this.ingredient === i) || (this.tab === 'enchant' && this.enchSlot === i));
       c.title = s ? `${this.deps.nameOf(s.item)} ×${s.count}` : '';
       if (s) {
         const icon = this.deps.icon(s.item, 36);
@@ -293,6 +303,23 @@ export class BagView {
 
   private tapCell(i: number): void {
     const s = this.inv[i];
+    if (this.tab === 'enchant') {
+      // 인챈트 (#231): 도구·활·갑옷 한 개를 고른다
+      if (!s) return;
+      const can = canEnchant(s.item, this.deps.tools, this.deps.combat);
+      if (!can.ok) {
+        this.deps.onHint?.(can.reason === 'ALREADY' ? '✨ 이미 인챈트가 붙어 있어요 — 하나만 붙어요' : '✨ 도구·활·갑옷에만 인챈트를 붙여요');
+        return;
+      }
+      if (s.count !== 1) {
+        this.deps.onHint?.('✨ 한 개만 든 칸을 골라요 (하나씩 인챈트)');
+        return;
+      }
+      this.enchSlot = this.enchSlot === i ? -1 : i;
+      this.renderGrid();
+      this.renderSide();
+      return;
+    }
     if (this.tab === 'brew') {
       // 양조: 물병·물약 칸은 병으로(3개까지), 그 외는 재료로
       if (!s) return;
@@ -352,6 +379,7 @@ export class BagView {
     else if (this.tab === 'craft') this.renderCraftSide();
     else if (this.tab === 'book') this.renderBook();
     else if (this.tab === 'codex') this.renderCodex();
+    else if (this.tab === 'enchant') this.renderEnchantSide();
     else this.renderBrewSide();
     this.drawnTab = this.tab;
 
@@ -818,6 +846,62 @@ export class BagView {
     }
     box.appendChild(preview);
     box.appendChild(this.button('양조하기', 'big-btn small', () => this.deps.onBrew([...this.bottles], this.ingredient), !(any && ing && this.bottles.length > 0)));
+    this.side.appendChild(box);
+  }
+
+  /** 인챈트 (#231): 고른 물건에 붙일 수 있는 인챈트·단계 버튼. 책장 수로 열린 단계까지, 레벨·청금석이 모자라면 흐리게 */
+  private renderEnchantSide(): void {
+    const box = document.createElement('div');
+    box.className = 'brew-box';
+    const rules = this.deps.enchants;
+    const shelves = this.deps.shelves();
+    const maxBy = rules.maxLevelByShelves(shelves);
+    const levels = this.deps.levels();
+    const lapis = this.inv.reduce((n, s) => n + (s && s.item === 'lapis' ? s.count : 0), 0);
+    const head = document.createElement('div');
+    head.className = 'bag-info';
+    head.textContent = `책장 ${shelves}개 → ${maxBy}단계까지 · 내 레벨 ${levels} · 청금석 ${lapis}`;
+    box.appendChild(head);
+    const s = this.enchSlot >= 0 ? this.inv[this.enchSlot] : null;
+    const can = s ? canEnchant(s.item, this.deps.tools, this.deps.combat) : null;
+    const tip = document.createElement('div');
+    tip.className = 'bag-tip';
+    if (!s || !can || !can.ok) {
+      tip.textContent = `가방에서 도구·활·갑옷을 탭해 골라요. 인챈트는 하나만 붙어요. 테이블 둘레에 한 칸 띄워 책장을 ${rules.shelvesPerLevel}개 놓을 때마다 한 단계씩 더 열려요(최대 ${rules.maxLevel}단계).`;
+      box.appendChild(tip);
+      this.side.appendChild(box);
+      return;
+    }
+    tip.textContent = `${this.deps.nameOf(s.item)} (${TARGET_KO[can.target]}) — 단계마다 레벨 ${rules.levelsPerLevel}·청금석 ${rules.lapisPerLevel}`;
+    box.appendChild(tip);
+    const list = document.createElement('div');
+    list.className = 'enchant-list';
+    for (const e of rules.optionsFor(can.target)) {
+      const row = document.createElement('div');
+      row.className = 'enchant-row';
+      const title = document.createElement('div');
+      title.className = 'enchant-name';
+      title.textContent = `${e.name} — ${e.note}`;
+      row.appendChild(title);
+      const btns = document.createElement('div');
+      btns.className = 'enchant-btns';
+      for (let lv = 1; lv <= e.max; lv++) {
+        const cost = rules.cost(lv);
+        const locked = lv > maxBy;
+        const poor = levels < cost.levels || lapis < cost.lapis;
+        const slot = this.enchSlot;
+        const b = this.button(`${ROMAN[lv]} · 레벨 ${cost.levels} · 청금석 ${cost.lapis}${locked ? ' 🔒' : ''}`, 'big-btn small', () => {
+          this.deps.onEnchant(slot, e.id, lv);
+          this.enchSlot = -1;
+          this.renderGrid();
+          this.renderSide();
+        }, locked || poor);
+        btns.appendChild(b);
+      }
+      row.appendChild(btns);
+      list.appendChild(row);
+    }
+    box.appendChild(list);
     this.side.appendChild(box);
   }
 

@@ -448,6 +448,8 @@ export type ClientJson =
   | { t: 'craft'; recipe: string }
   /** 양조 (M4): 병 칸 번호들(1~3) + 재료 칸 */
   | { t: 'brew'; bottles: number[]; ingredient: number }
+  /** 인챈트 (#231): 가방 slot 의 물건에 ench 를 level 단계로 */
+  | { t: 'enchant'; slot: number; ench: string; level: number }
   /** PIN 정하기·바꾸기 (M5, #63). 마을에 들어간 뒤 */
   | { t: 'setPin'; pin: string }
   /** 다른 기기에서 이어하기: 이름 + PIN → 그 계정 토큰 (hello 뒤, join 전) */

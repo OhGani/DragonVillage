@@ -79,9 +79,8 @@ import {
   xpProgress,
   raycastVoxels,
   CRYSTAL_SHOT_RANGE,
-  countOf,
-} from '@dragon-village/shared';
-import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP, TRADES } from '@dragon-village/shared/data';
+  countOf, parseEnchanted, countBookshelves } from '@dragon-village/shared';
+import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP, TRADES, ENCHANTS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { beam as beamSound, bell, ding, explosion as explosionSound, fireworkLaunch, fireworkPop, hit as hitSound, hurt as hurtSound, levelUp, lose, roar } from '../audio/sound';
 import { GamepadInput } from '../input/gamepad';
@@ -370,7 +369,22 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   // ---- HUD ----
   const hud = new Hud(root, isTouch);
   const nameOf = (id: string) => (id in STATION_KO ? STATION_KO[id as keyof typeof STATION_KO] : isPotionItem(id) ? POTIONS.displayName(potionFromItemId(id)!) : itemName(id, registry, ITEM_NAMES)); // 물약은 potions.json 이름 (#163)
-  const iconOf = (id: string, size: number): HTMLCanvasElement | null => itemIcon(id, size, registry, atlas, nameOf(id));
+  const iconOf = (id: string, size: number): HTMLCanvasElement | null => {
+    const e = parseEnchanted(id);
+    if (!e) return itemIcon(id, size, registry, atlas, nameOf(id));
+    // 인챈트 붙은 것 (#231): 원래 그림 위에 ✨ — 원래 그림은 캐시라 복사해서 그린다
+    const base = itemIcon(e.base, size, registry, atlas, nameOf(e.base));
+    const out = document.createElement('canvas');
+    out.width = base.width;
+    out.height = base.height;
+    const g = out.getContext('2d');
+    if (!g) return base;
+    g.drawImage(base, 0, 0);
+    g.font = `${Math.max(10, Math.round(out.width * 0.42))}px sans-serif`;
+    g.textBaseline = 'top';
+    g.fillText('✨', 0, 0);
+    return out;
+  };
   remote.iconOf = (id) => iconOf(id, 32); // 다른 사람 손에 든 것 (#96)
   let sentHeld: string | null | undefined; // 서버에 마지막으로 알린 손 아이템
 
@@ -437,6 +451,30 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       net.sendBrew(bottles, ingredient);
       bag.clearBrewSelection();
     },
+    // 인챈트 (#231)
+    enchants: ENCHANTS,
+    tools: TOOLS,
+    combat: COMBAT,
+    levels: () => xpProgress(xpTotal).level,
+    shelves: () => {
+      const w = ctx.world;
+      const p = ctx.player.pos;
+      const cx = Math.floor(p.x),
+        cy = Math.floor(p.y + 1),
+        cz = Math.floor(p.z);
+      const num = registry.find('enchanting_table')?.num ?? -1;
+      let best: { x: number; y: number; z: number } | null = null;
+      let bd = Infinity;
+      for (let y = cy - 5; y <= cy + 5; y++) for (let z = cz - 5; z <= cz + 5; z++) for (let x = cx - 5; x <= cx + 5; x++) if (w.inBounds(x, y, z) && w.getBlock(x, y, z) === num) {
+        const d = Math.hypot(x - cx, y - cy, z - cz);
+        if (d < bd) {
+          bd = d;
+          best = { x, y, z };
+        }
+      }
+      return best ? countBookshelves((x, y, z) => (w.inBounds(x, y, z) ? registry.get(w.getBlock(x, y, z)).id : 'air'), best.x, best.y, best.z) : 0;
+    },
+    onEnchant: (slot, ench, level) => net.sendEnchant(slot, ench, level),
     onClose: () => closeBag(),
   });
   bag.setInventory(inv);
@@ -496,7 +534,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       cy = Math.floor(p.y + 1),
       cz = Math.floor(p.z);
     const want = new Map<number, keyof Stations>();
-    for (const id of ['crafting_table', 'furnace', 'brewing_stand'] as const) {
+    for (const id of ['crafting_table', 'furnace', 'brewing_stand', 'enchanting_table'] as const) {
       const d = registry.find(id);
       if (d) want.set(d.num, id);
     }
