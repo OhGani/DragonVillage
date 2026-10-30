@@ -1,9 +1,10 @@
 {
-  "_comment": "인챈트 (#231, v1.1). 인챈트 테이블(흑요석 4 + 다이아몬드 2 + 책 1) 5칸 안에서 가방 ✨ 인챈트 탭. 도구·활·갑옷 하나에 인챈트 하나만 붙는다(마인크래프트보다 단순하게). 단계(level)마다 경험치 레벨 levelsPerLevel 과 청금석 lapisPerLevel 을 쓴다. 테이블 둘레(한 칸 띄워 5×5 테두리, 두 층) 책장이 shelvesPerLevel 개마다 한 단계씩 더 열린다(책장 0 = 1단계, 5 = 2단계, 10 = 3단계). for = 어디에 붙나: sword 검 / spear 창 / axe 도끼 / pickaxe 곡괭이 / shovel 삽 / hoe 괭이 / bow 활·쇠뇌 / armor 갑옷. 효과 수치는 코드(shared/rules/enchants.ts). 아들이 이름·단계·값을 바꿔도 돼.",
+  "_comment": "인챈트 (#231, v1.1). 인챈트 테이블(흑요석 4 + 다이아몬드 2 + 책 1) 5칸 안에서 가방 ✨ 인챈트 탭. 도구·활·갑옷 하나에 인챈트 하나만 붙는다(마인크래프트보다 단순하게). 단계(level)마다 경험치 레벨 levelsPerLevel 과 청금석 lapisPerLevel 을 쓴다. 테이블 둘레(한 칸 띄워 5×5 테두리, 두 층) 책장이 shelvesPerLevel 개마다 한 단계씩 더 열린다(책장 0 = 1단계, 5 = 2단계, 10 = 3단계). for = 어디에 붙나: sword 검 / spear 창 / axe 도끼 / pickaxe 곡괭이 / shovel 삽 / hoe 괭이 / bow 활·쇠뇌 / armor 갑옷. 효과 수치는 코드(shared/rules/enchants.ts). 아들이 이름·단계·값을 바꿔도 돼. 책(book)도 테이블에서 인챈트하면 인챈트 책이 된다(어떤 인챈트든). 모루(#232, 철 블록 3 + 철 4) 옆 가방 ⚒️ 모루 탭: 왼쪽 물건 + 오른쪽 인챈트 책(또는 같은 인챈트가 붙은 같은 물건) → 붙이기·같은 단계 둘이면 한 단계 위(최대 단계까지). 모루는 청금석 없이 경험치 레벨만 anvilLevelsPerLevel × 결과 단계.",
   "levelsPerLevel": 3,
   "lapisPerLevel": 1,
   "shelvesPerLevel": 5,
   "maxLevel": 3,
+  "anvilLevelsPerLevel": 2,
   "enchants": [
     { "id": "sharpness", "name": "날카로움", "for": ["sword", "spear", "axe"], "max": 3, "_note": "단계마다 피해 +1" },
     { "id": "smite", "name": "강타", "for": ["sword", "spear", "axe"], "max": 3, "_note": "좀비·스켈레톤·허스크·스트레이·위더 스켈레톤·좀비 피글린에 단계마다 +2" },

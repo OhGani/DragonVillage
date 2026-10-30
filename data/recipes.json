@@ -997,6 +997,28 @@
       "_note": "책장 15개를 주위 1칸 띄워 두면 최고 30레벨 인챈트 (아들). 경험치 소비처 2번 인챈트 (#231) 로 v1 에 열림"
     },
     {
+      "id": "anvil",
+      "name": "모루",
+      "station": "crafting_table",
+      "pattern": [
+        "bbb",
+        " i ",
+        "iii"
+      ],
+      "key": {
+        "b": "iron_block",
+        "i": "iron_ingot"
+      },
+      "in": {
+        "iron_block": 3,
+        "iron_ingot": 4
+      },
+      "out": {
+        "anvil": 1
+      },
+      "_note": "모루 (#232): 인챈트 책을 물건에 붙이거나 같은 인챈트 둘을 합친다(경험치 레벨만, 청금석 없음). 마인크래프트 모양 그대로 — 철 31개"
+    },
+    {
       "id": "obsidian_from_lava",
       "name": "흑요석 만들기",
       "station": "world",

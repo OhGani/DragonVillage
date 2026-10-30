@@ -11,10 +11,18 @@
   "common": {
     "_comment": "모든 주민이 다루는 것",
     "buy": [
-      { "item": "torch", "count": 8, "price": 1 }
+      {
+        "item": "torch",
+        "count": 8,
+        "price": 1
+      }
     ],
     "sell": [
-      { "item": "stick", "count": 32, "price": 1 }
+      {
+        "item": "stick",
+        "count": 32,
+        "price": 1
+      }
     ]
   },
   "jobs": {
@@ -22,97 +30,315 @@
     "farmer": {
       "name": "농부",
       "buy": [
-        { "item": "bread", "count": 3, "price": 1 },
-        { "item": "golden_carrot", "count": 1, "price": 3, "_note": "말 번식" },
-        { "item": "wheat_seeds", "count": 8, "price": 1 }
+        {
+          "item": "bread",
+          "count": 3,
+          "price": 1
+        },
+        {
+          "item": "golden_carrot",
+          "count": 1,
+          "price": 3,
+          "_note": "말 번식"
+        },
+        {
+          "item": "wheat_seeds",
+          "count": 8,
+          "price": 1
+        }
       ],
       "sell": [
-        { "item": "wheat", "count": 12, "price": 1 },
-        { "item": "carrot", "count": 16, "price": 1 },
-        { "item": "potato", "count": 16, "price": 1 },
-        { "item": "pumpkin", "count": 4, "price": 1 },
-        { "item": "melon", "count": 4, "price": 1 },
-        { "item": "sugar", "count": 8, "price": 1 }
+        {
+          "item": "wheat",
+          "count": 12,
+          "price": 1
+        },
+        {
+          "item": "carrot",
+          "count": 16,
+          "price": 1
+        },
+        {
+          "item": "potato",
+          "count": 16,
+          "price": 1
+        },
+        {
+          "item": "pumpkin",
+          "count": 4,
+          "price": 1
+        },
+        {
+          "item": "melon",
+          "count": 4,
+          "price": 1
+        },
+        {
+          "item": "sugar",
+          "count": 8,
+          "price": 1
+        }
       ]
     },
     "librarian": {
       "name": "사서",
       "buy": [
-        { "item": "book", "count": 1, "price": 2 },
-        { "item": "glass_bottle", "count": 3, "price": 1 },
-        { "item": "paper", "count": 6, "price": 1 }
+        {
+          "item": "book",
+          "count": 1,
+          "price": 2
+        },
+        {
+          "item": "glass_bottle",
+          "count": 3,
+          "price": 1
+        },
+        {
+          "item": "paper",
+          "count": 6,
+          "price": 1
+        },
+        {
+          "item": "book.ench.sharpness.1",
+          "count": 1,
+          "price": 6
+        },
+        {
+          "item": "book.ench.efficiency.1",
+          "count": 1,
+          "price": 6
+        },
+        {
+          "item": "book.ench.protection.1",
+          "count": 1,
+          "price": 6
+        },
+        {
+          "item": "book.ench.power.1",
+          "count": 1,
+          "price": 6
+        },
+        {
+          "item": "book.ench.fortune.1",
+          "count": 1,
+          "price": 8
+        },
+        {
+          "item": "book.ench.looting.1",
+          "count": 1,
+          "price": 8
+        }
       ],
       "sell": [
-        { "item": "paper", "count": 12, "price": 1 },
-        { "item": "book", "count": 1, "price": 1 },
-        { "item": "sugar_cane", "count": 10, "price": 1 }
-      ]
+        {
+          "item": "paper",
+          "count": 12,
+          "price": 1
+        },
+        {
+          "item": "book",
+          "count": 1,
+          "price": 1
+        },
+        {
+          "item": "sugar_cane",
+          "count": 10,
+          "price": 1
+        }
+      ],
+      "_note": "인챈트 책 (#232): book.ench.<인챈트 id>.<단계> — 모루에서 물건에 붙인다. enchants.json 의 id 를 쓴다"
     },
     "toolsmith": {
       "name": "도구장이",
       "buy": [
-        { "item": "iron_pickaxe", "count": 1, "price": 4 },
-        { "item": "iron_axe", "count": 1, "price": 4 },
-        { "item": "shears", "count": 1, "price": 2 },
-        { "item": "bucket", "count": 1, "price": 2 }
+        {
+          "item": "iron_pickaxe",
+          "count": 1,
+          "price": 4
+        },
+        {
+          "item": "iron_axe",
+          "count": 1,
+          "price": 4
+        },
+        {
+          "item": "shears",
+          "count": 1,
+          "price": 2
+        },
+        {
+          "item": "bucket",
+          "count": 1,
+          "price": 2
+        }
       ],
       "sell": [
-        { "item": "iron_ingot", "count": 4, "price": 1 },
-        { "item": "coal", "count": 10, "price": 1 },
-        { "item": "cobblestone", "count": 32, "price": 1 }
+        {
+          "item": "iron_ingot",
+          "count": 4,
+          "price": 1
+        },
+        {
+          "item": "coal",
+          "count": 10,
+          "price": 1
+        },
+        {
+          "item": "cobblestone",
+          "count": 32,
+          "price": 1
+        }
       ]
     },
     "weaponsmith": {
       "name": "무기장이",
       "_note": "대장간 앞 대장장이는 늘 무기장이",
       "buy": [
-        { "item": "iron_sword", "count": 1, "price": 4 },
-        { "item": "arrow", "count": 8, "price": 1 },
-        { "item": "shield", "count": 1, "price": 3 },
-        { "item": "diamond", "count": 1, "price": 12, "_note": "비싸다 — 사막·설원 상자가 더 쉬울지도" }
+        {
+          "item": "iron_sword",
+          "count": 1,
+          "price": 4
+        },
+        {
+          "item": "arrow",
+          "count": 8,
+          "price": 1
+        },
+        {
+          "item": "shield",
+          "count": 1,
+          "price": 3
+        },
+        {
+          "item": "diamond",
+          "count": 1,
+          "price": 12,
+          "_note": "비싸다 — 사막·설원 상자가 더 쉬울지도"
+        }
       ],
       "sell": [
-        { "item": "gold_ingot", "count": 2, "price": 1 },
-        { "item": "bone", "count": 12, "price": 1 },
-        { "item": "flint", "count": 10, "price": 1 }
+        {
+          "item": "gold_ingot",
+          "count": 2,
+          "price": 1
+        },
+        {
+          "item": "bone",
+          "count": 12,
+          "price": 1
+        },
+        {
+          "item": "flint",
+          "count": 10,
+          "price": 1
+        }
       ]
     },
     "cleric": {
       "name": "성직자",
       "buy": [
-        { "item": "ender_pearl", "count": 2, "price": 5 },
-        { "item": "glowstone_dust", "count": 4, "price": 1 },
-        { "item": "redstone", "count": 4, "price": 1 }
+        {
+          "item": "ender_pearl",
+          "count": 2,
+          "price": 5
+        },
+        {
+          "item": "glowstone_dust",
+          "count": 4,
+          "price": 1
+        },
+        {
+          "item": "redstone",
+          "count": 4,
+          "price": 1
+        }
       ],
       "sell": [
-        { "item": "rotten_flesh", "count": 20, "price": 1, "_note": "좀비 고기 — 마인크래프트 성직자처럼" },
-        { "item": "spider_eye", "count": 8, "price": 1 },
-        { "item": "egg", "count": 10, "price": 1 }
+        {
+          "item": "rotten_flesh",
+          "count": 20,
+          "price": 1,
+          "_note": "좀비 고기 — 마인크래프트 성직자처럼"
+        },
+        {
+          "item": "spider_eye",
+          "count": 8,
+          "price": 1
+        },
+        {
+          "item": "egg",
+          "count": 10,
+          "price": 1
+        }
       ]
     },
     "shepherd": {
       "name": "양치기",
       "buy": [
-        { "item": "wool", "count": 4, "price": 1 },
-        { "item": "saddle", "count": 1, "price": 6 },
-        { "item": "cooked_mutton", "count": 2, "price": 1 }
+        {
+          "item": "wool",
+          "count": 4,
+          "price": 1
+        },
+        {
+          "item": "saddle",
+          "count": 1,
+          "price": 6
+        },
+        {
+          "item": "cooked_mutton",
+          "count": 2,
+          "price": 1
+        }
       ],
       "sell": [
-        { "item": "wool", "count": 8, "price": 1 },
-        { "item": "leather", "count": 6, "price": 1 }
+        {
+          "item": "wool",
+          "count": 8,
+          "price": 1
+        },
+        {
+          "item": "leather",
+          "count": 6,
+          "price": 1
+        }
       ]
     },
     "butcher": {
       "name": "정육점",
       "buy": [
-        { "item": "cooked_beef", "count": 2, "price": 1 },
-        { "item": "cooked_porkchop", "count": 2, "price": 1 },
-        { "item": "cooked_chicken", "count": 2, "price": 1 }
+        {
+          "item": "cooked_beef",
+          "count": 2,
+          "price": 1
+        },
+        {
+          "item": "cooked_porkchop",
+          "count": 2,
+          "price": 1
+        },
+        {
+          "item": "cooked_chicken",
+          "count": 2,
+          "price": 1
+        }
       ],
       "sell": [
-        { "item": "beef", "count": 5, "price": 1 },
-        { "item": "porkchop", "count": 5, "price": 1 },
-        { "item": "chicken", "count": 5, "price": 1 }
+        {
+          "item": "beef",
+          "count": 5,
+          "price": 1
+        },
+        {
+          "item": "porkchop",
+          "count": 5,
+          "price": 1
+        },
+        {
+          "item": "chicken",
+          "count": 5,
+          "price": 1
+        }
       ]
     }
   },
@@ -121,13 +347,35 @@
     "desert": {
       "_comment": "사막 마을 주민 — 사막 것을 팔고, 금을 더 쳐준다",
       "buy": [
-        { "item": "sandstone", "count": 16, "price": 1 },
-        { "item": "sand", "count": 32, "price": 1 },
-        { "item": "tnt", "count": 1, "price": 4, "_note": "피라미드 폭파용" }
+        {
+          "item": "sandstone",
+          "count": 16,
+          "price": 1
+        },
+        {
+          "item": "sand",
+          "count": 32,
+          "price": 1
+        },
+        {
+          "item": "tnt",
+          "count": 1,
+          "price": 4,
+          "_note": "피라미드 폭파용"
+        }
       ],
       "sell": [
-        { "item": "cactus", "count": 8, "price": 1 },
-        { "item": "gold_ingot", "count": 1, "price": 1, "_note": "마을에선 금 2 에 💎1, 사막에선 금 1 에 💎1" }
+        {
+          "item": "cactus",
+          "count": 8,
+          "price": 1
+        },
+        {
+          "item": "gold_ingot",
+          "count": 1,
+          "price": 1,
+          "_note": "마을에선 금 2 에 💎1, 사막에선 금 1 에 💎1"
+        }
       ]
     }
   }

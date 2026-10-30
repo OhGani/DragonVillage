@@ -358,6 +358,16 @@
       "_note": "인챈트 (#231) 로 v1 에 열림"
     },
     {
+      "id": "anvil",
+      "name": "모루",
+      "hardness": 5.0,
+      "tool": "pickaxe",
+      "toolTier": 1,
+      "lightEmit": 0,
+      "texture": "anvil",
+      "_note": "모루 (#232): 옆(5칸)에서 가방 ⚒️ 모루 탭 — 인챈트 책 붙이기·같은 인챈트 둘 합치기. 철 블록 3 + 철 4"
+    },
+    {
       "id": "cactus",
       "name": "선인장",
       "hardness": 0.4,

@@ -10,7 +10,7 @@ import { DataError, koreanizeMessage } from './blocks';
 
 const RawTrade = z
   .object({
-    item: z.string().regex(/^[a-z0-9_]+$/, '영문 소문자·숫자·밑줄(_)만'),
+    item: z.string().regex(/^[a-z0-9_]+(\.ench\.[a-z0-9_]+\.[1-5])?$/, '영문 소문자·숫자·밑줄(_)만 (인챈트 책은 book.ench.<id>.<단계>)'),
     count: z.number().int().min(1, '1 이상이어야 해요').max(64, '64까지예요'),
     price: z.number().int().min(1, '에메랄드 1개 이상이어야 해요').max(64, '64까지예요'),
   })

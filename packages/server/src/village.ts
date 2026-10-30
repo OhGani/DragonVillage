@@ -180,7 +180,7 @@ import {
   xpAfterDeath, CRYSTAL_SHOT_RANGE,
   GLASS_BOTTLE,
   WATER_BOTTLE,
-  effectiveBuys, enchantLevelOf, meleeBonus, knockbackFactor, canEnchant, countBookshelves, encodeEnchanted, hash3 } from '@dragon-village/shared';
+  effectiveBuys, enchantLevelOf, meleeBonus, knockbackFactor, canEnchant, countBookshelves, encodeEnchanted, hash3, anvilCombine } from '@dragon-village/shared';
 import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS, TRADES, ENCHANTS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
@@ -1953,7 +1953,7 @@ export class VillageRoom {
     const can = canEnchant(s.item, TOOLS, COMBAT);
     if (!can.ok) return can.reason;
     const def = ENCHANTS.get(ench);
-    if (!def || !def.for.includes(can.target)) return 'BAD_ENCHANT';
+    if (!def || !ENCHANTS.allows(def, can.target)) return 'BAD_ENCHANT';
     const w = this.worldOf(p);
     const shelves = countBookshelves((x, y, z) => (w.inBounds(x, y, z) ? this.registry.get(w.getBlock(x, y, z)).id : 'air'), table.x, table.y, table.z);
     const maxLv = Math.min(def.max, ENCHANTS.maxLevelByShelves(shelves));
@@ -1972,6 +1972,33 @@ export class VillageRoom {
     const name = itemName(p.inv[slot]!.item, this.registry, ITEM_NAMES);
     this.sendJson(p, { t: 'error', code: 'ENCHANT_OK', message: `✨ ${name}! (레벨 ${cost.levels}·청금석 ${cost.lapis} 씀)` });
     this.log(`마을 ${this.info.code}: ${p.nick} 인챈트 ${name} (책장 ${shelves})`);
+    return null;
+  }
+
+  /**
+   * 모루 (#232): 모루 5칸 안에서 가방 slot 의 물건에 slot2 의 인챈트 책(또는 같은 인챈트가 붙은 같은 물건)을 합친다. 경험치 레벨만 쓴다.
+   * 오류: NO_ANVIL · NO_ITEM · ONE_ONLY · anvilCombine 의 이유 · NEED_LEVEL:cost:level
+   */
+  anvil(idx: number, slot: number, slot2: number): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (!this.nearestBlock(p, 'anvil')) return 'NO_ANVIL';
+    const a = slot >= 0 && slot < p.inv.length ? p.inv[slot] : null;
+    const b = slot2 >= 0 && slot2 < p.inv.length && slot2 !== slot ? p.inv[slot2] : null;
+    if (!a || !b) return 'NO_ITEM';
+    if (a.count !== 1 || b.count !== 1) return 'ONE_ONLY';
+    const r = anvilCombine(a.item, b.item, ENCHANTS, TOOLS, COMBAT);
+    if (!r.ok) return r.reason;
+    const spent = spendLevels(p.xp, r.levels);
+    if (!spent.ok) return `NEED_LEVEL:${r.levels}:${spent.level}`;
+    p.xp = spent.total;
+    p.send(encodeXpState({ total: p.xp }));
+    p.inv[slot] = { item: r.out, count: 1 };
+    p.inv[slot2] = null;
+    this.sendInv(p, new Set([slot, slot2]));
+    const name = itemName(r.out, this.registry, ITEM_NAMES);
+    this.sendJson(p, { t: 'error', code: 'ANVIL_OK', message: `⚒️ ${name}! (레벨 ${r.levels} 씀)` });
+    this.log(`마을 ${this.info.code}: ${p.nick} 모루 ${name}`);
     return null;
   }
 

@@ -808,6 +808,47 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(p.inv[bslot]!.item).toBe('bow.ench.power.3');
     expect(a.json.filter((m) => m.t === 'error' && m.code === 'ENCHANT_OK').length).toBe(2);
     expect(room.enchant(ia, 99, 'power', 1)).toBe('NO_ITEM');
+    // 책도 인챈트 → 인챈트 책 (#232)
+    room.giveItems(ia, 'book', 1);
+    const kslot = p.inv.findIndex((s) => s?.item === 'book');
+    expect(room.enchant(ia, kslot, 'power', 1)).toBeNull();
+    expect(p.inv[kslot]!.item).toBe('book.ench.power.1');
+  });
+
+  it('모루 (#232): 모루 옆에서 인챈트 책을 검에 붙이고, 같은 단계 둘을 합치면 한 단계 위, 레벨만 쓴다', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
+    const p = room.players.get(ia)!;
+    const tx = 70,
+      tz = 70;
+    const ty = GROUND_Y + 1;
+    room.onMove(ia, { x: tx + 2.5, y: ty, z: tz + 0.5, yaw: 0, pitch: 0, flags: 0 });
+    room.giveItems(ia, 'iron_sword', 1);
+    room.giveItems(ia, 'book.ench.sharpness.1', 1);
+    room.giveItems(ia, 'book.ench.sharpness.1', 1);
+    const sword = p.inv.findIndex((s) => s?.item === 'iron_sword');
+    const b1 = p.inv.findIndex((s) => s?.item === 'book.ench.sharpness.1');
+    const b2 = p.inv.findIndex((s, i) => s?.item === 'book.ench.sharpness.1' && i !== b1);
+    expect(b2).toBeGreaterThan(-1); // 인챈트 책은 하나씩만 쌓인다
+    expect(room.anvil(ia, sword, b1)).toBe('NO_ANVIL');
+    room.world.setBlock(tx, ty, tz, BLOCKS.numOf('anvil'));
+    expect(room.anvil(ia, sword, sword)).toBe('NO_ITEM');
+    p.xp = 0;
+    expect(room.anvil(ia, sword, b1)).toMatch(/^NEED_LEVEL:2:0$/);
+    p.xp = totalXpForLevel(10);
+    expect(room.anvil(ia, sword, b1)).toBeNull();
+    expect(p.inv[sword]!.item).toBe('iron_sword.ench.sharpness.1');
+    expect(p.inv[b1]).toBeNull();
+    expect(levelFromTotalXp(p.xp)).toBe(8);
+    expect(room.anvil(ia, sword, b2)).toBeNull(); // 같은 단계 둘 → II
+    expect(p.inv[sword]!.item).toBe('iron_sword.ench.sharpness.2');
+    expect(levelFromTotalXp(p.xp)).toBe(4);
+    room.giveItems(ia, 'book.ench.smite.1', 1);
+    const b3 = p.inv.findIndex((s) => s?.item === 'book.ench.smite.1');
+    expect(room.anvil(ia, sword, b3)).toBe('OTHER_ENCHANT');
+    expect(a.json.filter((m) => m.t === 'error' && m.code === 'ANVIL_OK').length).toBe(2);
   });
 
   it('사면 비싸진다 (#230): 같은 물건 2번마다 💎1 씩, 3배까지, 사람마다 따로, 20분 지나면 내려온다, 저장된다', () => {

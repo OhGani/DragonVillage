@@ -12,8 +12,7 @@ import {
   decodeClientBinary,
   encodePong,
   isEquipSlot,
-  sanitizeNick,
-} from '@dragon-village/shared';
+  sanitizeNick, ANVIL_REASON_KO } from '@dragon-village/shared';
 import { EXPEDITIONS, FAMILY_RULES, RAIDS, BANNED_WORDS } from '@dragon-village/shared/data';
 import { randomBytes } from 'node:crypto';
 import type { WebSocket } from 'ws';
@@ -144,9 +143,16 @@ const ENCHANT_ERROR_KO: Record<string, string> = {
   NO_ITEM: '가방에서 인챈트할 것을 골라요',
   ONE_ONLY: '하나씩만 인챈트할 수 있어요 — 한 개만 든 칸을 골라요',
   ALREADY: '이미 인챈트가 붙어 있어요 (하나만 붙어요)',
-  NOT_TARGET: '도구·활·갑옷에만 붙어요',
+  NOT_TARGET: '도구·활·갑옷·책에만 붙어요',
   BAD_ENCHANT: '그 인챈트는 이 물건에 못 붙여요',
   NO_LAPIS: '청금석이 모자라요 — 땅속 청금석 광석을 캐요',
+};
+/** 모루 (#232) 거절 사유 */
+const ANVIL_ERROR_KO: Record<string, string> = {
+  NO_ANVIL: '모루 옆(5칸)에서만 할 수 있어요',
+  NO_ITEM: '왼쪽 물건과 오른쪽 인챈트 책을 가방에서 골라요',
+  ONE_ONLY: '한 개만 든 칸을 골라요',
+  ...ANVIL_REASON_KO,
 };
 const CRAFT_ERROR_KO: Record<string, string> = {
   BAD_RECIPE: '그런 레시피는 없어요',
@@ -626,6 +632,17 @@ export class Session {
           if (err.startsWith('NEED_SHELVES:')) return this.error(err, `책장이 더 있어야 그 단계가 열려요 (지금은 ${err.split(':')[1]}단계까지 — 테이블 둘레 한 칸 띄워 책장 5개마다 한 단계)`);
           if (err.startsWith('NEED_LEVEL:')) return this.error(err, `레벨이 모자라요 — ${err.split(':')[1]}레벨 필요, 지금 ${err.split(':')[2]}`);
           return this.error(err, ENCHANT_ERROR_KO[err] ?? '지금은 인챈트할 수 없어요');
+        }
+        return;
+      }
+      case 'anvil': {
+        // 모루 (#232)
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.slot) || !Number.isInteger(msg.slot2)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.anvil(this.idx, msg.slot, msg.slot2);
+        if (err) {
+          if (err.startsWith('NEED_LEVEL:')) return this.error(err, `레벨이 모자라요 — ${err.split(':')[1]}레벨 필요, 지금 ${err.split(':')[2]}`);
+          return this.error(err, ANVIL_ERROR_KO[err] ?? '지금은 모루를 쓸 수 없어요');
         }
         return;
       }

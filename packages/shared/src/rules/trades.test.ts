@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BLACKSMITH_NAME } from './animals';
 import { itemName } from './items';
-import { BLOCKS, ITEM_NAMES, TRADES } from './data';
+import { BLOCKS, ITEM_NAMES, TRADES, ENCHANTS } from './data';
 import { demandPrice, effectiveBuys, parseTrades } from './trades';
 
 describe('주민 거래 (#225·#228·#229)', () => {
@@ -74,5 +74,13 @@ describe('주민 거래 (#225·#228·#229)', () => {
     expect(() => parseTrades({ jobs: { farmer: { name: '농부', buy: [{ item: 'bread', count: 1, price: 1 }, { item: 'bread', count: 2, price: 1 }] } } })).toThrow(/두 번/);
     expect(() => parseTrades({ common: { buy: [{ item: 'emerald', count: 1, price: 1 }] } })).toThrow(/에메랄드 자체/);
     expect(() => parseTrades({ places: { desert: { buy: [{ item: 'sand', count: 1, price: 1 }, { item: 'sand', count: 2, price: 1 }] } } })).toThrow(/두 번/);
+  });
+
+  it('사서는 인챈트 책을 판다 (#232): id 는 book.ench.<id>.<단계>, 이름이 읽힌다', () => {
+    const lib = TRADES.jobs.get('librarian')!;
+    const books = lib.buy.filter((t) => t.item.startsWith('book.ench.'));
+    expect(books.length).toBeGreaterThanOrEqual(4);
+    for (const t of books) expect(ENCHANTS.get(t.item.split('.')[2]!)).not.toBeNull();
+    expect(() => parseTrades({ common: { buy: [{ item: 'book.ench.x', count: 1, price: 1 }] } })).toThrow();
   });
 });

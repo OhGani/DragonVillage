@@ -503,6 +503,9 @@ export class NetClient {
   sendEnchant(slot: number, ench: string, level: number): void {
     this.sendJson({ t: 'enchant', slot, ench, level });
   }
+  sendAnvil(slot: number, slot2: number): void {
+    this.sendJson({ t: 'anvil', slot, slot2 });
+  }
   sendEmote(kind: number, id: number): void {
     this.send(encodeEmote({ idx: 0, kind, id }));
   }

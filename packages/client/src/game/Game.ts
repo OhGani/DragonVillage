@@ -475,6 +475,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       return best ? countBookshelves((x, y, z) => (w.inBounds(x, y, z) ? registry.get(w.getBlock(x, y, z)).id : 'air'), best.x, best.y, best.z) : 0;
     },
     onEnchant: (slot, ench, level) => net.sendEnchant(slot, ench, level),
+    onAnvil: (slot, slot2) => net.sendAnvil(slot, slot2), // 모루 (#232)
     onClose: () => closeBag(),
   });
   bag.setInventory(inv);
@@ -534,7 +535,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       cy = Math.floor(p.y + 1),
       cz = Math.floor(p.z);
     const want = new Map<number, keyof Stations>();
-    for (const id of ['crafting_table', 'furnace', 'brewing_stand', 'enchanting_table'] as const) {
+    for (const id of ['crafting_table', 'furnace', 'brewing_stand', 'enchanting_table', 'anvil'] as const) {
       const d = registry.find(id);
       if (d) want.set(d.num, id);
     }

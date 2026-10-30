@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { armorTotals, bowOf, equipSlotOf } from './combat';
 import { BLOCKS, COMBAT, ENCHANTS, ITEM_NAMES, TOOLS } from './data';
-import { canEnchant, countBookshelves, enchantTargetOf, knockbackFactor, meleeBonus, parseEnchants } from './enchants';
+import { anvilCombine, canEnchant, countBookshelves, enchantTargetOf, knockbackFactor, meleeBonus, parseEnchants } from './enchants';
 import { stackOf } from './inventory';
 import { baseItemOf, encodeEnchanted, enchantLevelOf, itemName, parseEnchanted } from './items';
 import { toolOf } from './tools';
@@ -62,5 +62,34 @@ describe('인챈트 (#231)', () => {
     const shelves = new Set(['-2,0,0', '2,0,0', '0,0,-2', '0,1,2', '1,0,0', '0,0,0']); // 뒤의 둘은 바로 옆·테이블 자리 → 안 센다
     const idAt = (x: number, y: number, z: number) => (shelves.has(`${x},${y},${z}`) ? 'bookshelf' : 'air');
     expect(countBookshelves(idAt, 0, 0, 0)).toBe(4);
+  });
+
+  it('책 (#232): 책은 어떤 인챈트든 붙어 인챈트 책이 된다, 이름', () => {
+    expect(enchantTargetOf('book', TOOLS, COMBAT)).toBe('book');
+    expect(canEnchant('book', TOOLS, COMBAT)).toEqual({ ok: true, target: 'book' });
+    expect(ENCHANTS.optionsFor('book').length).toBe(ENCHANTS.list.length);
+    expect(ENCHANTS.allows(ENCHANTS.get('power')!, 'book')).toBe(true);
+    expect(ENCHANTS.allows(ENCHANTS.get('power')!, 'sword')).toBe(false);
+    expect(itemName('book.ench.power.2', BLOCKS, ITEM_NAMES)).toBe('책 ✨힘 II');
+    expect(ENCHANTS.anvilCost(3)).toBe(6);
+  });
+
+  it('모루 합치기 (#232): 책 붙이기, 같은 단계 둘 → 한 단계 위, 다른 인챈트·다른 물건·빈 책은 거절', () => {
+    const c = (a: string | null, b: string | null) => anvilCombine(a, b, ENCHANTS, TOOLS, COMBAT);
+    expect(c('iron_sword', 'book.ench.sharpness.2')).toMatchObject({ ok: true, out: 'iron_sword.ench.sharpness.2', levels: 4, level: 2 });
+    expect(c('iron_sword.ench.sharpness.1', 'book.ench.sharpness.1')).toMatchObject({ ok: true, out: 'iron_sword.ench.sharpness.2', levels: 4 });
+    expect(c('iron_sword.ench.sharpness.1', 'book.ench.sharpness.3')).toMatchObject({ ok: true, out: 'iron_sword.ench.sharpness.3', levels: 6 });
+    expect(c('iron_sword.ench.sharpness.3', 'book.ench.sharpness.3')).toEqual({ ok: false, reason: 'NO_GAIN' }); // 최대 3
+    expect(c('iron_sword.ench.sharpness.2', 'book.ench.sharpness.1')).toEqual({ ok: false, reason: 'NO_GAIN' });
+    expect(c('iron_sword.ench.sharpness.1', 'book.ench.smite.1')).toEqual({ ok: false, reason: 'OTHER_ENCHANT' });
+    expect(c('iron_sword', 'book.ench.power.1')).toEqual({ ok: false, reason: 'BAD_ENCHANT' }); // 힘은 활에만
+    expect(c('iron_sword', 'book')).toEqual({ ok: false, reason: 'NEED_ENCHANTED' });
+    expect(c('bread', 'book.ench.sharpness.1')).toEqual({ ok: false, reason: 'NOT_TARGET' });
+    expect(c('book', 'book.ench.sharpness.1')).toEqual({ ok: false, reason: 'NOT_TARGET' }); // 빈 책엔 옮기기만 — 안 됨
+    expect(c('book.ench.sharpness.1', 'book.ench.sharpness.1')).toMatchObject({ ok: true, out: 'book.ench.sharpness.2' }); // 책끼리
+    expect(c('iron_sword.ench.sharpness.1', 'iron_sword.ench.sharpness.1')).toMatchObject({ ok: true, out: 'iron_sword.ench.sharpness.2' }); // 같은 물건끼리
+    expect(c('iron_sword', 'iron_sword.ench.sharpness.1')).toMatchObject({ ok: true, out: 'iron_sword.ench.sharpness.1' }); // 옮기기
+    expect(c('iron_sword', 'diamond_sword.ench.sharpness.1')).toEqual({ ok: false, reason: 'NOT_SAME' });
+    expect(c(null, 'book.ench.sharpness.1')).toEqual({ ok: false, reason: 'NEED_TWO' });
   });
 });

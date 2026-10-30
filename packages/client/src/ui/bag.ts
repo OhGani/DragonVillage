@@ -19,7 +19,7 @@ import {
   isPotionItem,
   matchGrid,
   missing,
-  potionFromItemId, canEnchant, ROMAN, TARGET_KO, type EnchantRules, type ToolRules, type CombatRules } from '@dragon-village/shared';
+  potionFromItemId, canEnchant, ROMAN, TARGET_KO, type EnchantRules, type ToolRules, type CombatRules, anvilCombine, ANVIL_REASON_KO } from '@dragon-village/shared';
 import { GLASS_BOTTLE, HOTBAR_SLOTS, INV_SLOTS } from '@dragon-village/shared';
 
 export interface BagDeps {
@@ -54,12 +54,14 @@ export interface BagDeps {
   levels(): number;
   shelves(): number;
   onEnchant(slot: number, ench: string, level: number): void;
+  /** 모루 (#232): 왼쪽 칸 + 오른쪽 칸 */
+  onAnvil(slot: number, slot2: number): void;
 }
 const EQUIP_LABEL: Record<string, string> = { helmet: '투구', chestplate: '흉갑', leggings: '레깅스', boots: '부츠', shield: '방패' };
 
 /** 근처에 있는 작업대 블록 */
-export type Stations = { crafting_table?: boolean; furnace?: boolean; brewing_stand?: boolean; forge?: boolean; enchanting_table?: boolean };
-type Tab = 'bag' | 'craft' | 'brew' | 'enchant' | 'book' | 'codex';
+export type Stations = { crafting_table?: boolean; furnace?: boolean; brewing_stand?: boolean; forge?: boolean; enchanting_table?: boolean; anvil?: boolean };
+type Tab = 'bag' | 'craft' | 'brew' | 'enchant' | 'anvil' | 'book' | 'codex';
 /** 📜 조합법 탭의 묶음 순서와 제목 (#133) */
 const BOOK_GROUPS: readonly [Station, string][] = [
   ['inventory', '🎒 가방에서 (2×2) — 언제나'],
@@ -83,6 +85,9 @@ export class BagView {
   private bottles: number[] = [];
   /** 인챈트 탭에서 고른 칸 (#231) */
   private enchSlot = -1;
+  /** 모루 탭에서 고른 왼쪽(물건)·오른쪽(인챈트 책) 칸 (#232) */
+  private anvilA = -1;
+  private anvilB = -1;
   private ingredient = -1;
   /**
    * 제작 격자 (#132, 마인크래프트 제작대와 같게): 가방 2×2 또는 제작대·대장간 옆 3×3. 가방 물건을 "놓아 둔" 것처럼 보이지만
@@ -237,6 +242,7 @@ export class BagView {
     this.stations = s;
     if (this.tab === 'brew' && !s.brewing_stand) this.tab = 'bag';
     if (this.tab === 'enchant' && !s.enchanting_table) this.tab = 'bag';
+    if (this.tab === 'anvil' && !s.anvil) this.tab = 'bag';
     if (changed && this.visible) this.renderAll();
   }
 
@@ -253,6 +259,7 @@ export class BagView {
     ];
     if (this.stations.brewing_stand) tabs.push(['brew', '⚗️ 양조']);
     if (this.stations.enchanting_table) tabs.push(['enchant', '✨ 인챈트']);
+    if (this.stations.anvil) tabs.push(['anvil', '⚒️ 모루']);
     tabs.push(['book', '📜 조합법']);
     tabs.push(['codex', '📖 도감']);
     this.tabs.innerHTML = '';
@@ -280,8 +287,8 @@ export class BagView {
       const s = this.inv[i];
       c.innerHTML = '';
       c.classList.toggle('selected', i === this.selected);
-      c.classList.toggle('bottle', this.tab === 'brew' && this.bottles.includes(i));
-      c.classList.toggle('ingredient', (this.tab === 'brew' && this.ingredient === i) || (this.tab === 'enchant' && this.enchSlot === i));
+      c.classList.toggle('bottle', (this.tab === 'brew' && this.bottles.includes(i)) || (this.tab === 'anvil' && this.anvilB === i));
+      c.classList.toggle('ingredient', (this.tab === 'brew' && this.ingredient === i) || (this.tab === 'enchant' && this.enchSlot === i) || (this.tab === 'anvil' && this.anvilA === i));
       c.title = s ? `${this.deps.nameOf(s.item)} ×${s.count}` : '';
       if (s) {
         const icon = this.deps.icon(s.item, 36);
@@ -303,12 +310,26 @@ export class BagView {
 
   private tapCell(i: number): void {
     const s = this.inv[i];
+    if (this.tab === 'anvil') {
+      // 모루 (#232): 첫 탭 = 왼쪽 물건, 둘째 탭 = 오른쪽 인챈트 책. 다시 탭하면 뺀다
+      if (this.anvilA === i) this.anvilA = -1;
+      else if (this.anvilB === i) this.anvilB = -1;
+      else if (!s) return;
+      else if (s.count !== 1) {
+        this.deps.onHint?.('⚒️ 한 개만 든 칸을 골라요');
+        return;
+      } else if (this.anvilA < 0) this.anvilA = i;
+      else this.anvilB = i;
+      this.renderGrid();
+      this.renderSide();
+      return;
+    }
     if (this.tab === 'enchant') {
       // 인챈트 (#231): 도구·활·갑옷 한 개를 고른다
       if (!s) return;
       const can = canEnchant(s.item, this.deps.tools, this.deps.combat);
       if (!can.ok) {
-        this.deps.onHint?.(can.reason === 'ALREADY' ? '✨ 이미 인챈트가 붙어 있어요 — 하나만 붙어요' : '✨ 도구·활·갑옷에만 인챈트를 붙여요');
+        this.deps.onHint?.(can.reason === 'ALREADY' ? '✨ 이미 인챈트가 붙어 있어요 — 하나만 붙어요' : '✨ 도구·활·갑옷·책에만 인챈트를 붙여요');
         return;
       }
       if (s.count !== 1) {
@@ -380,6 +401,7 @@ export class BagView {
     else if (this.tab === 'book') this.renderBook();
     else if (this.tab === 'codex') this.renderCodex();
     else if (this.tab === 'enchant') this.renderEnchantSide();
+    else if (this.tab === 'anvil') this.renderAnvilSide();
     else this.renderBrewSide();
     this.drawnTab = this.tab;
 
@@ -867,7 +889,7 @@ export class BagView {
     const tip = document.createElement('div');
     tip.className = 'bag-tip';
     if (!s || !can || !can.ok) {
-      tip.textContent = `가방에서 도구·활·갑옷을 탭해 골라요. 인챈트는 하나만 붙어요. 테이블 둘레에 한 칸 띄워 책장을 ${rules.shelvesPerLevel}개 놓을 때마다 한 단계씩 더 열려요(최대 ${rules.maxLevel}단계).`;
+      tip.textContent = `가방에서 도구·활·갑옷(책도 돼요 → 인챈트 책)을 탭해 골라요. 인챈트는 하나만 붙어요. 테이블 둘레에 한 칸 띄워 책장을 ${rules.shelvesPerLevel}개 놓을 때마다 한 단계씩 더 열려요(최대 ${rules.maxLevel}단계).`;
       box.appendChild(tip);
       this.side.appendChild(box);
       return;
@@ -902,6 +924,46 @@ export class BagView {
       list.appendChild(row);
     }
     box.appendChild(list);
+    this.side.appendChild(box);
+  }
+
+  /** 모루 (#232): 왼쪽 물건 + 오른쪽 인챈트 책 → 결과 미리보기와 드는 레벨, 합치기 버튼 */
+  private renderAnvilSide(): void {
+    const box = document.createElement('div');
+    box.className = 'brew-box';
+    const rules = this.deps.enchants;
+    const levels = this.deps.levels();
+    const head = document.createElement('div');
+    head.className = 'bag-info';
+    head.textContent = `내 레벨 ${levels} · 결과 단계마다 레벨 ${rules.anvilLevelsPerLevel} (청금석은 안 써요)`;
+    box.appendChild(head);
+    const a = this.anvilA >= 0 ? this.inv[this.anvilA] : null;
+    const b = this.anvilB >= 0 ? this.inv[this.anvilB] : null;
+    const tip = document.createElement('div');
+    tip.className = 'bag-tip';
+    tip.textContent = `왼쪽(주황): ${a ? this.deps.nameOf(a.item) : '물건을 탭해요'} · 오른쪽(파랑): ${b ? this.deps.nameOf(b.item) : '인챈트 책이나 같은 물건을 탭해요'}`;
+    box.appendChild(tip);
+    const r = anvilCombine(a?.item, b?.item, rules, this.deps.tools, this.deps.combat);
+    const res = document.createElement('div');
+    res.className = 'enchant-name';
+    if (r.ok) {
+      res.textContent = `→ ${this.deps.nameOf(r.out)} · 레벨 ${r.levels}`;
+      box.appendChild(res);
+      const slot = this.anvilA,
+        slot2 = this.anvilB;
+      box.appendChild(
+        this.button(levels < r.levels ? `레벨이 모자라요 (${r.levels} 필요)` : `⚒️ 합치기 (레벨 ${r.levels})`, 'big-btn', () => {
+          this.deps.onAnvil(slot, slot2);
+          this.anvilA = -1;
+          this.anvilB = -1;
+          this.renderGrid();
+          this.renderSide();
+        }, levels < r.levels),
+      );
+    } else {
+      res.textContent = a && b ? ANVIL_REASON_KO[r.reason] : '인챈트 책은 인챈트 테이블에서 책을 인챈트하거나 사서에게 사요. 같은 인챈트 같은 단계 둘을 합치면 한 단계 올라가요.';
+      box.appendChild(res);
+    }
     this.side.appendChild(box);
   }
 
