@@ -138,13 +138,12 @@ describe('generateDesert 배치', () => {
       expect(id(c.x, c.y, c.z + 2)).toBe('air'); // 남쪽 문
       expect(Math.hypot(c.x - v.x, c.z - v.z)).toBeLessThan(16);
     }
-    // 사막 마을 주민 (#228): 집마다 문 앞에 하나, 설 수 있는 빈 칸
-    expect(layout.villagers.length).toBeGreaterThanOrEqual(3);
+    // 사막 마을 주민 (#228·#229): 집마다 문 앞에 둘 + 우물 옆 둘, 설 수 있는 빈 칸
+    expect(layout.villagers.length).toBeGreaterThanOrEqual(8);
     for (const p of layout.villagers) {
       expect(id(p.x, p.y, p.z)).toBe('air');
       expect(id(p.x, p.y + 1, p.z)).toBe('air');
       expect(id(p.x, p.y - 1, p.z)).not.toBe('air');
-      expect(id(p.x, p.y, p.z - 1)).toBe('air'); // 문 아래 칸
     }
     const spawns = generateExpedition(EXPEDITIONS.require('desert'), BLOCKS, SEED).spawns;
     expect(spawns.length).toBe(layout.villagers.length);

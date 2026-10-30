@@ -680,6 +680,11 @@ export class AnimalSystem {
     return this.find(mobId)?.kind ?? null;
   }
 
+  /** 서버가 지은 이름 (대장장이) — 직업 정하기용 (#229) */
+  nameOf(mobId: number): string | null {
+    return this.find(mobId)?.name ?? null;
+  }
+
   /** 말 타기 (#166): 내 말(안장 씌운 것)이고 아무도 안 타고 있으면 탄다. 오류: NO_MOB · NOT_HORSE · NOT_MINE · OCCUPIED · BABY_MOUNT · TOO_FAR */
   mount(p: AnimalViewer, mobId: number, now = Date.now()): string | null {
     const a = this.find(mobId);

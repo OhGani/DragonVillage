@@ -85,7 +85,7 @@ export class TalkSheet {
     const t = this.trades;
     if (!t || this.mobId === null) return;
     this.title.textContent = `🛒 ${this.name}의 가게 — 💎 ${this.emeralds}`;
-    this.say.textContent = '에메랄드로 사고, 모은 걸 팔아. 뭐 할래?';
+    this.say.textContent = '에메랄드로 사고, 모은 걸 팔아. 직업마다 파는 게 달라 — 뭐 할래?';
     this.list.replaceChildren();
     const row = (def: TradeDef) => {
       const b = document.createElement('button');

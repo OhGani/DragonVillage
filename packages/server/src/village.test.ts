@@ -25,7 +25,7 @@ import {
   treasureLoot,
   treasureLootFor,
   VILLAGE_GEN_VERSION, MOB_KIND_NUM } from '@dragon-village/shared';
-import { DRAGONS, EXPEDITIONS, BLOCKS } from '@dragon-village/shared/data';
+import { DRAGONS, EXPEDITIONS, BLOCKS, TRADES } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
 import { Storage } from './storage';
 import { RATE_PER_SEC, TICK_MS, VillageRoom } from './village';
@@ -742,20 +742,29 @@ describe('VillageRoom 블록 변경 검증', () => {
     const p = room.players.get(ia)!;
     const v = room.animals.entries(1000).find((e) => e.kind === MOB_KIND_NUM.villager)!;
     room.onMove(ia, { x: v.x + 20, y: v.y, z: v.z, yaw: 0, pitch: 0, flags: 0 });
-    expect(room.trade(ia, v.id, 'buy', 'bread', 1000)).toBe('TOO_FAR');
+    expect(room.trade(ia, v.id, 'buy', 'torch', 1000)).toBe('TOO_FAR');
     room.onMove(ia, { x: v.x + 1.5, y: v.y, z: v.z, yaw: 0, pitch: 0, flags: 0 });
-    expect(room.trade(ia, v.id, 'buy', 'bread', 1000)).toBe('NO_EMERALD');
-    expect(room.trade(ia, v.id, 'buy', 'wheat', 1000)).toBe('NO_TRADE');
+    expect(room.trade(ia, v.id, 'buy', 'torch', 1000)).toBe('NO_EMERALD'); // 횃불은 모든 주민(공용)
+    expect(room.trade(ia, v.id, 'buy', 'sandstone', 1000)).toBe('NO_TRADE');
     room.giveItems(ia, 'emerald', 2);
-    expect(room.trade(ia, v.id, 'buy', 'bread', 1000)).toBeNull();
-    expect(countOf(p.inv, 'bread')).toBe(3);
+    expect(room.trade(ia, v.id, 'buy', 'torch', 1000)).toBeNull();
+    expect(countOf(p.inv, 'torch')).toBe(8);
     expect(countOf(p.inv, 'emerald')).toBe(1);
-    expect(room.trade(ia, v.id, 'sell', 'wheat', 1000)).toBe('NOT_ENOUGH');
-    room.giveItems(ia, 'wheat', 12);
-    expect(room.trade(ia, v.id, 'sell', 'wheat', 1000)).toBeNull();
-    expect(countOf(p.inv, 'wheat')).toBe(0);
+    expect(room.trade(ia, v.id, 'sell', 'stick', 1000)).toBe('NOT_ENOUGH');
+    room.giveItems(ia, 'stick', 32);
+    expect(room.trade(ia, v.id, 'sell', 'stick', 1000)).toBeNull();
+    expect(countOf(p.inv, 'stick')).toBe(0);
     expect(countOf(p.inv, 'emerald')).toBe(2);
-    expect(a.json.filter((m) => m.t === 'error' && m.code === 'TRADE_OK').length).toBe(2);
+    // 직업별 (#229): 그 주민의 직업 물건만, 번호로 정해진다
+    const job = TRADES.jobFor(v.id, null)!;
+    const mine = TRADES.forVillager(job.id, null);
+    const other = [...TRADES.jobs.values()].find((j) => j.id !== job.id)!;
+    const onlyOther = other.buy.find((t) => !mine.find('buy', t.item))!;
+    room.giveItems(ia, 'emerald', 60);
+    expect(room.trade(ia, v.id, 'buy', onlyOther.item, 1000)).toBe('NO_TRADE');
+    expect(room.trade(ia, v.id, 'buy', job.buy[0]!.item, 1000)).toBeNull();
+    expect(countOf(p.inv, job.buy[0]!.item)).toBeGreaterThanOrEqual(job.buy[0]!.count);
+    expect(a.json.filter((m) => m.t === 'error' && m.code === 'TRADE_OK').length).toBe(3);
     const cow = room.animals.entries(1000).find((e) => e.kind === MOB_KIND_NUM.cow);
     if (cow) expect(room.trade(ia, cow.id, 'buy', 'bread', 1000)).toBe('NOT_VILLAGER');
   });
@@ -775,11 +784,22 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(Math.hypot(v.x - (sp.x + 1.5), v.z - sp.z)).toBeLessThan(0.01); // 가만히 서 있다
     expect(room.hitMob(ia, v.id, undefined, 3000)).toBe('VILLAGER');
     expect(v.hp).toBe(20);
-    expect(room.trade(ia, v.id, 'buy', 'bread', 3000)).toBe('NO_EMERALD');
+    expect(room.trade(ia, v.id, 'buy', 'torch', 3000)).toBe('NO_EMERALD');
     room.giveItems(ia, 'emerald', 3);
-    expect(room.trade(ia, v.id, 'buy', 'bread', 3000)).toBeNull();
-    expect(countOf(p.inv, 'bread')).toBe(3);
+    expect(room.trade(ia, v.id, 'buy', 'torch', 3000)).toBeNull();
+    expect(countOf(p.inv, 'torch')).toBe(8);
     expect(room.trade(ia, v.id, 'buy', 'sandstone', 3000)).toBe('NO_TRADE'); // 사막 물건은 사막에서만
+    // 산책 (#229): home 이 있는 원정 주민은 집 둘레를 돌아다닌다
+    v.home = { x: v.x, z: v.z };
+    const sx0 = v.x,
+      sz0 = v.z;
+    let moved = false;
+    for (let t = 3000; t < 40_000 && !moved; t += TICK_MS) {
+      room.tick(t);
+      if (Math.hypot(v.x - sx0, v.z - sz0) > 1) moved = true;
+    }
+    expect(moved).toBe(true);
+    expect(Math.hypot(v.x - sx0, v.z - sz0)).toBeLessThan(12);
   });
 
   it('주민을 때리면 철 골렘 (#221, 아들 14차 11번): 주민은 안 다치고, 골렘이 때린 사람만 쫓다가 30초 뒤 사라진다', () => {

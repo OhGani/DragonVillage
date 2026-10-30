@@ -356,6 +356,10 @@ export interface MobState {
   despawnAt?: number;
   /** 엔더맨 (#222): 다음 순간이동 가능 시각 */
   nextTeleportAt?: number;
+  /** 원정 주민 (#229): 집 자리와 산책 목표·다음 산책 시각 */
+  home?: { x: number; z: number };
+  wanderTo?: { x: number; y: number; z: number } | null;
+  wanderAt?: number;
 }
 
 /** 통신용 (MobsState) */

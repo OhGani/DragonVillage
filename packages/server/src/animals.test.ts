@@ -409,7 +409,7 @@ describe('마을 동물 (M8-1)', () => {
     const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
     const p = room.players.get(ra.idx)!;
     const villagers = [...room.animals.animals.values()].filter((an) => an.kind === 'villager');
-    expect(villagers).toHaveLength(3);
+    expect(villagers).toHaveLength(6); // 집마다 둘 (#229)
     for (const v of villagers) expect(Math.hypot(v.x - villagerSpot(0).x, v.z - villagerSpot(0).z)).toBeLessThan(20);
     for (const id of VILLAGER_HOUSES) expect(isBuildingBuiltAt((x, y, z) => BLOCKS.get(room.world.getBlock(x, y, z)).id, id, GROUND_Y)).toBe(true);
     const v = villagers[0]!;
@@ -428,12 +428,12 @@ describe('마을 동물 (M8-1)', () => {
     storage.addBuilding('123456', 'forge', T0);
     const room = makeRoom(storage);
     const villagers = [...room.animals.animals.values()].filter((an) => an.kind === 'villager');
-    expect(villagers).toHaveLength(4); // 집 주민 셋 + 대장장이
+    expect(villagers).toHaveLength(7); // 집 주민 여섯 + 대장장이 (#229)
     const smith = villagers.find((v) => v.name === BLACKSMITH_NAME)!;
     const forge = siteOf('forge')!;
     expect(smith.x).toBeCloseTo(forge.x0 + forge.size[0] + 1.5, 1);
     expect(room.animals.petsFor('x'.repeat(32)).some((p) => p.id === ANIMAL_ID_BASE + smith.id && p.name === BLACKSMITH_NAME && !p.mine)).toBe(true);
-    expect(room.animals.kidnapVillagers()).toBe(3);
+    expect(room.animals.kidnapVillagers()).toBe(6); // #229
     expect([...room.animals.animals.values()].filter((an) => an.kind === 'villager')).toHaveLength(1);
     // 다시 켜도 둘이 되지 않는다
     const again = makeRoom(storage);

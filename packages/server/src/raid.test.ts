@@ -115,7 +115,7 @@ describe('마을 방어전 (M7-5)', () => {
 
   it('철 골렘·주민 납치 (#169): 종이 울리면 골렘 둘이 깃대 옆에 서서 우민을 때리고, 지면 주민이 잡혀갔다가 다음 승리 때 돌아온다', () => {
     const { room, storage, a, ra, rb, atFlag } = setup();
-    expect([...room.animals.animals.values()].filter((v) => v.kind === 'villager')).toHaveLength(3);
+    expect([...room.animals.animals.values()].filter((v) => v.kind === 'villager')).toHaveLength(6); // #229
     atFlag(ra.idx, T0);
     expect(room.startRaid(ra.idx, T0)).toBeNull();
     expect(room.raid!.mobs.companions.size).toBe(2);
@@ -140,7 +140,7 @@ describe('마을 방어전 (M7-5)', () => {
     room.tick(t + 1100);
     expect(room.raid).toBeNull();
     expect([...room.animals.animals.values()].filter((v) => v.kind === 'villager')).toHaveLength(0);
-    expect(storage.kidnapped('123456')).toBe(3);
+    expect(storage.kidnapped('123456')).toBe(6); // #229
     expect(a.json.find((mm) => mm.t === 'error' && mm.code === 'RAID_KIDNAP')).toBeDefined();
     const again = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
     expect([...again.animals.animals.values()].filter((v) => v.kind === 'villager')).toHaveLength(0);
@@ -162,7 +162,7 @@ describe('마을 방어전 (M7-5)', () => {
       }
     }
     expect(room.raid).toBeNull();
-    expect([...room.animals.animals.values()].filter((v) => v.kind === 'villager')).toHaveLength(3);
+    expect([...room.animals.animals.values()].filter((v) => v.kind === 'villager')).toHaveLength(6); // #229
     expect(storage.kidnapped('123456')).toBe(0);
     expect(a.json.find((mm) => mm.t === 'error' && mm.code === 'RAID_VILLAGERS_BACK')).toBeDefined();
   });

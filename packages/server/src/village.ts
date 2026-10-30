@@ -1867,7 +1867,8 @@ export class VillageRoom {
       place = this.expedition?.def.id ?? null;
     }
     if (!at || Math.hypot(at.x - p.pos.x, at.z - p.pos.z) > 6 || Math.abs(at.y - p.pos.y) > 3) return 'TOO_FAR';
-    const t = TRADES.forPlace(place).find(kind, item);
+    const job = TRADES.jobFor(mobId, p.world === 'village' ? this.animals.nameOf(mobId) : null); // 직업별 가게 (#229)
+    const t = TRADES.forVillager(job?.id ?? null, place).find(kind, item);
     if (!t) return 'NO_TRADE';
     const changed = new Set<number>();
     const name = itemName(t.item, this.registry, ITEM_NAMES);

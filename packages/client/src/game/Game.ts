@@ -255,7 +255,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     mobView.setPetNames([
       ...[...pets.entries()].map(([id, p]) => ({ id, name: p.name ?? (p.mine ? '이름 없음' : null), mine: p.mine })), // 내 펫은 이름이 없어도 🐾 이름표 (#179)
       ...[...companions.entries()].map(([id, c]) => ({ id, name: c.name, mine: c.owner === myIdx })),
-      ...[...mobView.figures.entries()].filter(([id, f]) => MOB_KIND_OF[f.kind] === 'villager' && !pets.has(id)).map(([id]) => ({ id, name: VILLAGER_TALK.nameOf(id), mine: false })), // 주민 이름 (#172) — 서버가 이름을 준 주민(대장장이)은 pets 에 있다
+      ...[...mobView.figures.entries()].filter(([id, f]) => MOB_KIND_OF[f.kind] === 'villager' && !pets.has(id)).map(([id]) => ({ id, name: `${VILLAGER_TALK.nameOf(id)} · ${TRADES.jobFor(id)?.name ?? ''}`.trim(), mine: false })), // 주민 이름 + 직업 (#172·#229) — 서버가 이름을 준 주민(대장장이)은 pets 에 있다
     ]);
   let villagerFigures = 0;
   let aimedMobNow: number | null = null;
@@ -294,7 +294,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     input.paused = true;
     kbm.enabled = false;
     if (kbm.locked) document.exitPointerLock();
-    talk.show(id, name, def, TRADES.forPlace(ctx.expedition?.id ?? null), countOf(inv, TRADES.currency)); // 주민은 누구나 가게도 한다 (#225), 원정지엔 그곳 물건이 더 (#228)
+    const job = TRADES.jobFor(id, pets.get(id)?.name ?? null); // 직업별 가게 (#229)
+    talk.show(id, job ? `${name} · ${job.name}` : name, def, TRADES.forVillager(job?.id ?? null, ctx.expedition?.id ?? null), countOf(inv, TRADES.currency)); // 주민은 누구나 가게도 한다 (#225), 원정지엔 그곳 물건이 더 (#228)
   };
   const petNamer = new PetNamePicker(
     root,

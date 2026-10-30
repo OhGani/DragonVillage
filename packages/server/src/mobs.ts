@@ -190,7 +190,10 @@ export class MobSystem {
     }
     for (const s of e.spawns ?? []) {
       const m = this.spawnKind(s.kind, s.x, this.groundAt(s.x, s.z, s.y) ?? s.y, s.z); // 시작부터 서 있는 몹 (#223 눈 골렘, #228 사막 주민)
-      if (s.kind === 'villager') m.yaw = Math.PI; // 집 문 앞에서 남쪽(마을 우물 쪽)을 본다
+      if (s.kind === 'villager') {
+        m.yaw = Math.PI; // 집 문 앞에서 남쪽(마을 우물 쪽)을 본다
+        m.home = { x: s.x, z: s.z }; // 집 둘레를 산책한다 (#229)
+      }
     }
   }
 
@@ -309,6 +312,10 @@ export class MobSystem {
         }
         if (def.neutral && (m.angryUntil ?? 0) < now) target = null; // 중립(좀비 피글린·엔더맨·눈 골렘): 맞기 전엔 가만히 (#161)
         if (target && m.kind === 'enderman') this.teleportNear(m, target, now);
+        if (!target && m.kind === 'villager' && m.home) {
+          this.wander(m, def, dt, now); // 원정 주민 산책 (#229, 아빠 "주민이 집에만 있어")
+          continue;
+        }
         if (target) {
           const ev = stepMob(m, m.grudge !== undefined ? { ...def, damage: GRUDGE_DAMAGE, attackEveryMs: GRUDGE_ATTACK_MS } : def, target, dt, now, this.groundAt);
           if (ev === 'attack') {
@@ -549,6 +556,27 @@ export class MobSystem {
       return;
     }
     this.hooks.reward(byIdx, rollDrops(def, this.e.seed, m.id), def.xp, { x: m.x, y: m.y + 1, z: m.z }, now);
+  }
+
+  /** 원정 주민 산책 (#229): 2~6초마다 반은 집 3~10칸 안의 자리로 천천히(0.6배) 걷고, 반은 쉰다. 시드·번호·시각으로 결정론 */
+  private wander(m: MobState, def: ReturnType<MobRegistry['get']>, dt: number, now: number): void {
+    const home = m.home!;
+    if (!m.wanderTo && now >= (m.wanderAt ?? 0)) {
+      const r = hash3(m.id, Math.floor(now / 500), 21, this.e.seed);
+      if (r < 0.5) {
+        const a = hash3(m.id, Math.floor(now / 500), 22, this.e.seed) * Math.PI * 2;
+        const d = 3 + hash3(m.id, Math.floor(now / 500), 23, this.e.seed) * 7;
+        const tx = Math.floor(home.x + Math.cos(a) * d) + 0.5,
+          tz = Math.floor(home.z + Math.sin(a) * d) + 0.5;
+        const y = this.groundAt(tx, tz, m.y);
+        if (y !== null && Math.abs(y - m.y) <= 2) m.wanderTo = { x: tx, y, z: tz };
+      }
+      m.wanderAt = now + 2000 + r * 4000;
+    }
+    if (m.wanderTo) {
+      stepMob(m, { ...def, speed: def.speed * 0.6, reach: 0, fuseMs: 0 }, m.wanderTo, dt, now, this.groundAt);
+      if (Math.hypot(m.wanderTo.x - m.x, m.wanderTo.z - m.z) < 0.6) m.wanderTo = null;
+    } else m.state = MOB_STATE.walk;
   }
 
   /** 조용히 사라진다 (#221 철 골렘): 드롭·경험치 없이. 클라는 die 로 지운다 */
