@@ -769,6 +769,51 @@ describe('VillageRoom 블록 변경 검증', () => {
     if (cow) expect(room.trade(ia, cow.id, 'buy', 'bread', 1000)).toBe('NOT_VILLAGER');
   });
 
+  it('사면 비싸진다 (#230): 같은 물건 2번마다 💎1 씩, 3배까지, 사람마다 따로, 20분 지나면 내려온다, 저장된다', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
+    const p = room.players.get(ia)!;
+    const v = room.animals.entries(1000).find((e) => e.kind === MOB_KIND_NUM.villager)!;
+    room.onMove(ia, { x: v.x + 1.5, y: v.y, z: v.z, yaw: 0, pitch: 0, flags: 0 });
+    room.giveItems(ia, 'emerald', 20);
+    const T = Date.now(); // 다시 들어올 때 서버가 Date.now() 로 세니 실제 시각 기준으로
+    const buy = (t: number) => room.trade(ia, v.id, 'buy', 'torch', t);
+    expect(buy(T)).toBeNull(); // 💎1
+    expect(buy(T + 1)).toBeNull(); // 💎1
+    expect(countOf(p.inv, 'emerald')).toBe(18);
+    expect(buy(T + 2)).toBeNull(); // 3번째 → 💎2
+    expect(countOf(p.inv, 'emerald')).toBe(16);
+    expect(buy(T + 3)).toBeNull(); // 💎2
+    expect(buy(T + 4)).toBeNull(); // 💎3 (상한 1×3)
+    expect(buy(T + 5)).toBeNull(); // 💎3
+    expect(buy(T + 6)).toBeNull(); // 💎3 — 더는 안 오른다
+    expect(countOf(p.inv, 'emerald')).toBe(16 - 2 - 3 - 3 - 3);
+    expect(storage.tradeDemand('a'.repeat(32), INFO.code)).toEqual([{ item: 'torch', count: 7, updatedAt: T + 6 }]);
+    const demand = a.json.filter((m) => m.t === 'demand') as unknown as { counts: Record<string, number> }[];
+    expect(demand[demand.length - 1]!.counts).toEqual({ torch: 7 });
+    // 다른 사람은 원래 값
+    const b = inbox();
+    const ib = room.join('b'.repeat(32), '아들', 1, b.send)!.idx;
+    room.onMove(ib, { x: v.x + 1.5, y: v.y, z: v.z + 0.5, yaw: 0, pitch: 0, flags: 0 });
+    room.giveItems(ib, 'emerald', 1);
+    expect(room.trade(ib, v.id, 'buy', 'torch', T + 7)).toBeNull();
+    expect(countOf(room.players.get(ib)!.inv, 'emerald')).toBe(0);
+    // 20분마다 하나씩 내려온다: 100분 뒤면 7 - 5 = 2 → 💎2
+    room.giveItems(ia, 'emerald', 10);
+    const e0 = countOf(p.inv, 'emerald');
+    expect(buy(T + 6 + 100 * 60_000)).toBeNull();
+    expect(e0 - countOf(p.inv, 'emerald')).toBe(2);
+    // 다시 들어와도 저장된 횟수로 (3 → 💎2)
+    room.leave(ia);
+    const c = inbox();
+    const ia2 = room.join('a'.repeat(32), '아빠', 0, c.send)!.idx;
+    const d2 = c.json.find((m) => m.t === 'demand') as unknown as { counts: Record<string, number> };
+    expect(d2.counts).toEqual({ torch: 3 });
+    expect(ia2).toBeDefined();
+  });
+
   it('원정 주민 (#228): 원정 무대의 주민과도 거래하고, 못 때리며, 그곳만의 물건은 그곳에서만', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });

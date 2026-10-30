@@ -180,6 +180,8 @@ CREATE TABLE IF NOT EXISTS village_flags(
   village TEXT NOT NULL, key TEXT NOT NULL, value INTEGER NOT NULL, PRIMARY KEY(village, key));
 CREATE TABLE IF NOT EXISTS gifts_given(
   token TEXT NOT NULL, gift TEXT NOT NULL, given_at INTEGER NOT NULL, PRIMARY KEY(token, gift));
+CREATE TABLE IF NOT EXISTS trade_demand(
+  token TEXT NOT NULL, village TEXT NOT NULL, item TEXT NOT NULL, count INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY(token, village, item));
 CREATE TABLE IF NOT EXISTS animals(
   id INTEGER PRIMARY KEY AUTOINCREMENT, village TEXT NOT NULL, kind TEXT NOT NULL, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL,
   born_at INTEGER NOT NULL, adult_at INTEGER, owner TEXT, sitting INTEGER NOT NULL DEFAULT 0, home_x REAL NOT NULL, home_z REAL NOT NULL);
@@ -311,6 +313,8 @@ export class Storage {
       deleteChest: this.db.prepare('DELETE FROM chests WHERE village = ? AND x = ? AND y = ? AND z = ?'),
       giftsOf: this.db.prepare('SELECT gift FROM gifts_given WHERE token = ?'),
       markGift: this.db.prepare('INSERT OR IGNORE INTO gifts_given(token, gift, given_at) VALUES (?, ?, ?)'),
+      tradeDemand: this.db.prepare('SELECT item, count, updated_at AS updatedAt FROM trade_demand WHERE token = ? AND village = ?'),
+      setTradeDemand: this.db.prepare('INSERT INTO trade_demand(token, village, item, count, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(token, village, item) DO UPDATE SET count = excluded.count, updated_at = excluded.updated_at'),
       getSettlement: this.db.prepare('SELECT child, week_start AS weekStart, rate, bonus_cap AS bonusCap, approved, expected, settled_at AS settledAt FROM week_settlements WHERE child = ? AND week_start = ?'),
       insertSettlement: this.db.prepare('INSERT OR IGNORE INTO week_settlements(child, week_start, rate, bonus_cap, approved, expected, settled_at) VALUES (?, ?, ?, ?, ?, ?, ?)'),
       listSettlements: this.db.prepare('SELECT child, week_start AS weekStart, rate, bonus_cap AS bonusCap, approved, expected, settled_at AS settledAt FROM week_settlements WHERE child = ? ORDER BY week_start DESC LIMIT ?'),
@@ -664,6 +668,14 @@ export class Storage {
   }
   markGiftGiven(token: string, gift: string, now = Date.now()): void {
     this.stmts.markGift.run(token, gift, now);
+  }
+
+  /** 주민 가게에서 산 횟수 (#230): 사람·마을·물건별 */
+  tradeDemand(token: string, village: string): { item: string; count: number; updatedAt: number }[] {
+    return this.stmts.tradeDemand.all(token, village) as { item: string; count: number; updatedAt: number }[];
+  }
+  setTradeDemand(token: string, village: string, item: string, count: number, now = Date.now()): void {
+    this.stmts.setTradeDemand.run(token, village, item, count, now);
   }
 
   /** 접속 안 한 주인에게 경험치 (드래곤 성장, M6-3) */

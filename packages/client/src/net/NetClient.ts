@@ -168,6 +168,8 @@ export interface NetEvents {
   onDragonDown(m: { id: number; dragon: string; restUntil: number }): void;
   /** 펫 목록·이름 (#109) */
   onPets(list: { id: number; name: string | null; mine: boolean; mode?: 'follow' | 'sit' | 'free' }[]): void;
+  /** 가게에서 산 횟수 (#230) */
+  onDemand(counts: Record<string, number>): void;
   /** 원정에 따라온 펫 (#145) */
   onCompanions(list: { id: number; kind: number; name: string | null; owner: number }[]): void;
   /** 엔딩 포탈이 열렸다 (#170) */
@@ -635,6 +637,7 @@ export class NetClient {
     else if (msg.t === 'arrow') ev.onArrow(msg);
     else if (msg.t === 'knock') ev.onKnock(msg);
     else if (msg.t === 'pets') ev.onPets(msg.list);
+    else if (msg.t === 'demand') ev.onDemand(msg.counts);
     else if (msg.t === 'companions') ev.onCompanions(msg.list);
     else if (msg.t === 'ending') ev.onEnding({ x: msg.x, y: msg.y, z: msg.z });
     else if (msg.t === 'dragonHp') ev.onDragonHp(msg);

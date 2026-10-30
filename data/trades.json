@@ -1,6 +1,13 @@
 {
   "_comment": "주민 가게 (#225·#229, 아들 14차 4번 + 아빠 2026-10-30 '직업별로 파는 물건이 다르게'). 주민마다 직업이 정해진다(번호로, 대장장이는 무기장이). 가게 목록 = common(모든 주민) + 그 직업(jobs) + 그곳(places, 원정지 id). 같은 물건이 겹치면 직업·그곳 값이 이긴다. buy = 에메랄드(price)를 내고 item 을 count 개 산다. sell = item 을 count 개 주고 에메랄드 price 개를 받는다. 아들이 값·물건·직업 이름을 마음대로 바꿔도 돼(물건 id 는 가방에 있는 그대로). 에메랄드는 보물 상자·팔기·에메랄드 광석에서.",
   "currency": "emerald",
+  "demand": {
+    "_comment": "사면 비싸진다 (#230, 아빠 2026-10-30): 같은 물건을 everyBuys 번 살 때마다 에메랄드 step 개씩 올라가고, 원래 값의 maxTimes 배까지만. 사람마다 따로 센다. restockMinutes 분이 지날 때마다 산 횟수가 하나씩 줄어 값이 내려온다(주민이 물건을 다시 들여온다).",
+    "everyBuys": 2,
+    "step": 1,
+    "maxTimes": 3,
+    "restockMinutes": 20
+  },
   "common": {
     "_comment": "모든 주민이 다루는 것",
     "buy": [

@@ -592,6 +592,8 @@ export type ServerJson =
   | { t: 'firework'; x: number; y: number; z: number; seed: number }
   /** 펫 목록 (M8-1 4차): 길들인 동물의 이름과 내 것인지. 들어올 때와 바뀔 때 (받는 사람마다 mine 이 다르다) */
   | { t: 'pets'; list: { id: number; name: string | null; mine: boolean; mode?: 'follow' | 'sit' | 'free' }[] }
+  /** 주민 가게에서 내가 산 횟수 (#230): 물건 → 횟수(지금 기준). 값은 클라가 trades.json demand 로 계산해 보여 준다 */
+  | { t: 'demand'; counts: Record<string, number> }
   /** 원정에 따라온 펫 (#145): 원정 세계 사람들에게. 클라가 주인을 따라다니게 그린다 (서버 목록엔 없다) */
   | { t: 'companions'; list: { id: number; kind: number; name: string | null; owner: number }[] }
   /** 몹(스켈레톤·약탈자)이 쏜 화살: from(몹) → to(사람 가슴) (M8-2 3차) */

@@ -180,6 +180,7 @@ import {
   xpAfterDeath, CRYSTAL_SHOT_RANGE,
   GLASS_BOTTLE,
   WATER_BOTTLE,
+  effectiveBuys,
 } from '@dragon-village/shared';
 import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS, TRADES } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
@@ -1433,6 +1434,7 @@ export class VillageRoom {
     this.broadcastJson({ t: 'playerJoined', player: me }, idx, 'village');
     if (this.raid) this.sendJson(player, { t: 'raid', raid: this.raid.state(Date.now()) });
     this.sendJson(player, { t: 'pets', list: this.animals.petsFor(token) }); // 펫 이름 (#109)
+    this.sendDemand(player, Date.now()); // 가게 값 (#230)
     if (player.riding) this.broadcastNest(); // 둥지에서 그 드래곤이 빠진다
     this.savePlayer(player);
     if (savedInv === null || gifts.length) this.storage?.saveInventory(token, this.info.code, inv); // 키트·선물은 한 번만 — 바로 저장해 둔다
@@ -1873,11 +1875,17 @@ export class VillageRoom {
     const changed = new Set<number>();
     const name = itemName(t.item, this.registry, ITEM_NAMES);
     if (kind === 'buy') {
-      if (countOf(p.inv, TRADES.currency) < t.price) return 'NO_EMERALD';
+      // 사면 비싸진다 (#230): 이 사람이 이 물건을 산 횟수로 값을 정한다. 20분마다 하나씩 내려온다
+      const buys = this.demandBuys(p, t.item, now);
+      const price = TRADES.priceFor(t, buys);
+      if (countOf(p.inv, TRADES.currency) < price) return 'NO_EMERALD';
       if (!fits(p.inv, [{ item: t.item, count: t.count }])) return 'BAG_FULL';
-      take(p.inv, TRADES.currency, t.price, changed);
+      take(p.inv, TRADES.currency, price, changed);
       this.giveTo(p, t.item, t.count, changed);
-      this.sendJson(p, { t: 'error', code: 'TRADE_OK', message: `🛒 ${name} ${t.count}개를 샀어요 (💎 ${t.price})` });
+      this.storage?.setTradeDemand(p.token, this.info.code, t.item, buys + 1, now);
+      this.sendDemand(p, now);
+      const next = TRADES.priceFor(t, buys + 1);
+      this.sendJson(p, { t: 'error', code: 'TRADE_OK', message: `🛒 ${name} ${t.count}개를 샀어요 (💎 ${price})${next > price ? ` — 다음엔 💎 ${next}` : ''}` });
     } else {
       if (countOf(p.inv, t.item) < t.count) return 'NOT_ENOUGH';
       if (!fits(p.inv, [{ item: TRADES.currency, count: t.price }])) return 'BAG_FULL';
@@ -1911,6 +1919,22 @@ export class VillageRoom {
     this.giveTo(p, WATER_BOTTLE, 1, changed);
     this.sendInv(p, changed);
     return null;
+  }
+
+  /** 이 사람이 이 물건을 (지금 기준으로) 몇 번 샀나 (#230) — 저장소 없으면 0 */
+  private demandBuys(p: RoomPlayer, item: string, now: number): number {
+    const row = this.storage?.tradeDemand(p.token, this.info.code).find((r) => r.item === item);
+    return row ? effectiveBuys(row.count, row.updatedAt, now, TRADES.demand) : 0;
+  }
+
+  /** 산 횟수 전부를 그 사람에게 (#230): 가게 화면이 값을 보여 준다 */
+  private sendDemand(p: RoomPlayer, now: number): void {
+    const counts: Record<string, number> = {};
+    for (const r of this.storage?.tradeDemand(p.token, this.info.code) ?? []) {
+      const n = effectiveBuys(r.count, r.updatedAt, now, TRADES.demand);
+      if (n > 0) counts[r.item] = n;
+    }
+    this.sendJson(p, { t: 'demand', counts });
   }
 
   /** 🛡️ 막기 (#118): 방패를 끼고 있을 때만. 켜면 GUARD_MAX_MS 뒤 저절로 풀린다(클라가 5초마다 다시 켠다) */

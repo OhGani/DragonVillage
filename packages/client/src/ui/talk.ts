@@ -15,6 +15,8 @@ export class TalkSheet {
   private trades: TradeRules | null = null;
   /** 지금 가진 에메랄드 (열 때 Game 이 준다) */
   private emeralds = 0;
+  /** 내가 산 횟수 (#230): 물건 → 횟수. 값은 trades 의 demand 로 */
+  private demand: Record<string, number> = {};
 
   constructor(
     root: HTMLElement,
@@ -85,7 +87,7 @@ export class TalkSheet {
     const t = this.trades;
     if (!t || this.mobId === null) return;
     this.title.textContent = `🛒 ${this.name}의 가게 — 💎 ${this.emeralds}`;
-    this.say.textContent = '에메랄드로 사고, 모은 걸 팔아. 직업마다 파는 게 달라 — 뭐 할래?';
+    this.say.textContent = '에메랄드로 사고, 모은 걸 팔아. 직업마다 파는 게 달라. 같은 걸 자꾸 사면 조금씩 비싸져(최대 3배) — 뭐 할래?';
     this.list.replaceChildren();
     const row = (def: TradeDef) => {
       const b = document.createElement('button');
@@ -96,7 +98,8 @@ export class TalkSheet {
         b.appendChild(icon);
       }
       const text = document.createElement('span');
-      text.textContent = def.kind === 'buy' ? `${this.nameOf(def.item)} ${def.count}개 사기 — 💎 ${def.price}` : `${this.nameOf(def.item)} ${def.count}개 팔기 → 💎 ${def.price}`;
+      const price = t.priceFor(def, this.demand[def.item] ?? 0); // 사면 비싸진다 (#230)
+      text.textContent = def.kind === 'buy' ? `${this.nameOf(def.item)} ${def.count}개 사기 — 💎 ${price}${price > def.price ? ` (원래 ${def.price}, 20분마다 내려와요)` : ''}` : `${this.nameOf(def.item)} ${def.count}개 팔기 → 💎 ${def.price}`;
       b.appendChild(text);
       b.addEventListener('click', () => this.onTrade(this.mobId!, def.kind, def.item));
       this.list.appendChild(b);
@@ -112,6 +115,12 @@ export class TalkSheet {
     head('팔기 (에메랄드를 받아요)');
     for (const d of t.sell) row(d);
     this.close.textContent = '가게 닫기';
+  }
+
+  /** 산 횟수가 바뀌면 (#230): 가게가 열려 있으면 값을 다시 그린다 */
+  setDemand(counts: Record<string, number>): void {
+    this.demand = counts;
+    if (!this.sheet.hidden && this.title.textContent?.startsWith('🛒')) this.showTrades();
   }
 
   /** 에메랄드가 바뀌면 제목만 갱신 (#225) */

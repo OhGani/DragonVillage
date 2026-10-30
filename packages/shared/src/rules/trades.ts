@@ -17,10 +17,19 @@ const RawTrade = z
   .loose();
 const Lists = z.object({ _comment: z.string().optional(), buy: z.array(RawTrade).optional(), sell: z.array(RawTrade).optional() }).loose();
 const RawJob = z.object({ name: z.string().min(1, '직업 이름이 비었어요').max(6, '직업 이름은 6글자까지'), buy: z.array(RawTrade).optional(), sell: z.array(RawTrade).optional() }).loose();
+const RawDemand = z
+  .object({
+    everyBuys: z.number().int().min(1, '1 이상이어야 해요').optional(),
+    step: z.number().int().min(0, '0 이상이어야 해요').optional(),
+    maxTimes: z.number().min(1, '1 이상이어야 해요 (1 = 안 비싸짐)').optional(),
+    restockMinutes: z.number().min(0, '0 이상이어야 해요').optional(),
+  })
+  .loose();
 const TradeFile = z
   .object({
     _comment: z.string().optional(),
     currency: z.string().min(1).optional(),
+    demand: RawDemand.optional(),
     common: Lists.optional(),
     jobs: z.record(z.string(), z.union([z.string(), RawJob])).optional(),
     places: z.record(z.string(), z.union([z.string(), Lists])).optional(),
@@ -44,6 +53,27 @@ export interface JobDef extends TradeLists {
   /** 한국어 이름 (농부·사서…) */
   readonly name: string;
 }
+/** 사면 비싸지는 규칙 (#230): 같은 물건을 everyBuys 번 살 때마다 step 씩, 원래 값의 maxTimes 배까지. restockMinutes 마다 산 횟수 -1 */
+export interface DemandRules {
+  readonly everyBuys: number;
+  readonly step: number;
+  readonly maxTimes: number;
+  readonly restockMinutes: number;
+}
+export const DEFAULT_DEMAND: DemandRules = { everyBuys: 2, step: 1, maxTimes: 3, restockMinutes: 20 };
+
+/** 지금까지 buys 번 샀을 때 값 */
+export function demandPrice(base: number, buys: number, d: DemandRules): number {
+  const cap = Math.max(base, Math.floor(base * d.maxTimes));
+  return Math.min(cap, base + Math.floor(Math.max(0, buys) / d.everyBuys) * d.step);
+}
+
+/** 저장된 횟수(count, 마지막 산 시각 updatedAt)에서 지금 유효한 횟수: restockMinutes 마다 하나씩 줄어든다 */
+export function effectiveBuys(count: number, updatedAt: number, now: number, d: DemandRules): number {
+  if (d.restockMinutes <= 0) return Math.max(0, count);
+  return Math.max(0, count - Math.floor(Math.max(0, now - updatedAt) / (d.restockMinutes * 60_000)));
+}
+
 /** 대장장이(대장간 앞 주민, #173)의 직업 */
 export const BLACKSMITH_JOB = 'weaponsmith';
 
@@ -64,7 +94,14 @@ export class TradeRules {
     readonly jobs: ReadonlyMap<string, JobDef> = new Map(),
     /** 곳마다 더 파는 것 (#228 사막 마을): 원정지 id → 추가 목록 */
     readonly places: ReadonlyMap<string, TradeLists> = new Map(),
+    /** 사면 비싸지는 규칙 (#230) */
+    readonly demand: DemandRules = DEFAULT_DEMAND,
   ) {}
+
+  /** 이 사람이 buys 번 샀을 때 값 (#230) */
+  priceFor(def: TradeDef, buys: number): number {
+    return def.kind === 'buy' ? demandPrice(def.price, buys, this.demand) : def.price;
+  }
 
   find(kind: TradeKind, item: string): TradeDef | null {
     return (kind === 'buy' ? this.buy : this.sell).find((t) => t.item === item) ?? null;
@@ -84,7 +121,7 @@ export class TradeRules {
     const p = place ? this.places.get(place) : undefined;
     if (!j && !p) return this;
     const merge = (base: readonly TradeDef[], more: readonly TradeDef[] | undefined) => (more ? [...base.filter((b) => !more.some((m) => m.item === b.item)), ...more] : [...base]);
-    return new TradeRules(this.currency, merge(merge(this.buy, j?.buy), p?.buy), merge(merge(this.sell, j?.sell), p?.sell));
+    return new TradeRules(this.currency, merge(merge(this.buy, j?.buy), p?.buy), merge(merge(this.sell, j?.sell), p?.sell), new Map(), new Map(), this.demand);
   }
 
   /** 그곳(원정지 id, 마을이면 null)의 공용 가게 (직업 없이) */
@@ -124,5 +161,7 @@ export function parseTrades(raw: unknown, fileName = 'data/trades.json'): TradeR
     places.set(place, { buy: mk('buy', pt.buy), sell: mk('sell', pt.sell) });
   }
   if (problems.length) throw new DataError(fileName, problems);
-  return new TradeRules(currency, mk('buy', result.data.common?.buy), mk('sell', result.data.common?.sell), jobs, places);
+  const dm = result.data.demand;
+  const demand: DemandRules = { everyBuys: dm?.everyBuys ?? DEFAULT_DEMAND.everyBuys, step: dm?.step ?? DEFAULT_DEMAND.step, maxTimes: dm?.maxTimes ?? DEFAULT_DEMAND.maxTimes, restockMinutes: dm?.restockMinutes ?? DEFAULT_DEMAND.restockMinutes };
+  return new TradeRules(currency, mk('buy', result.data.common?.buy), mk('sell', result.data.common?.sell), jobs, places, demand);
 }

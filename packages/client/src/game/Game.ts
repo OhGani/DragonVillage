@@ -862,6 +862,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       hud.toast(`😵 ${name}이(가) 쓰러졌어요 — 둥지에서 ${Math.round((m.restUntil - (Date.now() + serverClockOffset)) / 60000)}분 쉬면 다시 탈 수 있어요`, 7000);
       lose();
     },
+    onDemand: (counts) => talk.setDemand(counts), // 가게 값 (#230)
     onPets: (list) => {
       pets.clear();
       for (const p of list) pets.set(p.id, { name: p.name, mine: p.mine, mode: p.mode ?? 'follow' });

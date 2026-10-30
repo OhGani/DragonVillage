@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BLACKSMITH_NAME } from './animals';
 import { itemName } from './items';
 import { BLOCKS, ITEM_NAMES, TRADES } from './data';
-import { parseTrades } from './trades';
+import { demandPrice, effectiveBuys, parseTrades } from './trades';
 
 describe('주민 거래 (#225·#228·#229)', () => {
   it('data/trades.json: 공용 + 직업 7개 + 사막, 물건마다 한국어 이름이 있다(모르는 id 가 아니다)', () => {
@@ -50,6 +50,23 @@ describe('주민 거래 (#225·#228·#229)', () => {
     expect(TRADES.forPlace(null).find('buy', 'sandstone')).toBeNull();
     expect(TRADES.forPlace('grass_island')).toBe(TRADES);
     expect(new Set(desert.sell.map((t) => t.item)).size).toBe(desert.sell.length);
+  });
+
+  it('사면 비싸진다 (#230): 2번마다 💎1 씩, 원래 값의 3배까지, 20분마다 한 번씩 내려온다. 파는 값은 그대로', () => {
+    const d = TRADES.demand;
+    expect(d).toEqual({ everyBuys: 2, step: 1, maxTimes: 3, restockMinutes: 20 });
+    expect([0, 1, 2, 3, 4, 5, 6, 10, 100].map((n) => demandPrice(1, n, d))).toEqual([1, 1, 2, 2, 3, 3, 3, 3, 3]);
+    expect(demandPrice(4, 7, d)).toBe(7);
+    expect(demandPrice(4, 40, d)).toBe(12);
+    expect(effectiveBuys(5, 0, 0, d)).toBe(5);
+    expect(effectiveBuys(5, 0, 20 * 60_000, d)).toBe(4);
+    expect(effectiveBuys(5, 0, 200 * 60_000, d)).toBe(0);
+    const bread = TRADES.forVillager('farmer', null).find('buy', 'bread')!;
+    expect(TRADES.priceFor(bread, 0)).toBe(1);
+    expect(TRADES.priceFor(bread, 4)).toBe(3);
+    const wheat = TRADES.forVillager('farmer', null).find('sell', 'wheat')!;
+    expect(TRADES.priceFor(wheat, 99)).toBe(wheat.price);
+    expect(TRADES.forVillager('farmer', 'desert').demand).toEqual(d);
   });
 
   it('잘못된 파일은 한국어로 알려 준다', () => {
