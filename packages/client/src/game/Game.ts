@@ -268,7 +268,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const talk = new TalkSheet(
     root,
     (id, action) => {
-      if (action === 'feed') net.sendUseMob(id, hud.selectedIndex); // "응, 먹어!" → 들고 있는 빵을 준다
+      if (action === 'feed') {
+        if (ctx.kind === 'village') net.sendUseMob(id, hud.selectedIndex); // "응, 먹어!" → 들고 있는 빵을 준다
+        else hud.toast('🍞 원정 주민은 빵을 안 받아요 — 마을 주민에게 줘요', 2000); // #228
+      }
       if (action === 'tease') {
         // 놀리기 (#220, 아들 14차 10번 "놀릴 수 있게"): 주민이 삐진다 — 연출뿐, 서버는 모른다
         mobView.angryAt(id, performance.now());
@@ -291,7 +294,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     input.paused = true;
     kbm.enabled = false;
     if (kbm.locked) document.exitPointerLock();
-    talk.show(id, name, def, TRADES, countOf(inv, TRADES.currency)); // 주민은 누구나 가게도 한다 (#225)
+    talk.show(id, name, def, TRADES.forPlace(ctx.expedition?.id ?? null), countOf(inv, TRADES.currency)); // 주민은 누구나 가게도 한다 (#225), 원정지엔 그곳 물건이 더 (#228)
   };
   const petNamer = new PetNamePicker(
     root,
@@ -1680,9 +1683,12 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     // 공격: 꾹 누르기(부수기와 같음) 또는 몹을 짧게 탭 (아빠 2026-09-28 — 폰에서 탭만으로). 동물은 탭이 먹이·길들이기라 꾹 눌러야 때린다
     // 검·도끼·곡괭이를 들고 탭 = 휘두르기 (아빠 2026-10-07, #141): 조준 안 해도 앞 범위 안의 몹을 때리고, 블록이면 한 번 캔다(톡톡 치면 깨진다), 아무것도 없으면 허공에
     const heldTool = toolOf(TOOLS, hud.selectedItem);
+    const isVillager = (id: number | null) => id !== null && MOB_KIND_OF[mobView.figureOf(id)?.kind ?? -1] === 'villager';
+    const aimedVillager = isVillager(aimedMob); // 원정(사막 마을) 주민도 때리지 않고 말을 건다 (#228)
     let swingMob: number | null = null;
     if (inp.secondaryTap && heldTool !== null && !bow && !guarding && !anyPanelOpen()) {
-      swingMob = aimedMob !== null && aimedMob < ANIMAL_ID_BASE ? aimedMob : aimedMob === null ? mobView.nearestInCone(player.eye, player.lookDir, meleeReach, SWING_CONE_COS, true) : null;
+      swingMob = aimedMob !== null && aimedMob < ANIMAL_ID_BASE && !aimedVillager ? aimedMob : aimedMob === null ? mobView.nearestInCone(player.eye, player.lookDir, meleeReach, SWING_CONE_COS, true) : null;
+      if (isVillager(swingMob)) swingMob = null;
       if (swingMob === null && aimedMob === null) {
         const tdef = interaction.target ? registry.get(interaction.target.id) : null;
         const pathing = ((heldTool.kind === 'shovel' && tdef?.id === 'grass') || (heldTool.kind === 'hoe' && tdef !== null && TILLABLE.has(tdef.id))) && interaction.target!.ny > 0; // 삽으로 잔디 길·괭이로 밭은 캐기가 아니다 (#191·#193)
@@ -1690,7 +1696,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         hand.swing();
       }
     }
-    const tapAttack = inp.secondaryTap && ((aimedMob !== null && aimedMob < ANIMAL_ID_BASE) || swingMob !== null);
+    const tapAttack = inp.secondaryTap && !aimedVillager && ((aimedMob !== null && aimedMob < ANIMAL_ID_BASE) || swingMob !== null);
     if (bow && !guarding) {
       // 활·쇠뇌 (#119, 아빠): 누르고 있으면 시위를 당기고, 놓으면 쏜다. 짧게 탭하면 약한 화살
       if (inp.primary) {
@@ -1738,7 +1744,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       net.sendEat(hud.selectedIndex);
       hand.swing();
     }
-    if (aimedMob !== null && inp.secondaryTap && aimedMob >= ANIMAL_ID_BASE && ctx.kind === 'village') {
+    if (aimedMob !== null && inp.secondaryTap && ((aimedMob >= ANIMAL_ID_BASE && ctx.kind === 'village') || (aimedVillager && ctx.kind === 'expedition'))) {
       const fk = mobView.figureOf(aimedMob);
       if (fk && MOB_KIND_OF[fk.kind] === 'villager' && (!hud.selectedItem || !MOBS.get('villager').food.includes(hud.selectedItem))) {
         // 주민에게 탭 = 대화 시트 (#172). 빵을 들었을 땐 바로 먹이기(서버) 대신 대화에서 "응, 먹어!" 로 준다

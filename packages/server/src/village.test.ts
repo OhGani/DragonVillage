@@ -760,6 +760,28 @@ describe('VillageRoom 블록 변경 검증', () => {
     if (cow) expect(room.trade(ia, cow.id, 'buy', 'bread', 1000)).toBe('NOT_VILLAGER');
   });
 
+  it('원정 주민 (#228): 원정 무대의 주민과도 거래하고, 못 때리며, 그곳만의 물건은 그곳에서만', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
+    const p = room.players.get(ia)!;
+    expect(room.startExpedition(ia, 'grass_island', 1000)).toBeNull();
+    room.tick(1100); // 몹 무대가 생긴다
+    const sp = room.expedition!.spawn;
+    room.onMove(ia, { x: sp.x, y: sp.y, z: sp.z, yaw: 0, pitch: 0, flags: 0 });
+    const v = room.mobSys!.spawnKind('villager', sp.x + 1.5, sp.y, sp.z);
+    for (let t = 1200; t < 3000; t += TICK_MS) room.tick(t);
+    expect(Math.hypot(v.x - (sp.x + 1.5), v.z - sp.z)).toBeLessThan(0.01); // 가만히 서 있다
+    expect(room.hitMob(ia, v.id, undefined, 3000)).toBe('VILLAGER');
+    expect(v.hp).toBe(20);
+    expect(room.trade(ia, v.id, 'buy', 'bread', 3000)).toBe('NO_EMERALD');
+    room.giveItems(ia, 'emerald', 3);
+    expect(room.trade(ia, v.id, 'buy', 'bread', 3000)).toBeNull();
+    expect(countOf(p.inv, 'bread')).toBe(3);
+    expect(room.trade(ia, v.id, 'buy', 'sandstone', 3000)).toBe('NO_TRADE'); // 사막 물건은 사막에서만
+  });
+
   it('주민을 때리면 철 골렘 (#221, 아들 14차 11번): 주민은 안 다치고, 골렘이 때린 사람만 쫓다가 30초 뒤 사라진다', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });

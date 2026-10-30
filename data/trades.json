@@ -24,5 +24,20 @@
     { "item": "iron_ingot", "count": 4, "price": 1 },
     { "item": "gold_ingot", "count": 2, "price": 1 },
     { "item": "coal", "count": 10, "price": 1 }
-  ]
+  ],
+  "places": {
+    "_comment": "곳마다 더 파는 것 (#228, 아들 14차 4번 '사막 마을 주민 사고 팔 수 있게'). 키는 원정지 id(expeditions.json). 위 공용 목록에 이걸 더하고, 같은 물건이면 여기 값이 이긴다.",
+    "desert": {
+      "_comment": "사막 마을 집 앞 주민 — 사막 것을 팔고, 금을 더 쳐준다",
+      "buy": [
+        { "item": "sandstone", "count": 16, "price": 1 },
+        { "item": "sand", "count": 32, "price": 1 },
+        { "item": "tnt", "count": 1, "price": 4, "_note": "피라미드 폭파용" }
+      ],
+      "sell": [
+        { "item": "cactus", "count": 8, "price": 1 },
+        { "item": "gold_ingot", "count": 1, "price": 1, "_note": "마을에선 금 2 에 💎1, 사막에선 금 1 에 💎1" }
+      ]
+    }
+  }
 }

@@ -46,6 +46,8 @@ export interface DesertLayout extends IslandLayout {
   village: { x: number; y: number; z: number };
   /** 오아시스 물웅덩이 가운데 */
   oases: { x: number; z: number }[];
+  /** 사막 마을 주민 자리 (#228): 집마다 하나, 남쪽 문 앞. 서버가 spawns 로 세운다 */
+  villagers: { x: number; y: number; z: number }[];
 }
 
 export interface DesertResult {
@@ -253,8 +255,10 @@ export function generateDesert(registry: BlockRegistry, seed: number, treasures 
       }
     }
   let chestsLeft = restChests;
+  const villagers: DesertLayout['villagers'] = [];
   for (const { x: hx, z: hz } of houses) {
     const floor = wellFloor;
+    villagers.push({ x: hx, y: floor + 1, z: hz + 3 }); // 문 앞 (#228)
     for (let dx = -2; dx <= 2; dx++)
       for (let dz = -2; dz <= 2; dz++) {
         set(hx + dx, floor, hz + dz, sandstone);
@@ -319,7 +323,7 @@ export function generateDesert(registry: BlockRegistry, seed: number, treasures 
     }
 
   const spawn: SpawnPoint = { x: CENTER + 0.5, y: PY + 1, z: CENTER + 3.5, yaw: 0 };
-  const layout: DesertLayout = { center: { x: CENTER, z: CENTER }, portal, treasures: treasureChests, pyramid, village, oases };
+  const layout: DesertLayout = { center: { x: CENTER, z: CENTER }, portal, treasures: treasureChests, pyramid, village, oases, villagers };
   const ms = typeof performance !== 'undefined' ? performance.now() - t0 : 0;
   return { world, spawn, layout, ms };
 }

@@ -1852,11 +1852,22 @@ export class VillageRoom {
   trade(idx: number, mobId: number, kind: 'buy' | 'sell', item: string, now = Date.now()): string | null {
     const p = this.players.get(idx);
     if (!p) return 'NOT_IN_VILLAGE';
-    if (p.world !== 'village' || mobId < ANIMAL_ID_BASE) return 'NO_MOB';
-    if (this.animals.kindOf(mobId) !== 'villager') return 'NOT_VILLAGER';
-    const at = this.animals.positionOf(mobId);
+    let at: { x: number; y: number; z: number } | null;
+    let place: string | null = null;
+    if (p.world === 'village') {
+      if (mobId < ANIMAL_ID_BASE) return 'NO_MOB';
+      if (this.animals.kindOf(mobId) !== 'villager') return 'NOT_VILLAGER';
+      at = this.animals.positionOf(mobId);
+    } else {
+      // 원정 주민 (#228 사막 마을): 그 무대의 몹. 그곳만의 물건이 더 있다 (trades.json places)
+      const m = this.mobSys?.mobs.get(mobId);
+      if (!m) return 'NO_MOB';
+      if (m.kind !== 'villager') return 'NOT_VILLAGER';
+      at = { x: m.x, y: m.y, z: m.z };
+      place = this.expedition?.def.id ?? null;
+    }
     if (!at || Math.hypot(at.x - p.pos.x, at.z - p.pos.z) > 6 || Math.abs(at.y - p.pos.y) > 3) return 'TOO_FAR';
-    const t = TRADES.find(kind, item);
+    const t = TRADES.forPlace(place).find(kind, item);
     if (!t) return 'NO_TRADE';
     const changed = new Set<number>();
     const name = itemName(t.item, this.registry, ITEM_NAMES);

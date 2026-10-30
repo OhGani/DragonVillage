@@ -42,7 +42,7 @@ const GENERATORS: Record<string, (registry: BlockRegistry, seed: number, treasur
   },
   desert: (registry, seed, treasures) => {
     const g = generateDesert(registry, seed, treasures);
-    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: null, spawns: [], crystals: [], genVersion: DESERT_GEN_VERSION, ms: g.ms };
+    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: null, spawns: g.layout.villagers.map((p) => ({ kind: 'villager' as const, x: p.x + 0.5, y: p.y, z: p.z + 0.5 })), crystals: [], genVersion: DESERT_GEN_VERSION, ms: g.ms };
   },
   snow: (registry, seed, treasures) => {
     const g = generateSnow(registry, seed, treasures);

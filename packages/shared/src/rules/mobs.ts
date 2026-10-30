@@ -120,7 +120,7 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   // 말 (v1.1-5, #166): 마을 숲 동물. 안장을 씌우면 내 말, 빈손 탭으로 탄다
   horse: { id: 'horse', hp: 15, damage: 0, speed: 2.2, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   // 주민 (v1.1, #168): 마을 남서쪽 주민 집 세 채에 산다. 때릴 수 없고, 빵을 주면 아기 주민
-  villager: { id: 'villager', hp: 20, damage: 0, speed: 1.6, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  villager: { id: 'villager', hp: 20, damage: 0, speed: 1.6, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0, neutral: true }, // 원정(사막 마을) 주민은 MobSystem 몹 — 가만히 서 있고 못 때린다 (#228)
   // 철 골렘 (#169): 방어전 때 주민이 부른다. 우민을 7씩 때린다 (서버 MobSystem 의 지킴이 동행)
   iron_golem: { id: 'iron_golem', hp: 100, damage: 7, speed: 2.5, reach: 2.2, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   // 보트 (#209): 탈것. 안 움직이고 안 때린다, 몇 대 치면 부서져 아이템으로

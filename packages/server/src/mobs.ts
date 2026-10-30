@@ -491,6 +491,7 @@ export class MobSystem {
   hit(p: MobTarget, mobId: number, damage: number, now: number, reach = HIT_REACH): string | null {
     const m = this.mobs.get(mobId);
     if (!m) return 'NO_MOB';
+    if (m.kind === 'villager') return 'VILLAGER'; // 사막 마을 주민도 못 때린다 (#228, #168)
     if (Math.hypot(m.x - p.x, m.y + mobSize(m.kind).h * 0.5 - p.eyeY, m.z - p.z) > reach + 0.6 + (isBoss(m.kind) ? 1 : 0)) return 'TOO_FAR';
     const last = this.lastHitAt.get(p.idx) ?? 0;
     if (now - last < HIT_COOLDOWN_MS) return 'COOLDOWN';
@@ -506,6 +507,7 @@ export class MobSystem {
   beam(from: { x: number; y: number; z: number }, dir: { x: number; y: number; z: number }, range: number, power: number, shooterIdx: number, now: number): number {
     let n = 0;
     for (const m of [...this.mobs.values()]) {
+      if (m.kind === 'villager') continue; // 빔도 주민은 안 맞는다 (#228)
       if (!beamHitsMob(from, dir, range, m, 0.9 + power * 0.15 + (isBoss(m.kind) ? 0.8 : 0))) continue;
       n++;
       const h = Math.hypot(dir.x, dir.z) || 1;
