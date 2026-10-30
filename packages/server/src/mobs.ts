@@ -188,7 +188,10 @@ export class MobSystem {
       const y = (this.groundAt(e.den.x + 0.5, e.den.z + 0.5, e.den.y) ?? e.den.y) + hover;
       this.spawnBoss(kind, e.den.x + 0.5, y, e.den.z + 0.5, false); // 24칸 안에 사람이 오면 깬다 (거미 왕·엔더 드래곤 같음)
     }
-    for (const s of e.spawns ?? []) this.spawnKind(s.kind, s.x, this.groundAt(s.x, s.z, s.y) ?? s.y, s.z); // 시작부터 서 있는 몹 (#223 눈 골렘)
+    for (const s of e.spawns ?? []) {
+      const m = this.spawnKind(s.kind, s.x, this.groundAt(s.x, s.z, s.y) ?? s.y, s.z); // 시작부터 서 있는 몹 (#223 눈 골렘, #228 사막 주민)
+      if (s.kind === 'villager') m.yaw = Math.PI; // 집 문 앞에서 남쪽(마을 우물 쪽)을 본다
+    }
   }
 
   /** 밤인가 (항상 어두운 무대는 언제나) */
