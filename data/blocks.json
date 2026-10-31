@@ -1218,13 +1218,40 @@
       "hardness": 0.0,
       "tool": null,
       "solid": false,
+      "shape": "cross",
       "drops": "carrot",
       "seed": "carrot",
-      "grows": "carrot_ripe",
-      "growMinutes": 8,
+      "grows": "carrot_mid",
+      "growMinutes": 2,
       "lightEmit": 0,
-      "texture": "carrot_young",
-      "_note": "당근을 들고 농지 위를 탭하면 심어진다 (마인크래프트처럼 씨앗이 따로 없다). 8분 뒤 익은 당근"
+      "texture": "carrot_stage0",
+      "_note": "당근을 들고 농지 위를 탭하면 심어진다 (마인크래프트처럼 씨앗이 따로 없다). 싹 2분 → 자라는 중 3분 → 잎 무성 3분 → 익은 당근 (#235, 아빠 그림). 덜 자란 걸 부수면 당근 1"
+    },
+    {
+      "id": "carrot_mid",
+      "name": "자라는 당근",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "shape": "cross",
+      "drops": "carrot",
+      "grows": "carrot_big",
+      "growMinutes": 3,
+      "lightEmit": 0,
+      "texture": "carrot_stage1"
+    },
+    {
+      "id": "carrot_big",
+      "name": "잎 무성한 당근",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "shape": "cross",
+      "drops": "carrot",
+      "grows": "carrot_ripe",
+      "growMinutes": 3,
+      "lightEmit": 0,
+      "texture": "carrot_stage2"
     },
     {
       "id": "carrot_ripe",
@@ -1238,8 +1265,9 @@
         3
       ],
       "lightEmit": 0,
-      "texture": "carrot_ripe",
-      "_note": "부수면 당근 2~3"
+      "texture": "carrot_stage3",
+      "_note": "부수면 당근 2~3. 주황 당근 머리가 흙 위로 보인다 (#235)",
+      "shape": "cross"
     },
     {
       "id": "potato_young",
