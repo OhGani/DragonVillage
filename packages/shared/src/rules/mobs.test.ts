@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MOBS } from './data';
-import { BOSS_KIND, MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, isBoss, isLookingAt, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob, bossMinionKind } from './mobs';
+import { BOSS_KIND, MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, isBoss, isLookingAt, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob, bossMinionKind, MOB_KINDS, MOB_KIND_OF, MOB_KIND_NUM, isZombieKind, zombieVillagerRoll, CURE_MS } from './mobs';
 
 const flat = () => 41; // 어디나 발 높이 41
 
@@ -196,6 +196,33 @@ describe('거미와 원정지별 몹 (M7-3)', () => {
     m.y = 27;
     stepMob(m, MOBS.get('zombie'), { x: 110, y: 27, z: 100 }, 0.1, 1000, g);
     expect(seen.at(-1)).toBe(27);
+  });
+});
+
+describe('좀비 주민 (#244)', () => {
+  it('mobs.json 에서 좀비 주민을 읽는다(좀비와 같은 수치), 번호표는 빈틈 없이 맞고, 좀비·허스크·좀비 주민이 좀비류', () => {
+    const zv = MOBS.get('zombie_villager');
+    expect(zv.name).toBe('좀비 주민');
+    expect(zv).toMatchObject({ hp: 20, damage: 3, xp: 5, passive: false });
+    expect(zv.drops.map((d) => d.item)).toContain('rotten_flesh');
+    expect(mobSize('zombie_villager')).toEqual(mobSize('zombie'));
+    MOB_KINDS.forEach((k, i) => {
+      expect(MOB_KIND_NUM[k]).toBe(i);
+      expect(MOB_KIND_OF[i]).toBe(k);
+    });
+    expect(isZombieKind('zombie') && isZombieKind('husk') && isZombieKind('zombie_villager')).toBe(true);
+    expect(isZombieKind('creeper') || isZombieKind('villager') || isZombieKind('skeleton')).toBe(false);
+    expect(spawnKinds(['zombie', 'zombie_villager'])).toEqual(['zombie', 'zombie_villager']); // 목록에 적으면 그대로도 나온다
+    expect(MOB_STATE.cure).toBe(5);
+    expect(CURE_MS).toBe(45_000);
+  });
+
+  it('밤 스폰 좀비·허스크 여덟에 하나쯤은 좀비 주민 — 시드·차례로 결정론', () => {
+    let n = 0;
+    for (let t = 1; t <= 400; t++) if (zombieVillagerRoll(5, t)) n++;
+    expect(n).toBeGreaterThan(25);
+    expect(n).toBeLessThan(80);
+    expect(zombieVillagerRoll(5, 7)).toBe(zombieVillagerRoll(5, 7));
   });
 });
 

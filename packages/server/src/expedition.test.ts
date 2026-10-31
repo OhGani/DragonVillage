@@ -1,4 +1,4 @@
-import { countOf, FLAG_GROUND, DEFAULT_VILLAGE_SEED, GROUND_Y, MSG, PHASE_NUM, REJECT, SEA_Y, VILLAGE_GEN_VERSION, decodeServerBinary, type ServerBinary, treasureLoot } from '@dragon-village/shared';
+import { countOf, FLAG_GROUND, DEFAULT_VILLAGE_SEED, GROUND_Y, MSG, PHASE_NUM, REJECT, SEA_Y, VILLAGE_GEN_VERSION, decodeServerBinary, type ServerBinary, treasureLoot, give } from '@dragon-village/shared';
 import { BLOCKS, EXPEDITIONS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
 import { Storage } from './storage';
@@ -310,5 +310,32 @@ describe('원정 경험치 (M6-1)', () => {
     expect(gains).toEqual([{ amount: 10, source: 1, x: expect.any(Number), y: expect.any(Number), z: expect.any(Number) }]);
     expect(a.bin.find((m) => m.type === MSG.XpState)).toMatchObject({ msg: { total: 15 } });
     expect(room.xpOf(ia)).toBe(15);
+  });
+});
+
+describe('좀비 주민에게 황금 사과 (#244)', () => {
+  it('사막 마을엔 주민이 있고, 원정에서 좀비 주민을 황금 사과를 들고 탭하면 사과 하나가 빠지며 돌아오기 시작한다. 빈손·다른 몹은 거절', () => {
+    const storage = new Storage(':memory:');
+    const { room, a, ia } = setup(storage);
+    storage.addBuilding(INFO.code, 'portal_2', T0);
+    expect(room.startExpedition(ia, 'desert', T0)).toBeNull();
+    room.tick(T0 + 200);
+    const sys = room.mobSys!;
+    expect([...sys.mobs.values()].filter((m) => m.kind === 'villager').length).toBeGreaterThan(0); // 사막 마을 주민 (#228)
+    const p = room.players.get(ia)!;
+    const zv = sys.spawnKind('zombie_villager', p.pos.x + 1, p.pos.y, p.pos.z);
+    const zombie = sys.spawnKind('zombie', p.pos.x - 1, p.pos.y, p.pos.z);
+    give(p.inv, 'golden_apple', 2);
+    const slot = p.inv.findIndex((s) => s?.item === 'golden_apple');
+    expect(room.useMob(ia, zv.id, undefined, T0 + 300)).toBe('NEED_GOLDEN_APPLE'); // 빈손
+    expect(room.useMob(ia, zombie.id, slot, T0 + 300)).toBe('NO_MOB'); // 좀비 주민이 아니면 먹이기가 아니다
+    a.clear();
+    expect(room.useMob(ia, zv.id, slot, T0 + 300)).toBeNull();
+    expect(countOf(p.inv, 'golden_apple')).toBe(1);
+    expect(zv.cureAt).toBe(T0 + 300 + 45_000);
+    expect(a.json.find((m) => m.t === 'mob' && m.ev === 'cure')).toMatchObject({ id: zv.id });
+    expect(a.json.find((m) => m.t === 'error' && m.code === 'CURE_START')).toBeTruthy();
+    expect(room.useMob(ia, zv.id, slot, T0 + 400)).toBe('ALREADY_CURING');
+    expect(countOf(p.inv, 'golden_apple')).toBe(1);
   });
 });

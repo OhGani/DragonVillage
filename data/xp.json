@@ -49,6 +49,7 @@
   "mobs": {
     "_comment": "처치 시 경험치 (마인크래프트 값). ender_dragon은 6명 협동 보스라 마인크래프트 첫 처치 12000 대신 각자 500",
     "zombie": 5,
+    "zombie_villager": 5,
     "skeleton": 5,
     "creeper": 5,
     "spider": 5,

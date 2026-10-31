@@ -183,7 +183,7 @@ import {
   xpAfterDeath, CRYSTAL_SHOT_RANGE,
   GLASS_BOTTLE,
   WATER_BOTTLE,
-  effectiveBuys, enchantLevelOf, meleeBonus, knockbackFactor, canEnchant, countBookshelves, encodeEnchanted, hash3, anvilCombine, MINECART, CART_SEAT_Y, railShapeFor } from '@dragon-village/shared';
+  effectiveBuys, enchantLevelOf, meleeBonus, knockbackFactor, canEnchant, countBookshelves, encodeEnchanted, hash3, anvilCombine, MINECART, CART_SEAT_Y, railShapeFor, CURE_ITEM } from '@dragon-village/shared';
 import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS, TRADES, ENCHANTS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
@@ -1775,8 +1775,22 @@ export class VillageRoom {
   useMob(idx: number, mobId: number, slot: number | undefined, now = Date.now()): string | null {
     const p = this.players.get(idx);
     if (!p) return 'NOT_IN_VILLAGE';
-    if (p.world !== 'village' || mobId < ANIMAL_ID_BASE) return 'NO_MOB';
     const held = slot !== undefined && slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
+    if (p.world === 'expedition') {
+      // 좀비 주민에게 황금 사과 (#244): 원정 몹 중 좀비 주민만, 황금 사과를 들었을 때만
+      const m = this.mobSys?.mobs.get(mobId);
+      if (!m) return 'NO_MOB';
+      if (m.kind !== 'zombie_villager') return 'NO_MOB';
+      if (held !== CURE_ITEM) return 'NEED_GOLDEN_APPLE';
+      const err = this.mobSys!.cure({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE }, mobId, now);
+      if (err) return err;
+      const changed = new Set<number>();
+      take(p.inv, CURE_ITEM, 1, changed);
+      this.sendInv(p, changed);
+      this.log(`마을 ${this.info.code}: ${p.nick} 좀비 주민에게 황금 사과`);
+      return null;
+    }
+    if (p.world !== 'village' || mobId < ANIMAL_ID_BASE) return 'NO_MOB';
     const before = this.animals.petsFor(p.token).length;
     // 말·돼지 (#166·#185): 내 것을 빈손으로 탭 → 탄다 (드래곤 타기와 같은 mount 메시지, dragon: 'horse' | 'pig')
     if (!held && !p.riding && this.animals.isMyHorse(mobId, p.token)) {

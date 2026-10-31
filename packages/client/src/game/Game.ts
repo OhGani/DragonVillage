@@ -79,7 +79,7 @@ import {
   xpProgress,
   raycastVoxels,
   CRYSTAL_SHOT_RANGE,
-  countOf, parseEnchanted, countBookshelves, CART_SEAT_Y } from '@dragon-village/shared';
+  countOf, parseEnchanted, countBookshelves, CART_SEAT_Y, CURE_ITEM, MOB_STATE } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP, TRADES, ENCHANTS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { beam as beamSound, bell, ding, explosion as explosionSound, fireworkLaunch, fireworkPop, hit as hitSound, hurt as hurtSound, levelUp, lose, roar } from '../audio/sound';
@@ -1135,7 +1135,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         // 엔더맨과 눈이 마주쳤다 (#222)
         roar();
         hud.toast('👁️ 엔더맨과 눈이 마주쳤어요! 화났어요 — 순간이동해서 쫓아와요', 2500);
-      }
+      } else if (m.ev === 'zombify') roar(); // 주민이 좀비 주민이 됐다 (#244) — 글은 서버 알림으로
+      else if (m.ev === 'cure') ding();
+      else if (m.ev === 'cured') levelUp();
     },
     onOrbs: (list) => orbView.set(list),
     onOrbGone: (id, by) => {
@@ -1734,6 +1736,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const heldTool = toolOf(TOOLS, hud.selectedItem);
     const isVillager = (id: number | null) => id !== null && MOB_KIND_OF[mobView.figureOf(id)?.kind ?? -1] === 'villager';
     const aimedVillager = isVillager(aimedMob); // 원정(사막 마을) 주민도 때리지 않고 말을 건다 (#228)
+    // 좀비 주민 (#244): 황금 사과를 들고 탭하면 때리기가 아니라 먹이기
+    const aimedCurable = aimedMob !== null && MOB_KIND_OF[mobView.figureOf(aimedMob)?.kind ?? -1] === 'zombie_villager' && hud.selectedItem === CURE_ITEM;
     let swingMob: number | null = null;
     if (inp.secondaryTap && heldTool !== null && !bow && !guarding && !anyPanelOpen()) {
       swingMob = aimedMob !== null && aimedMob < ANIMAL_ID_BASE && !aimedVillager ? aimedMob : aimedMob === null ? mobView.nearestInCone(player.eye, player.lookDir, meleeReach, SWING_CONE_COS, true) : null;
@@ -1745,7 +1749,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         hand.swing();
       }
     }
-    const tapAttack = inp.secondaryTap && !aimedVillager && ((aimedMob !== null && aimedMob < ANIMAL_ID_BASE) || swingMob !== null);
+    const tapAttack = inp.secondaryTap && !aimedVillager && !aimedCurable && ((aimedMob !== null && aimedMob < ANIMAL_ID_BASE) || swingMob !== null);
     if (bow && !guarding) {
       // 활·쇠뇌 (#119, 아빠): 누르고 있으면 시위를 당기고, 놓으면 쏜다. 짧게 탭하면 약한 화살
       if (inp.primary) {
@@ -1793,7 +1797,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       net.sendEat(hud.selectedIndex);
       hand.swing();
     }
-    if (aimedMob !== null && inp.secondaryTap && ((aimedMob >= ANIMAL_ID_BASE && ctx.kind === 'village') || (aimedVillager && ctx.kind === 'expedition'))) {
+    if (aimedMob !== null && inp.secondaryTap && ((aimedMob >= ANIMAL_ID_BASE && ctx.kind === 'village') || ((aimedVillager || aimedCurable) && ctx.kind === 'expedition'))) {
       const fk = mobView.figureOf(aimedMob);
       if (fk && MOB_KIND_OF[fk.kind] === 'villager' && (!hud.selectedItem || !MOBS.get('villager').food.includes(hud.selectedItem))) {
         // 주민에게 탭 = 대화 시트 (#172). 빵을 들었을 땐 바로 먹이기(서버) 대신 대화에서 "응, 먹어!" 로 준다
@@ -1823,6 +1827,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const tip = def.id === 'boat' ? '🛶 빈손 탭 → 타기 · 때리면 보트가 가방으로' : def.id === 'minecart' ? '🛒 빈손 탭 → 타기 · 때리면 수레가 가방으로' : def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (isMountKind(def.id) ? (pets.get(aimedMob)?.mine ? `빈손 탭 → ${def.id === 'pig' ? '🐷' : '🐴'} 타기${def.id === 'pig' ? ' · 🥕 당근 낚싯대를 들면 빨라요' : ''} · 보면서 🐾 버튼 → 이름 짓기` : `남의 ${def.name}이에요`) : pets.get(aimedMob)?.mine ? `${{ follow: '🐾 따라오는 중 · 빈손 탭 → 앉기', sit: '🐾 앉아 있음 · 빈손 탭 → 풀어놓기', free: '🐾 자유 · 빈손 탭 → 따라오기' }[pets.get(aimedMob)!.mode]} · 보면서 🐾 버튼 → 이름 짓기` : '남이 길들인 강아지예요') : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.id === 'pig' && !baby ? `🏇 안장을 들고 탭 → 내 돼지로 · ${foods}을(를) 들고 탭 → 먹이기` : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
         const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : def.id === 'cow' && !baby ? ' · 🪣 빈 양동이 들고 탭 → 우유' : def.id === 'villager' ? ' · 탭 → 💬 대화' : '';
         hud.toast(`${def.name}${baby ? ' (아기)' : ''}${tamed ? ' 🐾' : ''} · ${tip}${extra}`, 3000);
+      } else if (f && MOB_KIND_OF[f.kind] === 'zombie_villager') {
+        hud.toast(f.state === MOB_STATE.cure ? '🧟 좀비 주민 · 황금 사과를 먹고 돌아오는 중 — 때리지 말아요' : '🧟 좀비 주민 · 🍎 황금 사과를 들고 탭 → 주민으로 되돌리기 (사과 + 금 8)', 3000);
       }
     }
     interaction.update(inp, dt);

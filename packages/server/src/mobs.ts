@@ -7,6 +7,8 @@
  * 무대(MobArena)는 원정지일 수도, 마을(방어전 M7-5)일 수도 있다. 방어전은 autoSpawn 을 끄고 파도마다 직접 spawnKind 로 넣으며,
  * 사람이 멀면 goal(깃대)로 걸어가게 한다.
  *
+ * 좀비 주민 (#244): 좀비·허스크는 사람보다 가까운 주민(사막 마을)을 쫓아 물고, 주민 체력이 다하면 좀비 주민으로 바꾼다(번호 그대로). 황금 사과 → cure 상태로 45초 서서 떨다 주민으로.
+ *
  * 보스 (M7-4, 거미 왕): 무대에 굴(den)이 있으면 시작할 때 굴 가운데서 잠들어 있다(state sleep). 사람이 24칸 안에 오면 깨어나
  * (`mob wake` + 알림), 쫓고 물고(독 4초), 8초마다 부하 둘을 옆에 소환(살아 있는 부하 6 까지). 밀려나지 않는다. 죽으면 hooks.bossDefeated —
  * 드롭은 마을 창고로, 경험치는 그 세계에 있는 모두에게. 방어전 소환사도 같은 보스 규칙(잠들지 않고, 변명자를 부른다).
@@ -44,7 +46,7 @@ import {
   pickSpawn,
   rollDrops,
   spawnKinds,
-  stepMob, isLookingAt, hash3 } from '@dragon-village/shared';
+  stepMob, isLookingAt, hash3, isZombieKind, zombieVillagerRoll, CURE_MS, CURE_REWARD } from '@dragon-village/shared';
 
 /** 몹이 도는 무대 — 원정지(Expedition) 또는 마을(방어전) */
 export interface MobArena {
@@ -140,6 +142,8 @@ export interface Companion {
 }
 /** 지킴이가 몹을 알아보는 거리 */
 const GUARD_AGGRO = 20;
+/** 좀비가 주민을 알아보는 거리 (#244) */
+const VILLAGER_BITE_RANGE = 16;
 const DEFAULT_OPTS: MobSystemOptions = { autoSpawn: true, aggroRange: 40, goal: null, quiet: false, firstId: 1 };
 /** 엔더맨 (#222): 화나면 이 간격으로 사람 옆에 순간이동, 맞으면 반은 멀리 달아난다 */
 const ENDER_TELEPORT_EVERY_MS = 3000;
@@ -202,9 +206,11 @@ export class MobSystem {
     return this.e.nightStartsAt <= 0 || this.e.elapsedSec(now) >= this.e.nightStartsAt;
   }
 
-  /** 보스를 빼고 몇 마리 */
+  /** 보스·주민(순한 것)을 빼고 몇 마리 — 밤 스폰 상한(MOB_MAX)에 세는 수. 사막 마을 주민 8이 상한을 다 차지해 밤 몹이 하나도 안 나오던 것 (#244 에서 고침) */
   get regularCount(): number {
-    return this.mobs.size - (this.boss ? 1 : 0);
+    let n = 0;
+    for (const m of this.mobs.values()) if (m !== this.boss && !this.defs.get(m.kind).passive) n++;
+    return n;
   }
 
   /**
@@ -271,7 +277,11 @@ export class MobSystem {
       this.turn++;
       const around = players[this.turn % players.length]!;
       const spot = pickSpawn(this.e.seed, this.turn, around, this.groundAt);
-      if (spot) this.spawnKind(pickKind(this.kinds, this.turn), spot.x, spot.y, spot.z);
+      if (spot) {
+        let kind = pickKind(this.kinds, this.turn);
+        if (isZombieKind(kind) && kind !== 'zombie_villager' && zombieVillagerRoll(this.e.seed, this.turn)) kind = 'zombie_villager'; // 좀비·허스크 여덟에 하나는 좀비 주민 (#244)
+        this.spawnKind(kind, spot.x, spot.y, spot.z);
+      }
     }
     this.tickBoss(players, now);
     this.tickPoison(players, now);
@@ -282,6 +292,12 @@ export class MobSystem {
       this.stepCompanions(players, dt, now);
       for (const m of [...this.mobs.values()]) {
         if (m === this.boss && !this.bossAwake) continue; // 잠든 보스는 안 움직인다
+        if (m.cureAt !== undefined) {
+          // 좀비 주민이 황금 사과를 먹었다 (#244): 돌아올 때까지 서서 떤다
+          if (now >= m.cureAt) this.cureDone(m, now);
+          else m.state = MOB_STATE.cure;
+          continue;
+        }
         const def = this.defs.get(m.kind);
         let target: MobTarget | null = null;
         let best = Infinity;
@@ -322,6 +338,23 @@ export class MobSystem {
         if (!target && m.kind === 'villager' && m.home) {
           this.wander(m, def, dt, now); // 원정 주민 산책 (#229, 아빠 "주민이 집에만 있어")
           continue;
+        }
+        if (isZombieKind(m.kind) && m.kind !== 'zombie_villager') {
+          // 좀비·허스크는 사람보다 가까운 주민을 문다 (#244, 아들 7차 "주민이 좀비에게 물리면 좀비 주민"). 좀비 주민은 사람만 — 연쇄로 마을이 비지 않게
+          let victim: MobState | null = null;
+          let vd = Math.min(target ? best : Infinity, VILLAGER_BITE_RANGE); // 주민은 이 거리 안에 있을 때만 (마을 전체가 한 밤에 다 물리지 않게)
+          for (const v of this.mobs.values()) {
+            if (v.kind !== 'villager') continue;
+            const d = Math.hypot(v.x - m.x, v.z - m.z);
+            if (d < vd) {
+              vd = d;
+              victim = v;
+            }
+          }
+          if (victim) {
+            if (stepMob(m, def, victim, dt, now, this.groundAt) === 'attack') this.biteVillager(victim, def.damage, now);
+            continue;
+          }
         }
         if (target) {
           const ev = stepMob(m, m.grudge !== undefined ? { ...def, damage: GRUDGE_DAMAGE, attackEveryMs: GRUDGE_ATTACK_MS } : def, target, dt, now, this.groundAt);
@@ -465,6 +498,7 @@ export class MobSystem {
       let best = guard ? GUARD_AGGRO : PET_AGGRO;
       for (const m of this.mobs.values()) {
         if (m === this.boss && !this.bossAwake) continue;
+        if (m.cureAt !== undefined || m.kind === 'villager') continue; // 주민·돌아오는 중인 좀비 주민은 안 문다 (#244)
         const d = owner ? Math.min(Math.hypot(m.x - owner.x, m.z - owner.z), Math.hypot(m.x - c.x, m.z - c.z)) : Math.hypot(m.x - c.x, m.z - c.z);
         if (d < best) {
           best = d;
@@ -595,6 +629,56 @@ export class MobSystem {
       stepMob(m, { ...def, speed: def.speed * 0.6, reach: 0, fuseMs: 0 }, m.wanderTo, dt, now, this.groundAt);
       if (Math.hypot(m.wanderTo.x - m.x, m.wanderTo.z - m.z) < 0.6) m.wanderTo = null;
     } else m.state = MOB_STATE.walk;
+  }
+
+  // ---------------------------------------------------------------- 좀비 주민 (#244)
+
+  /** 좀비가 주민을 물었다: 체력이 다하면 그 자리에서 좀비 주민이 된다 (번호·집은 그대로 — 되돌리면 같은 주민) */
+  private biteVillager(v: MobState, dmg: number, now: number): void {
+    v.hp = Math.max(0, v.hp - dmg);
+    this.hooks.json({ t: 'mob', ev: 'hit', id: v.id, mob: v.kind, x: v.x, y: v.y, z: v.z, dmg });
+    if (v.hp > 0) return;
+    v.kind = 'zombie_villager';
+    v.hp = this.defs.get('zombie_villager').hp;
+    v.state = MOB_STATE.walk;
+    v.busyUntil = 0;
+    v.wanderTo = null;
+    v.lastAttackAt = now;
+    this.hooks.json({ t: 'mob', ev: 'zombify', id: v.id, mob: v.kind, x: v.x, y: v.y, z: v.z });
+    this.hooks.json({ t: 'error', code: 'VILLAGER_ZOMBIFIED', message: '🧟 주민이 좀비에게 물려 좀비 주민이 됐어요! 🍎 황금 사과를 들고 탭하면 되돌릴 수 있어요' });
+  }
+
+  /** 황금 사과 먹이기 (#244): 좀비 주민만, 가까이서. 오류: NO_MOB · NOT_ZOMBIE_VILLAGER · ALREADY_CURING · TOO_FAR. 아이템은 부른 쪽이 뺀다 */
+  cure(p: MobTarget, mobId: number, now: number): string | null {
+    const m = this.mobs.get(mobId);
+    if (!m) return 'NO_MOB';
+    if (m.kind !== 'zombie_villager') return 'NOT_ZOMBIE_VILLAGER';
+    if (m.cureAt !== undefined) return 'ALREADY_CURING';
+    if (Math.hypot(m.x - p.x, m.y + mobSize(m.kind).h * 0.5 - p.eyeY, m.z - p.z) > HIT_REACH + 1) return 'TOO_FAR';
+    m.cureAt = now + CURE_MS;
+    m.curedBy = p.idx;
+    m.state = MOB_STATE.cure;
+    m.fuseAt = 0;
+    this.hooks.json({ t: 'mob', ev: 'cure', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z });
+    this.hooks.json({ t: 'error', code: 'CURE_START', message: `🍎 좀비 주민이 황금 사과를 먹었어요! ${Math.round(CURE_MS / 1000)}초 뒤 주민으로 돌아와요 — 그동안 때리지 말아요` });
+    return null;
+  }
+
+  /** 주민으로 돌아왔다: 그 자리가 집(산책 둘레). 먹인 사람에게 에메랄드 1 + 경험치 10 */
+  private cureDone(m: MobState, now: number): void {
+    const by = m.curedBy ?? -1;
+    m.kind = 'villager';
+    m.hp = this.defs.get('villager').hp;
+    m.state = MOB_STATE.walk;
+    m.cureAt = undefined;
+    m.curedBy = undefined;
+    m.angryUntil = 0;
+    m.home = { x: m.x, z: m.z };
+    m.wanderTo = null;
+    m.wanderAt = now + 2000;
+    this.hooks.json({ t: 'mob', ev: 'cured', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z });
+    this.hooks.json({ t: 'error', code: 'CURE_DONE', message: `🧑‍🌾 주민이 돌아왔어요! 고마워서 에메랄드 ${CURE_REWARD.count}개를 줬어요` });
+    if (by >= 0) this.hooks.reward(by, [{ item: CURE_REWARD.item, count: CURE_REWARD.count }], CURE_REWARD.xp, { x: m.x, y: m.y + 1, z: m.z }, now);
   }
 
   /** 조용히 사라진다 (#221 철 골렘): 드롭·경험치 없이. 클라는 die 로 지운다 */

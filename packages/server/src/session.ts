@@ -91,6 +91,9 @@ const USE_ERROR_KO: Record<string, string> = {
   NOT_HORSE: '말이 아니에요',
   BABY_MOUNT: '아기는 아직 못 타요 — 20분 뒤 어른이 돼요',
   OCCUPIED: '누가 타고 있어요',
+  NEED_GOLDEN_APPLE: '좀비 주민은 🍎 황금 사과를 들고 탭하면 주민으로 돌아와요 (제작대: 사과 + 금 8)',
+  NOT_ZOMBIE_VILLAGER: '황금 사과는 좀비 주민에게만 먹여요',
+  ALREADY_CURING: '벌써 황금 사과를 먹었어요 — 조금만 기다려요',
 };
 
 const NEST_ERROR_KO: Record<string, string> = {

@@ -1,4 +1,4 @@
-import { ANIMAL_ID_BASE, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, HP_MAX, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, give, type ServerBinary, GUARD_MAX_MS, meleeBonus, knockbackFactor, rollDrops, HIT_REACH } from '@dragon-village/shared';
+import { ANIMAL_ID_BASE, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, HP_MAX, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, give, type ServerBinary, GUARD_MAX_MS, meleeBonus, knockbackFactor, rollDrops, HIT_REACH, MOB_STATE } from '@dragon-village/shared';
 import { BLOCKS, MOBS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
 import { MobSystem } from './mobs';
@@ -275,5 +275,49 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
     expect(hurt.filter((c) => c === 'ender_dragon').length).toBeGreaterThanOrEqual(2); // 내려올 때 문다
     expect(sys.minions.size).toBeGreaterThan(0);
     expect([...sys.mobs.values()].some((m) => m.kind === 'enderman')).toBe(true);
+  });
+
+  it('좀비 주민 (#244, 아들 7차): 좀비는 사람보다 가까운 주민을 물어 좀비 주민으로 만들고, 황금 사과를 먹이면 45초 서서 떨다 주민으로 돌아온다(에메랄드 1 + 경험치 10)', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const json: { t: string; [k: string]: unknown }[] = [];
+    const hurt: string[] = [];
+    const rewards: { idx: number; drops: { item: string; count: number }[]; xp: number }[] = [];
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 52.5, eyeY: GROUND_Y + 1 + 1.6 }; // 13칸 떨어져 본다
+    const arena = { world: room.world, seed: 5, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0, spawns: [{ kind: 'villager' as const, x: 64.5, y: GROUND_Y + 1, z: 66.5 }] };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: (_i, _a, cause) => hurt.push(cause), broadcast: () => {}, json: (o) => json.push(o as { t: string }), reward: (idx, drops, xp) => rewards.push({ idx, drops, xp }), bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 24, goal: null, quiet: true });
+    const v = [...sys.mobs.values()].find((m) => m.kind === 'villager')!;
+    expect(v.home).toBeTruthy();
+    const vid = v.id;
+    sys.spawnKind('zombie', 64.5, GROUND_Y + 1, 65.8); // 주민 옆에
+    for (let t = T0; t < T0 + 15_000; t += 100) sys.tick(t);
+    expect(hurt).toEqual([]); // 사람은 멀어서 안 물렸다
+    expect(json.filter((m) => m.t === 'mob' && m.ev === 'hit' && m.id === vid).length).toBeGreaterThanOrEqual(7); // 3씩 일곱 번
+    expect(json.find((m) => m.t === 'mob' && m.ev === 'zombify')).toMatchObject({ id: vid, mob: 'zombie_villager' });
+    expect(json.find((m) => m.t === 'error' && m.code === 'VILLAGER_ZOMBIFIED')).toBeTruthy();
+    const zv = sys.mobs.get(vid)!;
+    expect(zv.kind).toBe('zombie_villager');
+    expect(zv.hp).toBe(20);
+    expect(zv.home).toBeTruthy(); // 집은 기억한다
+    // 황금 사과: 멀면 안 되고, 가까이서 먹이면 cure 상태
+    expect(sys.cure(me, 9999, T0 + 15_000)).toBe('NO_MOB');
+    expect(sys.cure(me, vid, T0 + 15_000)).toBe('TOO_FAR');
+    const zombie = [...sys.mobs.values()].find((m) => m.kind === 'zombie')!;
+    expect(sys.cure(me, zombie.id, T0 + 15_000)).toBe('NOT_ZOMBIE_VILLAGER');
+    me.z = zv.z - 1.2;
+    expect(sys.cure(me, vid, T0 + 15_000)).toBeNull();
+    expect(sys.cure(me, vid, T0 + 15_100)).toBe('ALREADY_CURING');
+    expect(json.find((m) => m.t === 'mob' && m.ev === 'cure')).toMatchObject({ id: vid });
+    sys.mobs.delete(zombie.id); // 좀비는 치웠다고 치고
+    hurt.length = 0;
+    for (let t = T0 + 15_100; t < T0 + 59_000; t += 100) sys.tick(t);
+    expect(hurt).toEqual([]); // 돌아오는 동안 안 문다
+    expect(zv.state).toBe(MOB_STATE.cure);
+    expect(zv.kind).toBe('zombie_villager');
+    for (let t = T0 + 59_000; t < T0 + 62_000; t += 100) sys.tick(t);
+    expect(zv.kind).toBe('villager');
+    expect(zv.cureAt).toBeUndefined();
+    expect(json.find((m) => m.t === 'mob' && m.ev === 'cured')).toMatchObject({ id: vid, mob: 'villager' });
+    expect(rewards).toEqual([{ idx: 0, drops: [{ item: 'emerald', count: 1 }], xp: 10 }]);
+    expect(sys.hit(me, vid, 5, T0 + 62_000)).toBe('VILLAGER'); // 다시 못 때린다
   });
 });

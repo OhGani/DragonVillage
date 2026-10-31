@@ -10,15 +10,18 @@
  *   밀려나지 않는다. 죽으면 드롭은 **마을 창고**로, 경험치 80 은 원정에 있는 모두에게 (협동). 왕관은 아들 확인 뒤.
  * - 우민(M7-5, 마을 방어전): 변명자(도끼 4, #131)·약탈자(석궁, 6칸)·소환사(보스 hp 150, 변명자 소환). 드롭은 bosses.json evoker.minionDrops/drops.
  * - 수치는 아빠 임시값 — `mobs.json` 에 hp/damage/speed 가 있으면 그걸 읽는다 (좀비·스켈레톤은 아들 13차 "더 무섭게", 2026-10-06).
+ * - 좀비 주민 (#244, 아들 7차 "주민이 좀비에게 물리면 좀비 주민이 되고 황금 사과로 되돌린다"): 좀비·허스크는 사람보다 가까운 주민(16칸 안)을 쫓아 문다(3씩, 좀비 주민은 사람만). 주민 체력이 다하면
+ *   그 자리에서 좀비 주민이 된다(번호·집은 그대로). 밤 스폰 좀비·허스크 여덟에 하나도 좀비 주민으로 나온다. 황금 사과를 들고 탭하면 45초 뒤 주민으로 돌아오고(고마워서 에메랄드 1 + 경험치 10),
+ *   돌아올 때까지 서서 떨기만 한다(안 문다). 그동안 때리면 죽는다.
  */
 import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
 import { hash3 } from '../math/prng';
 
-export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat' | 'snow_golem' | 'minecart';
-export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart'];
-export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24, snow_golem: 25, minecart: 26 };
-export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart'];
+export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat' | 'snow_golem' | 'minecart' | 'zombie_villager';
+export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager'];
+export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24, snow_golem: 25, minecart: 26, zombie_villager: 27 };
+export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager'];
 /** 순한 동물 (마을, M8-1). 규칙은 animals.ts */
 const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart']; // 보트도 passive 목록에서 드롭을 읽는다 (#209)
 
@@ -128,6 +131,8 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   minecart: { id: 'minecart', hp: 6, damage: 0, speed: 0, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 }, // 수레 (#237)
   // 눈 골렘 (#223, 아들 14차 5번): 설원 포탈 둘레에 산다. 중립 — 먼저 안 덤비고, 맞으면 20초 동안 눈덩이를 던진다(8칸). 피해 0, 맞으면 밀려날 뿐
   snow_golem: { id: 'snow_golem', hp: 10, damage: 0, speed: 2.0, reach: 8, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 0, neutral: true },
+  // 좀비 주민 (#244): 좀비와 같다. 황금 사과를 먹이면 주민으로 돌아온다
+  zombie_villager: { id: 'zombie_villager', hp: 20, damage: 3, speed: 2.3, reach: 1.6, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
 };
 
 const RawPassive = z
@@ -303,6 +308,7 @@ export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = {
   horse: { w: 1.3, h: 1.6 },
   villager: MOB_SIZE,
   iron_golem: { w: 1.4, h: 2.7 },
+  zombie_villager: MOB_SIZE,
 };
 export function mobSize(kind: MobKind | number): { w: number; h: number } {
   return MOB_SIZES[typeof kind === 'number' ? (MOB_KIND_OF[kind] ?? 'zombie') : kind];
@@ -319,6 +325,19 @@ export const CRYSTAL_SHOT_RANGE = 40;
 export const POISON_DAMAGE = 1;
 /** 중립 몹이 맞고 화나 있는 시간 (#161) */
 export const ANGRY_MS = 20_000;
+/** 좀비 주민 (#244): 주민을 무는 좀비류 · 밤 스폰 좀비류 중 좀비 주민으로 나올 비율 · 황금 사과 뒤 돌아오는 시간 · 되돌린 사람 보상 */
+export const ZOMBIE_KINDS: readonly MobKind[] = ['zombie', 'husk', 'zombie_villager'];
+export function isZombieKind(kind: MobKind): boolean {
+  return ZOMBIE_KINDS.includes(kind);
+}
+export const ZOMBIE_VILLAGER_CHANCE = 1 / 8;
+export const CURE_ITEM = 'golden_apple';
+export const CURE_MS = 45_000;
+export const CURE_REWARD = { item: 'emerald', count: 1, xp: 10 } as const;
+/** 이 차례의 좀비·허스크가 좀비 주민으로 나오나 (결정론: 시드·차례) */
+export function zombieVillagerRoll(seed: number, turn: number): boolean {
+  return hash3(turn, 0, 31, seed) < ZOMBIE_VILLAGER_CHANCE;
+}
 
 /** 이 원정지에 나오는 몹 — expeditions.json nightMobs 중 아는 것만(보스 제외). 하나도 없으면 좀비·크리퍼 */
 export function spawnKinds(nightMobs: readonly string[] | undefined): MobKind[] {
@@ -336,7 +355,7 @@ export function pickKind(kinds: readonly MobKind[], turn: number): MobKind {
 export const HIT_REACH = 3.5;
 export const HIT_COOLDOWN_MS = 450;
 
-export const MOB_STATE = { walk: 0, attack: 1, fuse: 2, sleep: 3, summon: 4 } as const;
+export const MOB_STATE = { walk: 0, attack: 1, fuse: 2, sleep: 3, summon: 4, cure: 5 } as const; // cure = 황금 사과를 먹고 주민으로 돌아오는 중 (#244)
 
 export interface MobState {
   id: number;
@@ -365,6 +384,9 @@ export interface MobState {
   /** 말 걸거나 거래 중 (#233): 이때까지 서서 busyWith(플레이어 idx)를 본다 */
   busyUntil?: number;
   busyWith?: number;
+  /** 좀비 주민 (#244): 황금 사과를 먹었다 — 이 시각에 주민으로 돌아온다. curedBy = 먹인 사람 idx (보상) */
+  cureAt?: number;
+  curedBy?: number;
 }
 
 /** 통신용 (MobsState) */

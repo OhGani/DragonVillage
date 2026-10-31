@@ -34,11 +34,15 @@ const HUMANOID: Partial<Record<string, SkinPalette>> = {
   wither_skeleton: { shirt: 0x262626, skin: 0x2b2b2b, hair: 0x1c1c1c, pants: 0x222222, shoes: 0x171717, eyes: 0x8a8a8a },
   // 주민 (#168): 갈색 로브, 큰 코는 아직 — 아들 그림 기다림
   villager: { shirt: 0x6b4f2a, skin: 0xc9a27c, hair: 0x4a3320, pants: 0x5a4224, shoes: 0x3a2a1a, eyes: 0x3d7a4a },
+  // 좀비 주민 (#244): 좀비 피부에 주민의 갈색 로브, 팔은 앞으로. 황금 사과를 먹으면 떨면서 ✨
+  zombie_villager: { shirt: 0x6b4f2a, skin: 0x5d8b4a, hair: 0x2c3e2b, pants: 0x5a4224, shoes: 0x3a2a1a, eyes: 0xc0392b },
   // 철 골렘 (#169): 잿빛 쇠, 덩굴 자국. 몸을 1.4배로
   iron_golem: { shirt: 0xc9cfcf, skin: 0xd6dcdc, hair: 0xb8c4b8, pants: 0xc9cfcf, shoes: 0x9aa39a, eyes: 0xb03030 },
 };
 
 const CREEPER_GREEN = 0x4caf50;
+/** 사람 모양 몹 키 (좀비 주민 연출 글자 높이, #244) */
+const MOB_SIZE_H = 1.9;
 const SPIDER_DARK = 0x2a2320;
 const ANIMAL_NAMES = new Set(['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'boat', 'minecart']); // 보트·수레도 동물 체계로 그린다 (#209·#237)
 const KING_DARK = 0x3a2344;
@@ -410,7 +414,7 @@ export class MobView {
       legR = at(partMesh(v.leg, material), [2, 12]);
       armL = at(partMesh(v.arm, material), [-6, 24]);
       armR = at(partMesh(v.arm, material), [6, 24]);
-      if (kindName === 'zombie' || kindName === 'husk' || kindName === 'zombified_piglin') armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.15; // 좀비 팔은 앞으로
+      if (kindName === 'zombie' || kindName === 'husk' || kindName === 'zombified_piglin' || kindName === 'zombie_villager') armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.15; // 좀비 팔은 앞으로
       else if (kindName === 'evoker') armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.6; // 소환사는 손을 든다
       body.add(torso, head, legL, legR, armL, armR);
     } else if (MOB_KIND_OF[m.kind] === 'spider' || MOB_KIND_OF[m.kind] === 'spider_king') {
@@ -487,8 +491,8 @@ export class MobView {
     for (const m of list) {
       seen.add(m.id);
       let f = this.figures.get(m.id);
-      if (f && f.animal && f.sheared !== ((m.state & ANIMAL_FLAG.sheared) !== 0)) {
-        // 털이 깎였다/다시 자랐다 → 인형을 새로 (자리는 그대로)
+      if (f && (f.kind !== m.kind || (f.animal && f.sheared !== ((m.state & ANIMAL_FLAG.sheared) !== 0)))) {
+        // 털이 깎였다/다시 자랐다, 또는 종류가 바뀌었다(주민 ↔ 좀비 주민 #244) → 인형을 새로 (자리는 그대로)
         const keep = f.cur;
         this.remove(m.id);
         f = this.make(m);
@@ -560,6 +564,16 @@ export class MobView {
       f.flashUntil = now + 400;
     } else if (ev === 'heal' && f) {
       this.popText(x, y + mobSize(f.kind).h + 0.5, z, '+', '#7cff7c', now); // 엔더 드래곤 회복 (#224)
+    } else if (ev === 'zombify') {
+      // 주민이 좀비 주민이 됐다 (#244): 초록 가루. 인형은 다음 MobsState 에서 종류가 바뀌며 새로 만들어진다
+      this.burst(x, y + 1.0, z, 0x5d8b4a, 18, now);
+      this.popText(x, y + MOB_SIZE_H + 0.5, z, '🧟', '#9ccc65', now);
+    } else if (ev === 'cure') {
+      this.burst(x, y + 1.0, z, 0xffd54f, 14, now);
+      this.popText(x, y + MOB_SIZE_H + 0.5, z, '🍎', '#ffd54f', now);
+    } else if (ev === 'cured') {
+      this.burst(x, y + 1.0, z, 0xffd54f, 24, now);
+      this.popText(x, y + MOB_SIZE_H + 0.5, z, '🧑‍🌾', '#ffeb3b', now);
     } else if (ev === 'summon' && f) {
       f.summonT = 0.8;
       this.burst(x, y + 0.6, z, 0xb388ff, 16, now);
@@ -800,6 +814,14 @@ export class MobView {
         }
         f.body.scale.set(s, s, s);
         f.material.color.setRGB(1, 1, 1);
+        if (f.state === MOB_STATE.cure) {
+          // 황금 사과를 먹은 좀비 주민 (#244): 부르르 떨며 1초마다 ✨
+          f.body.position.x = Math.sin(now * 0.05) * 0.04;
+          if (now >= f.nextHeart) {
+            f.nextHeart = now + 1000;
+            this.popText(c.x, c.y + MOB_SIZE_H + 0.3, c.z, '✨', '#ffd54f', now);
+          }
+        } else if (f.body.position.x !== 0) f.body.position.x = 0;
       }
       if (now < f.flashUntil) f.material.color.setRGB(2.2, 0.6, 0.6);
     }
