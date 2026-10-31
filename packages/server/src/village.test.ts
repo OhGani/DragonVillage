@@ -142,7 +142,7 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(room.world.getBlock(66, GROUND_Y, 66)).toBe(0);
   });
 
-  it('남의 집 보호 (#151): 내가 놓은 블록은 친구가 못 부수고(OWNED), 나는 부술 수 있고, 자연 블록은 누구나. 저장돼서 다시 켜도 그대로', () => {
+  it('놓은 사람 기록 (#151 → #241): 친구가 놓은 블록도 서로 부술 수 있고, 누가 놓았는지는 저장돼서 다시 켜도 남는다', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
     const a = inbox(),
@@ -153,19 +153,17 @@ describe('VillageRoom 블록 변경 검증', () => {
     for (const r of [ra, rb]) room.onMove(r.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
     room.onBlockChange(ra.idx, { seq: 1, x: 66, y: GROUND_Y + 1, z: 64, id: 'stone' }, 1000);
     expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 64)).id).toBe('stone');
-    room.onBlockChange(rb.idx, { seq: 2, x: 66, y: GROUND_Y + 1, z: 64, id: 'air' }, 1100);
-    expect(rejected(b)).toEqual([{ seq: 2, reason: REJECT.OWNED }]);
-    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 64)).id).toBe('stone');
-    room.onBlockChange(rb.idx, { seq: 3, x: 66, y: GROUND_Y, z: 66, id: 'air' }, 1200); // 자연 땅은 된다
-    expect(rejected(b)).toHaveLength(1);
-    // 다시 켜도 기억한다
+    // 다시 켜도 누가 놓았는지 기억한다
     const again = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
     expect(again.placed.get(`66,${GROUND_Y + 1},64`)).toEqual({ token: 'a'.repeat(32), nick: '아빠' });
-    // 내가 부수면 되고, 그러면 기록도 지워져 그 자리는 다시 누구나
-    room.onBlockChange(ra.idx, { seq: 4, x: 66, y: GROUND_Y + 1, z: 64, id: 'air' }, 1300);
-    expect(rejected(a)).toEqual([]);
+    // 친구가 부숴도 된다 (#241, 아빠 "친구가 놓은 것도 서로 부술 수 있게") — 그러면 기록도 지워진다
+    room.onBlockChange(rb.idx, { seq: 2, x: 66, y: GROUND_Y + 1, z: 64, id: 'air' }, 1100);
+    expect(rejected(b)).toEqual([]);
+    expect(room.world.getBlock(66, GROUND_Y + 1, 64)).toBe(0);
     expect(room.placed.has(`66,${GROUND_Y + 1},64`)).toBe(false);
     expect(storage.listPlaced(INFO.code)).toEqual([]);
+    room.onBlockChange(rb.idx, { seq: 3, x: 66, y: GROUND_Y, z: 66, id: 'air' }, 1200); // 자연 땅도 된다
+    expect(rejected(b)).toEqual([]);
   });
 
   it('TNT (#195): 라이터로 불을 붙이면 4초 뒤 블록이 사라지고 옆 사람이 다친다. 라이터 없으면 NO_FLINT', () => {
@@ -1268,6 +1266,21 @@ describe('둥지·알·부화 (M6-2)', () => {
     expect(a.json.find((m) => m.t === 'dragons')).toMatchObject({ list: [{ dragon: 'wood', stage: 'egg', slot: 0 }] });
     expect(b.json.find((m) => m.t === 'nest')).toMatchObject({ slots: [{ slot: 0, dragon: 'wood', owner: '아빠', mine: false }] });
     expect(room.placeEgg(ra.idx, 0, 'dragon_egg.wood', 1000)).toBe('NO_EGG'); // 가방에 더 없음
+    // 둥지 자리의 알은 못 부순다 (#240)
+    a.clear();
+    room.onBlockChange(ra.idx, { seq: 50, x: 61, y: GROUND_Y + 1, z: 82, id: 'air' }, 1000);
+    expect(a.bin.filter((m) => m.type === MSG.BlockChangeRejected).map((m) => m.msg)).toEqual([{ seq: 50, reason: REJECT.PROTECTED }]); // 둥지는 건물 보호 구역(#88)이라 먼저 PROTECTED, 그 뒤 isNestEggAt 가 한 번 더 막는다
+    expect(BLOCKS.get(room.world.getBlock(61, GROUND_Y + 1, 82)).id).toBe('dragon_egg');
+    // 창고의 '드래곤 알'을 바닥에 놓은 건 부숴서 다시 가져간다 (#240, 아빠 "바닥에 설치된 알이 회수가 안 됨")
+    room.giveItems(ra.idx, 'dragon_egg', 1);
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 51, x: 66, y: GROUND_Y + 1, z: 66, id: 'dragon_egg' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 66)).id).toBe('dragon_egg');
+    expect(countOf(room.players.get(ra.idx)!.inv, 'dragon_egg')).toBe(0);
+    room.onBlockChange(ra.idx, { seq: 52, x: 66, y: GROUND_Y + 1, z: 66, id: 'air' }, 1500);
+    expect(room.world.getBlock(66, GROUND_Y + 1, 66)).toBe(0);
+    expect(countOf(room.players.get(ra.idx)!.inv, 'dragon_egg')).toBe(1);
+    room.onMove(ra.idx, { x: 63.5, y: GROUND_Y + 1, z: 84.5, yaw: 0, pitch: 0, flags: 0 }); // 둥지로 돌아와서
     room.giveItems(ra.idx, 'dragon_egg.wood', 1);
     expect(room.placeEgg(ra.idx, 0, 'dragon_egg.wood', 1000)).toBe('SLOT_TAKEN');
     const eggId = room.myDragons('a'.repeat(32))[0]!.id;

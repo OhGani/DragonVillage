@@ -632,6 +632,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     };
     const interaction = new Interaction(world, registry, player, {
       onBlocksChanged: (dirty) => chunks.markDirtyAll(dirty),
+      isProtected: (x, y, z, def) => def.id === 'dragon_egg' && ctx.kind === 'village' && nestContains(GROUND_Y, x, y, z), // 둥지의 알 (#240)
       onSwing: () => hand.swing(),
       onPlaced: (x, y, z, id, prev) => {
         light.markChanged(x, y, z);

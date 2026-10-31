@@ -1,4 +1,4 @@
-import { FLAG_GROUND, DEFAULT_VILLAGE_SEED, GROUND_Y, MSG, PHASE_NUM, REJECT, SEA_Y, VILLAGE_GEN_VERSION, decodeServerBinary, type ServerBinary, treasureLoot } from '@dragon-village/shared';
+import { countOf, FLAG_GROUND, DEFAULT_VILLAGE_SEED, GROUND_Y, MSG, PHASE_NUM, REJECT, SEA_Y, VILLAGE_GEN_VERSION, decodeServerBinary, type ServerBinary, treasureLoot } from '@dragon-village/shared';
 import { BLOCKS, EXPEDITIONS } from '@dragon-village/shared/data';
 import { describe, expect, it } from 'vitest';
 import { Storage } from './storage';
@@ -107,6 +107,11 @@ describe('원정 시작·합류', () => {
     expect(room.xpOf(idd)).toBe(xpD); // 안 들어온 사람은 아니다
     expect(storage.getStorage(INFO.code).find((s) => s.item === 'dragon_egg')?.count).toBe(1); // 창고의 알
     expect(BLOCKS.get(e.world.getBlock(e.den!.x, e.den!.y, e.den!.z)).id).toBe('dragon_egg'); // 분수 꼭대기의 알
+    // 분수 위의 알은 부숴서 가져간다 (#240)
+    room.onMove(ia, { x: e.den!.x + 0.5, y: e.den!.y + 1, z: e.den!.z + 2.5, yaw: 0, pitch: 0, flags: FLAG_GROUND });
+    room.onBlockChange(ia, { seq: 90, x: e.den!.x, y: e.den!.y, z: e.den!.z, id: 'air' }, T0 + 1200);
+    expect(e.world.getBlock(e.den!.x, e.den!.y, e.den!.z)).toBe(0);
+    expect(countOf(room.players.get(ia)!.inv, 'dragon_egg')).toBe(1);
     expect(a.json.some((m) => m.t === 'error' && m.code === 'BOSS_DOWN' && String(m.message).includes('원정대 3명 모두 경험치 500'))).toBe(true);
     expect(e.endingPortal).not.toBeNull();
     const ep = e.endingPortal!;

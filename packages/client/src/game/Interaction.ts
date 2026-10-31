@@ -42,6 +42,8 @@ export interface InteractionEvents {
   onBroken?(x: number, y: number, z: number, prev: number): void;
   /** 못 캐는 이유 등 짧은 안내 (토스트) */
   onHint?(text: string): void;
+  /** 서버가 못 부수게 하는 자리인가 — 둥지 자리의 드래곤 알 (#240) */
+  isProtected?(x: number, y: number, z: number, def: BlockDef): boolean;
   /** 뼛가루를 그 자리 작물에 (#193) */
   onBoneMeal?(x: number, y: number, z: number): void;
   /** 유리병을 들고 물을 탭 (#226) */
@@ -226,8 +228,8 @@ export class Interaction {
           this.breakingKey = -1;
           this.cooldown = BREAK_COOLDOWN;
         }
-      } else if (def.hardness === null) {
-        this.progress = 0; // 부술 수 없음 (기반암)
+      } else if (def.hardness === null || this.events.isProtected?.(t.x, t.y, t.z, def)) {
+        this.progress = 0; // 부술 수 없음 (기반암, 둥지의 알)
       } else if (this.cooldown <= 0) {
         // 곡괭이 등급·속도 (아들 2026-09-20): 곡괭이가 필요한 블록은 든 곡괭이로 시간이 달라지고, 등급이 낮으면 못 캔다
         const secs = breakSeconds(def, toolOf(TOOLS, this.heldItem), 1.5, enchantLevelOf(this.heldItem, 'efficiency'), TOOLS); // 효율 인챈트 (#231)

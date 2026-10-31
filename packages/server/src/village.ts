@@ -450,6 +450,16 @@ export class VillageRoom {
     }
   }
 
+  /** 이 자리가 둥지의 알 자리이고 거기에 알(드래곤 기록)이 있나 (#240) */
+  private isNestEggAt(x: number, y: number, z: number): boolean {
+    if (!this.storage) return false;
+    for (const row of this.storage.listNestEggs(this.info.code)) {
+      const pos = nestSlotPos(GROUND_Y, row.slot ?? -1, NEST_MAX_SLOTS);
+      if (pos && pos.x === x && pos.y === y && pos.z === z) return true;
+    }
+    return false;
+  }
+
   /** 둥지 자리 상태 (받는 사람 기준 mine) */
   nestSlots(forToken: string | null): NestSlotInfo[] {
     if (!this.storage) return [];
@@ -1627,6 +1637,7 @@ export class VillageRoom {
   animals!: AnimalSystem;
   private lastCreatureCount = 0;
   /** 사람이 놓은 블록의 주인 (M9-3 남의 집 보호, #151): 놓은 사람만 부순다. 자연 블록·액체는 누구나. 마을에서만 */
+  /** 누가 놓은 블록인지 (#151 기록, #241 부터 막는 데는 안 쓴다) */
   readonly placed = new Map<string, { token: string; nick: string }>();
   /** 자라는 작물 (#165): "x,y,z" → 심은 시각. 마을만 */
   readonly crops = new Map<string, number>();
@@ -2352,12 +2363,7 @@ export class VillageRoom {
     if (!def) return REJECT.INVALID;
     if (p.world === 'village' && this.isProtected(x, y, z)) return REJECT.PROTECTED; // 마을 건물·둥지·깃대 (M6-6)
     const cur = this.registry.get(world.getBlock(x, y, z));
-    // 남의 집 보호 (#151): 다른 사람이 놓은 블록을 부수거나(공기로) 덮어쓰는 건 그 사람만. 문 열고 닫기는 아래에서 먼저 허용된다
-    if (p.world === 'village' && cur.num !== AIR_ID && !cur.fluid) {
-      const owner = this.placed.get(`${x},${y},${z}`);
-      const toggle = def.door && cur.door && def.door.base === cur.door.base && def.door.open !== cur.door.open;
-      if (owner && owner.token !== p.token && !toggle) return REJECT.OWNED;
-    }
+    // 남의 집 보호(#151)는 #241 로 풀었다 (아빠 "친구가 놓은 것도 서로 부술 수 있게"): 누가 놓았는지(`placed`)는 기록만 남기고 막지 않는다. 건물 자리 보호(#88)는 그대로
     // 문 열고 닫기 (#71): 같은 문·같은 방향·같은 반쪽에서 열림만 뒤집는 요청. 가방과 무관, 아무나 가능
     if (def.door && cur.door && def.door.base === cur.door.base && def.door.facing === cur.door.facing && def.door.hinge === cur.door.hinge && def.door.upper === cur.door.upper && def.door.open !== cur.door.open) {
       if (def.door.open) return null;
@@ -2381,6 +2387,8 @@ export class VillageRoom {
         return null;
       }
       if (cur.hardness === null) return REJECT.UNBREAKABLE;
+      // 둥지 자리의 드래곤 알은 못 부순다 (부화로만 사라짐). 그 밖에 놓은 알·엔드 분수 위 알은 부숴서 가져간다 (#240, 아빠 "바닥에 설치된 알이 회수가 안 됨")
+      if (cur.id === 'dragon_egg' && p.world === 'village' && this.isNestEggAt(x, y, z)) return REJECT.UNBREAKABLE;
       // 상자는 속에 든 것까지 다 받을 자리가 있어야 부순다 (#84, 아빠 2026-09-22 — 넘치는 물건이 사라지던 것)
       if (cur.chest && !fits(p.inv, this.chestTakeaway(p, x, y, z, cur))) return REJECT.BAG_FULL;
       // 드롭이 들어갈 자리가 없으면 아예 못 캔다 (아빠 2026-09-27 — 쁘뚜가 가방 가득한 채 다이아몬드를 캐서 사라짐). 덤(발광석 가루 등)은 넘치면 버려도 된다

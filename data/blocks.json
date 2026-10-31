@@ -324,12 +324,14 @@
     {
       "id": "dragon_egg",
       "name": "드래곤 알",
+      "hardness": 3.0,
       "tool": null,
+      "drops": "dragon_egg",
       "lightEmit": 4,
       "transparent": true,
       "shape": "egg",
       "texture": "dragon_egg",
-      "_note": "둥지 자리에 놓인 알 (M6-2). hardness 가 없어 못 부순다. 부화하면 사라진다. 아이템은 dragon_egg.<드래곤 id>(제작대에서 재료로 만든다)"
+      "_note": "드래곤 알 블록. 둥지 자리의 알(M6-2)은 서버가 못 부수게 막고 부화하면 사라진다. 그 밖에 놓은 알(창고의 '드래곤 알'을 바닥에 놓은 것, 엔드 분수 위의 알)은 맨손 3초로 부숴 다시 가져간다 (#240). 드래곤마다의 알 아이템은 dragon_egg.<드래곤 id>(제작대에서 재료로 만든다)"
     },
     {
       "id": "hay_bale",
