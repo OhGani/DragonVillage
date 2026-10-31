@@ -816,6 +816,28 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(p.inv[kslot]!.item).toBe('book.ench.power.1');
   });
 
+  it('갇힌 주민은 빠져나온다 (#234): 기둥 위에 올라가 막히면 집 앞으로 돌아온다', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    room.join('a'.repeat(32), '아빠', 0, a.send);
+    const v = [...room.animals.animals.values()].find((an) => an.kind === 'villager' && an.name === null)!;
+    const px = 70,
+      pz = 70;
+    const stone = BLOCKS.numOf('stone');
+    for (let y = GROUND_Y; y <= GROUND_Y + 4; y++) room.world.setBlock(px, y, pz, stone);
+    v.x = px + 0.5;
+    v.z = pz + 0.5;
+    v.y = GROUND_Y + 5;
+    v.target = null;
+    v.pauseUntil = 0;
+    const T0 = Date.now();
+    for (let i = 0; i < 1200; i++) room.animals.tick(T0 + i * 100);
+    expect(v.y).toBeLessThanOrEqual(GROUND_Y + 2);
+    expect(Math.hypot(v.x - (px + 0.5), v.z - (pz + 0.5))).toBeGreaterThan(2);
+    expect(a.json.some((m) => m.t === 'mob' && m.ev === 'teleport' && m.id === ANIMAL_ID_BASE + v.id)).toBe(true);
+  });
+
   it('대화 중엔 주민이 서서 나를 본다 (#233): 열면 안 걷고, 닫으면 다시 걷는다', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });

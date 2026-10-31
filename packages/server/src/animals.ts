@@ -112,6 +112,9 @@ export interface AnimalHooks {
 
 /** 대화 창이 열린 뒤 이만큼은 서 있는다 (닫힘 메시지를 못 받아도 풀린다) */
 const TALK_HOLD_MS = 120_000;
+/** 막힌 채로 이만큼 지나면 옆 칸으로 / 집 앞으로 (#234) */
+const STUCK_SIDESTEP = 3;
+const STUCK_GO_HOME = 10;
 
 interface Animal extends AnimalRow {
   hp: number;
@@ -122,6 +125,11 @@ interface Animal extends AnimalRow {
   /** 말 걸거나 거래 중 (#233): 이때까지 서서 busyWith(플레이어 idx)를 본다. 저장 안 함 */
   busyUntil: number;
   busyWith: number;
+  /** 연달아 막힌 횟수 (#234): 3번이면 옆 칸으로 빠져나오고, 10번이면 집 앞으로 돌아간다 */
+  stuck: number;
+  /** 처음 막힌 자리 — 여기서 1.5칸 넘게 벗어나야 막힘이 풀린 것 (한 칸 안에서 꼼지락거리는 건 안 친다) */
+  stuckX: number;
+  stuckZ: number;
   turn: number;
   loveUntil: number;
   breedCooldownUntil: number;
@@ -171,7 +179,7 @@ export class AnimalSystem {
 
   private wrap(r: AnimalRow): Animal {
     const def = this.defs.get(r.kind);
-    return { ...r, hp: animalMaxHp(def.hp, r.kind, r.owner !== null), yaw: 0, target: null, pauseUntil: 0, busyUntil: 0, busyWith: -1, turn: 0, loveUntil: 0, breedCooldownUntil: 0, tameAttempts: 0, shearCount: 0, away: false, ridden: null, dirty: false };
+    return { ...r, hp: animalMaxHp(def.hp, r.kind, r.owner !== null), yaw: 0, target: null, pauseUntil: 0, busyUntil: 0, busyWith: -1, stuck: 0, stuckX: 0, stuckZ: 0, turn: 0, loveUntil: 0, breedCooldownUntil: 0, tameAttempts: 0, shearCount: 0, away: false, ridden: null, dirty: false };
   }
 
   /** 발 높이 (그 자리 근처 층). 못 서면 null */
@@ -505,10 +513,49 @@ export class AnimalSystem {
       a.z = nz;
       a.y = gy;
       a.dirty = true;
+      if (a.stuck > 0 && Math.hypot(a.x - a.stuckX, a.z - a.stuckZ) > 1.5) a.stuck = 0;
     } else {
       a.target = null; // 막혔다 — 다음 산책
       a.pauseUntil = now + 1000;
+      if (a.stuck === 0) {
+        a.stuckX = a.x;
+        a.stuckZ = a.z;
+      }
+      a.stuck++;
+      if (a.stuck >= STUCK_GO_HOME) this.goHome(a, now);
+      else if (a.stuck >= STUCK_SIDESTEP) this.sidestep(a);
     }
+  }
+
+  /** 막힌 동물을 여덟 방향 중 설 수 있는 옆 칸으로 (#234, 아빠 "문 앞 주민이 안 움직인다") */
+  private sidestep(a: Animal): void {
+    for (let k = 0; k < 8; k++) {
+      const ang = (k / 8) * Math.PI * 2 + a.id * 0.7;
+      const nx = a.x + Math.cos(ang),
+        nz = a.z + Math.sin(ang);
+      const gy = this.groundAt(nx, nz, a.y);
+      if (gy !== null && gy - a.y <= 1.05 && a.y - gy <= 2) {
+        a.x = nx;
+        a.z = nz;
+        a.y = gy;
+        a.dirty = true;
+        a.stuck = 0;
+        return;
+      }
+    }
+  }
+
+  /** 계속 막히면 집 앞(태어난 자리)으로 돌아간다 — 지붕·구덩이에 갇힌 것 (#234) */
+  private goHome(a: Animal, now: number): void {
+    const gy = this.groundAt(a.homeX, a.homeZ, GROUND_Y + 4);
+    a.stuck = 0;
+    if (gy === null) return;
+    a.x = a.homeX;
+    a.z = a.homeZ;
+    a.y = gy;
+    a.dirty = true;
+    a.pauseUntil = now + 1000;
+    this.hooks.json({ t: 'mob', ev: 'teleport', id: ANIMAL_ID_BASE + a.id, mob: a.kind, x: a.x, y: a.y, z: a.z });
   }
 
   private breed(a: Animal, b: Animal, now: number): void {
