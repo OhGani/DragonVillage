@@ -7,36 +7,198 @@
     "_comment": "보물 상자를 처음 열 때 pool 에서 picks 가지를 뽑아 넣는다 (아빠 2026-09-28, #117: 가죽은 소에서 나오니 빼고 랜덤으로. 아들 13차 2026-10-07: 30가지). weight 가 클수록 자주, min~max 개. 어느 상자에 뭐가 드는지는 원정 시드로 정해져 같은 원정에선 누가 열어도 같다. 아들이 항목·개수·확률을 바꿔도 된다.",
     "picks": 3,
     "pool": [
-      { "item": "carrot", "min": 1, "max": 3, "weight": 3, "_note": "돼지 먹이 (#110)" },
-      { "item": "iron_ingot", "min": 1, "max": 2, "weight": 3 },
-      { "item": "gold_ingot", "min": 1, "max": 1, "weight": 2 },
-      { "item": "emerald", "min": 1, "max": 1, "weight": 1 },
-      { "item": "paper", "min": 2, "max": 5, "weight": 2, "_note": "다이아몬드 자리에 (#217). 책·폭죽 재료" },
-      { "item": "glowstone_dust", "min": 2, "max": 4, "weight": 2 },
-      { "item": "string", "min": 2, "max": 4, "weight": 2, "_note": "활 재료" },
-      { "item": "feather", "min": 1, "max": 3, "weight": 2, "_note": "화살 재료" },
-      { "item": "bone", "min": 1, "max": 2, "weight": 2, "_note": "강아지 길들이기" },
-      { "item": "apple", "min": 1, "max": 2, "weight": 2 },
-      { "item": "arrow", "min": 4, "max": 8, "weight": 2 },
-      { "item": "coal", "min": 2, "max": 5, "weight": 3, "_note": "아래 19가지는 아들 13차 답 \"30가지로 늘려줘\" (2026-10-07, #129)" },
-      { "item": "redstone", "min": 2, "max": 4, "weight": 2 },
-      { "item": "lapis", "min": 2, "max": 4, "weight": 2 },
-      { "item": "quartz", "min": 1, "max": 3, "weight": 2 },
-      { "item": "wheat", "min": 2, "max": 4, "weight": 2, "_note": "소 먹이" },
-      { "item": "wheat_seeds", "min": 2, "max": 4, "weight": 2, "_note": "닭 먹이" },
-      { "item": "potato", "min": 1, "max": 3, "weight": 2 },
-      { "item": "egg", "min": 1, "max": 2, "weight": 1 },
-      { "item": "flint", "min": 1, "max": 3, "weight": 2, "_note": "화살 재료" },
-      { "item": "torch", "min": 4, "max": 8, "weight": 2 },
-      { "item": "gunpowder", "min": 1, "max": 3, "weight": 2 },
-      { "item": "gold_nugget", "min": 2, "max": 5, "weight": 2 },
-      { "item": "obsidian", "min": 1, "max": 2, "weight": 1 },
-      { "item": "ender_pearl", "min": 1, "max": 1, "weight": 1, "_note": "텔레포트 드래곤 재료" },
-      { "item": "golden_apple", "min": 1, "max": 1, "weight": 1, "_note": "드물게" },
-      { "item": "saddle", "min": 1, "max": 1, "weight": 1, "_note": "드물게 — 안장을 주우면 바로 탈 수 있다" },
-      { "item": "snowball", "min": 4, "max": 8, "weight": 1 },
-      { "item": "slime_ball", "min": 1, "max": 2, "weight": 1 },
-      { "item": "sugar", "min": 1, "max": 3, "weight": 1 }
+      {
+        "item": "carrot",
+        "min": 1,
+        "max": 3,
+        "weight": 3,
+        "_note": "돼지 먹이 (#110)"
+      },
+      {
+        "item": "iron_ingot",
+        "min": 1,
+        "max": 2,
+        "weight": 3
+      },
+      {
+        "item": "gold_ingot",
+        "min": 1,
+        "max": 1,
+        "weight": 2
+      },
+      {
+        "item": "emerald",
+        "min": 1,
+        "max": 1,
+        "weight": 1
+      },
+      {
+        "item": "paper",
+        "min": 2,
+        "max": 5,
+        "weight": 2,
+        "_note": "다이아몬드 자리에 (#217). 책·폭죽 재료"
+      },
+      {
+        "item": "glowstone_dust",
+        "min": 2,
+        "max": 4,
+        "weight": 2
+      },
+      {
+        "item": "string",
+        "min": 2,
+        "max": 4,
+        "weight": 2,
+        "_note": "활 재료"
+      },
+      {
+        "item": "feather",
+        "min": 1,
+        "max": 3,
+        "weight": 2,
+        "_note": "화살 재료"
+      },
+      {
+        "item": "bone",
+        "min": 1,
+        "max": 2,
+        "weight": 2,
+        "_note": "강아지 길들이기"
+      },
+      {
+        "item": "apple",
+        "min": 1,
+        "max": 2,
+        "weight": 2
+      },
+      {
+        "item": "arrow",
+        "min": 4,
+        "max": 8,
+        "weight": 2
+      },
+      {
+        "item": "coal",
+        "min": 2,
+        "max": 5,
+        "weight": 3,
+        "_note": "아래 19가지는 아들 13차 답 \"30가지로 늘려줘\" (2026-10-07, #129)"
+      },
+      {
+        "item": "redstone",
+        "min": 2,
+        "max": 4,
+        "weight": 2
+      },
+      {
+        "item": "lapis",
+        "min": 2,
+        "max": 4,
+        "weight": 2
+      },
+      {
+        "item": "quartz",
+        "min": 1,
+        "max": 3,
+        "weight": 2
+      },
+      {
+        "item": "wheat",
+        "min": 2,
+        "max": 4,
+        "weight": 2,
+        "_note": "소 먹이"
+      },
+      {
+        "item": "wheat_seeds",
+        "min": 2,
+        "max": 4,
+        "weight": 2,
+        "_note": "닭 먹이"
+      },
+      {
+        "item": "potato",
+        "min": 1,
+        "max": 3,
+        "weight": 2
+      },
+      {
+        "item": "egg",
+        "min": 1,
+        "max": 2,
+        "weight": 1
+      },
+      {
+        "item": "flint",
+        "min": 1,
+        "max": 3,
+        "weight": 2,
+        "_note": "화살 재료"
+      },
+      {
+        "item": "torch",
+        "min": 4,
+        "max": 8,
+        "weight": 2
+      },
+      {
+        "item": "gunpowder",
+        "min": 1,
+        "max": 3,
+        "weight": 2
+      },
+      {
+        "item": "gold_nugget",
+        "min": 2,
+        "max": 5,
+        "weight": 2
+      },
+      {
+        "item": "obsidian",
+        "min": 1,
+        "max": 2,
+        "weight": 1
+      },
+      {
+        "item": "ender_pearl",
+        "min": 1,
+        "max": 1,
+        "weight": 1,
+        "_note": "텔레포트 드래곤 재료"
+      },
+      {
+        "item": "golden_apple",
+        "min": 1,
+        "max": 1,
+        "weight": 1,
+        "_note": "드물게"
+      },
+      {
+        "item": "saddle",
+        "min": 1,
+        "max": 1,
+        "weight": 1,
+        "_note": "드물게 — 안장을 주우면 바로 탈 수 있다"
+      },
+      {
+        "item": "snowball",
+        "min": 4,
+        "max": 8,
+        "weight": 1
+      },
+      {
+        "item": "slime_ball",
+        "min": 1,
+        "max": 2,
+        "weight": 1
+      },
+      {
+        "item": "sugar",
+        "min": 1,
+        "max": 3,
+        "weight": 1
+      }
     ]
   },
   "expeditions": [
@@ -48,13 +210,37 @@
       "nightStartsAt": 360,
       "treasures": 3,
       "treasureBonus": {
-        "_comment": "섬 상자엔 인갑(거북 껍데기 조각)이 꼭 (#214, 마인크래프트에선 바닷가 거북이 떨군다 — 거북은 아직 없어서). 인갑 5 = 거북 등딱지",
+        "_comment": "섬 상자엔 인갑(거북 껍데기 조각)이 꼭 (#214, 마인크래프트에선 바닷가 거북이 떨군다 — 거북은 아직 없어서). 인갑 5 = 거북 등딱지 묘목 (#243): 섬 상자엔 자작 40%·벚나무·정글·맹그로브 25%",
         "extraPicks": 0,
         "always": [
           {
             "item": "scute",
             "min": 1,
             "max": 2
+          },
+          {
+            "item": "birch_sapling",
+            "min": 1,
+            "max": 2,
+            "chance": 0.4
+          },
+          {
+            "item": "cherry_sapling",
+            "min": 1,
+            "max": 1,
+            "chance": 0.25
+          },
+          {
+            "item": "jungle_sapling",
+            "min": 1,
+            "max": 1,
+            "chance": 0.25
+          },
+          {
+            "item": "mangrove_sapling",
+            "min": 1,
+            "max": 1,
+            "chance": 0.25
           }
         ]
       },
@@ -181,6 +367,18 @@
             ]
           }
         ]
+      },
+      "treasureBonus": {
+        "extraPicks": 0,
+        "always": [
+          {
+            "item": "dark_oak_sapling",
+            "min": 1,
+            "max": 1,
+            "chance": 0.4
+          }
+        ],
+        "_comment": "동굴 상자엔 짙은 참나무 묘목 40% (#243, 어두운 숲 원정지는 아직)"
       }
     },
     {
@@ -206,23 +404,29 @@
         "desert_pyramid"
       ],
       "_note": "TNT용 모래, 피라미드 상자 금, 밤 엔더맨",
-  "treasureBonus": {
-   "_comment": "사막 상자는 조금 더 (아빠 2026-10-08, #159): 공용 3가지에 1가지 더 뽑고, 금 1~2 는 꼭 들어간다. chance 는 그 확률로만 (없으면 꼭): 다이아몬드는 공용 pool 에서 빼고 사막·설원 상자에만 5% (아들 14차 1번 '매우 낮은 확률로 다이아몬드', #217)",
-   "extraPicks": 1,
-   "always": [
-    {
-     "item": "gold_ingot",
-     "min": 1,
-     "max": 2
-    },
-    {
-     "item": "diamond",
-     "min": 1,
-     "max": 1,
-     "chance": 0.05
-    }
-   ]
-  },
+      "treasureBonus": {
+        "_comment": "사막 상자는 조금 더 (아빠 2026-10-08, #159): 공용 3가지에 1가지 더 뽑고, 금 1~2 는 꼭 들어간다. chance 는 그 확률로만 (없으면 꼭): 다이아몬드는 공용 pool 에서 빼고 사막·설원 상자에만 5% (아들 14차 1번 '매우 낮은 확률로 다이아몬드', #217) 아카시아 묘목 50% (#243)",
+        "extraPicks": 1,
+        "always": [
+          {
+            "item": "gold_ingot",
+            "min": 1,
+            "max": 2
+          },
+          {
+            "item": "diamond",
+            "min": 1,
+            "max": 1,
+            "chance": 0.05
+          },
+          {
+            "item": "acacia_sapling",
+            "min": 1,
+            "max": 2,
+            "chance": 0.5
+          }
+        ]
+      },
       "sonDetails": {
         "details": [
           "작은 사막 마을",
@@ -245,7 +449,7 @@
       "nightStartsAt": 300,
       "treasures": 3,
       "treasureBonus": {
-        "_comment": "이글루 상자 (#217, 아들 14차 6번): 얼음 1~2 는 꼭, 다이아몬드는 5% 로만",
+        "_comment": "이글루 상자 (#217, 아들 14차 6번): 얼음 1~2 는 꼭, 다이아몬드는 5% 로만 가문비 묘목 50% (#243)",
         "extraPicks": 0,
         "always": [
           {
@@ -258,6 +462,12 @@
             "min": 1,
             "max": 1,
             "chance": 0.05
+          },
+          {
+            "item": "spruce_sapling",
+            "min": 1,
+            "max": 2,
+            "chance": 0.5
           }
         ]
       },
@@ -340,7 +550,9 @@
         "nether_fortress",
         "bastion"
       ],
-      "groundBlocks": ["dried_ghast"],
+      "groundBlocks": [
+        "dried_ghast"
+      ],
       "_note": "화염·네더라이트·폭발 드래곤 재료. 네더라이트는 네더에만",
       "_note6": "아들 6차(2026-09-13): 피글린 요새(bastion)에 상자가 많고 잡다한 것이 들어 있다(v1.1). 바닥에 마른 가스트가 있어 캐서 물에 불리면 해피 가스트(v1.2). 피글린 vs 좀비 피글린 전쟁은 mobs.json",
       "boss": {

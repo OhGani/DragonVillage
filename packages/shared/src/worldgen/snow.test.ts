@@ -9,7 +9,7 @@ import { LAKE_Y, SNOW_BOUNDS, SNOW_GROUND_Y, generateSnow } from './snow';
 
 const SEED = 777;
 /** 생성기를 바꾸면 갱신. (chunks 수, 지문) */
-const SNAPSHOT = '1161:3f59a9c2:3614215';
+const SNAPSHOT = '1161:41368759:3614215'; // #243 가문비
 
 const gen = generateSnow(BLOCKS, SEED, 3);
 const { world, spawn, layout } = gen;
@@ -147,10 +147,10 @@ describe('generateSnow 배치', () => {
     for (let z = 0; z < world.sizeZ; z += 2)
       for (let x = 0; x < world.sizeX; x += 2) {
         const t = topOf(x, z);
-        if (id(x, t, z) !== 'leaves' || id(x, t - 1, z) !== 'log') continue;
+        if (id(x, t, z) !== 'spruce_leaves' || id(x, t - 1, z) !== 'spruce_log') continue; // 가문비 (#243)
         trees++;
         let b = t - 1;
-        while (id(x, b, z) === 'log') b--;
+        while (id(x, b, z) === 'spruce_log') b--;
         expect(id(x, b, z)).toBe('snow_block');
         expect(t - b).toBeGreaterThanOrEqual(7);
       }

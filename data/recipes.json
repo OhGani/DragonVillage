@@ -860,7 +860,7 @@
     },
     {
       "id": "planks",
-      "name": "판자",
+      "name": "참나무 판자",
       "station": "inventory",
       "in": {
         "log": 1
@@ -869,6 +869,84 @@
         "planks": 4
       },
       "_note": "아들 6차: 가방 오른쪽 2×2 칸에 원목을 두면 판자 4개"
+    },
+    {
+      "id": "spruce_planks",
+      "name": "가문비나무 판자",
+      "station": "inventory",
+      "in": {
+        "spruce_log": 1
+      },
+      "out": {
+        "spruce_planks": 4
+      },
+      "_note": "나무 8종 (#243): 원목 하나 → 그 나무 판자 4. 판자 6 → 그 나무 문 3. 다른 레시피(막대기·제작대·계단·…)는 참나무 판자로"
+    },
+    {
+      "id": "birch_planks",
+      "name": "자작나무 판자",
+      "station": "inventory",
+      "in": {
+        "birch_log": 1
+      },
+      "out": {
+        "birch_planks": 4
+      }
+    },
+    {
+      "id": "jungle_planks",
+      "name": "정글나무 판자",
+      "station": "inventory",
+      "in": {
+        "jungle_log": 1
+      },
+      "out": {
+        "jungle_planks": 4
+      }
+    },
+    {
+      "id": "acacia_planks",
+      "name": "아카시아나무 판자",
+      "station": "inventory",
+      "in": {
+        "acacia_log": 1
+      },
+      "out": {
+        "acacia_planks": 4
+      }
+    },
+    {
+      "id": "dark_oak_planks",
+      "name": "짙은 참나무 판자",
+      "station": "inventory",
+      "in": {
+        "dark_oak_log": 1
+      },
+      "out": {
+        "dark_oak_planks": 4
+      }
+    },
+    {
+      "id": "cherry_planks",
+      "name": "벚나무 판자",
+      "station": "inventory",
+      "in": {
+        "cherry_log": 1
+      },
+      "out": {
+        "cherry_planks": 4
+      }
+    },
+    {
+      "id": "mangrove_planks",
+      "name": "맹그로브 판자",
+      "station": "inventory",
+      "in": {
+        "mangrove_log": 1
+      },
+      "out": {
+        "mangrove_planks": 4
+      }
     },
     {
       "id": "crafting_table",
@@ -1073,62 +1151,97 @@
     {
       "id": "dark_oak_door",
       "name": "짙은 참나무 문",
-      "station": "inventory",
+      "station": "crafting_table",
+      "pattern": [
+        "pp",
+        "pp",
+        "pp"
+      ],
+      "key": {
+        "p": "dark_oak_planks"
+      },
       "in": {
-        "oak_door": 1,
-        "black_dye": 1
+        "dark_oak_planks": 6
       },
       "out": {
-        "dark_oak_door": 1
-      },
-      "_note": "문 9종 (#242, 아빠 그림): 나무 문은 참나무 문에 염료 하나 — 양털 물들이기(#182)처럼 가방 2×2 에서. 검정=짙은 참나무, 흰=자작, 갈색=가문비, 노랑=정글, 빨강=맹그로브, 주황=아카시아, 청록=뒤틀린, 자홍=진홍빛"
+        "dark_oak_door": 3
+      }
     },
     {
       "id": "birch_door",
       "name": "자작나무 문",
-      "station": "inventory",
+      "station": "crafting_table",
+      "pattern": [
+        "pp",
+        "pp",
+        "pp"
+      ],
+      "key": {
+        "p": "birch_planks"
+      },
       "in": {
-        "oak_door": 1,
-        "white_dye": 1
+        "birch_planks": 6
       },
       "out": {
-        "birch_door": 1
+        "birch_door": 3
       }
     },
     {
       "id": "spruce_door",
       "name": "가문비나무 문",
-      "station": "inventory",
+      "station": "crafting_table",
+      "pattern": [
+        "pp",
+        "pp",
+        "pp"
+      ],
+      "key": {
+        "p": "spruce_planks"
+      },
       "in": {
-        "oak_door": 1,
-        "brown_dye": 1
+        "spruce_planks": 6
       },
       "out": {
-        "spruce_door": 1
-      }
+        "spruce_door": 3
+      },
+      "_note": "문 (#242·#243): 나무 문은 그 나무 판자 6 → 3 (마인크래프트와 같음). 뒤틀린·진홍빛 문만 참나무 문 + 염료(네더 나무가 아직 없어서)"
     },
     {
       "id": "jungle_door",
       "name": "정글나무 문",
-      "station": "inventory",
+      "station": "crafting_table",
+      "pattern": [
+        "pp",
+        "pp",
+        "pp"
+      ],
+      "key": {
+        "p": "jungle_planks"
+      },
       "in": {
-        "oak_door": 1,
-        "yellow_dye": 1
+        "jungle_planks": 6
       },
       "out": {
-        "jungle_door": 1
+        "jungle_door": 3
       }
     },
     {
       "id": "mangrove_door",
       "name": "맹그로브 문",
-      "station": "inventory",
+      "station": "crafting_table",
+      "pattern": [
+        "pp",
+        "pp",
+        "pp"
+      ],
+      "key": {
+        "p": "mangrove_planks"
+      },
       "in": {
-        "oak_door": 1,
-        "red_dye": 1
+        "mangrove_planks": 6
       },
       "out": {
-        "mangrove_door": 1
+        "mangrove_door": 3
       }
     },
     {
@@ -1154,13 +1267,20 @@
     {
       "id": "acacia_door",
       "name": "아카시아나무 문",
-      "station": "inventory",
+      "station": "crafting_table",
+      "pattern": [
+        "pp",
+        "pp",
+        "pp"
+      ],
+      "key": {
+        "p": "acacia_planks"
+      },
       "in": {
-        "oak_door": 1,
-        "orange_dye": 1
+        "acacia_planks": 6
       },
       "out": {
-        "acacia_door": 1
+        "acacia_door": 3
       }
     },
     {
@@ -1185,6 +1305,25 @@
       },
       "out": {
         "crimson_door": 1
+      }
+    },
+    {
+      "id": "cherry_door",
+      "name": "벚나무 문",
+      "station": "crafting_table",
+      "pattern": [
+        "pp",
+        "pp",
+        "pp"
+      ],
+      "key": {
+        "p": "cherry_planks"
+      },
+      "in": {
+        "cherry_planks": 6
+      },
+      "out": {
+        "cherry_door": 3
       }
     },
     {

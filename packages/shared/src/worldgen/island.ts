@@ -22,7 +22,7 @@ import type { SpawnPoint } from './village';
 
 export const ISLAND_BOUNDS: WorldBounds = { sizeCX: 16, sizeCY: 8, sizeCZ: 16 };
 /** 생성기를 고치면 올린다 (클라·서버 버전 불일치 감지) */
-export const ISLAND_GEN_VERSION = 2; // 2: 꽃 (#180, 2026-10-17)
+export const ISLAND_GEN_VERSION = 3; // 2: 꽃 (#180, 2026-10-17), 3: 자작·벚나무 섞임 (#243)
 /** 수면 */
 export const SEA_Y = 40;
 
@@ -79,8 +79,8 @@ export function generateIsland(registry: BlockRegistry, seed: number, treasures 
     sand = B('sand'),
     gravel = B('gravel'),
     water = B('water'),
-    log = B('log'),
-    leaves = B('leaves'),
+    oakLog = B('log'),
+    oakLeaves = B('leaves'),
     obsidian = B('obsidian'),
     glowstone = B('glowstone'),
     chest = B('chest'),
@@ -260,8 +260,16 @@ export function generateIsland(registry: BlockRegistry, seed: number, treasures 
   const nearHut = (x: number, z: number) => huts.some((o) => Math.abs(o.x - x) <= 4 && Math.abs(o.z - z) <= 4);
 
   // ---- 나무·사탕수수·호박·수박 ----
+  const birchLog = B('birch_log'),
+    birchLeaves = B('birch_leaves'),
+    cherryLog = B('cherry_log'),
+    cherryLeaves = B('cherry_leaves');
   const treeAt = (x: number, z: number) => {
     const h = col(x, z).h;
+    // 나무 종류 (#243): 섬엔 참나무 70%·자작나무 20%·벚나무 10% — 잎을 부수면 그 묘목
+    const kindR = hash3(x, 9, z, seed);
+    const log = kindR < 0.1 ? cherryLog : kindR < 0.3 ? birchLog : oakLog;
+    const leaves = kindR < 0.1 ? cherryLeaves : kindR < 0.3 ? birchLeaves : oakLeaves;
     const top = h + 4 + Math.floor(hash3(x, 2, z, seed) * 3);
     for (let y = h + 1; y <= top; y++) set(x, y, z, log);
     for (let dy = -2; dy <= 1; dy++) {

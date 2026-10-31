@@ -142,7 +142,7 @@ describe('문 변형 (#71)', () => {
     expect(facingFromYaw(0)).toBe(0);
     expect(facingFromYaw(Math.PI / 2)).toBe(3);
     expect(facingFromYaw(Math.PI)).toBe(2);
-    expect(BLOCKS.defs.filter((d) => d.door)).toHaveLength(32 * 10); // 문 10종 (#242)
+    expect(BLOCKS.defs.filter((d) => d.door)).toHaveLength(32 * 11); // 문 11종 (#242, 벚나무 #243)
   });
 });
 
@@ -256,9 +256,23 @@ describe('침대 변형 (#188)', () => {
     expect(minutes).toBe(8);
   });
 
+  it('나무 8종 (#243): 종류마다 원목·판자·잎·묘목이 있고, 잎은 그 묘목을 덤으로, 판자 6 → 문 3', () => {
+    for (const t of ['spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'cherry', 'mangrove']) {
+      expect(BLOCKS.require(`${t}_log`).tool).toBe('axe');
+      expect(BLOCKS.require(`${t}_planks`).hardness).toBe(2);
+      const lv = BLOCKS.require(`${t}_leaves`);
+      expect(lv.bonusDrops).toBe(`${t}_sapling`);
+      expect(lv.transparent).toBe(true);
+      const sap = BLOCKS.require(`${t}_sapling`);
+      expect(sap.shape).toBe('cross');
+      expect(sap.grows).toBe(`${t}_tree`);
+      expect(sap.growMinutes).toBe(10);
+    }
+  });
+
   it('문 9종 (#242): 참나무 말고 문이 아홉 가지, 그림 위·아래 두 장, 철 문은 곡괭이', () => {
     const doors = BLOCKS.defs.filter((d) => d.shape === 'door' && !d.door);
-    expect(doors.map((d) => d.id).sort()).toEqual(['acacia_door', 'birch_door', 'crimson_door', 'dark_oak_door', 'iron_door', 'jungle_door', 'mangrove_door', 'oak_door', 'spruce_door', 'warped_door']);
+    expect(doors.map((d) => d.id).sort()).toEqual(['acacia_door', 'birch_door', 'cherry_door', 'crimson_door', 'dark_oak_door', 'iron_door', 'jungle_door', 'mangrove_door', 'oak_door', 'spruce_door', 'warped_door']);
     for (const d of doors) {
       expect(BLOCKS.isDoor(d.num)).toBe(true);
       expect(BLOCKS.defs.filter((v) => v.door?.base === d.num)).toHaveLength(32);

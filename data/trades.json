@@ -77,6 +77,47 @@
           "item": "sugar",
           "count": 8,
           "price": 1
+        },
+        {
+          "item": "sapling",
+          "count": 2,
+          "price": 1,
+          "_note": "묘목 8종 (#243): 농부가 💎1 에 두 그루"
+        },
+        {
+          "item": "spruce_sapling",
+          "count": 2,
+          "price": 1
+        },
+        {
+          "item": "birch_sapling",
+          "count": 2,
+          "price": 1
+        },
+        {
+          "item": "jungle_sapling",
+          "count": 2,
+          "price": 1
+        },
+        {
+          "item": "acacia_sapling",
+          "count": 2,
+          "price": 1
+        },
+        {
+          "item": "dark_oak_sapling",
+          "count": 2,
+          "price": 1
+        },
+        {
+          "item": "cherry_sapling",
+          "count": 2,
+          "price": 1
+        },
+        {
+          "item": "mangrove_sapling",
+          "count": 2,
+          "price": 1
         }
       ]
     },

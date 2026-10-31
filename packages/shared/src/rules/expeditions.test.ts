@@ -110,18 +110,19 @@ describe('보물 상자 랜덤 보상 (#117)', () => {
   it('원정지 보너스 (#159·#214): 사막 상자는 4가지 + 금 1~2 꼭, 초원 섬은 공용 + 인갑 1~2', () => {
     const rules = EXPEDITIONS.rules.treasureChestLoot;
     const island = EXPEDITIONS.require('grass_island');
-    expect(island.treasureBonus).toEqual({ extraPicks: 0, always: [{ item: 'scute', min: 1, max: 2, chance: 1 }] }); // 인갑 (#214)
+    expect(island.treasureBonus!.always[0]).toEqual({ item: 'scute', min: 1, max: 2, chance: 1 }); // 인갑 (#214)
+    expect(island.treasureBonus!.always.map((a) => a.item)).toEqual(['scute', 'birch_sapling', 'cherry_sapling', 'jungle_sapling', 'mangrove_sapling']); // 묘목 (#243)
     const isl = treasureLootFor(rules, island, 12345, 0);
     const common = treasureLoot(rules, 12345, 0);
     for (const c of common.filter((c) => c.item !== 'scute')) expect(isl).toContainEqual(c);
     const scute = isl.find((l) => l.item === 'scute')!;
     expect(scute.count).toBeGreaterThanOrEqual(1);
     const desert = EXPEDITIONS.require('desert');
-    expect(desert.treasureBonus).toEqual({ extraPicks: 1, always: [{ item: 'gold_ingot', min: 1, max: 2, chance: 1 }, { item: 'diamond', min: 1, max: 1, chance: 0.05 }] });
+    expect(desert.treasureBonus).toEqual({ extraPicks: 1, always: [{ item: 'gold_ingot', min: 1, max: 2, chance: 1 }, { item: 'diamond', min: 1, max: 1, chance: 0.05 }, { item: 'acacia_sapling', min: 1, max: 2, chance: 0.5 }] });
     for (let i = 0; i < 20; i++) {
       const loot = treasureLootFor(rules, desert, 777, i);
       expect(loot.length).toBeGreaterThanOrEqual(4);
-      expect(loot.length).toBeLessThanOrEqual(6); // 다이아몬드가 나오면 하나 더 (#217)
+      expect(loot.length).toBeLessThanOrEqual(10); // 다이아몬드가 나오면 하나 더 (#217), 묘목 네 가지 (#243)
       const gold = loot.find((l) => l.item === 'gold_ingot')!;
       expect(gold).toBeDefined();
       expect(gold.count).toBeGreaterThanOrEqual(1);

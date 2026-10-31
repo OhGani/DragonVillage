@@ -166,6 +166,26 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(rejected(b)).toEqual([]);
   });
 
+  it('가문비 묘목 (#243): 심으면 10분 뒤 가문비 줄기·잎이 되고 잎을 부수면 가문비 묘목이 덤으로 나올 수 있다', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.giveItems(ra.idx, 'spruce_sapling', 1);
+    let gx = -1; // 광장 밖 잔디 한 칸 (#181 테스트처럼)
+    for (let x = 86; x < 110 && gx < 0; x++) if (BLOCKS.get(room.world.getBlock(x, GROUND_Y, 64)).id === 'grass' && room.world.getBlock(x, GROUND_Y + 1, 64) === 0 && room.world.getBlock(x, GROUND_Y + 2, 64) === 0) gx = x;
+    room.onMove(ra.idx, { x: gx + 0.5, y: GROUND_Y + 1, z: 66.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 1, x: gx, y: GROUND_Y + 1, z: 64, id: 'spruce_sapling' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(gx, GROUND_Y + 1, 64)).id).toBe('spruce_sapling');
+    room.checkCrops(1000 + 10 * 60_000 + 1);
+    expect(BLOCKS.get(room.world.getBlock(gx, GROUND_Y + 1, 64)).id).toBe('spruce_log');
+    expect(BLOCKS.get(room.world.getBlock(gx, GROUND_Y + 6, 64)).id).toBe('spruce_log'); // 가문비는 줄기 6 이상
+    let leaves = 0;
+    for (let y = GROUND_Y + 1; y < GROUND_Y + 12; y++) for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) if (BLOCKS.get(room.world.getBlock(gx + dx, y, 64 + dz)).id === 'spruce_leaves') leaves++;
+    expect(leaves).toBeGreaterThan(8);
+    expect(changed(a).some((m) => m.id === 'spruce_leaves')).toBe(true);
+  });
+
   it('쌍문 (#242): 문 옆에 문을 놓으면 경첩이 반대쪽에 붙어 서로 반대로 열린다', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });

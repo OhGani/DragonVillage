@@ -127,7 +127,9 @@ import {
   type NestDragonInfo,
   type NestSlotInfo,
   nestSlotPos,
-  oakTreeBlocks,
+  TREE_KINDS,
+  treeBlocks,
+  treeKindOf,
   OLD_NEST_SITES,
   OLD_SITES,
   ORB_PICKUP_RANGE,
@@ -1109,12 +1111,13 @@ export class VillageRoom {
       this.crops.delete(key);
       this.storage?.delCrop(this.info.code, x, y, z);
     };
-    if (cur.grows === 'oak_tree') {
-      // 묘목 → 참나무 (#181): 줄기·잎을 한꺼번에 놓고 모두에게 알린다. 잎은 빈 칸에만
+    const treeKind = treeKindOf(cur.grows);
+    if (treeKind) {
+      // 묘목 → 나무 (#181, 나무 8종 #243): 줄기·잎을 한꺼번에 놓고 모두에게 알린다. 잎은 빈 칸에만
       if (!force && now - plantedAt < (cur.growMinutes ?? 0) * 60_000) return false;
-      const log = this.registry.require('log'),
-        leaves = this.registry.require('leaves');
-      for (const b of oakTreeBlocks({ x, y, z }, this.info.seed, (bx, by, bz) => this.world.inBounds(bx, by, bz) && this.world.getBlock(bx, by, bz) === AIR_ID)) {
+      const log = this.registry.require(TREE_KINDS[treeKind].log),
+        leaves = this.registry.require(TREE_KINDS[treeKind].leaves);
+      for (const b of treeBlocks(treeKind, { x, y, z }, this.info.seed, (bx, by, bz) => this.world.inBounds(bx, by, bz) && this.world.getBlock(bx, by, bz) === AIR_ID)) {
         const id = b.kind === 'log' ? log : leaves;
         this.world.setBlock(b.x, b.y, b.z, id.num);
         this.markDirtyBlock(b.x, b.y, b.z);

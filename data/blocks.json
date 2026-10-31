@@ -95,7 +95,7 @@
     },
     {
       "id": "log",
-      "name": "원목",
+      "name": "참나무 원목",
       "hardness": 2.0,
       "tool": "axe",
       "lightEmit": 0,
@@ -104,16 +104,142 @@
       "textureBottom": "log_top"
     },
     {
+      "id": "spruce_log",
+      "name": "가문비나무 원목",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "textureTop": "spruce_log_top",
+      "textureSide": "spruce_log_side",
+      "textureBottom": "spruce_log_top"
+    },
+    {
+      "id": "birch_log",
+      "name": "자작나무 원목",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "textureTop": "birch_log_top",
+      "textureSide": "birch_log_side",
+      "textureBottom": "birch_log_top"
+    },
+    {
+      "id": "jungle_log",
+      "name": "정글나무 원목",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "textureTop": "jungle_log_top",
+      "textureSide": "jungle_log_side",
+      "textureBottom": "jungle_log_top"
+    },
+    {
+      "id": "acacia_log",
+      "name": "아카시아나무 원목",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "textureTop": "acacia_log_top",
+      "textureSide": "acacia_log_side",
+      "textureBottom": "acacia_log_top"
+    },
+    {
+      "id": "dark_oak_log",
+      "name": "짙은 참나무 원목",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "textureTop": "dark_oak_log_top",
+      "textureSide": "dark_oak_log_side",
+      "textureBottom": "dark_oak_log_top"
+    },
+    {
+      "id": "cherry_log",
+      "name": "벚나무 원목",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "textureTop": "cherry_log_top",
+      "textureSide": "cherry_log_side",
+      "textureBottom": "cherry_log_top"
+    },
+    {
+      "id": "mangrove_log",
+      "name": "맹그로브 원목",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "textureTop": "mangrove_log_top",
+      "textureSide": "mangrove_log_side",
+      "textureBottom": "mangrove_log_top"
+    },
+    {
       "id": "planks",
-      "name": "판자",
+      "name": "참나무 판자",
       "hardness": 2.0,
       "tool": "axe",
       "lightEmit": 0,
       "texture": "planks"
     },
     {
+      "id": "spruce_planks",
+      "name": "가문비나무 판자",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "spruce_planks"
+    },
+    {
+      "id": "birch_planks",
+      "name": "자작나무 판자",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "birch_planks"
+    },
+    {
+      "id": "jungle_planks",
+      "name": "정글나무 판자",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "jungle_planks"
+    },
+    {
+      "id": "acacia_planks",
+      "name": "아카시아나무 판자",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "acacia_planks"
+    },
+    {
+      "id": "dark_oak_planks",
+      "name": "짙은 참나무 판자",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "dark_oak_planks"
+    },
+    {
+      "id": "cherry_planks",
+      "name": "벚나무 판자",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "cherry_planks"
+    },
+    {
+      "id": "mangrove_planks",
+      "name": "맹그로브 판자",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "mangrove_planks"
+    },
+    {
       "id": "leaves",
-      "name": "나뭇잎",
+      "name": "참나무 잎",
       "bonusDrops": "sapling",
       "bonusCount": [
         0,
@@ -132,6 +258,140 @@
         "apple"
       ],
       "_note": "아들 7차: 가위로 자르면 막대기나 그 나무 묘목이 나오고, 참나무에서는 사과도. 맨손으로 부수면 사라짐 (M4 아이템 드롭)"
+    },
+    {
+      "id": "spruce_leaves",
+      "name": "가문비나무 잎",
+      "bonusDrops": "spruce_sapling",
+      "bonusCount": [
+        0,
+        1
+      ],
+      "hardness": 0.2,
+      "tool": null,
+      "transparent": true,
+      "lightEmit": 0,
+      "lightFilter": 1,
+      "texture": "spruce_leaves",
+      "shearDrops": [
+        "stick",
+        "spruce_sapling"
+      ]
+    },
+    {
+      "id": "birch_leaves",
+      "name": "자작나무 잎",
+      "bonusDrops": "birch_sapling",
+      "bonusCount": [
+        0,
+        1
+      ],
+      "hardness": 0.2,
+      "tool": null,
+      "transparent": true,
+      "lightEmit": 0,
+      "lightFilter": 1,
+      "texture": "birch_leaves",
+      "shearDrops": [
+        "stick",
+        "birch_sapling"
+      ]
+    },
+    {
+      "id": "jungle_leaves",
+      "name": "정글나무 잎",
+      "bonusDrops": "jungle_sapling",
+      "bonusCount": [
+        0,
+        1
+      ],
+      "hardness": 0.2,
+      "tool": null,
+      "transparent": true,
+      "lightEmit": 0,
+      "lightFilter": 1,
+      "texture": "jungle_leaves",
+      "shearDrops": [
+        "stick",
+        "jungle_sapling"
+      ],
+      "_note": "정글 잎은 묘목이 더 드물다 (마인크래프트 2.5%) — 여기선 같은 0~1 덤"
+    },
+    {
+      "id": "acacia_leaves",
+      "name": "아카시아나무 잎",
+      "bonusDrops": "acacia_sapling",
+      "bonusCount": [
+        0,
+        1
+      ],
+      "hardness": 0.2,
+      "tool": null,
+      "transparent": true,
+      "lightEmit": 0,
+      "lightFilter": 1,
+      "texture": "acacia_leaves",
+      "shearDrops": [
+        "stick",
+        "acacia_sapling"
+      ]
+    },
+    {
+      "id": "dark_oak_leaves",
+      "name": "짙은 참나무 잎",
+      "bonusDrops": "dark_oak_sapling",
+      "bonusCount": [
+        0,
+        1
+      ],
+      "hardness": 0.2,
+      "tool": null,
+      "transparent": true,
+      "lightEmit": 0,
+      "lightFilter": 1,
+      "texture": "dark_oak_leaves",
+      "shearDrops": [
+        "stick",
+        "dark_oak_sapling"
+      ]
+    },
+    {
+      "id": "cherry_leaves",
+      "name": "벚나무 잎",
+      "bonusDrops": "cherry_sapling",
+      "bonusCount": [
+        0,
+        1
+      ],
+      "hardness": 0.2,
+      "tool": null,
+      "transparent": true,
+      "lightEmit": 0,
+      "lightFilter": 1,
+      "texture": "cherry_leaves",
+      "shearDrops": [
+        "stick",
+        "cherry_sapling"
+      ]
+    },
+    {
+      "id": "mangrove_leaves",
+      "name": "맹그로브 잎",
+      "bonusDrops": "mangrove_sapling",
+      "bonusCount": [
+        0,
+        1
+      ],
+      "hardness": 0.2,
+      "tool": null,
+      "transparent": true,
+      "lightEmit": 0,
+      "lightFilter": 1,
+      "texture": "mangrove_leaves",
+      "shearDrops": [
+        "stick",
+        "mangrove_sapling"
+      ]
     },
     {
       "id": "glass",
@@ -617,6 +877,18 @@
       "textureTop": "crimson_door_top",
       "textureSide": "crimson_door_bottom",
       "textureBottom": "crimson_door_bottom",
+      "shape": "door"
+    },
+    {
+      "id": "cherry_door",
+      "name": "벚나무 문",
+      "hardness": 3.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "transparent": true,
+      "textureTop": "cherry_door_top",
+      "textureSide": "cherry_door_bottom",
+      "textureBottom": "cherry_door_bottom",
       "shape": "door"
     },
     {
@@ -1137,7 +1409,7 @@
     },
     {
       "id": "sapling",
-      "name": "나무 묘목",
+      "name": "참나무 묘목",
       "hardness": 0.0,
       "tool": null,
       "solid": false,
@@ -1146,7 +1418,91 @@
       "texture": "sapling",
       "grows": "oak_tree",
       "growMinutes": 10,
-      "_note": "아들 2026-10-17 '묘목은 심을 수 있고 시간이 지나면 나무로 자라난다' (#181): 잔디·흙 위에 심으면 10분 뒤 참나무(줄기 4~6 + 잎)가 된다. grows 가 oak_tree 면 블록 하나가 아니라 나무 한 그루"
+      "_note": "아들 2026-10-17 '묘목은 심을 수 있고 시간이 지나면 나무로 자라난다' (#181): 잔디·흙 위에 심으면 10분 뒤 참나무(줄기 4~6 + 잎)가 된다. grows 가 <나무>_tree 면 블록 하나가 아니라 나무 한 그루 (#243: 나무 8종 — 참나무·가문비·자작·정글·아카시아·짙은 참나무·벚나무·맹그로브, 모양은 shared/rules/trees.ts). 다른 묘목은 그 나무 잎을 부수면 덤으로, 원정 상자·농부 가게에서"
+    },
+    {
+      "id": "spruce_sapling",
+      "name": "가문비나무 묘목",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "shape": "cross",
+      "texture": "spruce_sapling",
+      "grows": "spruce_tree",
+      "growMinutes": 10
+    },
+    {
+      "id": "birch_sapling",
+      "name": "자작나무 묘목",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "shape": "cross",
+      "texture": "birch_sapling",
+      "grows": "birch_tree",
+      "growMinutes": 10
+    },
+    {
+      "id": "jungle_sapling",
+      "name": "정글나무 묘목",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "shape": "cross",
+      "texture": "jungle_sapling",
+      "grows": "jungle_tree",
+      "growMinutes": 10
+    },
+    {
+      "id": "acacia_sapling",
+      "name": "아카시아나무 묘목",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "shape": "cross",
+      "texture": "acacia_sapling",
+      "grows": "acacia_tree",
+      "growMinutes": 10
+    },
+    {
+      "id": "dark_oak_sapling",
+      "name": "짙은 참나무 묘목",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "shape": "cross",
+      "texture": "dark_oak_sapling",
+      "grows": "dark_oak_tree",
+      "growMinutes": 10
+    },
+    {
+      "id": "cherry_sapling",
+      "name": "벚나무 묘목",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "shape": "cross",
+      "texture": "cherry_sapling",
+      "grows": "cherry_tree",
+      "growMinutes": 10
+    },
+    {
+      "id": "mangrove_sapling",
+      "name": "맹그로브 묘목",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "lightEmit": 0,
+      "shape": "cross",
+      "texture": "mangrove_sapling",
+      "grows": "mangrove_tree",
+      "growMinutes": 10
     },
     {
       "id": "rail",

@@ -23,7 +23,7 @@ import type { SpawnPoint } from './village';
 
 export const SNOW_BOUNDS: WorldBounds = { sizeCX: 16, sizeCY: 6, sizeCZ: 16 };
 /** 생성기를 고치면 올린다 (클라·서버 버전 불일치 감지) */
-export const SNOW_GEN_VERSION = 2; // 2: 눈 골렘 조각상 → 살아 있는 몹 (#223)
+export const SNOW_GEN_VERSION = 3; // 2: 눈 골렘 조각상 → 살아 있는 몹 (#223), 3: 나무가 가문비 (#243)
 /** 평균 땅 높이 */
 export const SNOW_GROUND_Y = 40;
 /** 호수 얼음 높이 — 이 아래로 꺼진 땅은 물이 차고 맨 위가 얼음 */
@@ -67,8 +67,8 @@ export function generateSnow(registry: BlockRegistry, seed: number, treasures = 
     snow = B('snow_block'),
     ice = B('ice'),
     water = B('water'),
-    log = B('log'),
-    leaves = B('leaves'),
+    log = B('spruce_log'), // 설원 나무는 가문비 (#243)
+    leaves = B('spruce_leaves'),
     obsidian = B('obsidian'),
     glowstone = B('glowstone'),
     chest = B('chest'),

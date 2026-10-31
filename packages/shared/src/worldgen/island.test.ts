@@ -6,7 +6,7 @@ import { ISLAND_BOUNDS, SEA_Y, generateIsland } from './island';
 
 const SEED = 777;
 /** 생성기를 바꾸면 갱신. (chunks 수, 지문) */
-const SNAPSHOT = '875:845786ba:2826496'; // #180 꽃
+const SNAPSHOT = '875:aee8ca5a:2826496'; // #180 꽃, #243 자작·벚나무
 
 const gen = generateIsland(BLOCKS, SEED, 3);
 const { world, spawn, layout } = gen;
