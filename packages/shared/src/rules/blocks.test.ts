@@ -221,6 +221,24 @@ describe('침대 변형 (#188)', () => {
     expect(BLOCKS.require('purple_bed').shape).toBe('bed');
   });
 
+  it('밀 8단계 (#236): 싹부터 익은 밀까지 여덟 블록, 1분씩 8분, 십자 모양, 덜 자라면 씨만', () => {
+    let id = 'wheat_young';
+    let minutes = 0;
+    const seen: string[] = [];
+    while (true) {
+      const b = BLOCKS.require(id);
+      seen.push(id);
+      expect(b.shape).toBe('cross');
+      if (!b.grows) break;
+      expect(b.drops).toBe('wheat_seeds');
+      minutes += b.growMinutes ?? 0;
+      id = b.grows;
+    }
+    expect(seen.length).toBe(8);
+    expect(seen[7]).toBe('wheat_ripe');
+    expect(minutes).toBe(8);
+  });
+
   it('당근 4단계 (#235): 싹 → 자라는 중 → 잎 무성 → 익음, 모두 8분, 십자 모양', () => {
     let id = 'carrot_young';
     let minutes = 0;

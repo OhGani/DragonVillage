@@ -240,8 +240,10 @@ describe('VillageRoom 블록 변경 검증', () => {
     room.checkCrops(1300 + 9 * 60_000);
     expect(BLOCKS.get(room.world.getBlock(gx, GROUND_Y + 1, gz)).id).toBe('wheat_young'); // 마른 밭: 그대로
     room.world.setBlock(gx + 2, GROUND_Y, gz, BLOCKS.numOf('water'));
+    room.checkCrops(1300 + 3 * 60_000 + 500);
+    expect(BLOCKS.get(room.world.getBlock(gx, GROUND_Y + 1, gz)).id).toBe('wheat_s2'); // 물을 놓으면 자란다 — 3분 지났으니(싹 2분 + 1분) 두 단계 한 번에 (#236)
     room.checkCrops(1300 + 10 * 60_000);
-    expect(BLOCKS.get(room.world.getBlock(gx, GROUND_Y + 1, gz)).id).toBe('wheat_ripe'); // 물을 놓으면 자란다
+    expect(BLOCKS.get(room.world.getBlock(gx, GROUND_Y + 1, gz)).id).toBe('wheat_ripe');
     // 뼛가루: 밀 씨를 심고 바로 익힌다
     give(p.inv, 'wheat_seeds', 1);
     give(p.inv, 'bone_meal', 2);
@@ -402,9 +404,11 @@ describe('VillageRoom 블록 변경 검증', () => {
     // 다시 켜도 심은 기록이 남아 있다
     const again = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
     expect(again.crops.get(`${fx},${GROUND_Y + 1},${fz}`)).toBe(1000);
-    // 8분 전엔 그대로, 지나면 익은 밀 (모두에게 BlockChanged)
-    room.checkCrops(1000 + 7 * 60_000);
+    // 8단계 (#236): 싹 2분, 그 뒤 1분마다 — 7분이면 여섯째 단계, 8분 지나면 익은 밀 (모두에게 BlockChanged)
+    room.checkCrops(1000 + 1 * 60_000);
     expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y + 1, fz)).id).toBe('wheat_young');
+    room.checkCrops(1000 + 7 * 60_000);
+    expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y + 1, fz)).id).toBe('wheat_s6');
     room.checkCrops(1000 + 8 * 60_000 + 1);
     expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y + 1, fz)).id).toBe('wheat_ripe');
     expect(room.crops.size).toBe(0);
