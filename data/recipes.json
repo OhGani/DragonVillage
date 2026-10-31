@@ -1052,7 +1052,7 @@
     },
     {
       "id": "oak_door",
-      "name": "문",
+      "name": "참나무 문",
       "station": "crafting_table",
       "pattern": [
         "pp",
@@ -1069,6 +1069,123 @@
         "oak_door": 3
       },
       "_note": "아빠 9차 확인: 판자 6개 → 문 3개 (마인크래프트와 같음)"
+    },
+    {
+      "id": "dark_oak_door",
+      "name": "짙은 참나무 문",
+      "station": "inventory",
+      "in": {
+        "oak_door": 1,
+        "black_dye": 1
+      },
+      "out": {
+        "dark_oak_door": 1
+      },
+      "_note": "문 9종 (#242, 아빠 그림): 나무 문은 참나무 문에 염료 하나 — 양털 물들이기(#182)처럼 가방 2×2 에서. 검정=짙은 참나무, 흰=자작, 갈색=가문비, 노랑=정글, 빨강=맹그로브, 주황=아카시아, 청록=뒤틀린, 자홍=진홍빛"
+    },
+    {
+      "id": "birch_door",
+      "name": "자작나무 문",
+      "station": "inventory",
+      "in": {
+        "oak_door": 1,
+        "white_dye": 1
+      },
+      "out": {
+        "birch_door": 1
+      }
+    },
+    {
+      "id": "spruce_door",
+      "name": "가문비나무 문",
+      "station": "inventory",
+      "in": {
+        "oak_door": 1,
+        "brown_dye": 1
+      },
+      "out": {
+        "spruce_door": 1
+      }
+    },
+    {
+      "id": "jungle_door",
+      "name": "정글나무 문",
+      "station": "inventory",
+      "in": {
+        "oak_door": 1,
+        "yellow_dye": 1
+      },
+      "out": {
+        "jungle_door": 1
+      }
+    },
+    {
+      "id": "mangrove_door",
+      "name": "맹그로브 문",
+      "station": "inventory",
+      "in": {
+        "oak_door": 1,
+        "red_dye": 1
+      },
+      "out": {
+        "mangrove_door": 1
+      }
+    },
+    {
+      "id": "iron_door",
+      "name": "철 문",
+      "station": "crafting_table",
+      "pattern": [
+        "ii",
+        "ii",
+        "ii"
+      ],
+      "key": {
+        "i": "iron_ingot"
+      },
+      "in": {
+        "iron_ingot": 6
+      },
+      "out": {
+        "iron_door": 3
+      },
+      "_note": "마인크래프트와 같음 (#242). 탭으로 열린다"
+    },
+    {
+      "id": "acacia_door",
+      "name": "아카시아나무 문",
+      "station": "inventory",
+      "in": {
+        "oak_door": 1,
+        "orange_dye": 1
+      },
+      "out": {
+        "acacia_door": 1
+      }
+    },
+    {
+      "id": "warped_door",
+      "name": "뒤틀린 문",
+      "station": "inventory",
+      "in": {
+        "oak_door": 1,
+        "cyan_dye": 1
+      },
+      "out": {
+        "warped_door": 1
+      }
+    },
+    {
+      "id": "crimson_door",
+      "name": "진홍빛 문",
+      "station": "inventory",
+      "in": {
+        "oak_door": 1,
+        "magenta_dye": 1
+      },
+      "out": {
+        "crimson_door": 1
+      }
     },
     {
       "id": "oak_trapdoor",

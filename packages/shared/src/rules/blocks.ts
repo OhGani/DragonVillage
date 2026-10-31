@@ -215,18 +215,49 @@ export interface DoorInfo {
   readonly hinge: number;
 }
 
+/** 옆 칸의 (아랫칸) 문 — 쌍문 판정용 (#242) */
+export type DoorAt = (x: number, y: number, z: number) => { facing: number; hinge: number } | null;
+
+/** 쌍문이 될 옆 문 (#242): 같은 벽에 선(같거나 마주 보는 facing) 아랫칸 문. side 1 = 내 왼쪽, -1 = 내 오른쪽 */
+function pairNeighbor(doorAt: DoorAt, x: number, y: number, z: number, facing: number): { side: 1 | -1; x: number; y: number; z: number; facing: number; hinge: number } | null {
+  const [fx, fz] = DOOR_DIR[facing]!;
+  const lx = fz,
+    lz = -fx;
+  for (const side of [1, -1] as const) {
+    const nx = x + lx * side,
+      nz = z + lz * side;
+    const d = doorAt(nx, y, nz);
+    if (d && (d.facing === facing || d.facing === (facing ^ 2))) return { side, x: nx, y, z: nz, facing: d.facing, hinge: d.hinge };
+  }
+  return null;
+}
+
 /**
  * 문 경첩을 어느 쪽에 둘까 (결정 #83, 아빠 2026-09-22): **벽이 있는 쪽에 붙인다**.
  * 한쪽만 벽이면 그쪽, 양쪽 다 벽이거나 둘 다 벽이 아니면 **왼쪽**(놓은 사람 기준).
  * isWall 은 "문이 아닌 꽉 찬 블록"이어야 한다 — 옆에 있는 다른 문은 벽으로 치지 않는다.
+ * **쌍문 (#242, 아빠 2026-10-31)**: 옆 칸에 같은 벽의 문이 있으면 벽보다 먼저, 경첩을 그 문에서 **먼 쪽**(바깥)에 — 둘이 가운데서 서로 반대 방향으로 열린다(마인크래프트처럼).
+ * 옆 문의 경첩도 바깥쪽이어야 하니 doorPairFix 로 맞춘다.
  */
-export function doorHinge(isWall: (x: number, y: number, z: number) => boolean, x: number, y: number, z: number, facing: number): number {
+export function doorHinge(isWall: (x: number, y: number, z: number) => boolean, x: number, y: number, z: number, facing: number, doorAt?: DoorAt): number {
   const [fx, fz] = DOOR_DIR[facing]!;
   const lx = fz,
     lz = -fx; // 놓은 사람의 왼쪽
+  if (doorAt) {
+    const n = pairNeighbor(doorAt, x, y, z, facing);
+    if (n) return n.side === 1 ? 1 : 0; // 왼쪽에 문 → 내 경첩은 오른쪽(바깥)
+  }
   const left = isWall(x + lx, y, z + lz) || isWall(x + lx, y + 1, z + lz);
   const right = isWall(x - lx, y, z - lz) || isWall(x - lx, y + 1, z - lz);
   return !left && right ? 1 : 0;
+}
+/** 쌍문 (#242): 새 문 옆의 문도 경첩이 바깥쪽이어야 한다 — 바꿔야 하면 그 문의 자리와 새 경첩, 아니면 null */
+export function doorPairFix(doorAt: DoorAt, x: number, y: number, z: number, facing: number): { x: number; y: number; z: number; hinge: number } | null {
+  const n = pairNeighbor(doorAt, x, y, z, facing);
+  if (!n) return null;
+  // 같은 facing: 내 왼쪽 문의 바깥은 그 문의 왼쪽(0), 내 오른쪽 문은 오른쪽(1). 마주 보는 문은 왼·오른쪽이 뒤집힌다
+  const want = n.facing === facing ? (n.side === 1 ? 0 : 1) : n.side === 1 ? 1 : 0;
+  return want === n.hinge ? null : { x: n.x, y: n.y, z: n.z, hinge: want };
 }
 export const DOOR_FACING = ['n', 'e', 's', 'w'] as const;
 /** facing → 보는 방향 [dx, dz] */

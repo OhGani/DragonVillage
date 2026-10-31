@@ -166,6 +166,31 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(rejected(b)).toEqual([]);
   });
 
+  it('쌍문 (#242): 문 옆에 문을 놓으면 경첩이 반대쪽에 붙어 서로 반대로 열린다', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.giveItems(ra.idx, 'oak_door', 2);
+    room.giveItems(ra.idx, 'birch_door', 2);
+    room.onMove(ra.idx, { x: 66.5, y: GROUND_Y + 1, z: 68.5, yaw: 0, pitch: 0, flags: 0 }); // 북쪽을 보고
+    room.onBlockChange(ra.idx, { seq: 1, x: 66, y: GROUND_Y + 1, z: 66, id: 'oak_door' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 66)).id).toBe('oak_door@n'); // 혼자면 왼쪽 경첩
+    room.onBlockChange(ra.idx, { seq: 2, x: 67, y: GROUND_Y + 1, z: 66, id: 'oak_door' }, 1100);
+    expect(BLOCKS.get(room.world.getBlock(67, GROUND_Y + 1, 66)).id).toBe('oak_door@nr'); // 왼쪽에 문 → 오른쪽 경첩
+    expect(BLOCKS.get(room.world.getBlock(67, GROUND_Y + 2, 66)).id).toBe('oak_door@n^r');
+    // 반대로 놓으면(먼저 놓은 문의 경첩이 가운데 쪽) 먼저 놓은 문의 경첩을 바깥으로 돌려 준다
+    room.onBlockChange(ra.idx, { seq: 3, x: 70, y: GROUND_Y + 1, z: 66, id: 'birch_door' }, 1200);
+    expect(BLOCKS.get(room.world.getBlock(70, GROUND_Y + 1, 66)).id).toBe('birch_door@n');
+    a.clear();
+    room.onBlockChange(ra.idx, { seq: 4, x: 69, y: GROUND_Y + 1, z: 66, id: 'birch_door' }, 1300);
+    expect(BLOCKS.get(room.world.getBlock(69, GROUND_Y + 1, 66)).id).toBe('birch_door@n'); // 오른쪽에 문 → 나는 왼쪽(바깥)
+    expect(BLOCKS.get(room.world.getBlock(70, GROUND_Y + 1, 66)).id).toBe('birch_door@nr'); // 옆 문은 오른쪽(바깥)으로
+    expect(BLOCKS.get(room.world.getBlock(70, GROUND_Y + 2, 66)).id).toBe('birch_door@n^r');
+    expect(changed(a).some((m) => m.id === 'birch_door@nr' && m.x === 70)).toBe(true); // 모두에게 알린다
+    expect(rejected(a)).toEqual([]);
+  });
+
   it('TNT (#195): 라이터로 불을 붙이면 4초 뒤 블록이 사라지고 옆 사람이 다친다. 라이터 없으면 NO_FLINT', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AIR_ID, DataError, doorHinge, facingFromYaw, parseBlocks } from './blocks';
+import { AIR_ID, DataError, doorHinge, doorPairFix, facingFromYaw, parseBlocks } from './blocks';
 import { BLOCKS } from './data';
 import { itemForPlacing } from './items';
 
@@ -142,7 +142,7 @@ describe('문 변형 (#71)', () => {
     expect(facingFromYaw(0)).toBe(0);
     expect(facingFromYaw(Math.PI / 2)).toBe(3);
     expect(facingFromYaw(Math.PI)).toBe(2);
-    expect(BLOCKS.defs.filter((d) => d.door)).toHaveLength(32);
+    expect(BLOCKS.defs.filter((d) => d.door)).toHaveLength(32 * 10); // 문 10종 (#242)
   });
 });
 
@@ -186,6 +186,23 @@ describe('문 경첩 (#83, 아빠 2026-09-22)', () => {
   it('양쪽 다 벽이거나 둘 다 아니면 왼쪽', () => {
     expect(doorHinge(wallsAt([11, 5, 5], [9, 5, 5]), 10, 5, 5, NORTH)).toBe(0);
     expect(doorHinge(() => false, 10, 5, 5, NORTH)).toBe(0);
+  });
+
+  it('쌍문 (#242): 옆에 같은 벽의 문이 있으면 벽보다 먼저, 경첩은 그 문에서 먼 쪽. 옆 문도 바깥쪽으로 맞춘다', () => {
+    const doorsAt = (cells: Record<string, { facing: number; hinge: number }>) => (x: number, y: number, z: number) => cells[[x, y, z].join(',')] ?? null;
+    // 왼쪽(−x)에 문 → 나는 오른쪽 (벽이 왼쪽에 있어도)
+    expect(doorHinge(wallsAt([9, 5, 5]), 10, 5, 5, NORTH, doorsAt({ '9,5,5': { facing: NORTH, hinge: 0 } }))).toBe(1);
+    expect(doorPairFix(doorsAt({ '9,5,5': { facing: NORTH, hinge: 0 } }), 10, 5, 5, NORTH)).toBeNull(); // 옆 문 경첩이 이미 바깥(왼쪽)
+    expect(doorPairFix(doorsAt({ '9,5,5': { facing: NORTH, hinge: 1 } }), 10, 5, 5, NORTH)).toEqual({ x: 9, y: 5, z: 5, hinge: 0 }); // 가운데였으면 바깥으로
+    // 오른쪽(+x)에 문 → 나는 왼쪽, 옆 문은 오른쪽이어야
+    expect(doorHinge(() => false, 10, 5, 5, NORTH, doorsAt({ '11,5,5': { facing: NORTH, hinge: 0 } }))).toBe(0);
+    expect(doorPairFix(doorsAt({ '11,5,5': { facing: NORTH, hinge: 0 } }), 10, 5, 5, NORTH)).toEqual({ x: 11, y: 5, z: 5, hinge: 1 });
+    // 옆 문이 반대편(남)에서 놓은 것이면 그 문의 왼·오른쪽은 뒤집힌다: 내 왼쪽 문의 바깥 = 그 문의 오른쪽(1)
+    expect(doorHinge(() => false, 10, 5, 5, NORTH, doorsAt({ '9,5,5': { facing: 2, hinge: 0 } }))).toBe(1);
+    expect(doorPairFix(doorsAt({ '9,5,5': { facing: 2, hinge: 0 } }), 10, 5, 5, NORTH)).toEqual({ x: 9, y: 5, z: 5, hinge: 1 });
+    // 옆 문이 다른 벽(동)을 보면 쌍문이 아니다 → 벽 규칙
+    expect(doorHinge(wallsAt([11, 5, 5]), 10, 5, 5, NORTH, doorsAt({ '9,5,5': { facing: 1, hinge: 0 } }))).toBe(1);
+    expect(doorPairFix(doorsAt({ '9,5,5': { facing: 1, hinge: 0 } }), 10, 5, 5, NORTH)).toBeNull();
   });
 
   it('윗칸만 벽이어도 그 쪽으로 붙는다 (벽은 보통 두 칸)', () => {
@@ -237,6 +254,17 @@ describe('침대 변형 (#188)', () => {
     expect(seen.length).toBe(8);
     expect(seen[7]).toBe('wheat_ripe');
     expect(minutes).toBe(8);
+  });
+
+  it('문 9종 (#242): 참나무 말고 문이 아홉 가지, 그림 위·아래 두 장, 철 문은 곡괭이', () => {
+    const doors = BLOCKS.defs.filter((d) => d.shape === 'door' && !d.door);
+    expect(doors.map((d) => d.id).sort()).toEqual(['acacia_door', 'birch_door', 'crimson_door', 'dark_oak_door', 'iron_door', 'jungle_door', 'mangrove_door', 'oak_door', 'spruce_door', 'warped_door']);
+    for (const d of doors) {
+      expect(BLOCKS.isDoor(d.num)).toBe(true);
+      expect(BLOCKS.defs.filter((v) => v.door?.base === d.num)).toHaveLength(32);
+      expect(d.textures?.[0]).not.toBe(d.textures?.[2]);
+    }
+    expect(BLOCKS.require('iron_door').tool).toBe('pickaxe');
   });
 
   it('감자 4단계 (#239): 싹 → 자라는 중 → 잎 무성 → 익음, 모두 8분, 십자 모양, 덜 자라면 감자 1', () => {

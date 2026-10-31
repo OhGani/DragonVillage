@@ -42,6 +42,7 @@ import {
   decodeChunk,
   DOOR_DIR,
   doorHinge,
+  doorPairFix,
   DRAGON_REST_MS,
   type DragonInfo,
   dragonMaxHp,
@@ -2459,6 +2460,7 @@ export class VillageRoom {
     if (!p) return;
     // 핫바의 문 자체(JSON id)를 놓는 요청은 보던 방향의 아래·닫힘 변형으로 바꾼다
     const rawDef = this.registry.find(req.id);
+    let pairFix: { x: number; y: number; z: number; hinge: number } | null = null; // 쌍문 (#242): 새 문 옆 문의 경첩을 바깥쪽으로
     if (rawDef && rawDef.shape === 'door' && !rawDef.door && this.registry.isDoor(rawDef.num)) {
       const facing = facingFromYaw(p.pos.yaw);
       const w = this.worldOf(p);
@@ -2467,7 +2469,13 @@ export class VillageRoom {
         const d = this.registry.get(w.getBlock(bx, by, bz));
         return d.solid && d.door === null;
       };
-      const hinge = doorHinge(isWall, req.x, req.y, req.z, facing);
+      const doorAt = (bx: number, by: number, bz: number) => {
+        if (!w.inBounds(bx, by, bz)) return null;
+        const d = this.registry.get(w.getBlock(bx, by, bz)).door;
+        return d && !d.upper ? { facing: d.facing, hinge: d.hinge } : null;
+      };
+      const hinge = doorHinge(isWall, req.x, req.y, req.z, facing, doorAt); // 옆에 문이 있으면 쌍문 (#242)
+      pairFix = doorPairFix(doorAt, req.x, req.y, req.z, facing);
       req = { ...req, id: this.registry.get(this.registry.doorVariant(rawDef.num, facing, false, false, hinge)).id };
     }
     // 침대 (#188): 핫바의 침대(JSON id)를 놓는 요청은 보던 방향의 발 쪽 변형으로 (머리 칸은 아래서 채운다)
@@ -2510,6 +2518,18 @@ export class VillageRoom {
       if (world.inBounds(req.x, oy, req.z) && world.setBlock(req.x, oy, req.z, other).changed) {
         touched(req.x, oy, req.z);
         this.broadcast(encodeBlockChanged({ x: req.x, y: oy, z: req.z, id: this.registry.get(other).id, by: idx }), -1, p.world);
+      }
+      // 쌍문 (#242): 옆 문의 경첩을 바깥쪽으로 바꿔 둘이 서로 반대로 열리게 (열림 상태는 그대로)
+      const nd = pairFix && def.door && !prev.door ? this.registry.get(world.getBlock(pairFix.x, pairFix.y, pairFix.z)).door : null;
+      if (pairFix && nd && !nd.upper && nd.hinge !== pairFix.hinge) {
+        for (const up of [false, true]) {
+          const v = this.registry.doorVariant(nd.base, nd.facing, up, nd.open, pairFix.hinge);
+          const ny = pairFix.y + (up ? 1 : 0);
+          if (world.inBounds(pairFix.x, ny, pairFix.z) && world.setBlock(pairFix.x, ny, pairFix.z, v).changed) {
+            touched(pairFix.x, ny, pairFix.z);
+            this.broadcast(encodeBlockChanged({ x: pairFix.x, y: ny, z: pairFix.z, id: this.registry.get(v).id, by: idx }), -1, p.world);
+          }
+        }
       }
     }
     // 침대는 두 칸이 함께 (#188): 놓으면 머리 칸도, 부수면 다른 반쪽도

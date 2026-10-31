@@ -377,6 +377,8 @@ export function itemIcon(id: string, size: number, registry: BlockRegistry, atla
   const sprite = def && def.textures ? (def.shape === 'cross' || def.shape === 'rail' ? atlas.images.get(def.textures[0]) : def.shape === 'bed' || def.shape === 'sign' || def.shape === 'torch' ? atlas.images.get(id) : undefined) : undefined;
   if (sprite) {
     canvas = renderSpriteIcon(sprite, size); // 꽃·풀 (#180)·침대 (#188)·표지판 (#197)·횃불(아들 입체 그림 2026-10-19): 정육면체가 아니라 그림 그대로
+  } else if (def && def.textures && def.shape === 'door' && atlas.images.get(def.textures[0]) && atlas.images.get(def.textures[2])) {
+    canvas = renderDoorIcon(atlas.images.get(def.textures[0])!, atlas.images.get(def.textures[2])!, size); // 문 (#242): 윗칸 위에 아랫칸, 세로로 긴 그림
   } else if (def && def.textures) {
     const missing = atlas.images.get('missing')!;
     canvas = renderBlockIcon(atlas.images.get(def.textures[0]) ?? missing, atlas.images.get(def.textures[1]) ?? missing, size);
@@ -409,6 +411,27 @@ function renderSpriteIcon(img: ImageData, size: number): HTMLCanvasElement {
   ctx.imageSmoothingEnabled = false;
   const pad = Math.round(size * dpr * 0.08);
   ctx.drawImage(src, pad, pad, canvas.width - pad * 2, canvas.height - pad * 2);
+  return canvas;
+}
+
+/** 문 아이콘 (#242): 윗칸·아랫칸 16×16 두 장을 세로로 이어 16×32 로, 높이에 맞춰 가운데에 */
+function renderDoorIcon(top: ImageData, bottom: ImageData, size: number): HTMLCanvasElement {
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const src = document.createElement('canvas');
+  src.width = 16;
+  src.height = 32;
+  const sctx = src.getContext('2d')!;
+  sctx.putImageData(top, 0, 0);
+  sctx.putImageData(bottom, 0, 16);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = Math.round(size * dpr);
+  canvas.style.width = canvas.style.height = `${size}px`;
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  const pad = Math.round(size * dpr * 0.08);
+  const h = canvas.height - pad * 2;
+  const w = h / 2;
+  ctx.drawImage(src, (canvas.width - w) / 2, pad, w, h);
   return canvas;
 }
 

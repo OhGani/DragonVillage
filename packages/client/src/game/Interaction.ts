@@ -12,6 +12,7 @@ import {
   type ChunkCoord,
   DOOR_DIR,
   doorHinge,
+  doorPairFix,
   facingOf,
   FLUID_FULL,
   hasWaterNear,
@@ -131,13 +132,27 @@ export class Interaction {
       const d = this.registry.get(this.world.getBlock(bx, by, bz));
       return d.solid && d.door === null;
     };
-    const hinge = doorHinge(isWall, x, y, z, facing);
+    const doorAt = (bx: number, by: number, bz: number) => {
+      if (!this.world.inBounds(bx, by, bz)) return null;
+      const d = this.registry.get(this.world.getBlock(bx, by, bz)).door;
+      return d && !d.upper ? { facing: d.facing, hinge: d.hinge } : null;
+    };
+    const hinge = doorHinge(isWall, x, y, z, facing, doorAt); // 옆에 문이 있으면 쌍문 (#242)
+    const fix = doorPairFix(doorAt, x, y, z, facing);
     const lower = this.registry.doorVariant(base.num, facing, false, false, hinge);
     const upper = this.registry.doorVariant(base.num, facing, true, false, hinge);
     const r1 = this.world.setBlock(x, y, z, lower);
     const r2 = this.world.setBlock(x, y + 1, z, upper);
+    const extra: ChunkCoord[] = [];
+    if (fix) {
+      // 옆 문의 경첩도 바깥쪽으로 (서버도 같은 계산을 해서 모두에게 알린다)
+      const nd = this.registry.get(this.world.getBlock(fix.x, fix.y, fix.z)).door!;
+      const nl = this.world.setBlock(fix.x, fix.y, fix.z, this.registry.doorVariant(nd.base, nd.facing, false, nd.open, fix.hinge));
+      const nu = this.world.setBlock(fix.x, fix.y + 1, fix.z, this.registry.doorVariant(nd.base, nd.facing, true, nd.open, fix.hinge));
+      extra.push(...nl.dirty, ...nu.dirty);
+    }
     if (r1.changed || r2.changed) {
-      this.events.onBlocksChanged([...r1.dirty, ...r2.dirty]);
+      this.events.onBlocksChanged([...r1.dirty, ...r2.dirty, ...extra]);
       this.events.onPlaced?.(x, y, z, lower, cur);
       this.events.onSwing();
     }
