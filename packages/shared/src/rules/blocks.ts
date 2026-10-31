@@ -2,6 +2,7 @@
  * data/blocks.json 검증·로드.
  * 아들이 편집하는 파일이므로 실패 메시지는 짧고 쉬운 한국어로 낸다.
  */
+import { RAIL_DIRS, type RailDir } from './rails';
 import { z } from 'zod';
 
 export const AIR_ID = 0;
@@ -175,6 +176,8 @@ export interface BlockDef {
   readonly chest: ChestInfo | null;
   /** 침대 반쪽이면 어느 쪽·방향인지 (#188). 아니면 null */
   readonly bed: BedInfo | null;
+  /** 철도 변형 (#237). 철도가 아니면 null */
+  readonly rail: RailInfo | null;
 }
 
 /** 상자 (결정 #84). pair −1 = 혼자(27칸), 0~3 = 그 방향 상자와 합쳐진 큰 상자(둘이 54칸) */
@@ -195,6 +198,12 @@ export interface BedInfo {
   readonly base: number;
   readonly facing: number;
   readonly head: boolean;
+}
+
+/** 철도 (#237): dir 은 이어지는 두 쪽 (ns·ew 곧게, ne·nw·se·sw 굽게). base 는 JSON 의 철도 번호 */
+export interface RailInfo {
+  readonly base: number;
+  readonly dir: RailDir;
 }
 
 export interface DoorInfo {
@@ -249,6 +258,8 @@ export class BlockRegistry {
   private readonly chests = new Map<number, number[]>();
   /** 침대 번호 → [facing*2 + head] 변형 번호 (#188) */
   private readonly beds = new Map<number, number[]>();
+  /** 철도 변형 (#237): 철도 번호 → 모양 → 번호 */
+  private readonly rails = new Map<number, Map<RailDir, number>>();
 
   constructor(readonly defs: readonly BlockDef[]) {
     for (const d of defs) {
@@ -267,6 +278,11 @@ export class BlockRegistry {
         let bArr = this.beds.get(d.bed.base);
         if (!bArr) this.beds.set(d.bed.base, (bArr = []));
         bArr[d.bed.facing * 2 + (d.bed.head ? 1 : 0)] = d.num;
+      }
+      if (d.rail) {
+        let rm = this.rails.get(d.rail.base);
+        if (!rm) this.rails.set(d.rail.base, (rm = new Map()));
+        rm.set(d.rail.dir, d.num);
       }
       if (d.door) {
         let arr = this.doors.get(d.door.base);
@@ -333,6 +349,11 @@ export class BlockRegistry {
   /** 벽에 붙은 횃불 변형 (wall 0~3). 없으면 바닥 횃불 그대로 */
   torchVariant(base: number, wall: number): number {
     return this.torches.get(base)?.[wall] ?? base;
+  }
+
+  /** 철도 모양 변형 (#237). 없으면 곧은 철도 그대로 */
+  railVariant(base: number, dir: RailDir): number {
+    return this.rails.get(base)?.get(dir) ?? base;
   }
 
   doorVariant(base: number, facing: number, upper: boolean, open: boolean, hinge = 0): number {
@@ -504,6 +525,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       torch: null,
       chest: null,
       bed: null,
+      rail: null,
     };
   });
 
@@ -619,6 +641,28 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
         id: `${src.id}@${DOOR_FACING[wall]}`,
         internal: true,
         torch: { base: src.num, wall },
+      });
+    }
+  }
+
+  // 철도(shape 'rail', #237): JSON 의 철도는 남북(ns) 곧은 것. 코드가 동서·굽은 넷 = 5개 변형을 만든다(굽은 그림은 <그림>_corner).
+  // 세계에선 서버가 이웃에 맞춰 변형을 고른다. 부수면 어느 변형이든 철도 아이템 하나
+  for (const src of [...defs]) {
+    if (src.shape !== 'rail' || !src.textures) continue;
+    Object.assign(src, { rail: { base: src.num, dir: 'ns' } });
+    const straight = src.textures[0];
+    const corner = `${straight}_corner`;
+    for (const dir of RAIL_DIRS) {
+      if (dir === 'ns') continue;
+      const t = dir === 'ew' ? straight : corner;
+      defs.push({
+        ...src,
+        num: defs.length,
+        id: `${src.id}@${dir}`,
+        internal: true,
+        drops: src.drops ?? src.id,
+        textures: [t, t, t],
+        rail: { base: src.num, dir },
       });
     }
   }

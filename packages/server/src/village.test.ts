@@ -863,6 +863,52 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(Math.hypot(later.x - pos.x, later.z - pos.z)).toBeGreaterThan(1);
   });
 
+  it('철도·수레 (#237): ㄱ자로 놓으면 가운데가 굽고, 수레는 철도 위에만, 타고 내리면 철도 위에 선다', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
+    const p = room.players.get(ia)!;
+    const y = GROUND_Y + 1;
+    room.onMove(ia, { x: 66.5, y, z: 66.5, yaw: 0, pitch: 0, flags: 0 });
+    room.giveItems(ia, 'rail', 16);
+    room.giveItems(ia, 'minecart', 1);
+    const idAt = (x: number, z: number) => BLOCKS.get(room.world.getBlock(x, y, z)).id;
+    room.onBlockChange(ia, { seq: 1, x: 64, y, z: 64, id: 'rail' }, 1000);
+    room.onBlockChange(ia, { seq: 2, x: 64, y, z: 65, id: 'rail' }, 1100);
+    expect(idAt(64, 64)).toBe('rail'); // 남북 곧게
+    expect(idAt(64, 65)).toBe('rail');
+    room.onBlockChange(ia, { seq: 3, x: 65, y, z: 65, id: 'rail' }, 1200);
+    expect(idAt(64, 65)).toBe('rail@ne'); // 북·동이 이어져 굽었다
+    expect(idAt(65, 65)).toBe('rail@ew');
+    expect(rejected(a)).toEqual([]);
+    expect(countOf(p.inv, 'rail')).toBe(13);
+    // 공중엔 못 놓는다
+    room.onBlockChange(ia, { seq: 4, x: 66, y: y + 2, z: 64, id: 'rail' }, 1300);
+    expect(rejected(a)).toEqual([{ seq: 4, reason: REJECT.INVALID }]);
+    // 수레: 철도 위에만, 아이템을 쓴다
+    expect(room.placeCart(ia, 66, y, 66, 1400)).toBe('NO_RAIL');
+    expect(room.placeCart(ia, 64, y, 64, 1400)).toBeNull();
+    expect(countOf(p.inv, 'minecart')).toBe(0);
+    expect(room.placeCart(ia, 64, y, 65, 1400)).toBe('NO_ITEM');
+    const cart = [...room.animals.animals.values()].find((an) => an.kind === 'minecart')!;
+    expect(cart).toBeDefined();
+    expect([cart.x, cart.y, cart.z]).toEqual([64.5, y, 65.5 - 1]);
+    // 타기(누구나) → 내리기: 수레는 내 발 아래 철도 높이에 선다
+    const id = ANIMAL_ID_BASE + cart.id;
+    room.onMove(ia, { x: 64.5, y, z: 66.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.useMob(ia, id, undefined)).toBeNull();
+    expect(p.riding?.dragon).toBe('minecart');
+    room.onMove(ia, { x: 64.5, y: y + 0.3, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    expect(room.dismount(ia)).toBeNull();
+    expect(cart.ridden).toBeNull();
+    expect(cart.y).toBeCloseTo(y, 5);
+    // 철도를 부수면 이웃이 다시 곧아지고 철도 아이템이 돌아온다
+    room.onBlockChange(ia, { seq: 5, x: 65, y, z: 65, id: 'air' }, 1500);
+    expect(idAt(64, 65)).toBe('rail');
+    expect(countOf(p.inv, 'rail')).toBe(14);
+  });
+
   it('모루 (#232): 모루 옆에서 인챈트 책을 검에 붙이고, 같은 단계 둘을 합치면 한 단계 위, 레벨만 쓴다', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });

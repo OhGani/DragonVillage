@@ -28,6 +28,8 @@ const TORCH_WALL_OFF = 7 / 16;
 const TORCH_WALL_Y = 3 / 16;
 /** 꽃·풀 판의 반폭 (#180): 대각선이 칸을 꽉 채우면 너무 커 보여 마인크래프트처럼 조금 안쪽으로 */
 export const PLANT_HALF = 0.5 * 0.7071;
+/** 철도 판을 바닥에서 띄우는 높이 (#237) */
+export const RAIL_LIFT = 1 / 16;
 /** 침대 높이 (#188): 마인크래프트 9/16 */
 export const BED_HEIGHT = 9 / 16;
 /** 침대 다리 (#203): 3/16 높이·굵기, 몸통은 그 위에 떠 있다 */
@@ -435,6 +437,41 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
   };
 
   /**
+   * 철도 전용 패스 (#237): 바닥에서 1/16 띄운 판 한 장(양면). 곧은 철도는 그림의 세로가 남북, 동서는 90° 돌린다.
+   * 굽은 그림(rail_corner)은 그림 오른쪽 아래 모서리를 도는 띠 = (u 1, v 1) 쪽. 텍스처 배열은 v 1 이 그림 아래라 se 는 그대로, 나머지는 u·v 를 뒤집어 그 모서리로 보낸다 (메시 uv 를 찍어 확인)
+   */
+  const emitRails = () => {
+    const uvOf = (dir: number, lx: number, lz: number): [number, number] => {
+      switch (dir) {
+        case 1:
+          return [lz, lx]; // ew
+        case 2:
+          return [lx, 1 - lz]; // ne: 굽은 띠가 북동 모서리에
+        case 3:
+          return [1 - lx, 1 - lz]; // nw
+        case 5:
+          return [1 - lx, lz]; // sw
+        default:
+          return [lx, lz]; // ns · se (굽은 띠가 남동 모서리에)
+      }
+    };
+    for (let y = 0; y < N; y++)
+      for (let z = 0; z < N; z++)
+        for (let x = 0; x < N; x++) {
+          const bi = info[padded[paddedIndex(x, y, z)]];
+          if (bi === undefined || bi.rail === null) continue;
+          const lt = lightOfCell(x, y, z);
+          const dir = bi.rail;
+          const c = ([[0, 0], [0, 1], [1, 1], [1, 0]] as const).map(([lx, lz]) => {
+            const [u, v] = uvOf(dir, lx, lz);
+            return [x + lx, y + RAIL_LIFT, z + lz, u, v, 2, lt];
+          });
+          opaque.quad(c, bi.tex[2], 2);
+          opaque.quad([c[0]!, c[3]!, c[2]!, c[1]!], bi.tex[2], 3); // 아래서 봐도 보이게
+        }
+  };
+
+  /**
    * 침대 전용 패스 (#188·#203, 마인크래프트 모양): 다리 3/16 위에 뜬 몸통(3/16~9/16) + 바깥 끝 모서리 다리 둘.
    * 옆면은 boxFace(세계 좌표 v 로 잘려 위 담요·아래 나무 틀), 짝 반쪽을 향한 옆면은 안 그린다.
    * 윗면은 그림의 위(머리 쪽)가 facing 방향을 보게 UV 를 돌린다. 다리는 아랫면 그림(판자)
@@ -607,7 +644,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
             kb = 0,
             kfl = 0,
             kbl = 0;
-          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg && !bi.cross && bi.bed === null && !bi.sign) {
+          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg && !bi.cross && bi.bed === null && !bi.sign && bi.rail === null) {
             p[d] = i + 1;
             const idF = padded[paddedIndex(p[0], p[1], p[2])];
             p[d] = i;
@@ -655,6 +692,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
   emitTorches();
   emitEggs();
   emitPlants();
+  emitRails();
   emitBeds();
   emitSigns();
 

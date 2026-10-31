@@ -31,6 +31,8 @@ export interface MeshBlockInfo {
   bed: readonly [number, number] | null;
   /** 표지판(#197): 기둥 + 판 두 상자로 그린다 */
   sign: boolean;
+  /** 철도(#237): 바닥에 누운 판 한 장. RAIL_DIRS 번호(0 ns 1 ew 2 ne 3 nw 4 se 5 sw), 철도가 아니면 null */
+  rail: number | null;
 }
 
 export interface MeshBuffers {

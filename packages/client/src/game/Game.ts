@@ -79,7 +79,7 @@ import {
   xpProgress,
   raycastVoxels,
   CRYSTAL_SHOT_RANGE,
-  countOf, parseEnchanted, countBookshelves } from '@dragon-village/shared';
+  countOf, parseEnchanted, countBookshelves, CART_SEAT_Y } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP, TRADES, ENCHANTS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { beam as beamSound, bell, ding, explosion as explosionSound, fireworkLaunch, fireworkPop, hit as hitSound, hurt as hurtSound, levelUp, lose, roar } from '../audio/sound';
@@ -654,6 +654,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         particles.burst(x, y, z, blockColor(prev));
       },
       onPlaceBoat: (x, y, z) => net.sendPlaceBoat(x, y, z), // 보트 (#209)
+      onPlaceCart: (x, y, z) => net.sendPlaceCart(x, y, z), // 수레 (#237)
       onFirework: (x, y, z) => net.sendFirework(x, y, z), // 폭죽 (#211)
       onSleepBed: (x, y, z) => {
         if (!mySleep && !myRiding) net.sendSleep({ x, y, z }); // 침대 빈손 탭 → 눕기 (#204)
@@ -1005,19 +1006,20 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         hud.toast(`🐴 말을 탔어요! 앞으로 밀면 달려요 · ${isTouch ? '▲' : 'Space'} 점프 · 내리기는 🐉 버튼`, 6000);
         return;
       }
-      if (riding.dragon === 'boat') {
-        // 보트 (#209): 말은 사람에게 오지만 보트는 물 위에 있으니 내가 보트 자리로 올라탄다. 물 위에 떠서 노를 젓는다. 빔·기력 없음
+      if (riding.dragon === 'boat' || riding.dragon === 'minecart') {
+        // 보트 (#209)·수레 (#237): 말은 사람에게 오지만 보트·수레는 제자리에 있으니 내가 그 자리로 올라탄다. 빔·기력 없음
+        ctx.player.cart = null;
         const at = mobView.positionOf(riding.id) ?? (lastUseMobAt && lastUseMobAt.id === riding.id ? lastUseMobAt : null);
         if (at) {
           ctx.player.pos.x = at.x;
-          ctx.player.pos.y = at.y + BOAT_SEAT_Y;
+          ctx.player.pos.y = at.y + (riding.dragon === 'boat' ? BOAT_SEAT_Y : CART_SEAT_Y);
           ctx.player.pos.z = at.z;
           ctx.player.vel.x = ctx.player.vel.y = ctx.player.vel.z = 0;
           sendMove();
         }
         hud.setRiding(true, '빔', false);
         stamina = null;
-        hud.toast(`🛶 보트를 탔어요! 스틱으로 노를 저어요 · 내리기는 🐉 버튼`, 6000);
+        hud.toast(riding.dragon === 'boat' ? `🛶 보트를 탔어요! 스틱으로 노를 저어요 · 내리기는 🐉 버튼` : `🛒 수레를 탔어요! 보는 쪽으로 밀면 철도를 따라 달려요 · 반대로 밀면 멈췄다 돌아가요 · 내리기는 🐉 버튼`, 6000);
         return;
       }
       if (riding.dragon === 'pig') {
@@ -1817,7 +1819,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const baby = (f.state & ANIMAL_FLAG.baby) !== 0;
         const tamed = (f.state & ANIMAL_FLAG.tamed) !== 0;
         const foods = def.food.map((i) => nameOf(i)).join('·');
-        const tip = def.id === 'boat' ? '🛶 빈손 탭 → 타기 · 때리면 보트가 가방으로' : def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (isMountKind(def.id) ? (pets.get(aimedMob)?.mine ? `빈손 탭 → ${def.id === 'pig' ? '🐷' : '🐴'} 타기${def.id === 'pig' ? ' · 🥕 당근 낚싯대를 들면 빨라요' : ''} · 보면서 🐾 버튼 → 이름 짓기` : `남의 ${def.name}이에요`) : pets.get(aimedMob)?.mine ? `${{ follow: '🐾 따라오는 중 · 빈손 탭 → 앉기', sit: '🐾 앉아 있음 · 빈손 탭 → 풀어놓기', free: '🐾 자유 · 빈손 탭 → 따라오기' }[pets.get(aimedMob)!.mode]} · 보면서 🐾 버튼 → 이름 짓기` : '남이 길들인 강아지예요') : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.id === 'pig' && !baby ? `🏇 안장을 들고 탭 → 내 돼지로 · ${foods}을(를) 들고 탭 → 먹이기` : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
+        const tip = def.id === 'boat' ? '🛶 빈손 탭 → 타기 · 때리면 보트가 가방으로' : def.id === 'minecart' ? '🛒 빈손 탭 → 타기 · 때리면 수레가 가방으로' : def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (isMountKind(def.id) ? (pets.get(aimedMob)?.mine ? `빈손 탭 → ${def.id === 'pig' ? '🐷' : '🐴'} 타기${def.id === 'pig' ? ' · 🥕 당근 낚싯대를 들면 빨라요' : ''} · 보면서 🐾 버튼 → 이름 짓기` : `남의 ${def.name}이에요`) : pets.get(aimedMob)?.mine ? `${{ follow: '🐾 따라오는 중 · 빈손 탭 → 앉기', sit: '🐾 앉아 있음 · 빈손 탭 → 풀어놓기', free: '🐾 자유 · 빈손 탭 → 따라오기' }[pets.get(aimedMob)!.mode]} · 보면서 🐾 버튼 → 이름 짓기` : '남이 길들인 강아지예요') : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.id === 'pig' && !baby ? `🏇 안장을 들고 탭 → 내 돼지로 · ${foods}을(를) 들고 탭 → 먹이기` : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
         const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : def.id === 'cow' && !baby ? ' · 🪣 빈 양동이 들고 탭 → 우유' : def.id === 'villager' ? ' · 탭 → 💬 대화' : '';
         hud.toast(`${def.name}${baby ? ' (아기)' : ''}${tamed ? ' 🐾' : ''} · ${tip}${extra}`, 3000);
       }

@@ -1045,7 +1045,8 @@
       "solid": false,
       "lightEmit": 0,
       "texture": "rail",
-      "release": "v1.1"
+      "shape": "rail",
+      "_note": "철도 (#237, 아빠 마인크래프트 위키 광산 수레): 땅(고체) 위에 놓는다. 옆 철도에 맞춰 저절로 곧게·굽게 이어진다(코드가 ew·ne·nw·se·sw 변형을 만든다, 굽은 그림은 rail_corner). 수레를 들고 철도를 탭하면 수레가 놓이고 빈손 탭으로 탄다. 오르막은 아직"
     },
     {
       "id": "mob_spawner",

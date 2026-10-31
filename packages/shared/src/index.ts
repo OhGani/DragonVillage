@@ -24,6 +24,7 @@ export * from './rules/health';
 export * from './rules/mobs';
 export * from './rules/raid';
 export * from './rules/animals';
+export * from './rules/rails';
 export * from './rules/combat';
 export * from './rules/petNames';
 export * from './rules/villagerTalk';

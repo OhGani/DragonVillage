@@ -7,15 +7,33 @@
       "release": "v1.1",
       "habitat": "nether",
       "home": "bastion",
-      "drops": [["gold_nugget", [0, 1], 0.5]],
+      "drops": [
+        [
+          "gold_nugget",
+          [
+            0,
+            1
+          ],
+          0.5
+        ]
+      ],
       "xp": 5,
-      "weapons": ["golden_axe", "golden_sword", "crossbow"],
+      "weapons": [
+        "golden_axe",
+        "golden_sword",
+        "crossbow"
+      ],
       "enemy": "zombified_piglin",
       "rides": "hoglin",
       "friendlyIfWearing": "any_gold_armor",
       "barter": {
         "pay": "gold_ingot",
-        "gets": ["obsidian", "fire_resistance_potion", "ender_pearl", "misc"],
+        "gets": [
+          "obsidian",
+          "fire_resistance_potion",
+          "ender_pearl",
+          "misc"
+        ],
         "_note": "금으로 거래. 흑요석·화염 저항 포션·엔더 진주 외에 잡다한 것들 (아들 6차)"
       },
       "_note": "아들 6차(2026-09-13): 좀비 피글린과 전쟁하는 사이라 만날 때마다 금 도끼·금 칼·석궁으로 싸운다. 피글린 요새에 살고 호글린을 탄다(타거나 상자를 올리는 용도). 금 갑옷 4종 중 하나만 입어도 친구"
@@ -25,9 +43,30 @@
       "name": "좀비 피글린",
       "release": "v1.1",
       "habitat": "nether",
-      "drops": [["rotten_flesh", [0, 1], 1.0], ["gold_nugget", [0, 1], 0.3]],
+      "drops": [
+        [
+          "rotten_flesh",
+          [
+            0,
+            1
+          ],
+          1.0
+        ],
+        [
+          "gold_nugget",
+          [
+            0,
+            1
+          ],
+          0.3
+        ]
+      ],
       "xp": 5,
-      "weapons": ["golden_axe", "golden_sword", "crossbow"],
+      "weapons": [
+        "golden_axe",
+        "golden_sword",
+        "crossbow"
+      ],
       "enemy": "piglin",
       "rides": "zoglin",
       "friendlyIfWearing": "any_gold_armor",
@@ -38,7 +77,16 @@
       "name": "호글린",
       "release": "v1.1",
       "habitat": "nether",
-      "drops": [["porkchop", [2, 4], 1.0]],
+      "drops": [
+        [
+          "porkchop",
+          [
+            2,
+            4
+          ],
+          1.0
+        ]
+      ],
       "xp": 5,
       "riddenBy": "piglin",
       "canCarryChest": true,
@@ -49,7 +97,16 @@
       "name": "조글린",
       "release": "v1.1",
       "habitat": "nether",
-      "drops": [["rotten_flesh", [1, 3], 1.0]],
+      "drops": [
+        [
+          "rotten_flesh",
+          [
+            1,
+            3
+          ],
+          1.0
+        ]
+      ],
       "xp": 5,
       "riddenBy": "zombified_piglin",
       "canCarryChest": true
@@ -183,7 +240,7 @@
     {
       "id": "husk",
       "name": "허스크",
-      "_note": "모래색 좀비 (#157). 맞으면 4초 동안 느려진다 (#218, 아들 14차 3번)",
+      "_note": "사막 밤의 모래색 좀비 (v1.1-1). 좀비보다 조금 느리다",
       "drops": [
         [
           "rotten_flesh",
@@ -194,8 +251,7 @@
           1.0
         ]
       ],
-      "xp": 5,
-      "_note": "사막 밤의 모래색 좀비 (v1.1-1). 좀비보다 조금 느리다"
+      "xp": 5
     },
     {
       "id": "enderman",
@@ -345,7 +401,10 @@
       "name": "해피 가스트",
       "release": "v1.2",
       "habitat": "nether",
-      "madeFrom": { "block": "dried_ghast", "soakIn": "water" },
+      "madeFrom": {
+        "block": "dried_ghast",
+        "soakIn": "water"
+      },
       "rideable": true,
       "fireBreathOnCommand": true,
       "drops": [],
@@ -355,7 +414,16 @@
     {
       "id": "iron_golem",
       "name": "철 골렘",
-      "drops": [["iron_ingot", [2, 2], 1.0]],
+      "drops": [
+        [
+          "iron_ingot",
+          [
+            2,
+            2
+          ],
+          1.0
+        ]
+      ],
       "xp": 0,
       "_note": "철 골렘 (#169, 아들 6·7차): 방어전 종이 울리면 주민이 둘까지 부른다. 우민을 7씩 때리고 밀어낸다. 방어전이 끝나면 사라진다. 지금은 사람이 못 때린다"
     },
@@ -374,7 +442,16 @@
       "rideWith": "saddle",
       "breedWith": "golden_carrot",
       "followsWhenHolding": "golden_carrot",
-      "drops": [["leather", [0, 2], 1.0]],
+      "drops": [
+        [
+          "leather",
+          [
+            0,
+            2
+          ],
+          1.0
+        ]
+      ],
       "xp": 1,
       "_note": "아들 7차: 말에 안장을 씌우면 탈 수 있다 → 구현 2026-10-10 (#166): 마을 숲에 3마리, 안장을 들고 탭하면 내 말, 빈손 탭으로 탄다. 원정엔 못 간다. 말마다 달리기(8~11.5칸/초)·점프가 다르고(탈 때 별로 보여 줌), 황금 당근을 주면 사랑 → 망아지 (#219, 아들 14차 8번). 망아지는 20분 뒤 어른이 되어야 탄다"
     },
@@ -479,10 +556,37 @@
       "id": "boat",
       "name": "보트",
       "hp": 4,
-      "drops": [["boat", [1, 1], 1.0]],
+      "drops": [
+        [
+          "boat",
+          [
+            1,
+            1
+          ],
+          1.0
+        ]
+      ],
       "xp": 0,
       "rideable": true,
       "_note": "보트 (#209, 아빠 2026-10-21): 동물 체계를 빌려 쓰는 탈것. 보트를 들고 물을 탭하면 놓이고, 빈손 탭으로 누구나 탄다(주인 없음). 때려서 부수면 보트 아이템. 상자 보트는 아직"
+    },
+    {
+      "id": "minecart",
+      "name": "수레",
+      "hp": 6,
+      "drops": [
+        [
+          "minecart",
+          [
+            1,
+            1
+          ],
+          1.0
+        ]
+      ],
+      "xp": 0,
+      "rideable": true,
+      "_note": "수레 (#237, 아빠 2026-10-31 마인크래프트 위키 광산 수레): 보트처럼 동물 체계를 빌린 탈것. 철도 위에만 놓이고 철도를 따라서만 간다. 때려 부수면 수레 아이템으로. 전동 레일·몹 태우기·상자 수레는 아직"
     },
     {
       "id": "rabbit",
@@ -578,7 +682,16 @@
       "id": "snow_golem",
       "name": "눈 골렘",
       "habitat": "snowfield",
-      "drops": [["snowball", [0, 2], 1.0]],
+      "drops": [
+        [
+          "snowball",
+          [
+            0,
+            2
+          ],
+          1.0
+        ]
+      ],
       "_note": "살아 있는 눈 골렘 (#223, 아들 14차 5번): 설원 포탈 둘레에 셋. 먼저 공격하지 않고, 때리면 20초 동안 눈덩이를 던진다 — 맞아도 하트는 안 닳고 밀려나기만"
     }
   ],

@@ -216,6 +216,8 @@ export function animalParts(kind: string, variant: number, opts: { sheared?: boo
       return horse(variant);
     case 'boat':
       return boat();
+    case 'minecart':
+      return minecart();
     default:
       return dog(variant);
   }
@@ -269,6 +271,23 @@ export function collarVoxels(): Voxel[] {
   for (let x = -3; x <= 2; x++) for (let y = 10; y <= 15; y++) if (x === -3 || x === 2 || y === 10 || y === 15) out.push({ x, y, z: -8, c: '#e53935' });
   out.push({ x: -1, y: 9, z: -8, c: '#ffd54f' }, { x: 0, y: 9, z: -8, c: '#ffd54f' }); // 이름표
   return out;
+}
+
+// ---------------------------------------------------------------- 수레 (#237)
+/** 마인크래프트 광산 수레: 쇠 상자(바닥 + 네 벽, 위는 뚫림) + 바퀴 넷. 한 칸 크기, 앞이 −z */
+function minecart(): AnimalParts {
+  const iron = solid(0x6e6e74),
+    dark = solid(0x3c3c40),
+    light = solid(0x9a9aa2),
+    wheel = solid(0x222224);
+  const b = new Builder();
+  b.box(-7, 6, 2, 2, -8, 7, iron); // 바닥 14×1×16
+  b.box(-7, -7, 3, 8, -8, 7, iron).box(6, 6, 3, 8, -8, 7, iron); // 긴 벽
+  b.box(-7, 6, 3, 8, -8, -8, iron).box(-7, 6, 3, 8, 7, 7, iron); // 앞뒤 벽
+  b.box(-7, 6, 8, 8, -8, 7, light).box(-6, 5, 8, 8, -7, 6, dark); // 위 테두리 밝게, 안쪽 어둡게
+  b.box(-7, -7, 2, 8, -8, -8, dark).box(6, 6, 2, 8, -8, -8, dark).box(-7, -7, 2, 8, 7, 7, dark).box(6, 6, 2, 8, 7, 7, dark); // 모서리 기둥
+  for (const z of [-5, 4]) b.box(-7, -6, 0, 1, z, z + 1, wheel).box(5, 6, 0, 1, z, z + 1, wheel); // 바퀴
+  return { body: b.out, head: part(new Builder(), [0, 0, 0]), legs: [], tail: null, wings: [], babyHead: 1 };
 }
 
 // ---------------------------------------------------------------- 보트 (#209)

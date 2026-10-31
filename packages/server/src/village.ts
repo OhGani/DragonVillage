@@ -180,7 +180,7 @@ import {
   xpAfterDeath, CRYSTAL_SHOT_RANGE,
   GLASS_BOTTLE,
   WATER_BOTTLE,
-  effectiveBuys, enchantLevelOf, meleeBonus, knockbackFactor, canEnchant, countBookshelves, encodeEnchanted, hash3, anvilCombine } from '@dragon-village/shared';
+  effectiveBuys, enchantLevelOf, meleeBonus, knockbackFactor, canEnchant, countBookshelves, encodeEnchanted, hash3, anvilCombine, MINECART, CART_SEAT_Y, railShapeFor } from '@dragon-village/shared';
 import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS, TRADES, ENCHANTS } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
@@ -1014,9 +1014,10 @@ export class VillageRoom {
     if (!p) return 'NOT_IN_VILLAGE';
     if (!p.riding) return 'NOT_RIDING';
     const horse = isMountKind(p.riding.dragon);
+    const wasCart = p.riding.dragon === MINECART;
     p.riding = null;
     this.broadcastJson({ t: 'dismount', idx }, -1, p.world);
-    if (horse) this.animals.releaseRider(idx, p.pos); // 말은 내린 자리에 선다 (#166)
+    if (horse) this.animals.releaseRider(idx, wasCart ? { x: p.pos.x, y: p.pos.y - CART_SEAT_Y, z: p.pos.z } : p.pos); // 말은 내린 자리에 선다 (#166), 수레는 철도 위에 (#237)
     else this.broadcastNest();
     return null;
   }
@@ -2103,6 +2104,38 @@ export class VillageRoom {
     return null;
   }
 
+  /** 수레 놓기 (#237): 철도 칸 위에 수레 하나. 오류: NO_RAIL · TOO_FAR · NO_ITEM */
+  placeCart(idx: number, x: number, y: number, z: number, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (p.world !== 'village') return 'NO_RAIL';
+    if (!this.world.inBounds(x, y, z) || !this.registry.get(this.world.getBlock(x, y, z)).rail) return 'NO_RAIL';
+    if (Math.hypot(x + 0.5 - p.pos.x, y + 0.5 - (p.pos.y + EYE), z + 0.5 - p.pos.z) > HIT_REACH + 2) return 'TOO_FAR';
+    const changed = new Set<number>();
+    if (!take(p.inv, MINECART, 1, changed)) return 'NO_ITEM';
+    this.sendInv(p, changed);
+    this.animals.placeCart(x, y, z, now);
+    this.log(`마을 ${this.info.code}: ${p.nick} 수레 놓음 (${x},${y},${z})`);
+    return null;
+  }
+
+  /** 철도 (#237): (x,y,z)와 네 이웃의 철도를 이웃에 맞춰 곧게·굽게 다시 맞추고, 바뀐 칸을 알린다 */
+  private reshapeRails(world: { inBounds(x: number, y: number, z: number): boolean; getBlock(x: number, y: number, z: number): number; setBlock(x: number, y: number, z: number, id: number): { changed: boolean } }, x: number, y: number, z: number, touched: (x: number, y: number, z: number) => void, worldName: 'village' | 'expedition', by: number): void {
+    const railAt = (bx: number, bz: number) => (world.inBounds(bx, y, bz) ? this.registry.get(world.getBlock(bx, y, bz)).rail : null);
+    for (const [dx, dz] of [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]] as const) {
+      const bx = x + dx,
+        bz = z + dz;
+      const cur = railAt(bx, bz);
+      if (!cur) continue;
+      const want = railShapeFor(railAt(bx, bz - 1) !== null, railAt(bx + 1, bz) !== null, railAt(bx, bz + 1) !== null, railAt(bx - 1, bz) !== null);
+      if (want === cur.dir) continue;
+      const num = this.registry.railVariant(cur.base, want);
+      if (!world.setBlock(bx, y, bz, num).changed) continue;
+      touched(bx, y, bz);
+      this.broadcast(encodeBlockChanged({ x: bx, y, z: bz, id: this.registry.get(num).id, by }), -1, worldName);
+    }
+  }
+
   /** 폭죽 (#211): 폭죽 하나를 쓰고 같은 세계 모두에게 알린다. 오류: NO_ITEM · TOO_FAR */
   firework(idx: number, x: number, y: number, z: number, now = Date.now()): string | null {
     const p = this.players.get(idx);
@@ -2353,7 +2386,7 @@ export class VillageRoom {
       return hoeOf(TOOLS, heldForTill) ? null : REJECT.TOOL;
     }
     // 놓기: 액체는 플레이어가 놓는 고인 액체 8/8 만(자연 원천·흐름은 못 놓는다), 그 외 내부 블록 불가, 자리는 공기·액체만, 누가 서 있으면 안 됨
-    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch && !def.bed) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82)
+    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch && !def.bed && !def.rail) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82)
     if (def.bed && def.bed.head) return REJECT.INVALID; // 침대는 발 쪽만 놓는다(머리 칸은 서버가 채운다, #188)
     if (def.door && (def.door.upper || def.door.open)) return REJECT.INVALID; // 문은 아래·닫힘 변형만 놓는다(윗칸은 서버가 채운다)
     // 가방에 그 아이템(액체면 찬 양동이)이 있어야 한다 (M4, #66)
@@ -2371,6 +2404,11 @@ export class VillageRoom {
         const isWater = (wx: number, wy: number, wz: number) => world.inBounds(wx, wy, wz) && this.registry.get(world.getBlock(wx, wy, wz)).fluid === 'water';
         if (!canPlantUpward(def.id, idOf, isWater, x, y, z)) return REJECT.NO_FARMLAND;
       } else if (def.plantOn ? below !== def.plantOn : below !== 'grass' && below !== 'dirt' && below !== 'farmland') return REJECT.NO_FARMLAND;
+    }
+    if (def.rail) {
+      // 철도 (#237): 고체 블록 위에만
+      const below = world.inBounds(x, y - 1, z) ? this.registry.get(world.getBlock(x, y - 1, z)) : null;
+      if (!below || !below.solid) return REJECT.INVALID;
     }
     const item = itemForPlacing(def.id, this.registry);
     if (!item || countOf(p.inv, item) < 1) return REJECT.NO_ITEM;
@@ -2542,6 +2580,7 @@ export class VillageRoom {
     }
     this.sendInv(p, changed);
     this.broadcast(encodeBlockChanged({ x: req.x, y: req.y, z: req.z, id: req.id, by: idx }), -1, p.world);
+    if (def.rail || prev.rail) this.reshapeRails(world, req.x, req.y, req.z, touched, p.world, idx); // 철도는 이웃에 맞춰 곧게·굽게 (#237)
     // 상자를 놓았으면 옆에 혼자 있는 상자와 큰 상자로 합쳐 본다 (#84)
     if (num !== AIR_ID && this.registry.get(num).chest?.pair === -1) this.tryPairChest(p, req.x, req.y, req.z);
   }

@@ -13,7 +13,7 @@ import { hash3 } from '../math/prng';
 import type { MobKind } from './mobs';
 
 /** 동물 종류 (mobs.json passive id). dog = 강아지(늑대) */
-export const ANIMAL_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'boat'];
+export const ANIMAL_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'boat', 'minecart'];
 export function isAnimal(kind: MobKind): boolean {
   return ANIMAL_KINDS.includes(kind);
 }
@@ -28,7 +28,7 @@ export const HORSE_SEAT_Y = 1.25;
 /** 말을 타면 이 속도로 달린다 (칸/초, 사람 달리기 5.6) */
 export const HORSE_SPEED = 9.5;
 /** 탈 수 있는 동물 (#166 말, #185 돼지) — 안장을 씌우면 내 것, 빈손 탭으로 탄다 */
-export const MOUNT_KINDS = ['horse', 'pig', 'boat'] as const; // 보트 (#209): 주인 없이 누구나 탄다
+export const MOUNT_KINDS = ['horse', 'pig', 'boat', 'minecart'] as const; // 보트 (#209)·수레 (#237): 주인 없이 누구나 탄다
 export type MountKind = (typeof MOUNT_KINDS)[number];
 export function isMountKind(kind: string): kind is MountKind {
   return (MOUNT_KINDS as readonly string[]).includes(kind);
@@ -45,6 +45,9 @@ export const BOAT_SEAT_Y = 0.35;
 export const BOAT_SPEED = 7;
 /** 물 밖(땅)에서는 느릿느릿 */
 export const BOAT_LAND_SPEED = 1.2;
+/** 수레 (#237): 수레 아이템을 들고 철도를 탭하면 놓인다. 빈손 탭으로 타고, 보는 쪽으로 밀면 철도를 따라 달린다 (shared/rules/rails.ts) */
+export const MINECART = 'minecart';
+export const CART_SEAT_Y = 0.3;
 /** 안장 아이템 */
 export const SADDLE = 'saddle';
 /** 대장장이 (#173): 대장간이 지어지면 그 앞에 서는 주민의 이름. 잡혀가지 않는다 */

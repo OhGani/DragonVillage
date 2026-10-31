@@ -180,6 +180,7 @@ export function itemForPlacing(blockId: string, registry: BlockRegistry): string
   if (d.fluid) return d.fluidVolume === FLUID_FULL ? (d.fluid === 'water' ? WATER_BUCKET : LAVA_BUCKET) : null;
   if (d.door) return d.door.upper || d.door.open ? null : registry.get(d.door.base).id; // 문은 아래·닫힘 변형을 놓을 때 문 아이템 하나
   if (d.torch) return registry.get(d.torch.base).id; // 벽에 붙인 횃불도 횃불 아이템 하나 (#82)
+  if (d.rail) return registry.get(d.rail.base).id; // 굽은 철도도 철도 아이템 하나 (#237)
   if (d.chest) return registry.get(d.chest.base).id; // 큰 상자 반쪽도 상자 아이템 하나 (#84)
   if (d.bed) return d.bed.head ? null : registry.get(d.bed.base).id; // 침대는 발 쪽을 놓을 때 침대 아이템 하나 (#188)
   if (d.seed) return d.seed; // 작물 싹은 씨앗 아이템으로 심는다 (#165)

@@ -515,6 +515,8 @@ export type ClientJson =
   | { t: 'sleep'; x?: number; y?: number; z?: number }
   /** 보트 띄우기 (#209): 보트를 들고 물 칸을 탭 */
   | { t: 'placeBoat'; x: number; y: number; z: number }
+  /** 수레 놓기 (#237): 철도 칸 */
+  | { t: 'placeCart'; x: number; y: number; z: number }
   /** 폭죽 쏘기 (#211): 폭죽을 들고 탭한 자리 */
   | { t: 'firework'; x: number; y: number; z: number }
   /** 내 펫 이름 짓기 (M8-1 4차): pet-names.json 의 이름만 */

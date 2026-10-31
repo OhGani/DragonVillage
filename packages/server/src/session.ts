@@ -503,6 +503,14 @@ export class Session {
         if (err) return this.error(err, err === 'NO_WATER' ? '보트는 물 위에만 띄워요' : err === 'NO_ITEM' ? '보트가 가방에 없어요' : err === 'TOO_FAR' ? '너무 멀어요 — 가까이 가요' : '지금은 할 수 없어요');
         return;
       }
+      case 'placeCart': {
+        // 수레 (#237)
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.x) || !Number.isInteger(msg.y) || !Number.isInteger(msg.z)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.placeCart(this.idx, msg.x as number, msg.y as number, msg.z as number);
+        if (err) return this.error(err, err === 'NO_RAIL' ? '수레는 철도 위에만 놓아요' : err === 'NO_ITEM' ? '수레가 가방에 없어요' : err === 'TOO_FAR' ? '너무 멀어요 — 가까이 가요' : '지금은 할 수 없어요');
+        return;
+      }
       case 'eat': {
         // 먹기 (#186)
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');

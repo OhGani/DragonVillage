@@ -22,7 +22,7 @@ import {
   shovelOf,
   TILLABLE,
   toolOf,
-  type VoxelWorld, enchantLevelOf } from '@dragon-village/shared';
+  type VoxelWorld, enchantLevelOf, MINECART } from '@dragon-village/shared';
 import { TOOLS } from '@dragon-village/shared/data';
 import type { InputState } from '../input/InputState';
 import { PLAYER_SIZE, type Player } from '../player/Player';
@@ -54,6 +54,8 @@ export interface InteractionEvents {
   onSleepBed?(x: number, y: number, z: number): void;
   /** 보트를 들고 물을 탭 → 띄우기 (#209) */
   onPlaceBoat?(x: number, y: number, z: number): void;
+  /** 수레 (#237): 수레를 들고 철도를 탭 */
+  onPlaceCart?(x: number, y: number, z: number): void;
   /** 폭죽을 들고 탭 → 그 자리에서 발사 (#211). 블록을 겨눴으면 그 위, 아니면 내 발 앞 */
   onFirework?(x: number, y: number, z: number): void;
 }
@@ -299,6 +301,12 @@ export class Interaction {
       } else this.events.onHint?.('🧪 유리병을 들고 물(강·연못)을 탭하면 물병이 돼요');
       return;
     }
+    // 수레 (#237): 수레를 들고 철도를 탭하면 놓는다
+    if (t && this.heldItem === MINECART) {
+      if (this.registry.get(t.id).rail) this.events.onPlaceCart?.(t.x, t.y, t.z);
+      else this.events.onHint?.('🛒 수레는 철도 위에 놓아요 — 철도를 탭해요');
+      return;
+    }
     // 보트 (#209): 보트를 들고 물을 탭하면 띄운다. 물이 아니면 안내
     if (t && this.heldItem === BOAT) {
       if (this.registry.get(t.id).fluid === 'water') this.events.onPlaceBoat?.(t.x, t.y, t.z);
@@ -396,6 +404,11 @@ export class Interaction {
     if (def.seed && !def.plantOn) {
       const isWater = (wx: number, wy: number, wz: number) => this.world.inBounds(wx, wy, wz) && this.registry.get(this.world.getBlock(wx, wy, wz)).fluid === 'water';
       if (!hasWaterNear(isWater, x, y - 1, z)) this.events.onHint?.('💧 물이 4칸 안에 없으면 안 자라요 — 옆에 물을 한 칸 부어요');
+    }
+    // 철도 (#237): 고체 블록 위에만
+    if (def.rail && !(this.world.inBounds(x, y - 1, z) && this.registry.get(this.world.getBlock(x, y - 1, z)).solid)) {
+      this.events.onHint?.('🛤️ 철도는 땅 위에만 놓아요');
+      return;
     }
     // 꽃·풀 (#180): 잔디·흙·농지 위에만
     if (def.shape === 'cross') {

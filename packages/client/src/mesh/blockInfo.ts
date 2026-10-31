@@ -1,4 +1,4 @@
-import { DOOR_DIR, type BlockRegistry } from '@dragon-village/shared';
+import { DOOR_DIR, RAIL_DIRS, type BlockRegistry } from '@dragon-village/shared';
 import { LAYER_CUTOUT, LAYER_NONE, LAYER_OPAQUE, LAYER_TRANSLUCENT, type MeshBlockInfo } from './meshTypes';
 
 /**
@@ -11,7 +11,7 @@ export function buildMeshBlockInfo(registry: BlockRegistry, textureIndex: Readon
 
   return registry.defs.map((d): MeshBlockInfo => {
     if (d.id === 'air' || !d.textures) {
-      return { layer: LAYER_NONE, opaque: false, castAO: false, sameCull: false, tex: [0, 0, 0, 0, 0, 0], fluidKind: 0, fluidHeight: 0, panel: null, torch: null, egg: false, cross: false, bed: null, sign: false };
+      return { layer: LAYER_NONE, opaque: false, castAO: false, sameCull: false, tex: [0, 0, 0, 0, 0, 0], fluidKind: 0, fluidHeight: 0, panel: null, torch: null, egg: false, cross: false, bed: null, sign: false, rail: null };
     }
     const translucent = d.fluid === 'water' || d.id === 'ice';
     // 용암은 solid=false 지만 마인크래프트처럼 불투명하게 그린다
@@ -38,6 +38,7 @@ export function buildMeshBlockInfo(registry: BlockRegistry, textureIndex: Readon
       cross: d.shape === 'cross',
       bed: d.bed ? [d.bed.facing, d.bed.head ? 1 : 0] : null,
       sign: d.shape === 'sign',
+      rail: d.rail ? RAIL_DIRS.indexOf(d.rail.dir) : null,
       layer,
       opaque,
       castAO: (opaque && !d.fluid) || d.id === 'leaves',

@@ -15,8 +15,7 @@ import {
   RIDE_SEAT_Y,
   tryStepUp,
   type Vec3,
-  type VoxelWorld,
-} from '@dragon-village/shared';
+  type VoxelWorld, CART_SEAT_Y, advanceCart, type CartState } from '@dragon-village/shared';
 import type * as THREE from 'three';
 import type { InputState } from '../input/InputState';
 
@@ -77,6 +76,8 @@ export class Player {
   inWater = false;
   /** 드래곤을 타고 있다 (M6-4): 중력 없음, 점프 = 상승, 웅크리기 = 하강. 충돌은 사람 몸 그대로 */
   riding = false;
+  /** 수레 (#237): 타는 동안 철도 위 위치·방향·속도. 탈 때 Game 이 null 로 되돌린다 */
+  cart: CartState | null = null;
   /** 말을 타고 있다 (#166): 날지 않고 땅에서 빨리 달린다, 점프는 조금 높게 */
   /** 타고 있는 동물 종류 (#166 말, #185 돼지). 드래곤은 null (riding 만 true) */
   mountKind: MountKind | null = null;
@@ -144,7 +145,7 @@ export class Player {
 
   /** 탈것에 앉은 높이 (#178): 타고 있으면 몸 상자가 이만큼 아래로 길어져 탈것이 땅속에 안 들어간다 */
   get seatY(): number {
-    return this.riding ? (this.mountKind === 'horse' ? HORSE_SEAT_Y : this.mountKind === 'pig' ? PIG_SEAT_Y : this.mountKind === 'boat' ? BOAT_SEAT_Y : RIDE_SEAT_Y) : 0;
+    return this.riding ? (this.mountKind === 'horse' ? HORSE_SEAT_Y : this.mountKind === 'pig' ? PIG_SEAT_Y : this.mountKind === 'boat' ? BOAT_SEAT_Y : this.mountKind === 'minecart' ? CART_SEAT_Y : RIDE_SEAT_Y) : 0;
   }
 
   /** 발 아래 seat 만큼 중 땅에 안 박힌 길이 — 탈것 자리가 땅에 걸쳐 있으면(낮은 천장 아래서 탔을 때 등) 그만큼만 상자를 늘려 안 끼인다 */
@@ -185,6 +186,22 @@ export class Player {
     this.vel.y = 0;
   }
 
+  /** 수레 (#237): 철도를 따라서만 간다. 보는 쪽으로 밀면 빨라지고 반대로 밀면 느려지다 되돌아간다. 철도 밖이면 선다 */
+  private stepCart(input: InputState, h: number): void {
+    const pos = this.pos;
+    const railAt = (bx: number, by: number, bz: number) => (this.world.inBounds(bx, by, bz) ? (this.registry.get(this.world.getBlock(bx, by, bz)).rail?.dir ?? null) : null);
+    if (!this.cart) this.cart = { x: pos.x, y: Math.floor(pos.y - CART_SEAT_Y + 0.01), z: pos.z, heading: null, speed: 0 };
+    const sy = Math.sin(this.yaw),
+      cy = Math.cos(this.yaw);
+    advanceCart(this.cart, h, railAt, { x: -sy * input.moveZ, z: -cy * input.moveZ });
+    pos.x = this.cart.x;
+    pos.z = this.cart.z;
+    pos.y = this.cart.y + CART_SEAT_Y;
+    this.vel.x = this.vel.y = this.vel.z = 0;
+    this.onGround = true;
+    this.horizontalSpeed = this.cart.speed;
+  }
+
   get lookDir(): Vec3 {
     const cp = Math.cos(this.pitch);
     return { x: -cp * Math.sin(this.yaw), y: Math.sin(this.pitch), z: -cp * Math.cos(this.yaw) };
@@ -213,6 +230,10 @@ export class Player {
   private step(input: InputState, h: number): void {
     const pos = this.pos,
       vel = this.vel;
+    if (this.mountKind === 'minecart') {
+      this.stepCart(input, h);
+      return;
+    }
     this.inWater = this.isWaterAt(pos.x, pos.y + 0.2, pos.z) || this.isWaterAt(pos.x, pos.y + this.eyeHeight - 0.1, pos.z);
     this.sneaking = input.sneak && !this.inWater && !this.riding;
     this.guarding = input.guard && !this.riding;
