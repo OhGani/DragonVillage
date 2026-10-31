@@ -239,6 +239,23 @@ describe('침대 변형 (#188)', () => {
     expect(minutes).toBe(8);
   });
 
+  it('감자 4단계 (#239): 싹 → 자라는 중 → 잎 무성 → 익음, 모두 8분, 십자 모양, 덜 자라면 감자 1', () => {
+    let id = 'potato_young';
+    let minutes = 0;
+    const seen: string[] = [];
+    while (true) {
+      const b = BLOCKS.require(id);
+      seen.push(id);
+      expect(b.shape).toBe('cross');
+      expect(b.drops).toBe('potato');
+      if (!b.grows) break;
+      minutes += b.growMinutes ?? 0;
+      id = b.grows;
+    }
+    expect(seen).toEqual(['potato_young', 'potato_mid', 'potato_big', 'potato_ripe']);
+    expect(minutes).toBe(8);
+  });
+
   it('당근 4단계 (#235): 싹 → 자라는 중 → 잎 무성 → 익음, 모두 8분, 십자 모양', () => {
     let id = 'carrot_young';
     let minutes = 0;

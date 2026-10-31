@@ -1069,6 +1069,8 @@ describe('VillageRoom 블록 변경 검증', () => {
     room.onBlockChange(ia, { seq: 1, x: fx, y: GROUND_Y + 1, z: fz, id: 'potato_young' }, 1000);
     expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y + 1, fz)).id).toBe('potato_young');
     expect(countOf(p.inv, 'potato')).toBe(0);
+    room.checkCrops(1000 + 4 * 60_000);
+    expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y + 1, fz)).id).toBe('potato_mid'); // 4단계 (#239): 2분 뒤 자라는 중
     room.checkCrops(1000 + 8 * 60_000 + 1);
     expect(BLOCKS.get(room.world.getBlock(fx, GROUND_Y + 1, fz)).id).toBe('potato_ripe');
     room.onBlockChange(ia, { seq: 2, x: fx, y: GROUND_Y + 1, z: fz, id: 'air' }, 1000 + 9 * 60_000);

@@ -1356,13 +1356,40 @@
       "hardness": 0.0,
       "tool": null,
       "solid": false,
+      "shape": "cross",
       "drops": "potato",
       "seed": "potato",
-      "grows": "potato_ripe",
-      "growMinutes": 8,
+      "grows": "potato_mid",
+      "growMinutes": 2,
       "lightEmit": 0,
-      "texture": "potato_young",
-      "_note": "감자 농사 (#212, 아들 14차 9번 '감자 농사도?'): 감자를 들고 농지 위를 탭하면 심어진다(당근처럼 씨앗이 따로 없다). 8분 뒤 익은 감자"
+      "texture": "potato_stage0",
+      "_note": "감자 농사 (#212, 아들 14차 9번 '감자 농사도?'): 감자를 들고 농지 위를 탭하면 심어진다(당근처럼 씨앗이 따로 없다). 싹 2분 → 자라는 중 3분 → 잎 무성 3분 → 익은 감자 (#239, 당근과 같은 4단계). 덜 자란 걸 부수면 감자 1"
+    },
+    {
+      "id": "potato_mid",
+      "name": "자라는 감자",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "shape": "cross",
+      "drops": "potato",
+      "grows": "potato_big",
+      "growMinutes": 3,
+      "lightEmit": 0,
+      "texture": "potato_stage1"
+    },
+    {
+      "id": "potato_big",
+      "name": "잎 무성한 감자",
+      "hardness": 0.0,
+      "tool": null,
+      "solid": false,
+      "shape": "cross",
+      "drops": "potato",
+      "grows": "potato_ripe",
+      "growMinutes": 3,
+      "lightEmit": 0,
+      "texture": "potato_stage2"
     },
     {
       "id": "potato_ripe",
@@ -1376,8 +1403,9 @@
         4
       ],
       "lightEmit": 0,
-      "texture": "potato_ripe",
-      "_note": "부수면 감자 1~4 (마인크래프트). 독 감자는 좀비가 가끔 떨군다"
+      "texture": "potato_stage3",
+      "_note": "부수면 감자 1~4 (마인크래프트). 누런 감자가 흙 위로 보인다 (#239). 독 감자는 좀비가 가끔 떨군다",
+      "shape": "cross"
     },
     {
       "id": "end_crystal",
