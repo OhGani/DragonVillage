@@ -450,6 +450,13 @@ export class Session {
         if (err && err !== 'COOLDOWN') return this.error(err, USE_ERROR_KO[err] ?? '지금은 할 수 없어요');
         return;
       }
+      case 'talking': {
+        // 대화·가게 열림/닫힘 (#233)
+        if (!this.room) return;
+        if (!Number.isInteger(msg.id) || typeof msg.on !== 'boolean') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        this.room.setTalking(this.idx, msg.id, msg.on);
+        return;
+      }
       case 'trade': {
         // 주민 거래 (#225)
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');

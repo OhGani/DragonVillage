@@ -433,6 +433,10 @@ export class NetClient {
   sendTrade(id: number, kind: 'buy' | 'sell', item: string): void {
     this.sendJson({ t: 'trade', id, kind, item });
   }
+  /** 대화·가게 열림/닫힘 (#233) */
+  sendTalking(id: number, on: boolean): void {
+    this.sendJson({ t: 'talking', id, on });
+  }
   /** 활·쇠뇌로 쏘기 (M8-2) */
   sendShoot(id: number, slot: number, charge = 0): void {
     this.sendJson({ t: 'shoot', id, slot, charge: Math.round(charge) });

@@ -312,6 +312,13 @@ export class MobSystem {
         }
         if (def.neutral && (m.angryUntil ?? 0) < now) target = null; // 중립(좀비 피글린·엔더맨·눈 골렘): 맞기 전엔 가만히 (#161)
         if (target && m.kind === 'enderman') this.teleportNear(m, target, now);
+        if (m.kind === 'villager' && (m.busyUntil ?? 0) > now) {
+          // 말 걸거나 거래 중 (#233): 서서 그 사람을 본다
+          const p = players.find((t) => t.idx === m.busyWith);
+          if (p) m.yaw = Math.atan2(-(p.x - m.x), -(p.z - m.z));
+          m.wanderTo = null;
+          continue;
+        }
         if (!target && m.kind === 'villager' && m.home) {
           this.wander(m, def, dt, now); // 원정 주민 산책 (#229, 아빠 "주민이 집에만 있어")
           continue;
@@ -560,6 +567,16 @@ export class MobSystem {
   }
 
   /** 원정 주민 산책 (#229): 2~6초마다 반은 집 3~10칸 안의 자리로 천천히(0.6배) 걷고, 반은 쉰다. 시드·번호·시각으로 결정론 */
+  /** 대화·가게 열림/닫힘 (#233) — 주민만 */
+  setBusy(id: number, idx: number, on: boolean, now: number): void {
+    const m = this.mobs.get(id);
+    if (!m || m.kind !== 'villager') return;
+    if (on) {
+      m.busyUntil = now + 120_000;
+      m.busyWith = idx;
+    } else if (m.busyWith === idx) m.busyUntil = 0;
+  }
+
   private wander(m: MobState, def: ReturnType<MobRegistry['get']>, dt: number, now: number): void {
     const home = m.home!;
     if (!m.wanderTo && now >= (m.wanderAt ?? 0)) {

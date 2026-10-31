@@ -17,6 +17,8 @@ export class TalkSheet {
   private emeralds = 0;
   /** 내가 산 횟수 (#230): 물건 → 횟수. 값은 trades 의 demand 로 */
   private demand: Record<string, number> = {};
+  /** 거래 결과 (#233, 아빠 "메시지가 뒤에 숨어 있다"): 가게 말풍선 자리에 보여 준다 */
+  private note: { text: string; ok: boolean } | null = null;
 
   constructor(
     root: HTMLElement,
@@ -26,7 +28,7 @@ export class TalkSheet {
     private readonly nameOf: (item: string) => string,
     private readonly iconOf: (item: string, size: number) => HTMLCanvasElement | null,
     /** 닫힐 때 (게임 입력을 다시 켜기 위해) */
-    private readonly onClose: () => void = () => {},
+    private readonly onClose: (mobId: number | null) => void = () => {},
   ) {
     this.sheet = document.createElement('div');
     this.sheet.className = 'chat-panel talk-sheet';
@@ -61,6 +63,8 @@ export class TalkSheet {
     this.name = name;
     this.trades = trades;
     this.emeralds = emeralds;
+    this.note = null;
+    this.say.classList.remove('ok', 'bad');
     this.title.textContent = `🧑‍🌾 ${name}`;
     this.say.textContent = talk.say;
     this.list.replaceChildren();
@@ -87,7 +91,9 @@ export class TalkSheet {
     const t = this.trades;
     if (!t || this.mobId === null) return;
     this.title.textContent = `🛒 ${this.name}의 가게 — 💎 ${this.emeralds}`;
-    this.say.textContent = '에메랄드로 사고, 모은 걸 팔아. 직업마다 파는 게 달라. 같은 걸 자꾸 사면 조금씩 비싸져(최대 3배) — 뭐 할래?';
+    this.say.textContent = this.note?.text ?? '에메랄드로 사고, 모은 걸 팔아. 직업마다 파는 게 달라. 같은 걸 자꾸 사면 조금씩 비싸져(최대 3배) — 뭐 할래?';
+    this.say.classList.toggle('ok', this.note?.ok === true);
+    this.say.classList.toggle('bad', this.note?.ok === false);
     this.list.replaceChildren();
     const row = (def: TradeDef) => {
       const b = document.createElement('button');
@@ -117,6 +123,15 @@ export class TalkSheet {
     this.close.textContent = '가게 닫기';
   }
 
+  /** 서버 답(샀어요·모자라요 …)을 말풍선에 (#233). 창이 열려 있을 때만 */
+  showResult(text: string, ok: boolean): void {
+    if (this.sheet.hidden) return;
+    this.note = { text, ok };
+    this.say.textContent = text;
+    this.say.classList.toggle('ok', ok);
+    this.say.classList.toggle('bad', !ok);
+  }
+
   /** 산 횟수가 바뀌면 (#230): 가게가 열려 있으면 값을 다시 그린다 */
   setDemand(counts: Record<string, number>): void {
     this.demand = counts;
@@ -139,7 +154,8 @@ export class TalkSheet {
   hide(): void {
     if (this.sheet.hidden) return;
     this.sheet.hidden = true;
+    const id = this.mobId;
     this.mobId = null;
-    this.onClose();
+    this.onClose(id);
   }
 }

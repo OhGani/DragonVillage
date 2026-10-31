@@ -1,4 +1,5 @@
 import {
+  ANIMAL_ID_BASE,
   buildingBlocks,
   BY_SERVER,
   countOf,
@@ -815,6 +816,27 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(p.inv[kslot]!.item).toBe('book.ench.power.1');
   });
 
+  it('대화 중엔 주민이 서서 나를 본다 (#233): 열면 안 걷고, 닫으면 다시 걷는다', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
+    const villagers = [...room.animals.animals.values()].filter((an) => an.kind === 'villager' && an.name === null);
+    const v = villagers[0]!;
+    const id = ANIMAL_ID_BASE + v.id;
+    const pos = room.animals.positionOf(id)!;
+    room.onMove(ia, { x: pos.x + 3, y: pos.y, z: pos.z, yaw: 0, pitch: 0, flags: 0 });
+    const T0 = Date.now(); // 동물 시계는 진짜 시각 (join 때 한 번 돈다)
+    room.setTalking(ia, id, true, T0);
+    for (let i = 0; i < 200; i++) room.animals.tick(T0 + i * 100);
+    const after = room.animals.positionOf(id)!;
+    expect(Math.hypot(after.x - pos.x, after.z - pos.z)).toBeLessThan(1); // 겹친 주민을 떼어 놓는 separate() 만큼만 (산책이면 20초에 훨씬 더 간다)
+    room.setTalking(ia, id, false, T0 + 20_000);
+    for (let i = 0; i < 600; i++) room.animals.tick(T0 + 20_000 + i * 100);
+    const later = room.animals.positionOf(id)!;
+    expect(Math.hypot(later.x - pos.x, later.z - pos.z)).toBeGreaterThan(1);
+  });
+
   it('모루 (#232): 모루 옆에서 인챈트 책을 검에 붙이고, 같은 단계 둘을 합치면 한 단계 위, 레벨만 쓴다', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
@@ -916,6 +938,7 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(room.trade(ia, v.id, 'buy', 'torch', 3000)).toBeNull();
     expect(countOf(p.inv, 'torch')).toBe(8);
     expect(room.trade(ia, v.id, 'buy', 'sandstone', 3000)).toBe('NO_TRADE'); // 사막 물건은 사막에서만
+    room.setTalking(ia, v.id, false, 3000); // 거래하면 서 있다가 창을 닫으면 다시 산책 (#233)
     // 산책 (#229): home 이 있는 원정 주민은 집 둘레를 돌아다닌다
     v.home = { x: v.x, z: v.z };
     const sx0 = v.x,

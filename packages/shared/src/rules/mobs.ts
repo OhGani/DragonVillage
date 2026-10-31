@@ -360,6 +360,9 @@ export interface MobState {
   home?: { x: number; z: number };
   wanderTo?: { x: number; y: number; z: number } | null;
   wanderAt?: number;
+  /** 말 걸거나 거래 중 (#233): 이때까지 서서 busyWith(플레이어 idx)를 본다 */
+  busyUntil?: number;
+  busyWith?: number;
 }
 
 /** 통신용 (MobsState) */

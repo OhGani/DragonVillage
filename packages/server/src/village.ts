@@ -1852,9 +1852,18 @@ export class VillageRoom {
    * 주민 거래 (#225, 아들 14차 4번): 마을 주민 6칸 안에서. buy = 에메랄드를 내고 산다, sell = 물건을 주고 에메랄드를 받는다.
    * 오류: NOT_IN_VILLAGE · NO_MOB · NOT_VILLAGER · TOO_FAR · NO_TRADE · NO_EMERALD · NOT_ENOUGH · BAG_FULL
    */
+  /** 대화·가게 창 열림/닫힘 (#233): 주민이 서서 나를 본다. 거래할 때마다 다시 연장 */
+  setTalking(idx: number, mobId: number, on: boolean, now = Date.now()): void {
+    const p = this.players.get(idx);
+    if (!p) return;
+    if (p.world === 'village') this.animals.setBusy(mobId, idx, on, now);
+    else this.mobSys?.setBusy(mobId, idx, on, now);
+  }
+
   trade(idx: number, mobId: number, kind: 'buy' | 'sell', item: string, now = Date.now()): string | null {
     const p = this.players.get(idx);
     if (!p) return 'NOT_IN_VILLAGE';
+    this.setTalking(idx, mobId, true, now); // 거래 중엔 계속 서 있는다 (#233)
     let at: { x: number; y: number; z: number } | null;
     let place: string | null = null;
     if (p.world === 'village') {

@@ -2194,6 +2194,12 @@ body {
   background: rgba(0, 0, 0, 0.35);
   border-radius: 8px;
 }
+.talk-say.ok {
+  background: rgba(40, 120, 60, 0.55);
+}
+.talk-say.bad {
+  background: rgba(150, 50, 50, 0.55);
+}
 .talk-replies {
   grid-template-columns: 1fr;
 }

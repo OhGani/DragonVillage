@@ -484,6 +484,8 @@ export type ClientJson =
   | { t: 'useMob'; id: number; slot?: number }
   /** 주민 거래 (#225): kind buy = 에메랄드로 산다, sell = 판다. item 은 trades.json 의 물건 */
   | { t: 'trade'; id: number; kind: 'buy' | 'sell'; item: string }
+  /** 주민 대화·가게 열림/닫힘 (#233): 열려 있는 동안 주민이 서서 나를 본다 */
+  | { t: 'talking'; id: number; on: boolean }
   /** 손에 든 먹을 것 먹기 (#186): slot = 손에 든 칸. 서버가 하나 빼고 체력을 올린다 */
   | { t: 'eat'; slot: number }
   /** 뼛가루 (#193): 손에 든 칸의 뼛가루를 그 자리 작물에 → 바로 다 자란다 */

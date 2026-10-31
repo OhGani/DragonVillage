@@ -110,12 +110,18 @@ export interface AnimalHooks {
   kidnapped?(): number;
 }
 
+/** 대화 창이 열린 뒤 이만큼은 서 있는다 (닫힘 메시지를 못 받아도 풀린다) */
+const TALK_HOLD_MS = 120_000;
+
 interface Animal extends AnimalRow {
   hp: number;
   yaw: number;
   /** 걷기 목표 (없으면 서 있다) */
   target: { x: number; z: number } | null;
   pauseUntil: number;
+  /** 말 걸거나 거래 중 (#233): 이때까지 서서 busyWith(플레이어 idx)를 본다. 저장 안 함 */
+  busyUntil: number;
+  busyWith: number;
   turn: number;
   loveUntil: number;
   breedCooldownUntil: number;
@@ -165,7 +171,7 @@ export class AnimalSystem {
 
   private wrap(r: AnimalRow): Animal {
     const def = this.defs.get(r.kind);
-    return { ...r, hp: animalMaxHp(def.hp, r.kind, r.owner !== null), yaw: 0, target: null, pauseUntil: 0, turn: 0, loveUntil: 0, breedCooldownUntil: 0, tameAttempts: 0, shearCount: 0, away: false, ridden: null, dirty: false };
+    return { ...r, hp: animalMaxHp(def.hp, r.kind, r.owner !== null), yaw: 0, target: null, pauseUntil: 0, busyUntil: 0, busyWith: -1, turn: 0, loveUntil: 0, breedCooldownUntil: 0, tameAttempts: 0, shearCount: 0, away: false, ridden: null, dirty: false };
   }
 
   /** 발 높이 (그 자리 근처 층). 못 서면 null */
@@ -406,6 +412,19 @@ export class AnimalSystem {
       this.hooks.json({ t: 'mob', ev: 'grow', id: ANIMAL_ID_BASE + a.id, mob: a.kind, x: a.x, y: a.y, z: a.z });
     }
     if (a.sitting) return;
+    if (a.busyUntil > now) {
+      // 말 걸거나 거래 중 (#233, 아빠 "주민이 멈춰 있게"): 서서 그 사람을 본다
+      const p = players.find((v) => v.idx === a.busyWith);
+      if (p) {
+        const yaw = Math.atan2(-(p.x - a.x), -(p.z - a.z));
+        if (Math.abs(yaw - a.yaw) > 0.05) {
+          a.yaw = yaw;
+          a.dirty = true;
+        }
+      }
+      a.target = null;
+      return;
+    }
     // 사랑: 짝을 찾는다
     if (a.loveUntil > now && a.adultAt === null) {
       for (const b of this.animals.values()) {
@@ -676,6 +695,16 @@ export class AnimalSystem {
   }
 
   /** 동물 종류 (없으면 null) */
+  /** 대화·가게 열림/닫힘 (#233): 열리면 TALK_HOLD_MS 동안(거래할 때마다 연장) 서 있는다 */
+  setBusy(mobId: number, idx: number, on: boolean, now: number): void {
+    const a = this.find(mobId);
+    if (!a) return;
+    if (on) {
+      a.busyUntil = now + TALK_HOLD_MS;
+      a.busyWith = idx;
+    } else if (a.busyWith === idx) a.busyUntil = 0;
+  }
+
   kindOf(mobId: number): MobKind | null {
     return this.find(mobId)?.kind ?? null;
   }

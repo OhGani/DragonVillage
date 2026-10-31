@@ -280,7 +280,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     (id, kind, item) => net.sendTrade(id, kind, item), // 주민 거래 (#225): 서버가 판정하고 가방·토스트로 답한다
     (id) => nameOf(id), // 아래에서 만들어지는 것들 — 열 때 쓴다
     (id, size) => iconOf(id, size),
-    () => {
+    (id) => {
+      if (id !== null) net.sendTalking(id, false); // 주민이 다시 걷는다 (#233)
       if (started && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) resume();
     },
   );
@@ -295,6 +296,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     if (kbm.locked) document.exitPointerLock();
     const job = TRADES.jobFor(id, pets.get(id)?.name ?? null); // 직업별 가게 (#229)
     talk.show(id, job ? `${name} · ${job.name}` : name, def, TRADES.forVillager(job?.id ?? null, ctx.expedition?.id ?? null), countOf(inv, TRADES.currency)); // 주민은 누구나 가게도 한다 (#225), 원정지엔 그곳 물건이 더 (#228)
+    net.sendTalking(id, true); // 주민이 서서 나를 본다 (#233)
   };
   const petNamer = new PetNamePicker(
     root,
@@ -844,7 +846,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       if (nick) hud.toast(ctx.kind === 'expedition' ? `${nick} 님이 마을로 갔어요` : `${nick} 님이 나갔어요`, 3000);
       updateVillageInfo();
     },
-    onError: (_code, message) => hud.toast(message, 4000),
+    onError: (code, message) => {
+      if (talk.visible) talk.showResult(message, code === 'TRADE_OK'); // 대화 창이 토스트를 가린다 (#233)
+      hud.toast(message, 4000);
+    },
     onToday: (card) => onTodayCard(card),
     onDragons: (list) => {
       const before = myDragons.filter((d) => d.stage !== 'egg').length;
