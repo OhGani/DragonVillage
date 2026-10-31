@@ -52,6 +52,9 @@ export class Hud {
   readonly skillBtn: HTMLButtonElement;
   private readonly heartsEl: HTMLElement;
   private readonly armorEl: HTMLElement;
+  private readonly fxEl: HTMLElement;
+  private fxList: { icon: string; name: string; level: number; until: number }[] = [];
+  private fxShownSec = -1;
   private readonly vignette: HTMLElement;
   private vignetteTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly skillBox: HTMLElement;
@@ -124,6 +127,7 @@ export class Hud {
       <div class="slot-name"></div>
       <div class="armor" aria-label="방어" hidden></div>
       <div class="hearts" aria-label="체력" hidden></div>
+      <div class="fx-chips" aria-label="물약 효과" hidden></div>
       <div class="raid-bar" hidden></div>
       <div class="follow-bar" hidden><span class="follow-text"></span><button class="plain-btn follow-btn">🧭 따라가기</button></div>
       <div class="boss-bar" hidden><div class="boss-name"></div><div class="boss-track"><div class="boss-fill"></div></div><div class="boss-text"></div></div>
@@ -236,6 +240,7 @@ export class Hud {
     this.hotbar = q('.hotbar');
     this.heartsEl = q('.hearts');
     this.armorEl = q('.armor');
+    this.fxEl = q('.fx-chips');
     this.vignette = q('.hurt-vignette');
     this.xpBar = q('.xp-bar');
     this.xpFill = q('.xp-fill');
@@ -657,6 +662,34 @@ export class Hud {
       html += `<span class="armor-pt ${v === 2 ? 'full' : v === 1 ? 'half' : 'empty'}"></span>`;
     }
     this.armorEl.innerHTML = html;
+  }
+
+  /** 물약 효과 칩 (#245): 하트 위에 그림 + 남은 시간. until 은 Date.now() 기준 */
+  setStatusEffects(list: { icon: string; name: string; level: number; until: number }[]): void {
+    this.fxList = list;
+    this.fxShownSec = -1;
+    this.tickStatus(Date.now());
+  }
+
+  /** 1초마다 남은 시간을 다시 쓴다 (Game 의 tick 에서) */
+  tickStatus(now: number): void {
+    const sec = Math.floor(now / 1000);
+    if (sec === this.fxShownSec) return;
+    this.fxShownSec = sec;
+    const live = this.fxList.filter((e) => e.until > now);
+    if (live.length === 0) {
+      this.fxEl.hidden = true;
+      this.fxEl.innerHTML = '';
+      return;
+    }
+    this.fxEl.hidden = false;
+    this.fxEl.innerHTML = live
+      .map((e) => {
+        const left = Math.max(0, Math.ceil((e.until - now) / 1000));
+        const t = left >= 60 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : `${left}초`;
+        return `<span class="fx-chip" title="${e.name}">${e.icon}${e.level >= 2 ? '<b>II</b>' : ''} <i>${t}</i></span>`;
+      })
+      .join('');
   }
 
   /** 맞았다: 화면 가장자리가 잠깐 붉어진다 */

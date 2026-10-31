@@ -387,6 +387,11 @@ export interface MobState {
   /** 좀비 주민 (#244): 황금 사과를 먹었다 — 이 시각에 주민으로 돌아온다. curedBy = 먹인 사람 idx (보상) */
   cureAt?: number;
   curedBy?: number;
+  /** 던진 물약 (#245): 독(이 시각까지 1.25초마다 1, 죽이진 않음)·감속(걸음 반)·나약함(무는 힘 반) */
+  poisonUntil?: number;
+  poisonNextAt?: number;
+  slowUntil?: number;
+  weakUntil?: number;
 }
 
 /** 통신용 (MobsState) */

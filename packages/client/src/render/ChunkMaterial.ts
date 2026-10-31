@@ -10,6 +10,7 @@ const MIN_LUM = 0.05;
 const VERT = /* glsl */ `
 in vec4 meta; // 텍스처 레이어, AO(0..3), 면(0..5), 빛(스카이<<4 | 블록)
 uniform float uSkyLight; // 낮 1.0 → 밤 0.2 (M3). 스카이라이트에만 곱한다
+uniform float uMinLight; // 야간 투시 물약 (#245): 빛이 이 아래로는 안 내려간다 (0 = 평소)
 out vec3 vUvw;
 out float vShade;
 out vec3 vLight;
@@ -26,7 +27,7 @@ void main() {
   float skyRaw = floor(meta.w / 16.0 + 0.001);
   float sky = skyRaw / 15.0 * uSkyLight;
   float blk = (meta.w - skyRaw * 16.0) / 15.0;
-  float l = max(sky, blk);
+  float l = max(max(sky, blk), uMinLight);
   float lum = ${MIN_LUM.toFixed(2)} + ${(1 - MIN_LUM).toFixed(2)} * pow(l, 1.5);
   vec3 warm = mix(vec3(1.0), vec3(1.0, 0.86, 0.68), clamp(blk - sky, 0.0, 1.0));
   vLight = lum * warm;
@@ -73,6 +74,8 @@ export interface ChunkMaterials {
   setFog(near: number, far: number): void;
   setTime(t: number): void;
   setSkyLight(v: number): void;
+  /** 야간 투시 (#245): 0 = 평소, 0.85 = 밤·동굴도 환하게 */
+  setMinLight(v: number): void;
   dispose(): void;
 }
 
@@ -88,6 +91,7 @@ export function createChunkMaterials(texture: THREE.DataArrayTexture): ChunkMate
         uFogNear: { value: 60 },
         uFogFar: { value: 120 },
         uSkyLight: { value: 1 },
+        uMinLight: { value: 0 },
         uCutout: { value: cutout },
         uTime: { value: 0 },
       },
@@ -116,6 +120,9 @@ export function createChunkMaterials(texture: THREE.DataArrayTexture): ChunkMate
     },
     setSkyLight(v) {
       for (const m of all) m.uniforms.uSkyLight.value = v;
+    },
+    setMinLight(v) {
+      for (const m of all) m.uniforms.uMinLight.value = v;
     },
     dispose() {
       for (const m of all) m.dispose();

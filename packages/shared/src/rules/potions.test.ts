@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DataError } from './blocks';
 import { POTIONS } from './data';
-import { AWKWARD, WATER_BOTTLE, isPotionItem, parsePotions, potionFromItemId, potionItemId, waterBottle, type PotionState } from './potions';
+import { AWKWARD, WATER_BOTTLE, isPotionItem, parsePotions, potionFromItemId, potionItemId, waterBottle, type PotionState, addEffect, pruneEffects, hasEffect, speedMultiplier, jumpMultiplier, attackBonus, damageMultiplier, potionOutcome, isHarmfulEffect } from './potions';
 
 const small = {
   base: {
@@ -231,5 +231,70 @@ describe('물약 아이템 id (M4 가방)', () => {
     expect(isPotionItem('dirt')).toBe(false);
     expect(potionFromItemId('potion.speed.huge')).toBeNull();
     expect(potionFromItemId('juice.speed')).toBeNull();
+  });
+});
+
+describe('물약 효과 (#245)', () => {
+  const st = (id: string, extra: Partial<PotionState> = {}): PotionState => ({ id, extended: false, amplified: false, form: 'drink', ...extra });
+
+  it('실제 data/potions.json: 모든 물약의 effect 가 effects 표에 있고 숫자가 채워진다', () => {
+    for (const d of POTIONS.defs) expect(POTIONS.effects.has(d.effect), d.id).toBe(true);
+    expect(POTIONS.effectOf('speed')).toMatchObject({ name: '신속', speedTimes: 1.2, jumpTimes: 1, attackPlus: 0 });
+    expect(POTIONS.effectOf('instant_health').heals).toBe(4);
+    expect(POTIONS.effectOf('없는것')).toMatchObject({ id: '없는것', name: '없는것', speedTimes: 1, heals: 0 });
+  });
+
+  it('effects 표가 있는데 물약이 모르는 효과를 가리키면 한국어로 알려준다', () => {
+    expect(() => parsePotions({ ...small, effects: { speed: { name: '신속' } } })).toThrow(/effect 'slowness'.*effects 표에 없어요/);
+  });
+
+  it('마시면: 즉시(치유 I 4, II 8)·지속(신속 180초, 레드스톤 480초, 발광석 II 90초)', () => {
+    expect(potionOutcome(POTIONS, st('healing'))).toEqual({ heals: 4, hurts: 0, effect: null, harmful: false });
+    expect(potionOutcome(POTIONS, st('healing', { amplified: true })).heals).toBe(8);
+    expect(potionOutcome(POTIONS, st('harming'))).toMatchObject({ hurts: 6, harmful: true });
+    expect(potionOutcome(POTIONS, st('speed'))).toEqual({ heals: 0, hurts: 0, effect: { id: 'speed', level: 1, seconds: 180 }, harmful: false });
+    expect(potionOutcome(POTIONS, st('speed', { extended: true })).effect?.seconds).toBe(480);
+    expect(potionOutcome(POTIONS, st('speed', { amplified: true })).effect).toEqual({ id: 'speed', level: 2, seconds: 90 });
+    expect(potionOutcome(POTIONS, waterBottle())).toEqual({ heals: 0, hurts: 0, effect: null, harmful: false });
+    expect(potionOutcome(POTIONS, st(AWKWARD)).effect).toBeNull();
+  });
+
+  it('나쁜 물약은 독·고통·감속·나약함 — 거북 장군은 느려도 피해를 막아 주니 좋은 쪽', () => {
+    const bad = ['poison', 'harming', 'slowness', 'weakness'];
+    for (const d of POTIONS.defs) expect(isHarmfulEffect(POTIONS.effectOf(d.effect)), d.id).toBe(bad.includes(d.id));
+  });
+
+  it('붙이기: 높은 단계가 이기고, 같은 단계는 긴 쪽, 지난 건 떨어진다', () => {
+    let list = addEffect([], 'speed', 1, 1000, 0);
+    expect(list).toEqual([{ id: 'speed', level: 1, until: 1000 }]);
+    list = addEffect(list, 'speed', 1, 500, 0);
+    expect(list[0]!.until).toBe(1000); // 짧은 건 안 덮는다
+    list = addEffect(list, 'speed', 2, 400, 0);
+    expect(list[0]).toEqual({ id: 'speed', level: 2, until: 400 }); // II 가 이긴다 (시간이 짧아도)
+    list = addEffect(list, 'speed', 1, 5000, 0);
+    expect(list[0]!.level).toBe(2); // I 로는 II 를 못 덮는다
+    list = addEffect(list, 'jump_boost', 1, 3000, 0);
+    expect(list.length).toBe(2);
+    expect(pruneEffects(list, 450)).toEqual([{ id: 'jump_boost', level: 1, until: 3000 }]);
+    expect(hasEffect(list, 'speed', 399)).toBe(true);
+    expect(hasEffect(list, 'speed', 400)).toBe(false);
+    expect(addEffect(list, 'speed', 1, 900, 450)).toEqual([{ id: 'jump_boost', level: 1, until: 3000 }, { id: 'speed', level: 1, until: 900 }]); // 지난 II 자리엔 새로
+  });
+
+  it('배율: 신속 1.2 / II 1.4, 감속 0.85, 도약 1.25, 힘 +3 / II +6, 나약함 -4, 거북 장군 0.4·피해 0.4 — 여럿이면 곱·합', () => {
+    const now = 0;
+    const one = (id: string, level = 1) => [{ id, level, until: 1 }];
+    expect(speedMultiplier(one('speed'), POTIONS, now)).toBeCloseTo(1.2);
+    expect(speedMultiplier(one('speed', 2), POTIONS, now)).toBeCloseTo(1.4);
+    expect(speedMultiplier(one('slowness'), POTIONS, now)).toBeCloseTo(0.85);
+    expect(speedMultiplier([...one('speed'), ...one('slowness')], POTIONS, now)).toBeCloseTo(1.02);
+    expect(speedMultiplier(one('turtle_master', 2), POTIONS, now)).toBeCloseTo(0.1); // 0.1 아래로는 안 간다
+    expect(jumpMultiplier(one('jump_boost'), POTIONS, now)).toBeCloseTo(1.25);
+    expect(attackBonus(one('strength'), POTIONS, now)).toBe(3);
+    expect(attackBonus(one('strength', 2), POTIONS, now)).toBe(6);
+    expect(attackBonus(one('weakness'), POTIONS, now)).toBe(-4);
+    expect(damageMultiplier(one('turtle_master'), POTIONS, now)).toBeCloseTo(0.4);
+    expect(damageMultiplier(one('speed'), POTIONS, now)).toBe(1);
+    expect(speedMultiplier(one('speed'), POTIONS, 5)).toBe(1); // 지난 건 없는 셈
   });
 });

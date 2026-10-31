@@ -212,6 +212,28 @@
       "_note": "어색한 물약을 거치지 않고 물병에 바로. 공격이 약해진다. 좀비 주민 치료 = 나약함 + 황금 사과 (아들 7차와 이어짐)"
     }
   ],
+  "effects": {
+    "_comment": "물약 효과 (#245). 마시면(또는 던져서 맞으면) 이 효과가 붙는다. 숫자를 바꿔도 돼: speedTimes 걷기 배율, jumpTimes 점프 배율, attackPlus 손 공격 더하기, heals 바로 차는 체력(하트 하나 = 2), hurts 바로 깎이는 체력, healEverySec/hurtEverySec 몇 초마다 1씩, damageTimes 맞는 피해 배율. II 단계는 배율은 두 배로 벌어지고(1.2 → 1.4) 더하기는 두 배, 간격은 반. icon 은 화면 아래 칩에 보이는 그림",
+    "speed": { "name": "신속", "icon": "💨", "speedTimes": 1.2, "_note": "걷기 1.2배 (II 는 1.4배). 말·드래곤을 탔을 땐 그대로" },
+    "slowness": { "name": "감속", "icon": "🐌", "speedTimes": 0.85, "_note": "던져서 몹에게 — 몹은 절반 속도" },
+    "jump_boost": { "name": "도약", "icon": "🦘", "jumpTimes": 1.25 },
+    "strength": { "name": "힘", "icon": "💪", "attackPlus": 3, "_note": "손·검으로 때릴 때 +3 (II 는 +6). 활은 그대로" },
+    "weakness": { "name": "나약함", "icon": "😩", "attackPlus": -4, "_note": "던져서 몹에게 — 몹이 무는 힘이 반" },
+    "instant_health": { "name": "즉시 회복", "icon": "❤️", "heals": 4, "_note": "마시자마자 하트 2개 (II 는 4개)" },
+    "instant_damage": { "name": "고통", "icon": "💔", "hurts": 6, "_note": "마시면 내가 아프다! 던져서 몹에게 (II 는 12)" },
+    "regeneration": { "name": "재생", "icon": "💗", "healEverySec": 2.5, "_note": "2.5초마다 하트 반 칸 (II 는 1.25초마다)" },
+    "poison": { "name": "독", "icon": "🤢", "hurtEverySec": 1.25, "_note": "1.25초마다 반 칸씩 아프지만 죽지는 않는다. 던져서 몹에게" },
+    "fire_resistance": { "name": "화염 저항", "icon": "🔥", "_note": "블레이즈·가스트 불덩이가 안 아프다" },
+    "slow_falling": { "name": "느린 낙하", "icon": "🪶", "_note": "천천히 떨어지고 낙하 피해가 없다" },
+    "night_vision": { "name": "야간 투시", "icon": "👁️", "_note": "밤·동굴이 환하게 보인다" },
+    "invisibility": { "name": "투명화", "icon": "👻", "_note": "몹이 나를 못 찾고 친구 눈에도 안 보인다" },
+    "water_breathing": { "name": "수중 호흡", "icon": "🫧", "_note": "아직 물속에서 숨이 안 막혀서 하는 일이 없다" },
+    "turtle_master": { "name": "거북 장군", "icon": "🐢", "speedTimes": 0.4, "damageTimes": 0.4, "_note": "느리지만 맞는 피해가 40% 로" },
+    "wind_charged": { "name": "바람 충전", "icon": "🌬️", "_note": "v2 — 아직 효과 없음" },
+    "weaving": { "name": "거미줄 짜기", "icon": "🕸️", "_note": "v2 — 아직 효과 없음" },
+    "oozing": { "name": "슬라임 분출", "icon": "🟢", "_note": "v2 — 아직 효과 없음" },
+    "infested": { "name": "감염", "icon": "🐛", "_note": "v2 — 아직 효과 없음" }
+  },
   "ingredients": {
     "_comment": "재료 어디서 얻나 (아들 참고용, 코드는 안 읽음). '아직 없음' = 그 몹·구조물이 게임에 들어올 때 같이",
     "nether_wart": { "name": "네더 사마귀", "source": "네더 요새 (영혼 모래에서 자람)" },

@@ -313,6 +313,8 @@ interface Burst {
 const BURST_GEOM = new THREE.BoxGeometry(0.16, 0.16, 0.16);
 /** 화살 막대 (M8-2): 앞(−z → lookAt 방향)으로 긴 상자 */
 const SHOT_GEOM = new THREE.BoxGeometry(0.06, 0.06, 0.7);
+/** 던진 물약 병 (#245) */
+const BOTTLE_GEOM = new THREE.BoxGeometry(0.22, 0.3, 0.22);
 const SHOT_MAT = new THREE.MeshBasicMaterial({ color: 0xd9c8a0 });
 /** 불덩이 (#173): 가스트·블레이즈가 쏜다. 주황 공, 화살보다 천천히(0.45초) */
 const FIRE_GEOM = new THREE.SphereGeometry(0.3, 8, 6);
@@ -327,7 +329,7 @@ export class MobView {
   private readonly bursts: Burst[] = [];
   private readonly pops: Pop[] = [];
   /** 날아가는 화살 (M8-2): 0.25초 동안 from → to */
-  private readonly shots: { mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; born: number; ms: number; fire: boolean }[] = [];
+  private readonly shots: { mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; born: number; ms: number; fire: boolean; splash?: number }[] = [];
   /** 불덩이가 닿아 터질 때 (#215): Game 이 소리를 붙인다 */
   onFireHit: (() => void) | null = null;
 
@@ -378,6 +380,16 @@ export class MobView {
     mesh.lookAt(t);
     this.group.add(mesh);
     this.shots.push({ mesh, from: f, to: t, born: -1, ms: fire ? 450 : 250, fire });
+  }
+
+  /** 던진 물약 (#245): 병이 포물선 없이 날아가 떨어진 자리에서 그 색으로 흩어진다 */
+  splash(from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }, color: number): void {
+    const mesh = new THREE.Mesh(BOTTLE_GEOM, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 }));
+    const f = new THREE.Vector3(from.x, from.y, from.z),
+      t = new THREE.Vector3(to.x, to.y, to.z);
+    mesh.position.copy(f);
+    this.group.add(mesh);
+    this.shots.push({ mesh, from: f, to: t, born: -1, ms: 350, fire: false, splash: color });
   }
 
   /** 조준 안내용: 그 몹의 종류·상태 */
@@ -851,6 +863,10 @@ export class MobView {
           this.burst(s.to.x, s.to.y, s.to.z, 0xff8a2a, 18, now);
           this.burst(s.to.x, s.to.y, s.to.z, 0x4a4a4a, 8, now);
           this.onFireHit?.();
+        }
+        if (s.splash !== undefined) {
+          (s.mesh.material as THREE.Material).dispose();
+          this.burst(s.to.x, s.to.y, s.to.z, s.splash, 16, now); // 물약이 깨져 퍼진다 (#245)
         }
         continue;
       }

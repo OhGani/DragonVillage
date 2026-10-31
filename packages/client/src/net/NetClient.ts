@@ -192,6 +192,12 @@ export interface NetEvents {
   onCodex(m: { kind: 'block'; id: string; total: number }): void;
   /** 내 체력 (M7-1) */
   onHealth(m: { hp: number; max: number; cause: string }): void;
+  /** 내게 붙은 물약 효과 (#245) */
+  onEffects(list: { id: string; level: number; leftMs: number }[]): void;
+  /** 누가 물약을 던졌다 (#245) */
+  onSplash(m: { idx: number; potion: string; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; hits: number }): void;
+  /** 누가 투명해졌다/돌아왔다 (#245) */
+  onPlayerFx(m: { idx: number; invisible: boolean }): void;
   /** 죽어서 다시 일어남 — 이 자리로 (M7-1) */
   onRespawn(m: { x: number; y: number; z: number; yaw: number; dropped: number }): void;
   /** 이 세계의 경험치 구슬 전부 */
@@ -426,6 +432,16 @@ export class NetClient {
     this.sendJson({ t: 'eat', slot });
   }
 
+  /** 물약 마시기 (#245) */
+  sendDrink(slot: number): void {
+    this.sendJson({ t: 'drink', slot });
+  }
+
+  /** 물약 던지기 (#245): 보는 방향 */
+  sendThrowPotion(slot: number, dir: { x: number; y: number; z: number }): void {
+    this.sendJson({ t: 'throwPotion', slot, dir: { x: dir.x, y: dir.y, z: dir.z } });
+  }
+
   sendUseMob(id: number, slot: number): void {
     this.sendJson({ t: 'useMob', id, slot });
   }
@@ -638,6 +654,9 @@ export class NetClient {
     else if (msg.t === 'village') ev.onVillage(msg);
     else if (msg.t === 'codex') ev.onCodex(msg);
     else if (msg.t === 'health') ev.onHealth(msg);
+    else if (msg.t === 'effects') ev.onEffects(msg.list);
+    else if (msg.t === 'splash') ev.onSplash(msg);
+    else if (msg.t === 'playerFx') ev.onPlayerFx(msg);
     else if (msg.t === 'respawn') ev.onRespawn(msg);
     else if (msg.t === 'orbs') ev.onOrbs(msg.list);
     else if (msg.t === 'orbGone') ev.onOrbGone(msg.id, msg.by);

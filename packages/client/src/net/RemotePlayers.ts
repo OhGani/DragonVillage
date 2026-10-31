@@ -181,6 +181,12 @@ export class RemotePlayers {
   }
 
   /** 🛡️ 막기 켜고 끄기 (#144) */
+  /** 투명화 물약 (#245): 인형·이름표를 숨긴다 */
+  setInvisible(idx: number, on: boolean): void {
+    const f = this.figures.get(idx);
+    if (f) f.group.visible = !on;
+  }
+
   setGuarding(idx: number, on: boolean): void {
     const f = this.figures.get(idx);
     if (f) f.guarding = on;

@@ -31,6 +31,8 @@ const SWIM = 2.2;
 const GRAVITY = 32;
 const TERMINAL = 78;
 const JUMP_V = 9.0; // ≈ 1.27 블록
+/** 느린 낙하 물약 (#245): 이보다 빨리는 안 떨어진다 (블록/초) */
+const SLOW_FALL_V = 3.0;
 /** 드래곤 탑승 (M6-4): 나는 속도·오르내리는 속도 (블록/초) */
 const RIDE_SPEED = 9;
 /** 말 (#166) — 말마다 다르다 (#219): 기본값 */
@@ -69,6 +71,10 @@ export class Player {
   guardSlow = 0.5;
   /** 허스크 모래 (#218): 남은 느려짐 시간(초). Game 이 health 메시지로 켠다 */
   slowLeft = 0;
+  /** 물약 (#245): 걷기·점프 배율(신속·감속·도약), 느린 낙하. Game 이 effects 메시지로 넣는다. 탈것엔 안 먹힌다 */
+  speedMul = 1;
+  jumpMul = 1;
+  slowFalling = false;
   /** 타고 있는 말의 달리기(칸/초)·점프 배율 (#219 말마다 다르다). Game 이 mount 때 넣는다 */
   horseSpeed = HORSE_SPEED;
   horseJump = 1.15;
@@ -251,7 +257,7 @@ export class Player {
     }
     const flying = this.riding && this.mountKind === null;
     const boatSurface = this.mountKind === 'boat' ? this.waterSurface(pos) : null;
-    const speed = (this.mountKind === 'boat' ? (boatSurface !== null ? BOAT_SPEED : BOAT_LAND_SPEED) : this.mountKind === 'horse' ? this.horseSpeed : this.mountKind === 'pig' ? (this.carrotStick ? PIG_SPEED : PIG_SLOW) : this.riding ? RIDE_SPEED : this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK) * (this.guarding ? this.guardSlow : 1) * (this.slowLeft > 0 ? SLOW_MUL : 1);
+    const speed = (this.mountKind === 'boat' ? (boatSurface !== null ? BOAT_SPEED : BOAT_LAND_SPEED) : this.mountKind === 'horse' ? this.horseSpeed : this.mountKind === 'pig' ? (this.carrotStick ? PIG_SPEED : PIG_SLOW) : this.riding ? RIDE_SPEED : (this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK) * this.speedMul) * (this.guarding ? this.guardSlow : 1) * (this.slowLeft > 0 ? SLOW_MUL : 1); // 물약 배율은 걸을 때만 (#245)
     const accel = flying ? 8 : this.mountKind === 'boat' ? 4 : this.inWater ? 6 : this.onGround ? (this.mountKind !== null ? 10 : 18) : 3.5;
     const k = Math.min(1, accel * h);
     // 날 때 앞·뒤로 밀면 보는 쪽(위아래)으로 난다 (#97). 살짝 내려보는 건 수평으로 치고, 많이 기울일수록 가파르게
@@ -292,9 +298,10 @@ export class Player {
     } else {
       vel.y -= GRAVITY * h;
       if (vel.y < -TERMINAL) vel.y = -TERMINAL;
+      if (this.slowFalling && !this.mountKind && vel.y < -SLOW_FALL_V) vel.y = -SLOW_FALL_V; // 느린 낙하 물약 (#245): 깃털처럼
       if (input.jump && this.onGround && this.mountKind !== 'pig') {
         // 말은 조금 높게 (#166), 돼지는 못 뛴다 (#185)
-        vel.y = this.mountKind === 'horse' ? JUMP_V * this.horseJump : JUMP_V; // 말마다 다르다 (#219)
+        vel.y = this.mountKind === 'horse' ? JUMP_V * this.horseJump : this.mountKind ? JUMP_V : JUMP_V * this.jumpMul; // 말마다 다르다 (#219), 도약 물약 (#245)
         this.onGround = false;
       }
     }

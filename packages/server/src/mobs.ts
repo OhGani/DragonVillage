@@ -46,7 +46,7 @@ import {
   pickSpawn,
   rollDrops,
   spawnKinds,
-  stepMob, isLookingAt, hash3, isZombieKind, zombieVillagerRoll, CURE_MS, CURE_REWARD } from '@dragon-village/shared';
+  stepMob, isLookingAt, hash3, isZombieKind, zombieVillagerRoll, CURE_MS, CURE_REWARD, MOB_POISON_EVERY_MS, MOB_SLOW_MUL, MOB_WEAK_MUL, SPLASH_RADIUS, type PotionOutcome } from '@dragon-village/shared';
 
 /** 몹이 도는 무대 — 원정지(Expedition) 또는 마을(방어전) */
 export interface MobArena {
@@ -93,8 +93,8 @@ export interface MobTarget {
 }
 
 export interface MobHooks {
-  /** 이 무대에 있는 사람들 */
-  players(): MobTarget[];
+  /** 이 무대에 있는 사람들 (now 를 주면 투명화 물약(#245)을 마신 사람은 뺀다) */
+  players(now?: number): MobTarget[];
   hurt(idx: number, amount: number, cause: string, now: number): void;
   /** 피해 없이 밀기 (#223 눈 골렘 눈덩이): (x, z) 는 밀리는 방향 단위 벡터 */
   knock?(idx: number, x: number, z: number, now: number): void;
@@ -271,7 +271,7 @@ export class MobSystem {
   }
 
   tick(now: number): void {
-    const players = this.hooks.players();
+    const players = this.hooks.players(now);
     if (this.opts.autoSpawn && this.isNight(now) && !this.e.ended && players.length && this.regularCount < MOB_MAX && now - this.lastSpawnAt >= SPAWN_EVERY_MS) {
       this.lastSpawnAt = now;
       this.turn++;
@@ -285,6 +285,7 @@ export class MobSystem {
     }
     this.tickBoss(players, now);
     this.tickPoison(players, now);
+    this.tickMobPotions(now);
     if (this.mobs.size === 0 && this.companions.size === 0) return;
     if (now - this.lastStepAt >= STEP_MS) {
       const dt = Math.min(0.5, (now - (this.lastStepAt || now - STEP_MS)) / 1000);
@@ -298,7 +299,8 @@ export class MobSystem {
           else m.state = MOB_STATE.cure;
           continue;
         }
-        const def = this.defs.get(m.kind);
+        const def0 = this.defs.get(m.kind);
+        const def = (m.slowUntil ?? 0) > now ? { ...def0, speed: def0.speed * MOB_SLOW_MUL } : def0; // 감속 물약 (#245)
         let target: MobTarget | null = null;
         let best = Infinity;
         for (const p of players) {
@@ -361,7 +363,7 @@ export class MobSystem {
           if (ev === 'attack') {
             // 원거리 몹은 화살이 날아가는 그림을 먼저 (피해는 바로)
             if (isRangedMob(def)) this.hooks.json({ t: 'arrow', from: { x: m.x, y: m.y + mobSize(m.kind).h * 0.8, z: m.z }, to: { x: target.x, y: target.eyeY - 0.3, z: target.z }, fire: m.kind === 'ghast' || m.kind === 'blaze', snow: m.kind === 'snow_golem' }); // 가스트·블레이즈는 불덩이 (#173), 눈 골렘은 눈덩이 (#223)
-            if (def.damage > 0) this.hooks.hurt(target.idx, m.grudge !== undefined ? GRUDGE_DAMAGE : def.damage, m.kind, now);
+            if (def.damage > 0) this.hooks.hurt(target.idx, m.grudge !== undefined ? GRUDGE_DAMAGE : (m.weakUntil ?? 0) > now ? Math.max(1, Math.floor(def.damage * MOB_WEAK_MUL)) : def.damage, m.kind, now); // 나약함 물약 (#245)
             else {
               // 눈 골렘 눈덩이 (#223): 안 아프고 밀려나기만
               const kx = target.x - m.x,
@@ -442,6 +444,49 @@ export class MobSystem {
   }
 
   /** 독: 초당 1, 끝나거나 무대에서 나가면 풀린다 */
+  /** 던진 물약이 몹에게 (#245): 독은 1.25초마다 1 — 체력 1 아래로는 안 내려간다 (마인크래프트처럼 독으론 안 죽는다) */
+  private tickMobPotions(now: number): void {
+    for (const m of this.mobs.values()) {
+      if (m.poisonUntil === undefined) continue;
+      if (now >= m.poisonUntil) {
+        delete m.poisonUntil;
+        delete m.poisonNextAt;
+        continue;
+      }
+      if (now >= (m.poisonNextAt ?? 0)) {
+        m.poisonNextAt = now + MOB_POISON_EVERY_MS;
+        if (m.hp > 1) {
+          m.hp -= 1;
+          this.hooks.json({ t: 'mob', ev: 'hit', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z, dmg: 1 });
+        }
+      }
+    }
+  }
+
+  /**
+   * 던진 물약이 떨어졌다 (#245): at 에서 SPLASH_RADIUS 안의 몹(주민 빼고)에게 나쁜 효과만 —
+   * 고통은 바로 피해(때린 사람 몫), 독·감속·나약함은 그 시간 동안. 좋은 물약은 몹에겐 아무것도 안 한다. 맞은 수
+   */
+  splash(byIdx: number, at: { x: number; y: number; z: number }, out: PotionOutcome, now: number): number {
+    if (!out.harmful) return 0;
+    let n = 0;
+    for (const m of [...this.mobs.values()]) {
+      if (m.kind === 'villager' || m.cureAt !== undefined) continue;
+      if (Math.hypot(m.x - at.x, m.y + mobSize(m.kind).h * 0.5 - at.y, m.z - at.z) > SPLASH_RADIUS) continue;
+      n++;
+      if (out.hurts > 0) this.damage(m, out.hurts, byIdx, now);
+      const e = out.effect;
+      if (!e) continue;
+      const until = now + e.seconds * 1000;
+      if (e.id === 'poison') {
+        m.poisonUntil = Math.max(m.poisonUntil ?? 0, until);
+        m.poisonNextAt ??= now + MOB_POISON_EVERY_MS;
+      } else if (e.id === 'slowness') m.slowUntil = Math.max(m.slowUntil ?? 0, until);
+      else if (e.id === 'weakness') m.weakUntil = Math.max(m.weakUntil ?? 0, until);
+    }
+    return n;
+  }
+
   private tickPoison(players: MobTarget[], now: number): void {
     for (const [idx, p] of [...this.poisoned]) {
       if (!players.some((t) => t.idx === idx) || now >= p.until) {

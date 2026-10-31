@@ -4,6 +4,9 @@
  * 아들은 JSON 에 "무엇에 무엇을 넣으면 어떤 물약" 만 적는다. 보조 재료(레드스톤·발광석·화약·
  * 드래곤의 숨결·발효된 거미 눈)가 하는 일과 시간 배율은 여기 코드가 정한다.
  * 순수 함수 — 클라(양조기 UI 미리보기)와 서버(진짜 양조, 결정 #1)가 같은 코드를 쓴다.
+ *
+ * 효과 (#245): `effects` 표(아들 편집)가 효과마다 숫자 몇 개를 갖는다. 마시면 즉시(heals·hurts) 또는 지속(ActiveEffect)
+ * 효과가 붙고, 걷기·점프·공격·맞는 피해 배율은 아래 순수 함수가 계산한다 — 서버가 판정, 클라는 걷기·점프·보기만.
  */
 import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
@@ -30,6 +33,20 @@ export const LINGERING_MULT = 1 / 4;
 const RawModifier = z.object({
   name: z.string().min(1, '한국어 이름이 비어 있어요'),
   does: z.enum(MODIFIER_KINDS),
+  _note: z.string().optional(),
+});
+
+const RawEffect = z.object({
+  name: z.string().min(1, '한국어 이름이 비어 있어요'),
+  icon: z.string().optional(),
+  speedTimes: z.number().positive('0보다 커야 해요').optional(),
+  jumpTimes: z.number().positive('0보다 커야 해요').optional(),
+  attackPlus: z.number().optional(),
+  heals: z.number().min(0, '0 이상이어야 해요').optional(),
+  hurts: z.number().min(0, '0 이상이어야 해요').optional(),
+  healEverySec: z.number().min(0, '0 이상이어야 해요').optional(),
+  hurtEverySec: z.number().min(0, '0 이상이어야 해요').optional(),
+  damageTimes: z.number().min(0, '0 이상이어야 해요').optional(),
   _note: z.string().optional(),
 });
 
@@ -69,8 +86,149 @@ const PotionsFile = z.object({
     })
     .optional(),
   potions: z.array(RawPotion).min(1, '물약이 하나도 없어요'),
+  effects: z.object({ _comment: z.string().optional() }).catchall(RawEffect).optional(),
   ingredients: z.record(z.string(), z.unknown()).optional(),
 });
+
+/** 효과 하나의 숫자들 (#245). 없는 값은 1(배율)·0(더하기) */
+export interface PotionEffectDef {
+  readonly id: string;
+  readonly name: string;
+  readonly icon: string;
+  readonly speedTimes: number;
+  readonly jumpTimes: number;
+  readonly attackPlus: number;
+  readonly heals: number;
+  readonly hurts: number;
+  readonly healEverySec: number;
+  readonly hurtEverySec: number;
+  readonly damageTimes: number;
+}
+
+/** 붙어 있는 효과. until 은 판정하는 쪽의 시계(ms). nextAt 은 서버가 재생·독 간격을 세는 데만 쓴다 */
+export interface ActiveEffect {
+  id: string;
+  level: number;
+  until: number;
+  nextAt?: number;
+}
+
+/** 던진 물약이 퍼지는 반지름 (칸) */
+export const SPLASH_RADIUS = 4;
+/** 던진 물약이 날아가는 최대 거리 (칸) */
+export const THROW_RANGE = 12;
+/** 던진 물약이 몹에게: 독은 이 간격마다 1 (죽이진 않음), 감속·나약함은 이 배율 */
+export const MOB_POISON_EVERY_MS = 1250;
+export const MOB_SLOW_MUL = 0.5;
+export const MOB_WEAK_MUL = 0.5;
+/** 화염 저항이 막는 피해 원인 */
+export const FIRE_CAUSES: readonly string[] = ['blaze', 'ghast', 'fire', 'lava'];
+
+function effectDef(id: string, raw: z.infer<typeof RawEffect> | undefined): PotionEffectDef {
+  return {
+    id,
+    name: raw?.name ?? id,
+    icon: raw?.icon ?? '🧪',
+    speedTimes: raw?.speedTimes ?? 1,
+    jumpTimes: raw?.jumpTimes ?? 1,
+    attackPlus: raw?.attackPlus ?? 0,
+    heals: raw?.heals ?? 0,
+    hurts: raw?.hurts ?? 0,
+    healEverySec: raw?.healEverySec ?? 0,
+    hurtEverySec: raw?.hurtEverySec ?? 0,
+    damageTimes: raw?.damageTimes ?? 1,
+  };
+}
+
+/** 배율을 단계만큼 벌린다: 1.2 → II 는 1.4, 0.85 → 0.7. 0.1 아래로는 안 내려간다 */
+function scaled(times: number, level: number): number {
+  return Math.max(0.1, 1 + (times - 1) * level);
+}
+
+/** 지난 효과를 뗀다 (새 배열) */
+export function pruneEffects(list: readonly ActiveEffect[], now: number): ActiveEffect[] {
+  return list.filter((e) => e.until > now);
+}
+
+/**
+ * 효과를 붙인다 (마인크래프트 규칙): 같은 효과가 더 높은 단계로 있으면 그대로, 같은 단계면 더 긴 쪽, 더 높은 단계면 바꾼다.
+ * 새 배열을 돌려준다 (붙은 항목은 새 객체)
+ */
+export function addEffect(list: readonly ActiveEffect[], id: string, level: number, until: number, now: number): ActiveEffect[] {
+  const out = pruneEffects(list, now);
+  const i = out.findIndex((e) => e.id === id);
+  if (i < 0) return [...out, { id, level, until }];
+  const cur = out[i]!;
+  if (cur.level > level) return out;
+  if (cur.level === level && cur.until >= until) return out;
+  out[i] = { id, level, until: cur.level === level ? Math.max(cur.until, until) : until };
+  return out;
+}
+
+export function effectLevel(list: readonly ActiveEffect[], id: string, now: number): number {
+  const e = list.find((x) => x.id === id && x.until > now);
+  return e ? e.level : 0;
+}
+
+export function hasEffect(list: readonly ActiveEffect[], id: string, now: number): boolean {
+  return effectLevel(list, id, now) > 0;
+}
+
+/** 걷기 배율 (신속·감속·거북 장군). 여러 개면 곱한다 */
+export function speedMultiplier(list: readonly ActiveEffect[], reg: PotionRegistry, now: number): number {
+  let m = 1;
+  for (const e of list) if (e.until > now) m *= scaled(reg.effectOf(e.id).speedTimes, e.level);
+  return m;
+}
+
+/** 점프 배율 (도약) */
+export function jumpMultiplier(list: readonly ActiveEffect[], reg: PotionRegistry, now: number): number {
+  let m = 1;
+  for (const e of list) if (e.until > now) m *= scaled(reg.effectOf(e.id).jumpTimes, e.level);
+  return m;
+}
+
+/** 손 공격 더하기 (힘 +3·나약함 -4, 단계만큼) */
+export function attackBonus(list: readonly ActiveEffect[], reg: PotionRegistry, now: number): number {
+  let b = 0;
+  for (const e of list) if (e.until > now) b += reg.effectOf(e.id).attackPlus * e.level;
+  return b;
+}
+
+/** 맞는 피해 배율 (거북 장군 0.4) */
+export function damageMultiplier(list: readonly ActiveEffect[], reg: PotionRegistry, now: number): number {
+  let m = 1;
+  for (const e of list) if (e.until > now) m *= Math.pow(reg.effectOf(e.id).damageTimes, e.level);
+  return m;
+}
+
+/** 마시거나 맞았을 때 일어나는 일 */
+export interface PotionOutcome {
+  /** 바로 차는 체력 */
+  heals: number;
+  /** 바로 깎이는 체력 */
+  hurts: number;
+  /** 지속 효과 (없으면 null) */
+  effect: { id: string; level: number; seconds: number } | null;
+  /** 나쁜 물약인가 (독·고통·감속·나약함) — 던지면 몹에게만, 사람·친구는 안 맞는다 (아군 피해 없음) */
+  harmful: boolean;
+}
+
+/** 나쁜 효과인가: 아프게 하거나, 느리게 하거나(거북 장군처럼 피해를 막아 주는 건 빼고), 공격을 깎는 것 */
+export function isHarmfulEffect(d: PotionEffectDef): boolean {
+  return d.hurts > 0 || d.hurtEverySec > 0 || (d.speedTimes < 1 && d.damageTimes >= 1) || d.attackPlus < 0;
+}
+
+/** 병 상태 → 일어나는 일. 물병·어색한 물약은 아무것도 안 한다 */
+export function potionOutcome(reg: PotionRegistry, state: PotionState): PotionOutcome {
+  const def = reg.find(state.id);
+  if (!def) return { heals: 0, hurts: 0, effect: null, harmful: false };
+  const d = reg.effectOf(def.effect);
+  const level = reg.level(state);
+  const seconds = reg.durationSeconds(state);
+  if (seconds === 0) return { heals: d.heals * level, hurts: d.hurts * level, effect: null, harmful: isHarmfulEffect(d) };
+  return { heals: 0, hurts: 0, effect: { id: def.effect, level, seconds }, harmful: isHarmfulEffect(d) };
+}
 
 /** 양조기 자체의 규칙 (연료·병 수·한 번 걸리는 시간). JSON 에 없으면 마인크래프트 기본값 */
 export interface BrewingStandRules {
@@ -175,6 +333,8 @@ export class PotionRegistry {
     private readonly baseNames: Readonly<Record<string, string>>,
     /** 양조기 규칙 */
     readonly stand: BrewingStandRules = DEFAULT_STAND,
+    /** 효과 표 (#245). 없는 효과는 이름만 있는 빈 효과 */
+    readonly effects: ReadonlyMap<string, PotionEffectDef> = new Map(),
   ) {
     for (const d of defs) {
       this.byId.set(d.id, d);
@@ -188,6 +348,11 @@ export class PotionRegistry {
 
   find(id: string): PotionDef | undefined {
     return this.byId.get(id);
+  }
+
+  /** 효과 숫자들 (#245). 표에 없으면 아무것도 안 하는 효과 */
+  effectOf(effectId: string): PotionEffectDef {
+    return this.effects.get(effectId) ?? effectDef(effectId, undefined);
   }
 
   require(id: string): PotionDef {
@@ -321,6 +486,16 @@ export function parsePotions(raw: unknown, fileName = 'data/potions.json'): Poti
     problems.push(`'${file.base.awkward.ingredient}'(어색한 물약 재료)는 보조 재료로 쓸 수 없어요`);
   }
 
+  const effects = new Map<string, PotionEffectDef>();
+  if (file.effects) {
+    for (const [id, e] of Object.entries(file.effects)) {
+      if (id === '_comment') continue;
+      if (!NAME_RE.test(id)) problems.push(`효과 '${id}': 이름은 영문 소문자·숫자·밑줄(_)만 쓸 수 있어요`);
+      effects.set(id, effectDef(id, e as z.infer<typeof RawEffect>));
+    }
+    for (const p of file.potions) if (!effects.has(p.effect)) problems.push(`물약 '${p.id}' 의 effect '${p.effect}': effects 표에 없어요 (이름만이라도 넣어 주세요)`);
+  }
+
   const ids = new Set<string>();
   file.potions.forEach((p, i) => {
     const where = `${i + 1}번째 물약(id: ${p.id})`;
@@ -403,5 +578,6 @@ export function parsePotions(raw: unknown, fileName = 'data/potions.json'): Poti
     file.base.awkward.ingredient,
     { [WATER_BOTTLE]: file.base.water_bottle.name, [AWKWARD]: file.base.awkward.name },
     stand,
+    effects,
   );
 }

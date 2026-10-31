@@ -488,6 +488,10 @@ export type ClientJson =
   | { t: 'talking'; id: number; on: boolean }
   /** 손에 든 먹을 것 먹기 (#186): slot = 손에 든 칸. 서버가 하나 빼고 체력을 올린다 */
   | { t: 'eat'; slot: number }
+  /** 물약 마시기 (#245): slot 의 마시는 물약 하나 → 효과, 빈 병은 돌아온다 */
+  | { t: 'drink'; slot: number }
+  /** 투척용·잔류형 물약 던지기 (#245): 보는 방향으로. 서버가 떨어지는 자리를 정하고 4칸 안에 퍼뜨린다 */
+  | { t: 'throwPotion'; slot: number; dir: { x: number; y: number; z: number } }
   /** 뼛가루 (#193): 손에 든 칸의 뼛가루를 그 자리 작물에 → 바로 다 자란다 */
   | { t: 'boneMeal'; x: number; y: number; z: number; slot: number }
   /** 유리병에 물 담기 (#226): slot 의 유리병 하나 → 물병 */
@@ -622,6 +626,12 @@ export type ServerJson =
   | { t: 'codex'; kind: 'block'; id: string; total: number }
   /** 내 체력 (M7-1). cause: fall·regen·respawn·mob… */
   | { t: 'health'; hp: number; max: number; cause: string }
+  /** 내게 붙은 물약 효과 전부 (#245). leftMs = 남은 시간. 바뀔 때마다 */
+  | { t: 'effects'; list: { id: string; level: number; leftMs: number }[] }
+  /** 누가 물약을 던졌다 (#245): from(눈) → to(떨어진 자리). potion = potions.json id, hits = 맞은 몹 수 */
+  | { t: 'splash'; idx: number; potion: string; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; hits: number }
+  /** 누가 투명해졌다/돌아왔다 (#245) — 다른 사람 인형을 숨긴다 */
+  | { t: 'playerFx'; idx: number; invisible: boolean }
   /** 죽어서 다시 일어났다 — 이 자리로 옮겨라 (M7-1) */
   | { t: 'respawn'; x: number; y: number; z: number; yaw: number; dropped: number }
   /** 이 세계에 떨어져 있는 경험치 구슬 전부 (세계 들어갈 때·떨어질 때) */

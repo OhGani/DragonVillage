@@ -57,6 +57,11 @@ import {
   phaseAt,
   portalContains,
   potionFromItemId,
+  type ActiveEffect,
+  pruneEffects,
+  hasEffect,
+  speedMultiplier,
+  jumpMultiplier,
   RAID_CAPTURE_SEC,
   type RaidStateInfo,
   REJECT_KO,
@@ -348,6 +353,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   };
   let crumbAcc = 0;
   let hp = welcome.hp;
+  /** 물약 효과 (#245): 서버가 준 목록. until 은 Date.now() 기준 */
+  let myEffects: ActiveEffect[] = [];
+  let nightVision = false;
   /** 살아 있는 보스(거미 왕) 자리·체력 — 보스 바에 방향·거리, 나침반이 가리킨다 (아들 13차 "어디 있는지 못 찾겠다", #127) */
   let bossInfo: { x: number; z: number; hp: number; kind: MobKind } | null = null;
   // 원정 몹 (M7-2): 서버 상태를 그리고, 조준한 몹을 탭/클릭하면 때린다
@@ -692,6 +700,25 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     c.portal.dispose();
   };
 
+  /** 물약 효과 (#245)를 걷기·점프·보기·칩에 반영한다. 서버 메시지가 올 때와 효과가 끝날 때 */
+  const applyEffects = () => {
+    const now = Date.now();
+    myEffects = pruneEffects(myEffects, now);
+    ctx.player.speedMul = speedMultiplier(myEffects, POTIONS, now);
+    ctx.player.jumpMul = jumpMultiplier(myEffects, POTIONS, now);
+    ctx.player.slowFalling = hasEffect(myEffects, 'slow_falling', now);
+    const nv = hasEffect(myEffects, 'night_vision', now);
+    if (nv !== nightVision) {
+      nightVision = nv;
+      materials.setMinLight(nv ? 0.85 : 0);
+    }
+    hud.setStatusEffects(myEffects.map((e) => ({ ...POTIONS.effectOf(e.id), level: e.level, until: e.until })));
+  };
+  /** 던진 물약이 퍼지는 색 (#245): 효과마다 */
+  const potionColor = (potionId: string): number => {
+    const eff = POTIONS.find(potionId)?.effect ?? '';
+    return { speed: 0x7cafc2, slowness: 0x5a6c81, jump_boost: 0x44ff66, strength: 0xc43a2e, instant_health: 0xf82423, instant_damage: 0x6b1210, poison: 0x4e9331, regeneration: 0xf06ac8, fire_resistance: 0xe49a3a, water_breathing: 0x2e5299, night_vision: 0x3d3dd6, invisibility: 0xa0a4ad, turtle_master: 0x6c8c3a, slow_falling: 0xf3f7d8, weakness: 0x484d48 }[eff] ?? 0x385dc6;
+  };
   /** 낮밤 (원정 경과에 따라). 마을은 항상 낮 */
   let skyLevel = 1;
   const applySky = (v: number) => {
@@ -1071,11 +1098,36 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       bag.setInventory(inv); // 도감 탭이 열려 있으면 다시 그린다
       hud.toast(`📖 새로 발견! ${nameOf(m.id)} — 마을 도감 ${m.total}종 (+${XP.ours.codexNewEntry})`, 4500);
     },
+    onEffects: (list) => {
+      const now = Date.now();
+      const prev = myEffects;
+      myEffects = list.map((e) => ({ id: e.id, level: e.level, until: now + e.leftMs }));
+      for (const e of myEffects) {
+        if (prev.some((q) => q.id === e.id && q.level >= e.level && q.until >= e.until - 1500)) continue; // 전부터 있던 것
+        const d = POTIONS.effectOf(e.id);
+        const left = Math.round((e.until - now) / 1000);
+        hud.toast(`${d.icon} ${d.name}${e.level >= 2 ? ' II' : ''} — ${left >= 60 ? `${Math.floor(left / 60)}분 ${left % 60 ? `${left % 60}초` : ''}` : `${left}초`} 동안`, 2500);
+      }
+      applyEffects();
+    },
+    onSplash: (m) => {
+      const from = m.idx === myIdx ? { x: ctx.player.eye.x + ctx.player.lookDir.x * 0.5, y: ctx.player.eye.y - 0.2, z: ctx.player.eye.z + ctx.player.lookDir.z * 0.5 } : m.from;
+      mobView.splash(from, m.to, potionColor(m.potion));
+      if (m.idx === myIdx) {
+        ding();
+        const def = POTIONS.find(m.potion);
+        if (def) hud.toast(m.hits > 0 ? `🧪 ${def.name} — ${m.hits}명에게 퍼졌어요` : `🧪 ${def.name} — 아무도 안 맞았어요`, 1800);
+      }
+    },
+    onPlayerFx: (m) => {
+      if (m.idx !== myIdx) remote.setInvisible(m.idx, m.invisible);
+    },
     onHealth: (m) => {
       if (m.hp < hp) {
         hud.hurtFlash();
         hurtSound();
-        if (m.cause === 'poison') hud.toast('🕷️ 독에 물렸어요 — 잠깐 아파요', 1500);
+        if (m.cause === 'poison') hud.toast('🤢 독이에요 — 잠깐 아파요', 1500);
+        if (m.cause === 'potion') hud.toast('💔 앗, 고통의 물약! 던져야 하는 거였어요', 2000); // #245
         if (m.cause === 'iron_golem') hud.toast('🗿 철 골렘한테 맞았어요 — 주민을 때리면 안 돼요', 1500); // #221
         if (m.cause === 'husk') {
           // 허스크 (#218, 아들 14차 3번 "느려짐"): 모래가 묻어 4초 동안 느리다
@@ -1086,6 +1138,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       if (m.cause === 'blocked') hud.toast('🛡️ 방패로 막았어요', 1200);
       if (m.cause === 'tnt') hud.toast('💥 TNT 가 터졌어요!', 1500);
       if (m.cause === 'eat') hud.toast(`😋 냠냠! 하트 ${((m.hp - hp) / 2).toFixed(1).replace('.0', '')}개 회복`, 1500); // 먹기 (#186)
+      if (m.cause === 'potion' && m.hp > hp) hud.toast(`❤️ 물약! 하트 ${((m.hp - hp) / 2).toFixed(1).replace('.0', '')}개 회복`, 1500); // #245
+      if (m.cause === 'fireproof') hud.toast('🔥 화염 저항 — 불덩이가 안 아파요', 1200);
       hp = m.hp;
       hud.setHealth(m.hp, m.max);
     },
@@ -1694,6 +1748,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
 
     const inp = input.frame(dt);
     hud.tickEffects(dt);
+    if (myEffects.length) {
+      hud.tickStatus(Date.now());
+      if (myEffects.some((e) => e.until <= Date.now())) applyEffects(); // 끝난 효과는 서버 메시지 전에 먼저 뗀다
+    }
     // 침대에서 일어나기 (#204): 움직이거나 점프하면. 서버가 모두에게 알린다
     if (mySleep && (Math.abs(inp.moveX) > 0.2 || Math.abs(inp.moveZ) > 0.2 || inp.jump)) {
       mySleep = null;
@@ -1734,6 +1792,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     // 공격: 꾹 누르기(부수기와 같음) 또는 몹을 짧게 탭 (아빠 2026-09-28 — 폰에서 탭만으로). 동물은 탭이 먹이·길들이기라 꾹 눌러야 때린다
     // 검·도끼·곡괭이를 들고 탭 = 휘두르기 (아빠 2026-10-07, #141): 조준 안 해도 앞 범위 안의 몹을 때리고, 블록이면 한 번 캔다(톡톡 치면 깨진다), 아무것도 없으면 허공에
     const heldTool = toolOf(TOOLS, hud.selectedItem);
+    const heldPotion = hud.selectedItem ? potionFromItemId(hud.selectedItem) : null; // 물약 (#245): 탭 = 마시기·던지기, 때리기 아님
     const isVillager = (id: number | null) => id !== null && MOB_KIND_OF[mobView.figureOf(id)?.kind ?? -1] === 'villager';
     const aimedVillager = isVillager(aimedMob); // 원정(사막 마을) 주민도 때리지 않고 말을 건다 (#228)
     // 좀비 주민 (#244): 황금 사과를 들고 탭하면 때리기가 아니라 먹이기
@@ -1749,7 +1808,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         hand.swing();
       }
     }
-    const tapAttack = inp.secondaryTap && !aimedVillager && !aimedCurable && ((aimedMob !== null && aimedMob < ANIMAL_ID_BASE) || swingMob !== null);
+    const tapAttack = inp.secondaryTap && !aimedVillager && !aimedCurable && heldPotion === null && ((aimedMob !== null && aimedMob < ANIMAL_ID_BASE) || swingMob !== null);
     if (bow && !guarding) {
       // 활·쇠뇌 (#119, 아빠): 누르고 있으면 시위를 당기고, 놓으면 쏜다. 짧게 탭하면 약한 화살
       if (inp.primary) {
@@ -1789,6 +1848,12 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       const d = lookedDragon();
       if (d && d.stage === 'adult' && hasSaddle() && !(d.restingUntil && d.restingUntil > Date.now() + serverClockOffset)) net.sendRide(d.id);
     }
+    // 물약 (#245): 마시는 물약은 (몹을 안 보며) 탭 → 마시기, 투척용·잔류형은 탭 → 보는 방향으로 던지기
+    if (heldPotion && inp.secondaryTap && !guarding && !anyPanelOpen() && started && !disconnected && (heldPotion.form !== 'drink' || aimedMob === null)) {
+      if (heldPotion.form === 'drink') net.sendDrink(hud.selectedIndex);
+      else net.sendThrowPotion(hud.selectedIndex, player.lookDir);
+      hand.swing();
+    }
     // 먹기 (#186): 먹을 것을 들고 (몹을 안 보며) 탭 → 서버가 하나 빼고 하트를 채운다
     const heldFood = foodOf(FOOD, hud.selectedItem);
     // 당근·감자처럼 먹을 것이자 씨앗인 것은 농지를 겨눴을 땐 심기만 한다 (#212 — 전엔 심으면서 하나를 더 먹었다)
@@ -1797,7 +1862,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       net.sendEat(hud.selectedIndex);
       hand.swing();
     }
-    if (aimedMob !== null && inp.secondaryTap && ((aimedMob >= ANIMAL_ID_BASE && ctx.kind === 'village') || ((aimedVillager || aimedCurable) && ctx.kind === 'expedition'))) {
+    if (aimedMob !== null && inp.secondaryTap && heldPotion === null && ((aimedMob >= ANIMAL_ID_BASE && ctx.kind === 'village') || ((aimedVillager || aimedCurable) && ctx.kind === 'expedition'))) {
       const fk = mobView.figureOf(aimedMob);
       if (fk && MOB_KIND_OF[fk.kind] === 'villager' && (!hud.selectedItem || !MOBS.get('villager').food.includes(hud.selectedItem))) {
         // 주민에게 탭 = 대화 시트 (#172). 빵을 들었을 땐 바로 먹이기(서버) 대신 대화에서 "응, 먹어!" 로 준다

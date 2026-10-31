@@ -522,6 +522,23 @@ export class Session {
         if (err) return this.error(err, err === 'HP_FULL' ? '하트가 다 찼어요 — 아플 때 먹어요' : err === 'NOT_EDIBLE' ? '먹을 수 있는 게 아니에요' : '지금은 먹을 수 없어요');
         return;
       }
+      case 'drink': {
+        // 물약 마시기 (#245)
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.slot)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.drink(this.idx, msg.slot as number);
+        if (err) return this.error(err, err === 'NOT_POTION' ? '마실 수 있는 물약이 아니에요' : '지금은 마실 수 없어요');
+        return;
+      }
+      case 'throwPotion': {
+        // 물약 던지기 (#245)
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        const dir = msg.dir as { x?: unknown; y?: unknown; z?: unknown } | undefined;
+        if (!Number.isInteger(msg.slot) || !dir || typeof dir.x !== 'number' || typeof dir.y !== 'number' || typeof dir.z !== 'number') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.throwPotion(this.idx, msg.slot as number, { x: dir.x, y: dir.y, z: dir.z });
+        if (err) return this.error(err, err === 'NOT_SPLASH' ? '던지는 물약이 아니에요 — 화약을 넣으면 던질 수 있어요' : '지금은 던질 수 없어요');
+        return;
+      }
       case 'startRaid': {
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
         // 시간 제한: 원정과 같은 규칙 (10분 세션)

@@ -1821,6 +1821,38 @@ body {
 .hearts[hidden] {
   display: none;
 }
+/* 물약 효과 칩 (#245): 하트 바로 위 */
+.fx-chips {
+  position: absolute;
+  left: 50%;
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 102px);
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.fx-chips[hidden] {
+  display: none;
+}
+.fx-chip {
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 13px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+}
+.fx-chip b {
+  font-size: 10px;
+  vertical-align: top;
+}
+.fx-chip i {
+  font-style: normal;
+  font-size: 11px;
+  opacity: 0.9;
+}
 .heart {
   width: 18px;
   height: 18px;

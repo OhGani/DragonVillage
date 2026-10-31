@@ -143,7 +143,19 @@ import {
   type PlayerStateEntry,
   potionFromItemId,
   potionItemId,
+  potionOutcome,
+  type PotionOutcome,
   type PotionRegistry,
+  type ActiveEffect,
+  addEffect,
+  pruneEffects,
+  hasEffect,
+  attackBonus,
+  damageMultiplier,
+  SPLASH_RADIUS,
+  THROW_RANGE,
+  FIRE_CAUSES,
+  raycastVoxels,
   PREBUILT,
   RAID_AGGRO_R,
   type RecipeRegistry,
@@ -265,6 +277,8 @@ export interface RoomPlayer {
   dragonHp: number;
   /** 🛡️ 막기 (#118): 이 시각까지 막는 중. 0 = 아님 */
   guardUntil: number;
+  /** 물약 효과 (#245): 서버가 진실. until 은 서버 시각 */
+  effects: ActiveEffect[];
   /** 남들에게 마지막으로 알린 막기 상태 (#144) */
   guardShown: boolean;
   /** 침대에 누워 있음 (#204). 접속 동안만 */
@@ -1436,7 +1450,7 @@ export class VillageRoom {
         gifts.push({ id: g.id, name: g.name, message: g.message });
       }
     }
-    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0, equip: parseEquipment(saved?.equipment ?? null), bowReadyAt: 0, dragonHp: 0, guardUntil: 0, guardShown: false, sleeping: null };
+    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0, equip: parseEquipment(saved?.equipment ?? null), bowReadyAt: 0, dragonHp: 0, guardUntil: 0, guardShown: false, sleeping: null, effects: [] };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     // 타고 있다가 나갔으면 다시 탄다 (#103, 아빠 요청). 드래곤이 없어졌거나 남이 타고 있으면 광장에서 (공중에 남지 않게)
@@ -1451,6 +1465,7 @@ export class VillageRoom {
     }
     const me = this.toInfo(player);
     this.broadcastJson({ t: 'playerJoined', player: me }, idx, 'village');
+    for (const q of this.players.values()) if (q !== player && hasEffect(q.effects, 'invisibility', Date.now())) this.sendJson(player, { t: 'playerFx', idx: q.idx, invisible: true }); // 투명한 사람 (#245)
     if (this.raid) this.sendJson(player, { t: 'raid', raid: this.raid.state(Date.now()) });
     this.sendJson(player, { t: 'pets', list: this.animals.petsFor(token) }); // 펫 이름 (#109)
     this.sendDemand(player, Date.now()); // 가게 값 (#230)
@@ -1541,7 +1556,7 @@ export class VillageRoom {
     p.pos.pitch = m.pitch;
     p.pos.flags = m.flags & 0xff;
     // 낙하 (M7-1): 공중 최고점 → 착지 때 피해. 물·드래곤은 안 아프다
-    const fall = trackFall(p.fallPeak, p.pos.y, (m.flags & FLAG_GROUND) !== 0, (m.flags & FLAG_WATER) !== 0, p.riding !== null);
+    const fall = trackFall(p.fallPeak, p.pos.y, (m.flags & FLAG_GROUND) !== 0, (m.flags & FLAG_WATER) !== 0, p.riding !== null || hasEffect(p.effects, 'slow_falling', now)); // 느린 낙하 물약 (#245)
     p.fallPeak = fall.peak;
     if (fall.damage > 0 && p.hp > 0) this.hurt(p, fall.damage, 'fall', now);
     // 구슬 회수: 가까이 지나가면 내 것
@@ -1556,7 +1571,7 @@ export class VillageRoom {
   /** 몹 시스템 훅 — 그 세계(원정/마을) 사람들과 잇는다 */
   private mobHooks(world: WorldKind): MobHooks {
     return {
-      players: () => this.playersIn(world).filter((p) => p.hp > 0).map((p) => ({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, yaw: p.pos.yaw, pitch: p.pos.pitch })),
+      players: (now = Date.now()) => this.playersIn(world).filter((p) => p.hp > 0 && !hasEffect(p.effects, 'invisibility', now)).map((p) => ({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, yaw: p.pos.yaw, pitch: p.pos.pitch })), // 투명화 (#245): 몹이 못 찾는다
       hurt: (idx, amount, cause, now) => {
         const p = this.players.get(idx);
         if (p && p.world === world) this.hurt(p, amount, cause, now);
@@ -1833,7 +1848,7 @@ export class VillageRoom {
     }
     const sys = p.world === 'expedition' ? this.mobSys : this.villageMobSys(mobId);
     if (!sys) return 'NO_MOB';
-    return sys.hit(me, mobId, attackDamageOf(tool), now, reach, { bonus: (kind) => meleeBonus(held, kind), knock: knockbackFactor(held), looting: enchantLevelOf(held, 'looting') }); // 인챈트 (#231)
+    return sys.hit(me, mobId, Math.max(0, attackDamageOf(tool) + attackBonus(p.effects, this.potions, now)), now, reach, { bonus: (kind) => meleeBonus(held, kind), knock: knockbackFactor(held), looting: enchantLevelOf(held, 'looting') }); // 인챈트 (#231), 힘·나약함 물약 (#245)
   }
 
   /** 활·쇠뇌로 노린 몹을 쏜다 (M8-2): 든 칸이 활이고 화살이 있어야. 사거리·피해·간격은 combat.json. 화살 1개 소모, 모두에게 'shot' */
@@ -2256,6 +2271,13 @@ export class VillageRoom {
   /** 다친다. 0 이 되면 죽는다. 방패·갑옷이 먼저 깎는다 (M8-2) — 낙하·독은 그대로 */
   hurt(p: RoomPlayer, amount: number, cause: string, now = Date.now()): void {
     if (p.hp <= 0 || amount <= 0) return;
+    // 물약 (#245): 화염 저항은 불덩이를 통째로 막고, 거북 장군은 맞는 피해를 줄인다
+    if (FIRE_CAUSES.includes(cause) && hasEffect(p.effects, 'fire_resistance', now)) {
+      this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'fireproof' });
+      return;
+    }
+    amount *= damageMultiplier(p.effects, this.potions, now);
+    if (amount <= 0) return;
     // 타고 있으면 몹 피해는 드래곤이 대신 맞는다 (#113). 낙하·독은 사람 몫
     if (p.riding && !isMountKind(p.riding.dragon) && armorApplies(cause)) {
       this.hurtDragon(p, Math.floor(amount), cause, now);
@@ -2312,6 +2334,7 @@ export class VillageRoom {
     p.hp = HP_MAX;
     p.lastHurtAt = now;
     p.moveLockUntil = now + RESPAWN_LOCK_MS;
+    if (p.effects.length) this.setEffects(p, [], now); // 죽으면 물약 효과도 사라진다 (#245)
     this.savePlayer(p, now);
     this.sendJson(p, { t: 'respawn', x: sp.x, y: sp.y, z: sp.z, yaw: sp.yaw, dropped });
     this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'respawn' });
@@ -2344,6 +2367,121 @@ export class VillageRoom {
     p.lastRegenAt = now;
     this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'eat' });
     return null;
+  }
+
+  // ---------------------------------------------------------------- 물약 효과 (#245)
+
+  /** 마시기: 손에 든 칸의 마시는 물약 하나 → 효과. 빈 유리병은 돌아온다(가방이 꽉 차면 사라짐). 오류: NOT_POTION · DEAD */
+  drink(idx: number, slot: number, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    const held = slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
+    const state = held ? potionFromItemId(held) : null;
+    if (!state || state.form !== 'drink') return 'NOT_POTION';
+    if (p.hp <= 0) return 'DEAD';
+    const changed = new Set<number>();
+    if (!takeFromSlot(p.inv, slot, 1, changed)) return 'NOT_POTION';
+    this.giveTo(p, GLASS_BOTTLE, 1, changed);
+    this.sendInv(p, changed);
+    const out = potionOutcome(this.potions, state);
+    this.applyPotion(p, out, now, true);
+    if (out.heals === 0 && out.hurts === 0 && !out.effect) this.sendJson(p, { t: 'error', code: 'PLAIN_WATER', message: '💧 물맛이에요 — 어색한 물약은 아직 아무 효과가 없어요' });
+    this.log(`마을 ${this.info.code}: ${p.nick} ${this.potions.displayName(state)} 마심`);
+    return null;
+  }
+
+  /**
+   * 던지기: 투척용·잔류형 물약을 보는 방향으로 — 눈에서 THROW_RANGE 칸 안의 첫 블록(없으면 끝)에 떨어져 SPLASH_RADIUS 안에 퍼진다.
+   * 좋은 물약은 그 안의 사람(나 포함)에게, 나쁜 물약은 몹에게만 (아군 피해 없음). 병은 깨져서 안 돌아온다. 오류: NOT_SPLASH · DEAD
+   */
+  throwPotion(idx: number, slot: number, dir: { x: number; y: number; z: number }, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    const held = slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
+    const state = held ? potionFromItemId(held) : null;
+    if (!state || state.form === 'drink') return 'NOT_SPLASH';
+    if (p.hp <= 0) return 'DEAD';
+    const len = Math.hypot(dir.x, dir.y, dir.z);
+    if (!(len > 0) || !Number.isFinite(len)) return 'BAD_DIR';
+    const changed = new Set<number>();
+    if (!takeFromSlot(p.inv, slot, 1, changed)) return 'NOT_SPLASH';
+    this.sendInv(p, changed);
+    const dx = dir.x / len,
+      dy = dir.y / len,
+      dz = dir.z / len;
+    const from = { x: p.pos.x, y: p.pos.y + EYE, z: p.pos.z };
+    const world = this.worldOf(p);
+    const hit = raycastVoxels((x, y, z) => (world.inBounds(x, y, z) ? world.getBlock(x, y, z) : AIR_ID), (id) => id !== AIR_ID && this.registry.get(id).solid, from.x, from.y, from.z, dx, dy, dz, THROW_RANGE);
+    const d = hit ? Math.max(0.5, hit.distance - 0.3) : THROW_RANGE;
+    const to = { x: from.x + dx * d, y: from.y + dy * d, z: from.z + dz * d };
+    const out = potionOutcome(this.potions, state);
+    let hits = 0;
+    if (out.harmful) {
+      const sys = p.world === 'expedition' ? this.mobSys : null;
+      for (const s of p.world === 'expedition' ? [sys] : [this.raid?.mobs ?? null, this.guardMobs]) if (s) hits += s.splash(p.idx, to, out, now);
+    } else {
+      for (const q of this.playersIn(p.world)) {
+        if (q.hp <= 0 || Math.hypot(q.pos.x - to.x, q.pos.y + 0.9 - to.y, q.pos.z - to.z) > SPLASH_RADIUS) continue;
+        hits++;
+        this.applyPotion(q, out, now, false);
+      }
+    }
+    this.broadcastJson({ t: 'splash', idx: p.idx, potion: state.id, from, to, hits }, -1, p.world);
+    this.log(`마을 ${this.info.code}: ${p.nick} ${this.potions.displayName(state)} 던짐 — ${hits} 맞음`);
+    return null;
+  }
+
+  /** 효과를 적용한다. self = 직접 마셨다 (고통처럼 나쁜 즉시 효과도 자기에게 온다). 던져서 맞은 사람에겐 좋은 것만 */
+  private applyPotion(p: RoomPlayer, out: PotionOutcome, now: number, self: boolean): void {
+    if (out.heals > 0 && p.hp < HP_MAX) {
+      p.hp = Math.min(HP_MAX, p.hp + out.heals);
+      p.lastRegenAt = now;
+      this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'potion' });
+    }
+    if (out.hurts > 0 && self) this.hurt(p, out.hurts, 'potion', now);
+    const e = out.effect;
+    if (!e || (out.harmful && !self)) return;
+    const next = addEffect(p.effects, e.id, e.level, now + e.seconds * 1000, now);
+    const def = this.potions.effectOf(e.id);
+    for (const a of next) if (a.nextAt === undefined && (def.healEverySec > 0 || def.hurtEverySec > 0) && a.id === e.id) a.nextAt = now + ((def.healEverySec || def.hurtEverySec) * 1000) / a.level;
+    this.setEffects(p, next, now);
+  }
+
+  /** 효과 목록을 바꾸고 알린다. 투명화가 켜지고 꺼지면 같은 세계 모두에게 */
+  private setEffects(p: RoomPlayer, next: ActiveEffect[], now: number): void {
+    const wasInvisible = p.effects.some((e) => e.id === 'invisibility'); // 방금 지난 것도 '있었다' — 끝날 때 다시 보이게 알려야 한다
+    p.effects = next;
+    this.sendJson(p, { t: 'effects', list: next.map((e) => ({ id: e.id, level: e.level, leftMs: Math.max(0, e.until - now) })) });
+    const invisible = hasEffect(next, 'invisibility', now);
+    if (invisible !== wasInvisible) this.broadcastJson({ t: 'playerFx', idx: p.idx, invisible }, -1, p.world);
+  }
+
+  /** 틱마다: 지난 효과를 떼고, 재생은 간격마다 1 회복, 독은 간격마다 1 피해(체력 1 아래로는 안 간다) */
+  private tickPotionEffects(now: number): void {
+    for (const p of this.players.values()) {
+      if (p.effects.length === 0) continue;
+      const alive = pruneEffects(p.effects, now);
+      if (alive.length !== p.effects.length) {
+        this.setEffects(p, alive, now);
+        continue;
+      }
+      if (p.hp <= 0) continue;
+      for (const e of p.effects) {
+        const def = this.potions.effectOf(e.id);
+        if (def.healEverySec > 0 && now >= (e.nextAt ?? 0)) {
+          e.nextAt = now + (def.healEverySec * 1000) / e.level;
+          if (p.hp < HP_MAX) {
+            p.hp = Math.min(HP_MAX, p.hp + 1);
+            p.lastRegenAt = now;
+            this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'regen' });
+          }
+        }
+        if (def.hurtEverySec > 0 && now >= (e.nextAt ?? 0)) {
+          e.nextAt = now + (def.hurtEverySec * 1000) / e.level;
+          if (p.hp > 1) this.hurt(p, 1, 'poison', now);
+        }
+      }
+    }
   }
 
   /** 틱마다: 맞은 지 3초 지나면 1초에 1 회복. 침대에 누워 있으면 4배 (#216) */
@@ -3089,6 +3227,7 @@ export class VillageRoom {
     this.tickCreatures(now);
     this.tickGrowth(now);
     this.tickHealth(now);
+    this.tickPotionEffects(now);
     if (this.lastFlush === 0) this.lastFlush = now;
     if (now - this.lastFlush >= FLUSH_MS) this.flush(now);
   }
