@@ -72,7 +72,7 @@ describe('원정 시작·합류', () => {
 
   it('엔딩 (#170): 엔더 드래곤을 잡으면 분수 남쪽에 다른 차원 포탈이 열리고, 거기서 돌아가면 엔딩 결과', () => {
     const storage = new Storage(':memory:');
-    const { room, a, ia } = setup(storage);
+    const { room, a, ia, ib } = setup(storage);
     for (const b of ['portal_2', 'portal_3', 'portal_4', 'portal_5']) storage.addBuilding(INFO.code, b, T0);
     expect(room.startExpedition(ia, 'the_end', T0)).toBeNull();
     room.tick(T0 + 200); // 몹 무대는 첫 틱에 생긴다 (엔드는 처음부터 어두움)
@@ -85,7 +85,29 @@ describe('원정 시작·합류', () => {
     d.y = p.pos.y;
     d.hp = 1;
     room.mobSys!.bossAwake = true;
+    // 참여자 (#238): 아들은 들어왔다 돌아갔고, c 는 들어왔다 끊겼고, dd 는 안 들어옴 — 보스 경험치는 들어왔던 셋 모두에게
+    const c = inbox();
+    const ic = room.join('c'.repeat(32), '친구', 2, c.send)!.idx;
+    const dd = inbox();
+    const idd = room.join('d'.repeat(32), '구경', 3, dd.send)!.idx;
+    expect(room.startExpedition(ib, 'the_end', T0 + 300)).toBeNull();
+    expect(room.startExpedition(ic, 'the_end', T0 + 310)).toBeNull();
+    const pb = room.players.get(ib)!;
+    const pc = room.players.get(ic)!;
+    pb.pos = { x: e.portal.x, y: e.portal.y + 1, z: e.portal.z + 0.5, yaw: 0, pitch: 0, flags: FLAG_GROUND };
+    expect(room.returnHome(ib, T0 + 400)).toBeNull();
+    room.leave(ic, '시험');
+    const xpA = room.xpOf(ia),
+      xpB = room.xpOf(ib),
+      xpD = room.xpOf(idd);
     expect(room.hitMob(ia, d.id, undefined, T0 + 1100)).toBeNull();
+    expect(room.xpOf(ia)).toBe(xpA + 500);
+    expect(room.xpOf(ib)).toBe(xpB + 500); // 마을로 돌아간 사람도
+    expect(storage.getPlayer(pc.token)?.xpTotal).toBe(500); // 끊긴 사람은 저장소에
+    expect(room.xpOf(idd)).toBe(xpD); // 안 들어온 사람은 아니다
+    expect(storage.getStorage(INFO.code).find((s) => s.item === 'dragon_egg')?.count).toBe(1); // 창고의 알
+    expect(BLOCKS.get(e.world.getBlock(e.den!.x, e.den!.y, e.den!.z)).id).toBe('dragon_egg'); // 분수 꼭대기의 알
+    expect(a.json.some((m) => m.t === 'error' && m.code === 'BOSS_DOWN' && String(m.message).includes('원정대 3명 모두 경험치 500'))).toBe(true);
     expect(e.endingPortal).not.toBeNull();
     const ep = e.endingPortal!;
     expect(ep.z).toBe(e.den!.z + 6);

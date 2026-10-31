@@ -1571,11 +1571,27 @@ export class VillageRoom {
         const name = MOBS.get(kind).name;
         const by = this.players.get(byIdx);
         for (const d of drops) this.storage?.storageAdd(this.info.code, d.item, d.count);
-        for (const p of this.playersIn(world)) if (xp > 0) this.addXp(p, xp, XP_SOURCE.boss, at.x, at.y, at.z, now);
+        // 경험치 (#238, 아빠 "원정 참여자 모두에게"): 원정 보스는 이 원정에 들어왔던 사람 모두 — 마을로 돌아갔거나 끊긴 사람도(저장소에 더해 둔다). 마을 보스는 마을에 있는 모두
+        const participants = world === 'expedition' ? this.expedition?.participants : null;
+        const rewarded = new Set<string>();
+        if (xp > 0) {
+          for (const p of this.playersIn(world)) {
+            this.addXp(p, xp, XP_SOURCE.boss, at.x, at.y, at.z, now);
+            rewarded.add(p.token);
+          }
+          for (const [token] of participants ?? []) {
+            if (rewarded.has(token)) continue;
+            rewarded.add(token);
+            const online = [...this.players.values()].find((o) => o.token === token);
+            if (online) this.addXp(online, xp, XP_SOURCE.boss, online.pos.x, online.pos.y, online.pos.z, now);
+            else this.storage?.addXpOffline(token, xp);
+          }
+        }
         const loot = drops.map((d) => `${itemName(d.item, this.registry, ITEM_NAMES)} ${d.count}`).join(' · ');
-        this.log(`마을 ${this.info.code}: ${name} 처치 (${by?.nick ?? '?'} 마무리) — 창고에 ${loot}`);
-        this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 ${name}을 잡았다! 전리품은 마을 창고에: ${loot}` }, -1, world);
-        if (world !== 'village') this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 원정대가 ${name}을 잡았어요! 창고에 ${loot}` }, -1, 'village');
+        const who = participants ? `원정대 ${rewarded.size}명 모두 경험치 ${xp}` : `모두 경험치 ${xp}`;
+        this.log(`마을 ${this.info.code}: ${name} 처치 (${by?.nick ?? '?'} 마무리) — 창고에 ${loot}, ${who}`);
+        this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 ${name}을 잡았다! ${who} · 전리품은 마을 창고에: ${loot}` }, -1, world);
+        if (world !== 'village') this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 원정대가 ${name}을 잡았어요! ${who} · 창고에 ${loot}` }, -1, 'village');
         this.broadcastStorage();
         if (kind === 'ender_dragon' && world === 'expedition') this.openEndingPortal(now); // 엔딩 (#170)
       },
@@ -2820,6 +2836,7 @@ export class VillageRoom {
     p.recent = [];
     const others = this.playersIn('expedition').filter((o) => o.idx !== p.idx).map((o) => this.toInfo(o));
     e.members.add(p.idx);
+    e.participants.set(p.token, p.nick); // 보스 경험치는 참여자 모두에게 (#238)
     const me = this.toInfo(p);
     this.broadcastJson({ t: 'playerJoined', player: me }, p.idx, 'expedition');
     const info: ExpeditionEnterInfo = {
@@ -2875,9 +2892,14 @@ export class VillageRoom {
         this.broadcast(encodeBlockChanged({ x: b.x, y: b.y, z: b.z, id: b.id, by: -1 }), -1, 'expedition');
       }
     }
+    // 드래곤 알 (#238, 아빠 "엔더 드래곤 알이 있어야 함"): 마인크래프트처럼 분수 꼭대기에 알이 놓인다 — 보이는 알(못 부숨). 가져가는 알은 창고의 '드래곤 알'
+    if (e.world.inBounds(e.den.x, e.den.y, e.den.z) && e.world.getBlock(e.den.x, e.den.y, e.den.z) === AIR_ID && e.world.setBlock(e.den.x, e.den.y, e.den.z, this.registry.numOf('dragon_egg')).changed) {
+      e.markModified(e.den.x, e.den.y, e.den.z);
+      this.broadcast(encodeBlockChanged({ x: e.den.x, y: e.den.y, z: e.den.z, id: 'dragon_egg', by: -1 }), -1, 'expedition');
+    }
     e.endingPortal = { x: cx, y: floorY + 1, z: cz };
     this.broadcastJson({ t: 'ending', ...e.endingPortal }, -1, 'expedition');
-    this.broadcastJson({ t: 'error', code: 'ENDING_OPEN', message: '✨ 다른 차원으로 가는 포탈이 열렸어요! 분수 남쪽 빛나는 바닥에 서면 엔딩' }, -1, 'expedition');
+    this.broadcastJson({ t: 'error', code: 'ENDING_OPEN', message: '✨ 분수 꼭대기에 드래곤 알이 놓이고(창고에도 하나) 다른 차원으로 가는 포탈이 열렸어요! 분수 남쪽 빛나는 바닥에 서면 엔딩' }, -1, 'expedition');
     this.log(`마을 ${this.info.code}: 엔딩 포탈 열림 (${cx}, ${floorY + 1}, ${cz})`);
     void now;
   }

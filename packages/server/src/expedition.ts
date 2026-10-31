@@ -37,6 +37,8 @@ export class Expedition {
   readonly fluids: FluidSim;
   /** 원정 안에 있는 플레이어 번호 */
   readonly members = new Set<number>();
+  /** 이 원정에 한 번이라도 들어온 사람 (#238): 토큰 → 닉네임. 돌아가거나 끊겨도 남는다 — 보스 경험치는 이들 모두에게 */
+  readonly participants = new Map<string, string>();
   /** 생성 지형과 달라진 청크 (합류자에게 보낼 것) */
   private readonly modified = new Map<number, ChunkCoord>();
   batch: { x: number; y: number; z: number; id: string }[] = [];
