@@ -155,6 +155,18 @@ import {
   SPLASH_RADIUS,
   THROW_RANGE,
   FIRE_CAUSES,
+  type ServerJson,
+  LINGER_SECONDS,
+  LINGER_RADIUS,
+  LINGER_MIN_RADIUS,
+  LINGER_USE_SHRINK,
+  LINGER_EVERY_MS,
+  lingerRadius,
+  lingerOutcome,
+  tickAir,
+  AIR_MAX_SEC,
+  DROWN_DAMAGE,
+  DROWN_EVERY_MS,
   raycastVoxels,
   PREBUILT,
   RAID_AGGRO_R,
@@ -243,6 +255,22 @@ const BED_TOP = 9 / 16;
 export type Send = (data: Uint8Array | string) => void;
 export type WorldKind = 'village' | 'expedition';
 
+/** 잔류형 물약 구름 (#246): 바닥 한 자리에 남아 LINGER_EVERY_MS 마다 다시 건다. radius 는 맞은 만큼 뺀 기준 반지름(시간만큼은 lingerRadius 가 뺀다) */
+interface PotionCloud {
+  id: number;
+  potion: string;
+  out: PotionOutcome;
+  x: number;
+  y: number;
+  z: number;
+  world: WorldKind;
+  byIdx: number;
+  born: number;
+  until: number;
+  nextAt: number;
+  radius: number;
+}
+
 export interface RoomPlayer {
   idx: number;
   token: string;
@@ -279,6 +307,11 @@ export interface RoomPlayer {
   guardUntil: number;
   /** 물약 효과 (#245): 서버가 진실. until 은 서버 시각 */
   effects: ActiveEffect[];
+  /** 물속 숨 (#246): 남은 초. airAt = 마지막으로 잰 때, airSent = 마지막으로 보낸 값(반 초 단위), drownNextAt = 다음 익사 피해 때 */
+  air: number;
+  airAt: number;
+  airSent: number;
+  drownNextAt: number;
   /** 남들에게 마지막으로 알린 막기 상태 (#144) */
   guardShown: boolean;
   /** 침대에 누워 있음 (#204). 접속 동안만 */
@@ -1450,7 +1483,7 @@ export class VillageRoom {
         gifts.push({ id: g.id, name: g.name, message: g.message });
       }
     }
-    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0, equip: parseEquipment(saved?.equipment ?? null), bowReadyAt: 0, dragonHp: 0, guardUntil: 0, guardShown: false, sleeping: null, effects: [] };
+    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0, equip: parseEquipment(saved?.equipment ?? null), bowReadyAt: 0, dragonHp: 0, guardUntil: 0, guardShown: false, sleeping: null, effects: [], air: AIR_MAX_SEC, airAt: 0, airSent: -1, drownNextAt: 0 };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     // 타고 있다가 나갔으면 다시 탄다 (#103, 아빠 요청). 드래곤이 없어졌거나 남이 타고 있으면 광장에서 (공중에 남지 않게)
@@ -1466,6 +1499,7 @@ export class VillageRoom {
     const me = this.toInfo(player);
     this.broadcastJson({ t: 'playerJoined', player: me }, idx, 'village');
     for (const q of this.players.values()) if (q !== player && hasEffect(q.effects, 'invisibility', Date.now())) this.sendJson(player, { t: 'playerFx', idx: q.idx, invisible: true }); // 투명한 사람 (#245)
+    this.sendClouds(player, 'village', Date.now()); // 남아 있는 구름 (#246)
     if (this.raid) this.sendJson(player, { t: 'raid', raid: this.raid.state(Date.now()) });
     this.sendJson(player, { t: 'pets', list: this.animals.petsFor(token) }); // 펫 이름 (#109)
     this.sendDemand(player, Date.now()); // 가게 값 (#230)
@@ -1567,6 +1601,10 @@ export class VillageRoom {
 
   /** 원정 몹 (M7-2). 원정이 생길 때 만들고 폐기될 때 버린다 */
   mobSys: MobSystem | null = null; // 시험에서 들여다본다
+
+  /** 잔류형 물약 구름 (#246). 서버 켜져 있는 동안만 */
+  readonly clouds = new Map<number, PotionCloud>();
+  private nextCloudId = 1;
 
   /** 몹 시스템 훅 — 그 세계(원정/마을) 사람들과 잇는다 */
   private mobHooks(world: WorldKind): MobHooks {
@@ -2335,6 +2373,9 @@ export class VillageRoom {
     p.lastHurtAt = now;
     p.moveLockUntil = now + RESPAWN_LOCK_MS;
     if (p.effects.length) this.setEffects(p, [], now); // 죽으면 물약 효과도 사라진다 (#245)
+    p.air = AIR_MAX_SEC; // 숨도 다시 (#246)
+    p.airSent = -1;
+    p.drownNextAt = 0;
     this.savePlayer(p, now);
     this.sendJson(p, { t: 'respawn', x: sp.x, y: sp.y, z: sp.z, yaw: sp.yaw, dropped });
     this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'respawn' });
@@ -2416,7 +2457,9 @@ export class VillageRoom {
     const to = { x: from.x + dx * d, y: from.y + dy * d, z: from.z + dz * d };
     const out = potionOutcome(this.potions, state);
     let hits = 0;
-    if (out.harmful) {
+    if (state.form === 'lingering') {
+      this.spawnCloud(p, state.id, out, to, now); // 잔류형 (#246): 바로 퍼지지 않고 바닥에 구름으로 남는다
+    } else if (out.harmful) {
       const sys = p.world === 'expedition' ? this.mobSys : null;
       for (const s of p.world === 'expedition' ? [sys] : [this.raid?.mobs ?? null, this.guardMobs]) if (s) hits += s.splash(p.idx, to, out, now);
     } else {
@@ -2426,7 +2469,7 @@ export class VillageRoom {
         this.applyPotion(q, out, now, false);
       }
     }
-    this.broadcastJson({ t: 'splash', idx: p.idx, potion: state.id, from, to, hits }, -1, p.world);
+    this.broadcastJson({ t: 'splash', idx: p.idx, potion: state.id, form: state.form, from, to, hits }, -1, p.world);
     this.log(`마을 ${this.info.code}: ${p.nick} ${this.potions.displayName(state)} 던짐 — ${hits} 맞음`);
     return null;
   }
@@ -2454,6 +2497,92 @@ export class VillageRoom {
     this.sendJson(p, { t: 'effects', list: next.map((e) => ({ id: e.id, level: e.level, leftMs: Math.max(0, e.until - now) })) });
     const invisible = hasEffect(next, 'invisibility', now);
     if (invisible !== wasInvisible) this.broadcastJson({ t: 'playerFx', idx: p.idx, invisible }, -1, p.world);
+  }
+
+  /** 잔류형 구름을 만든다 (#246): 떨어진 자리에서 아래로 6칸 안의 첫 바닥 위에. 즉시 효과는 반 */
+  private spawnCloud(p: RoomPlayer, potion: string, out: PotionOutcome, at: { x: number; y: number; z: number }, now: number): void {
+    const world = this.worldOf(p);
+    const bx = Math.floor(at.x),
+      bz = Math.floor(at.z);
+    let y = at.y;
+    for (let by = Math.floor(at.y); by >= Math.floor(at.y) - 6; by--) {
+      if (world.inBounds(bx, by, bz) && this.registry.get(world.getBlock(bx, by, bz)).solid) {
+        y = by + 1;
+        break;
+      }
+    }
+    const c: PotionCloud = { id: this.nextCloudId++, potion, out: lingerOutcome(out), x: at.x, y, z: at.z, world: p.world, byIdx: p.idx, born: now, until: now + LINGER_SECONDS * 1000, nextAt: now, radius: LINGER_RADIUS };
+    this.clouds.set(c.id, c);
+    this.broadcastJson(this.cloudMsg(c, now), -1, p.world);
+  }
+
+  private cloudMsg(c: PotionCloud, now: number): ServerJson {
+    return { t: 'cloud', id: c.id, potion: c.potion, x: c.x, y: c.y, z: c.z, radius: Math.round(lingerRadius(c.radius, now - c.born) * 100) / 100, leftMs: Math.max(0, c.until - now) };
+  }
+
+  /** 세계에 들어온 사람에게 그 세계의 구름 전부 */
+  private sendClouds(p: RoomPlayer, world: WorldKind, now: number): void {
+    for (const c of this.clouds.values()) if (c.world === world) this.sendJson(p, this.cloudMsg(c, now));
+  }
+
+  /** 틱마다: 구름이 LINGER_EVERY_MS 마다 안에 있는 몹(나쁜 물약)·사람(좋은 물약)에게 걸고, 맞은 수만큼 줄어든다. 작아지거나 시간이 다하면 사라진다 */
+  private tickClouds(now: number): void {
+    for (const c of [...this.clouds.values()]) {
+      const r = lingerRadius(c.radius, now - c.born);
+      if (now >= c.until || r < LINGER_MIN_RADIUS || (c.world === 'expedition' && !this.expedition)) {
+        this.clouds.delete(c.id);
+        this.broadcastJson({ t: 'cloudGone', id: c.id }, -1, c.world);
+        continue;
+      }
+      if (now < c.nextAt) continue;
+      c.nextAt = now + LINGER_EVERY_MS;
+      let hits = 0;
+      if (c.out.harmful) {
+        for (const s of c.world === 'expedition' ? [this.mobSys] : [this.raid?.mobs ?? null, this.guardMobs]) if (s) hits += s.splash(c.byIdx, c, c.out, now, r);
+      } else {
+        for (const q of this.playersIn(c.world)) {
+          if (q.hp <= 0 || Math.hypot(q.pos.x - c.x, q.pos.z - c.z) > r || q.pos.y < c.y - 1 || q.pos.y > c.y + 2) continue;
+          hits++;
+          this.applyPotion(q, c.out, now, false);
+        }
+      }
+      if (hits > 0) {
+        c.radius -= LINGER_USE_SHRINK * hits;
+        this.broadcastJson(this.cloudMsg(c, now), -1, c.world);
+      }
+    }
+  }
+
+  /** 눈이 물에 잠겼나 (#246) */
+  private eyeInWater(p: RoomPlayer): boolean {
+    const w = this.worldOf(p);
+    const x = Math.floor(p.pos.x),
+      y = Math.floor(p.pos.y + EYE - 0.1),
+      z = Math.floor(p.pos.z);
+    return w.inBounds(x, y, z) && this.registry.get(w.getBlock(x, y, z)).fluid === 'water';
+  }
+
+  /** 틱마다: 물속 숨 (#246). 눈이 잠기면 15초 뒤부터 1초마다 2 — 갑옷은 못 막는다. 수중 호흡 물약·침대에선 안 줄고, 물 밖에선 4초면 다 찬다 */
+  private tickBreath(now: number): void {
+    for (const p of this.players.values()) {
+      const dt = p.airAt === 0 ? 0 : Math.min(0.5, Math.max(0, now - p.airAt) / 1000);
+      p.airAt = now;
+      if (p.hp <= 0) continue;
+      const underwater = this.eyeInWater(p);
+      const canBreathe = !underwater || p.sleeping !== null || hasEffect(p.effects, 'water_breathing', now);
+      p.air = tickAir(p.air, dt, underwater, canBreathe);
+      if (p.air <= 0 && !canBreathe) {
+        if (now >= p.drownNextAt) {
+          p.drownNextAt = now + DROWN_EVERY_MS;
+          this.hurt(p, DROWN_DAMAGE, 'drown', now);
+        }
+      } else p.drownNextAt = 0;
+      const shown = p.air >= AIR_MAX_SEC ? AIR_MAX_SEC : Math.round(p.air * 2) / 2;
+      if (shown !== p.airSent) {
+        p.airSent = shown;
+        this.sendJson(p, { t: 'air', air: shown, max: AIR_MAX_SEC });
+      }
+    }
   }
 
   /** 틱마다: 지난 효과를 떼고, 재생은 간격마다 1 회복, 독은 간격마다 1 피해(체력 1 아래로는 안 간다) */
@@ -3036,6 +3165,7 @@ export class VillageRoom {
     p.fallPeak = null; // 포탈을 지나는 건 떨어진 게 아니다
     this.sendJson(p, { t: 'worldEnter', kind: 'expedition', expedition: info, spawn: me, players: others, chunkCount: e.modifiedCount });
     this.sendJson(p, { t: 'orbs', list: this.orbsIn('expedition') });
+    this.sendClouds(p, 'expedition', now);
     for (const c of e.modifiedChunks()) {
       const chunk = e.world.getChunk(c.cx, c.cy, c.cz);
       if (chunk) p.send(encodeChunkData({ cx: c.cx, cy: c.cy, cz: c.cz, bytes: this.encode(chunk) }));
@@ -3122,6 +3252,7 @@ export class VillageRoom {
     p.fallPeak = null;
     this.sendJson(p, { t: 'worldEnter', kind: 'village', expedition: null, spawn: me, players: others, chunkCount: this.modifiedCount });
     this.sendJson(p, { t: 'orbs', list: this.orbsIn('village') });
+    this.sendClouds(p, 'village', Date.now());
     this.sendModifiedChunks(p.send);
     this.sendJson(p, { t: 'ready' });
     this.sendJson(p, { t: 'expeditionState', expedition: this.expeditionState(now) });
@@ -3228,6 +3359,8 @@ export class VillageRoom {
     this.tickGrowth(now);
     this.tickHealth(now);
     this.tickPotionEffects(now);
+    this.tickBreath(now);
+    this.tickClouds(now);
     if (this.lastFlush === 0) this.lastFlush = now;
     if (now - this.lastFlush >= FLUSH_MS) this.flush(now);
   }

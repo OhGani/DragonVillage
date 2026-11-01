@@ -123,6 +123,20 @@ export const MOB_SLOW_MUL = 0.5;
 export const MOB_WEAK_MUL = 0.5;
 /** 화염 저항이 막는 피해 원인 */
 export const FIRE_CAUSES: readonly string[] = ['blaze', 'ghast', 'fire', 'lava'];
+/**
+ * 잔류형 구름 (#246): 떨어진 자리 바닥에 LINGER_SECONDS 동안 남는다. 반지름은 LINGER_RADIUS 에서 시간에 따라 줄고(30초에 1칸),
+ * LINGER_EVERY_MS 마다 그 안의 몹(나쁜 물약)·사람(좋은 물약)에게 다시 걸며 한 명 맞을 때마다 LINGER_USE_SHRINK 만큼 더 준다. LINGER_MIN_RADIUS 아래면 사라진다
+ */
+export const LINGER_SECONDS = 30;
+export const LINGER_RADIUS = 3;
+export const LINGER_MIN_RADIUS = 0.5;
+export const LINGER_USE_SHRINK = 0.5;
+export const LINGER_EVERY_MS = 1000;
+
+/** 구름의 지금 반지름: base(시작 반지름에서 맞은 만큼 뺀 것)에서 시간만큼 */
+export function lingerRadius(base: number, elapsedMs: number): number {
+  return base - elapsedMs / (LINGER_SECONDS * 1000);
+}
 
 function effectDef(id: string, raw: z.infer<typeof RawEffect> | undefined): PotionEffectDef {
   return {
@@ -228,6 +242,11 @@ export function potionOutcome(reg: PotionRegistry, state: PotionState): PotionOu
   const seconds = reg.durationSeconds(state);
   if (seconds === 0) return { heals: d.heals * level, hurts: d.hurts * level, effect: null, harmful: isHarmfulEffect(d) };
   return { heals: 0, hurts: 0, effect: { id: def.effect, level, seconds }, harmful: isHarmfulEffect(d) };
+}
+
+/** 구름이 주는 것 (#246): 즉시 효과(치유·고통)는 반, 지속 효과는 병에 적힌 대로(잔류형은 이미 1/4) */
+export function lingerOutcome(out: PotionOutcome): PotionOutcome {
+  return { ...out, heals: Math.floor(out.heals / 2), hurts: Math.floor(out.hurts / 2) };
 }
 
 /** 양조기 자체의 규칙 (연료·병 수·한 번 걸리는 시간). JSON 에 없으면 마인크래프트 기본값 */

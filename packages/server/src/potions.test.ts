@@ -40,7 +40,7 @@ function slotOf(room: VillageRoom, idx: number, item: string, n = 1): number {
 }
 
 const effectsOf = (box: ReturnType<typeof inbox>) => box.json.filter((m) => m.t === 'effects').at(-1)?.list as { id: string; level: number; leftMs: number }[] | undefined;
-const hpMsgs = (box: ReturnType<typeof inbox>) => box.json.filter((m) => m.t === 'health') as { hp: number; cause: string }[];
+const hpMsgs = (box: ReturnType<typeof inbox>) => box.json.filter((m) => m.t === 'health') as unknown as { hp: number; cause: string }[];
 
 describe('물약 마시기 (#245)', () => {
   it('치유: 바로 하트가 차고 빈 유리병이 돌아온다. 빈손·물병·다른 아이템은 거절', () => {
@@ -176,7 +176,7 @@ describe('물약 던지기 (#245)', () => {
     expect(near.hp).toBe(20 - 6);
     expect(far.hp).toBe(20);
     expect(p.hp).toBe(HP_MAX);
-    const sp = a.json.find((m) => m.t === 'splash') as { hits: number; potion: string; to: { x: number; y: number; z: number } };
+    const sp = a.json.find((m) => m.t === 'splash') as unknown as { hits: number; potion: string; to: { x: number; y: number; z: number } };
     expect(sp).toMatchObject({ idx: ia, potion: 'harming', hits: 1 });
     expect(Math.abs(sp.to.x - p.pos.x)).toBeLessThan(0.01);
     expect(sp.to.y).toBeLessThan(p.pos.y + 1.7);
@@ -188,8 +188,52 @@ describe('물약 던지기 (#245)', () => {
     const hp0 = near.hp;
     for (let t = T0 + 400; t <= T0 + 5000; t += 100) room.tick(t);
     expect(near.hp).toBe(hp0 - 3); // 1.25초마다 1 (1650·2900·4150)
-    expect(room.throwPotion(ia, slotOf(room, ia, 'lingering_potion.slowness'), { x: 1, y: -1, z: 0 }, T0 + 6000)).toBeNull(); // 잔류형도 지금은 던진 것과 같다
-    expect(near.slowUntil).toBeUndefined(); // 멀어서 안 맞음
+    // 잔류형 (#246): 바로 퍼지지 않고 바닥에 구름 — 1초마다 안의 몹에게 걸고 맞은 만큼 줄어든다
+    p.pos.x += 30;
+    near.x = p.pos.x + 1; // 그동안 돌아다닌 좀비를 옆에
+    near.y = p.pos.y;
+    near.z = p.pos.z;
+    a.clear();
+    expect(room.throwPotion(ia, slotOf(room, ia, 'lingering_potion.slowness'), { x: 0, y: -1, z: 0 }, T0 + 6000)).toBeNull();
+    expect(near.slowUntil).toBeUndefined(); // 던진 순간엔 아직
+    expect(a.json.find((m) => m.t === 'splash')).toMatchObject({ form: 'lingering', hits: 0 });
+    const cloud = a.json.find((m) => m.t === 'cloud') as unknown as { id: number; potion: string; radius: number; leftMs: number; y: number };
+    expect(cloud).toMatchObject({ potion: 'slowness', radius: 3, leftMs: 30_000 });
+    expect(cloud.y).toBeLessThanOrEqual(p.pos.y + 0.01); // 바닥 위
+    room.tick(T0 + 6000);
+    expect(near.slowUntil).toBe(T0 + 6000 + 23_000); // 1분 30초의 1/4
+    expect((a.json.filter((m) => m.t === 'cloud').at(-1) as unknown as { radius: number }).radius).toBe(2.5); // 하나 맞아 반 칸 줄었다
+    p.pos.x -= 30; // 다시 멀리
+    for (let t = T0 + 6250; t <= T0 + 37_000; t += 250) room.tick(t);
+    expect(a.json.find((m) => m.t === 'cloudGone')).toEqual({ t: 'cloudGone', id: cloud.id }); // 맞을 때마다 줄다 늦어도 30초면 사라진다
+    expect(room.clouds.size).toBe(0);
+  });
+
+  it('좋은 잔류형(치유)은 구름 안의 사람에게 1초마다 반씩(2) — 구름은 맞은 만큼 줄어 곧 사라진다', () => {
+    const { room, a, b, ia, ib } = setup();
+    const p = room.players.get(ia)!,
+      q = room.players.get(ib)!;
+    q.pos = { ...p.pos, x: p.pos.x + 1.5 };
+    room.hurt(p, 10, 'zombie', T0);
+    room.hurt(q, 10, 'zombie', T0);
+    a.clear();
+    b.clear();
+    expect(room.throwPotion(ia, slotOf(room, ia, 'lingering_potion.healing'), { x: 0, y: -1, z: 0 }, T0 + 100)).toBeNull();
+    expect(p.hp).toBe(10); // 던진 순간엔 아직
+    expect(b.json.find((m) => m.t === 'cloud')).toMatchObject({ potion: 'healing', radius: 3 }); // 친구에게도 구름이 보인다
+    room.tick(T0 + 100);
+    expect(p.hp).toBe(12);
+    expect(q.hp).toBe(12);
+    expect(hpMsgs(b).at(-1)).toMatchObject({ hp: 12, cause: 'potion' });
+    room.tick(T0 + 600);
+    expect(p.hp).toBe(12); // 1초 안엔 다시 안 건다
+    room.tick(T0 + 1100);
+    expect(p.hp).toBe(14);
+    expect((a.json.filter((m) => m.t === 'cloud').at(-1) as unknown as { radius: number }).radius).toBeCloseTo(1 - 1 / 30, 1); // 둘씩 두 번 맞아 2칸 줄었다
+    for (let t = T0 + 1100; t <= T0 + 3000; t += 250) room.tick(t);
+    expect(a.json.find((m) => m.t === 'cloudGone')).toBeTruthy();
+    expect(p.hp).toBe(16); // 세 번째도 걸리고 사라졌다 (반지름 0 아래). 3초 뒤부턴 저절로 찬다
+    expect(room.clouds.size).toBe(0);
   });
 
   it('좋은 물약(치유·신속)은 4칸 안 사람들(나 포함)에게 — 몹에겐 아무것도', () => {

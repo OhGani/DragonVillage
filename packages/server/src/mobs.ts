@@ -467,12 +467,12 @@ export class MobSystem {
    * 던진 물약이 떨어졌다 (#245): at 에서 SPLASH_RADIUS 안의 몹(주민 빼고)에게 나쁜 효과만 —
    * 고통은 바로 피해(때린 사람 몫), 독·감속·나약함은 그 시간 동안. 좋은 물약은 몹에겐 아무것도 안 한다. 맞은 수
    */
-  splash(byIdx: number, at: { x: number; y: number; z: number }, out: PotionOutcome, now: number): number {
+  splash(byIdx: number, at: { x: number; y: number; z: number }, out: PotionOutcome, now: number, radius = SPLASH_RADIUS): number {
     if (!out.harmful) return 0;
     let n = 0;
     for (const m of [...this.mobs.values()]) {
       if (m.kind === 'villager' || m.cureAt !== undefined) continue;
-      if (Math.hypot(m.x - at.x, m.y + mobSize(m.kind).h * 0.5 - at.y, m.z - at.z) > SPLASH_RADIUS) continue;
+      if (Math.hypot(m.x - at.x, m.y + mobSize(m.kind).h * 0.5 - at.y, m.z - at.z) > radius) continue;
       n++;
       if (out.hurts > 0) this.damage(m, out.hurts, byIdx, now);
       const e = out.effect;

@@ -629,9 +629,15 @@ export type ServerJson =
   /** 내게 붙은 물약 효과 전부 (#245). leftMs = 남은 시간. 바뀔 때마다 */
   | { t: 'effects'; list: { id: string; level: number; leftMs: number }[] }
   /** 누가 물약을 던졌다 (#245): from(눈) → to(떨어진 자리). potion = potions.json id, hits = 맞은 몹 수 */
-  | { t: 'splash'; idx: number; potion: string; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; hits: number }
+  | { t: 'splash'; idx: number; potion: string; form: 'splash' | 'lingering'; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; hits: number }
   /** 누가 투명해졌다/돌아왔다 (#245) — 다른 사람 인형을 숨긴다 */
   | { t: 'playerFx'; idx: number; invisible: boolean }
+  /** 내 숨 (#246): 눈이 물에 잠기면 줄고 물 밖에서 찬다 (초). 반 초 단위로 바뀔 때마다 */
+  | { t: 'air'; air: number; max: number }
+  /** 잔류형 물약 구름 (#246): 생길 때·누가 맞아 반지름이 줄 때. 반지름은 30초에 1칸씩 더 줄고 leftMs 가 지나면 사라진다 */
+  | { t: 'cloud'; id: number; potion: string; x: number; y: number; z: number; radius: number; leftMs: number }
+  /** 구름이 사라졌다 */
+  | { t: 'cloudGone'; id: number }
   /** 죽어서 다시 일어났다 — 이 자리로 옮겨라 (M7-1) */
   | { t: 'respawn'; x: number; y: number; z: number; yaw: number; dropped: number }
   /** 이 세계에 떨어져 있는 경험치 구슬 전부 (세계 들어갈 때·떨어질 때) */

@@ -1116,17 +1116,21 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       if (m.idx === myIdx) {
         ding();
         const def = POTIONS.find(m.potion);
-        if (def) hud.toast(m.hits > 0 ? `🧪 ${def.name} — ${m.hits}명에게 퍼졌어요` : `🧪 ${def.name} — 아무도 안 맞았어요`, 1800);
+        if (def) hud.toast(m.form === 'lingering' ? `🧪 ${def.name} 구름이 생겼어요 — 안에 있으면 계속 걸려요` : m.hits > 0 ? `🧪 ${def.name} — ${m.hits}명에게 퍼졌어요` : `🧪 ${def.name} — 아무도 안 맞았어요`, 1800);
       }
     },
     onPlayerFx: (m) => {
       if (m.idx !== myIdx) remote.setInvisible(m.idx, m.invisible);
     },
+    onAir: (m) => hud.setAir(m.air, m.max), // 숨 방울 (#246)
+    onCloud: (m) => mobView.cloud(m.id, m, potionColor(m.potion), m.radius, m.leftMs),
+    onCloudGone: (m) => mobView.cloudGone(m.id),
     onHealth: (m) => {
       if (m.hp < hp) {
         hud.hurtFlash();
         hurtSound();
         if (m.cause === 'poison') hud.toast('🤢 독이에요 — 잠깐 아파요', 1500);
+        if (m.cause === 'drown') hud.toast('🫧 숨이 막혀요! 물 위로 올라가요', 1200); // #246
         if (m.cause === 'potion') hud.toast('💔 앗, 고통의 물약! 던져야 하는 거였어요', 2000); // #245
         if (m.cause === 'iron_golem') hud.toast('🗿 철 골렘한테 맞았어요 — 주민을 때리면 안 돼요', 1500); // #221
         if (m.cause === 'husk') {

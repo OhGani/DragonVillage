@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { XP } from './data';
-import { FALL_SAFE, HP_MAX, REGEN_DELAY_MS, REGEN_EVERY_MS, SLEEP_REGEN_DELAY_MS, SLEEP_REGEN_EVERY_MS, deathXpDrop, fallDamage, regenAt, trackFall, xpAfterDeath } from './health';
+import { AIR_MAX_SEC, FALL_SAFE, HP_MAX, REGEN_DELAY_MS, REGEN_EVERY_MS, SLEEP_REGEN_DELAY_MS, SLEEP_REGEN_EVERY_MS, airBubbles, deathXpDrop, fallDamage, regenAt, tickAir, trackFall, xpAfterDeath } from './health';
 import { totalXpForLevel } from './xp';
 
 describe('체력·낙하·죽음 (M7-1)', () => {
@@ -63,5 +63,27 @@ describe('체력·낙하·죽음 (M7-1)', () => {
     expect(regenAt(11, 10_000, t, t + SLEEP_REGEN_EVERY_MS - 1, true)).toBe(0);
     expect(regenAt(11, 10_000, t, t + SLEEP_REGEN_EVERY_MS, true)).toBe(1);
     expect(regenAt(HP_MAX, 0, 0, 100_000, true)).toBe(0);
+  });
+});
+
+describe('물속 숨 (#246)', () => {
+  it('눈이 잠기면 1초에 1씩 줄어 15초면 0, 물 밖에선 4초면 다 찬다. 수중 호흡이면 안 준다', () => {
+    let air = AIR_MAX_SEC;
+    for (let i = 0; i < 60; i++) air = tickAir(air, 0.25, true, false);
+    expect(air).toBe(0);
+    expect(tickAir(0, 0.25, true, false)).toBe(0);
+    air = 0;
+    for (let i = 0; i < 16; i++) air = tickAir(air, 0.25, false, false);
+    expect(air).toBeCloseTo(AIR_MAX_SEC);
+    expect(tickAir(AIR_MAX_SEC, 1, false, false)).toBe(AIR_MAX_SEC); // 넘치지 않는다
+    expect(tickAir(10, 1, true, true)).toBe(13.75); // 수중 호흡: 물속인데도 찬다
+  });
+
+  it('방울 10개: 15초면 10, 7.5초면 5, 0.1초면 1, 0이면 0', () => {
+    expect(airBubbles(AIR_MAX_SEC)).toBe(10);
+    expect(airBubbles(7.5)).toBe(5);
+    expect(airBubbles(0.1)).toBe(1);
+    expect(airBubbles(0)).toBe(0);
+    expect(airBubbles(14.9)).toBe(10);
   });
 });

@@ -195,9 +195,14 @@ export interface NetEvents {
   /** 내게 붙은 물약 효과 (#245) */
   onEffects(list: { id: string; level: number; leftMs: number }[]): void;
   /** 누가 물약을 던졌다 (#245) */
-  onSplash(m: { idx: number; potion: string; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; hits: number }): void;
+  onSplash(m: { idx: number; potion: string; form: 'splash' | 'lingering'; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; hits: number }): void;
   /** 누가 투명해졌다/돌아왔다 (#245) */
   onPlayerFx(m: { idx: number; invisible: boolean }): void;
+  /** 내 숨 (#246): 물속에서 줄어든다 */
+  onAir(m: { air: number; max: number }): void;
+  /** 잔류형 물약 구름 (#246) */
+  onCloud(m: { id: number; potion: string; x: number; y: number; z: number; radius: number; leftMs: number }): void;
+  onCloudGone(m: { id: number }): void;
   /** 죽어서 다시 일어남 — 이 자리로 (M7-1) */
   onRespawn(m: { x: number; y: number; z: number; yaw: number; dropped: number }): void;
   /** 이 세계의 경험치 구슬 전부 */
@@ -657,6 +662,9 @@ export class NetClient {
     else if (msg.t === 'effects') ev.onEffects(msg.list);
     else if (msg.t === 'splash') ev.onSplash(msg);
     else if (msg.t === 'playerFx') ev.onPlayerFx(msg);
+    else if (msg.t === 'air') ev.onAir(msg);
+    else if (msg.t === 'cloud') ev.onCloud(msg);
+    else if (msg.t === 'cloudGone') ev.onCloudGone(msg);
     else if (msg.t === 'respawn') ev.onRespawn(msg);
     else if (msg.t === 'orbs') ev.onOrbs(msg.list);
     else if (msg.t === 'orbGone') ev.onOrbGone(msg.id, msg.by);

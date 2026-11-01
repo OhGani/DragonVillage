@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DataError } from './blocks';
 import { POTIONS } from './data';
-import { AWKWARD, WATER_BOTTLE, isPotionItem, parsePotions, potionFromItemId, potionItemId, waterBottle, type PotionState, addEffect, pruneEffects, hasEffect, speedMultiplier, jumpMultiplier, attackBonus, damageMultiplier, potionOutcome, isHarmfulEffect } from './potions';
+import { AWKWARD, WATER_BOTTLE, isPotionItem, parsePotions, potionFromItemId, potionItemId, waterBottle, type PotionState, addEffect, pruneEffects, hasEffect, speedMultiplier, jumpMultiplier, attackBonus, damageMultiplier, potionOutcome, isHarmfulEffect, LINGER_RADIUS, LINGER_SECONDS, lingerRadius, lingerOutcome } from './potions';
 
 const small = {
   base: {
@@ -296,5 +296,20 @@ describe('물약 효과 (#245)', () => {
     expect(damageMultiplier(one('turtle_master'), POTIONS, now)).toBeCloseTo(0.4);
     expect(damageMultiplier(one('speed'), POTIONS, now)).toBe(1);
     expect(speedMultiplier(one('speed'), POTIONS, 5)).toBe(1); // 지난 건 없는 셈
+  });
+});
+
+describe('잔류형 구름 (#246)', () => {
+  it('반지름은 30초에 1칸 줄고, 즉시 효과는 반(치유 4 → 2, 고통 6 → 3), 지속 효과는 병에 적힌 대로(1/4)', () => {
+    expect(lingerRadius(LINGER_RADIUS, 0)).toBe(3);
+    expect(lingerRadius(LINGER_RADIUS, LINGER_SECONDS * 1000)).toBe(2);
+    expect(lingerRadius(2, 15_000)).toBe(1.5);
+    const heal = lingerOutcome(potionOutcome(POTIONS, potionFromItemId('lingering_potion.healing')!));
+    expect(heal).toMatchObject({ heals: 2, hurts: 0, harmful: false });
+    const harm = lingerOutcome(potionOutcome(POTIONS, potionFromItemId('lingering_potion.harming')!));
+    expect(harm).toMatchObject({ heals: 0, hurts: 3, harmful: true });
+    const slow = lingerOutcome(potionOutcome(POTIONS, potionFromItemId('lingering_potion.slowness')!));
+    expect(slow.effect).toEqual({ id: 'slowness', level: 1, seconds: 23 }); // 1분 30초의 1/4 (초로 반올림)
+    expect(slow.harmful).toBe(true);
   });
 });

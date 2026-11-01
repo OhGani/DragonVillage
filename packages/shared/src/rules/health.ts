@@ -59,6 +59,23 @@ export function regenAt(hp: number, lastHurtAt: number, lastRegenAt: number, now
   return 1;
 }
 
+/** 물속 숨 (#246): 눈이 물에 잠기면 이만큼(초) 뒤 숨이 다하고, 그 뒤 DROWN_EVERY_MS 마다 DROWN_DAMAGE. 물 밖에선 AIR_REFILL_SEC 만에 다시 찬다 */
+export const AIR_MAX_SEC = 15;
+export const AIR_REFILL_SEC = 4;
+export const DROWN_DAMAGE = 2;
+export const DROWN_EVERY_MS = 1000;
+
+/** 숨 잔량(초)을 dt(초)만큼 흘린다. underwater = 눈이 물속, canBreathe = 수중 호흡 물약·침대 등 */
+export function tickAir(air: number, dtSec: number, underwater: boolean, canBreathe: boolean): number {
+  if (underwater && !canBreathe) return Math.max(0, air - dtSec);
+  return Math.min(AIR_MAX_SEC, air + (dtSec * AIR_MAX_SEC) / AIR_REFILL_SEC);
+}
+
+/** 숨 방울 bubbles 개 중 몇 개가 차 있나 (HUD) */
+export function airBubbles(air: number, max = AIR_MAX_SEC, bubbles = 10): number {
+  return Math.max(0, Math.min(bubbles, Math.ceil((air / max) * bubbles - 1e-9)));
+}
+
 /** 경험치 구슬 (세계에 놓인 것) */
 export interface OrbInfo {
   id: number;

@@ -53,6 +53,7 @@ export class Hud {
   private readonly heartsEl: HTMLElement;
   private readonly armorEl: HTMLElement;
   private readonly fxEl: HTMLElement;
+  private readonly airEl: HTMLElement;
   private fxList: { icon: string; name: string; level: number; until: number }[] = [];
   private fxShownSec = -1;
   private readonly vignette: HTMLElement;
@@ -127,6 +128,7 @@ export class Hud {
       <div class="slot-name"></div>
       <div class="armor" aria-label="방어" hidden></div>
       <div class="hearts" aria-label="체력" hidden></div>
+      <div class="air" aria-label="숨" hidden></div>
       <div class="fx-chips" aria-label="물약 효과" hidden></div>
       <div class="raid-bar" hidden></div>
       <div class="follow-bar" hidden><span class="follow-text"></span><button class="plain-btn follow-btn">🧭 따라가기</button></div>
@@ -241,6 +243,7 @@ export class Hud {
     this.heartsEl = q('.hearts');
     this.armorEl = q('.armor');
     this.fxEl = q('.fx-chips');
+    this.airEl = q('.air');
     this.vignette = q('.hurt-vignette');
     this.xpBar = q('.xp-bar');
     this.xpFill = q('.xp-fill');
@@ -616,6 +619,22 @@ export class Hud {
     }
     this.heartsEl.innerHTML = html;
     this.heartsEl.classList.toggle('low', hp <= 6);
+  }
+
+  /** 숨 방울 10개 (#246): 물속에서 줄어든다. 다 차 있으면 숨긴다. 효과 칩은 그 위로 올라간다 */
+  setAir(air: number, max: number): void {
+    const hide = air >= max;
+    this.airEl.hidden = hide;
+    this.fxEl.classList.toggle('with-air', !hide);
+    if (hide) {
+      this.airEl.innerHTML = '';
+      return;
+    }
+    const n = Math.max(0, Math.min(10, Math.ceil((air / max) * 10 - 1e-9)));
+    let html = '';
+    for (let i = 0; i < 10; i++) html += `<span class="bubble ${i < n ? 'full' : 'empty'}"></span>`;
+    this.airEl.innerHTML = html;
+    this.airEl.classList.toggle('low', air <= 4);
   }
 
   /** 🛡️ 막기 버튼 (#118): 방패를 끼면 보인다 (폰). PC 는 X 키 */

@@ -332,6 +332,8 @@ export class MobView {
   private readonly shots: { mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; born: number; ms: number; fire: boolean; splash?: number }[] = [];
   /** 불덩이가 닿아 터질 때 (#215): Game 이 소리를 붙인다 */
   onFireHit: (() => void) | null = null;
+  /** 잔류형 물약 구름 (#246): 바닥에 그 색 조각들이 천천히 돈다. radius 는 서버가 줄일 때마다 다시 오고, 그 사이엔 30초에 1칸씩 줄어든 것으로 그린다. at·until 은 update 의 시계 — at < 0 이면 다음 update 에서 맞춘다 */
+  private readonly clouds = new Map<number, { group: THREE.Group; parts: THREE.Mesh[]; x: number; y: number; z: number; radius: number; at: number; until: number; leftMs: number; seed: number }>();
 
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
@@ -390,6 +392,35 @@ export class MobView {
     mesh.position.copy(f);
     this.group.add(mesh);
     this.shots.push({ mesh, from: f, to: t, born: -1, ms: 350, fire: false, splash: color });
+  }
+
+  /** 잔류형 구름 (#246): 새로 생기거나 반지름이 바뀌었다. leftMs 뒤에 사라진다 */
+  cloud(id: number, at: { x: number; y: number; z: number }, color: number, radius: number, leftMs: number): void {
+    let c = this.clouds.get(id);
+    if (!c) {
+      const group = new THREE.Group();
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8 });
+      const parts: THREE.Mesh[] = [];
+      for (let i = 0; i < 28; i++) {
+        const m = new THREE.Mesh(BURST_GEOM, mat);
+        parts.push(m);
+        group.add(m);
+      }
+      this.group.add(group);
+      c = { group, parts, x: at.x, y: at.y, z: at.z, radius, at: -1, until: 0, leftMs, seed: id * 1.7 };
+      this.clouds.set(id, c);
+    }
+    c.radius = radius;
+    c.at = -1;
+    c.leftMs = leftMs;
+  }
+
+  cloudGone(id: number): void {
+    const c = this.clouds.get(id);
+    if (!c) return;
+    this.group.remove(c.group);
+    (c.parts[0]!.material as THREE.Material).dispose();
+    this.clouds.delete(id);
   }
 
   /** 조준 안내용: 그 몹의 종류·상태 */
@@ -705,6 +736,7 @@ export class MobView {
 
   clear(): void {
     for (const id of [...this.figures.keys()]) this.remove(id);
+    for (const id of [...this.clouds.keys()]) this.cloudGone(id);
     for (const b of this.bursts) this.group.remove(b.group);
     this.bursts.length = 0;
     for (const p of this.pops) this.group.remove(p.sprite);
@@ -850,6 +882,23 @@ export class MobView {
         p.v.y -= 9.8 * dt;
       }
       (b.parts[0]!.m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 1 - age / 0.9);
+    }
+    for (const [id, c] of this.clouds) {
+      if (c.at < 0) {
+        c.at = now;
+        c.until = now + c.leftMs;
+      }
+      if (now >= c.until) {
+        this.cloudGone(id);
+        continue;
+      }
+      const r = Math.max(0.2, c.radius - (now - c.at) / 30_000);
+      const n = c.parts.length;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + now * 0.0004 * (i % 2 ? 1 : -1) + c.seed;
+        const rr = r * (0.25 + 0.75 * (((i * 13) % n) / n));
+        c.parts[i]!.position.set(c.x + Math.cos(a) * rr, c.y + 0.12 + 0.4 * (0.5 + 0.5 * Math.sin(now * 0.002 + i)), c.z + Math.sin(a) * rr);
+      }
     }
     for (let i = this.shots.length - 1; i >= 0; i--) {
       const s = this.shots[i]!;
