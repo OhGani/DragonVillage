@@ -5,7 +5,7 @@
  * - 외부 의존성 없음 (PNG 인코더 내장). 시드 기반이라 같은 이름은 항상 같은 그림.
  */
 import { deflateSync } from 'node:zlib';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -591,10 +591,25 @@ const TEX = {
   },
 };
 
+// 드래곤마다의 알 껍질 (#249): dragons.json 의 color 로 물들인 dragon_egg. 아들이 textures/dragon_egg_<id>.png 를 그리면 그대로 쓰인다(있으면 건너뜀)
+const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+for (const d of JSON.parse(readFileSync(join(ROOT, 'data', 'dragons.json'), 'utf8')).dragons) {
+  const [r, g, b] = hexRgb(d.color ?? '#9a9a9a');
+  TEX[`dragon_egg_${d.id}`] = (c) => {
+    c.noise([r * 0.8, g * 0.8, b * 0.8], 10).blotch(0.14);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) c.mul(x, y, 1.14 - y * 0.03); // 위가 밝다
+    for (const [x, y] of [[3, 2], [9, 1], [6, 5], [12, 6], [2, 9], [8, 10], [13, 12], [5, 13], [10, 14]]) c.set(x, y, clamp(r * 0.6 + 120), clamp(g * 0.6 + 120), clamp(b * 0.6 + 120)); // 밝은 점
+    for (const [x, y] of [[7, 3], [11, 8], [4, 7], [1, 13], [14, 3], [8, 15]]) c.set(x, y, clamp(r * 0.3), clamp(g * 0.3), clamp(b * 0.3)); // 어두운 점
+  };
+}
+
 mkdirSync(OUT, { recursive: true });
 let made = 0,
   skipped = 0;
+/** 아들 그림으로 바뀌어 지운 옛 그림 (#175): 다시 만들지 않는다 (pumpkin → pumpkin_top/side, melon → melon_top/side, carved_pumpkin → carved_pumpkin_side) */
+const REPLACED = new Set(['pumpkin', 'melon', 'carved_pumpkin']);
 for (const [name, draw] of Object.entries(TEX)) {
+  if (REPLACED.has(name)) continue;
   const file = join(OUT, `${name}.png`);
   if (existsSync(file) && !FORCE) {
     skipped++;

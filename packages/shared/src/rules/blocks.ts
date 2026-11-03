@@ -8,10 +8,12 @@ import { z } from 'zod';
 export const AIR_ID = 0;
 
 const NAME_RE = /^[a-z0-9_]+$/;
+/** 블록 id 는 점(.)도 된다 — 드래곤 알 블록 dragon_egg.<id> 가 알 아이템 id 와 같아야 해서 (#249). 그림 이름은 그대로 NAME_RE */
+const ID_RE = /^[a-z0-9_.]+$/;
 const TextureName = z.string().regex(NAME_RE, '영문 소문자·숫자·밑줄(_)만 쓸 수 있어요');
 
 const RawBlock = z.object({
-  id: z.string().regex(NAME_RE, '영문 소문자·숫자·밑줄(_)만 쓸 수 있어요 (예: iron_ore)'),
+  id: z.string().regex(ID_RE, '영문 소문자·숫자·밑줄(_)만 쓸 수 있어요 (예: iron_ore)'),
   name: z.string().min(1, '한국어 이름이 비어 있어요'),
   solid: z.boolean().optional(),
   transparent: z.boolean().optional(),

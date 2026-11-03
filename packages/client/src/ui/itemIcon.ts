@@ -379,7 +379,8 @@ export function itemIcon(id: string, size: number, registry: BlockRegistry, atla
     canvas = renderSpriteIcon(sprite, size); // 꽃·풀 (#180)·침대 (#188)·표지판 (#197)·횃불(아들 입체 그림 2026-10-19): 정육면체가 아니라 그림 그대로
   } else if (def && def.textures && def.shape === 'door' && atlas.images.get(def.textures[0]) && atlas.images.get(def.textures[2])) {
     canvas = renderDoorIcon(atlas.images.get(def.textures[0])!, atlas.images.get(def.textures[2])!, size); // 문 (#242): 윗칸 위에 아랫칸, 세로로 긴 그림
-  } else if (def && def.textures) {
+  } else if (def && def.textures && !dragonOfEgg(id)) {
+    // 드래곤 알 16종은 블록이지만(#249) 아이콘은 아래 drawItem 의 드래곤 색 타원 그대로
     const missing = atlas.images.get('missing')!;
     canvas = renderBlockIcon(atlas.images.get(def.textures[0]) ?? missing, atlas.images.get(def.textures[1]) ?? missing, size);
   } else if (atlas.images.get(potionSpriteId(id, atlas))) {

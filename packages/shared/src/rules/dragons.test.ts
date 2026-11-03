@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import dragonsJson from '../../../../data/dragons.json';
-import { DRAGONS, EXPEDITIONS, ITEM_NAMES, RECIPES } from './data';
+import { BLOCKS, DRAGONS, EXPEDITIONS, ITEM_NAMES, RECIPES } from './data';
 import { NEST, NEST_PERCHES, OLD_NEST_SITES, dragonOfEgg, eggItem, eggRecipes, feedItems, growAtOf, isEggItem, isNestBuiltAt, nestBlocks, nestBlocksAt, nestContains, nestSlotPos, parseDragons, perchOf, perchYaw } from './dragons';
 import { emptyInventory, give } from './inventory';
 import { canCraft, craft } from './recipes';
@@ -115,5 +115,21 @@ describe('드래곤 16종 (M6-2)', () => {
     const raw = JSON.parse(JSON.stringify(dragonsJson)) as { dragons: { tier: number }[] };
     raw.dragons[1]!.tier = 1;
     expect(() => parseDragons(raw)).toThrow(/티어 1/);
+  });
+});
+
+describe('바닥에 놓는 드래곤 알 (#249)', () => {
+  it('알 아이템 16개마다 같은 id 의 알 블록이 BLOCKS 에 있다 — 엔드 알과 같은 모양·빛, 그 드래곤 색 껍질, 부수면 그 알', () => {
+    for (const d of DRAGONS.list) {
+      const b = BLOCKS.find(eggItem(d.id));
+      expect(b, d.id).toBeDefined();
+      expect(b!.shape).toBe('egg');
+      expect(b!.lightEmit).toBe(BLOCKS.find('dragon_egg')!.lightEmit);
+      expect(b!.hardness).toBe(3);
+      expect(b!.internal).toBe(false);
+      expect(b!.name).toBe(`${d.name} 알`);
+      expect(b!.textures?.[0]).toBe(`dragon_egg_${d.id}`);
+    }
+    expect(BLOCKS.defs.filter((b) => b.shape === 'egg')).toHaveLength(DRAGONS.list.length + 1);
   });
 });

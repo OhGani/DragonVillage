@@ -1249,7 +1249,7 @@ export class VillageRoom {
   /** 폭발에 부서지는 블록인가 (#247): 공기·액체·기반암처럼 hardness 없는 것·흑요석급·상자(속이 사라지니까)·침대·문(두 칸짜리)·둥지 알은 남는다. 마을 건물 자리는 밖에서 본다 */
   private blastBreaks(def: ReturnType<BlockRegistry['get']>): boolean {
     if (def.num === AIR_ID || def.fluid || def.hardness === null || def.hardness >= TNT_BLAST_PROOF) return false;
-    if (def.chest || def.bed || def.door || def.id === 'dragon_egg' || def.id === 'tnt') return false;
+    if (def.chest || def.bed || def.door || def.shape === 'egg' || def.id === 'tnt') return false; // 드래곤 알 16종도 (#249)
     return true;
   }
 

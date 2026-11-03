@@ -32,7 +32,7 @@ import { parseBannedWords } from './bannedWords';
 import { parseBuildings } from './buildings';
 import { parseMobs } from './mobs';
 import { parseRaid } from './raid';
-import { eggItem, eggRecipes, parseDragons } from './dragons';
+import { dragonEggBlocks, eggItem, eggRecipes, parseDragons } from './dragons';
 import { parseExpeditions } from './expeditions';
 import { parseFamilyRules } from './family';
 import { buildItemNames } from './items';
@@ -48,14 +48,15 @@ import { parseTrades } from './trades';
 import { parseEnchants } from './enchants';
 import { parseXp } from './xp';
 
-export const BLOCKS = parseBlocks(blocksJson);
+/** 드래곤 16종 (M6-2, 아들 설계) */
+export const DRAGONS = parseDragons(dragonsJson);
+/** 블록 = blocks.json + 드래곤마다의 알 블록 16개 (#249, 바닥에 놓은 알) */
+export const BLOCKS = parseBlocks({ ...blocksJson, blocks: [...blocksJson.blocks, ...dragonEggBlocks(DRAGONS)] });
 /** 마을 건물 (M6-6) — 비용은 공유 창고에서 */
 export const BUILDINGS = parseBuildings(buildingsJson);
 export const POTIONS = parsePotions(potionsJson);
 export const REDSTONE = parseRedstone(redstoneJson);
 export const EXPEDITIONS = parseExpeditions(expeditionsJson);
-/** 드래곤 16종 (M6-2, 아들 설계) */
-export const DRAGONS = parseDragons(dragonsJson);
 /** 펫 이름 목록 (M8-1 4차, pet-names.json, #109) */
 export const PET_NAMES = parsePetNames(petNamesJson);
 /** 주민 대화 (#172) */

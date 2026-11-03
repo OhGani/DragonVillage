@@ -211,6 +211,24 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(rejected(a)).toEqual([]);
   });
 
+  it('바닥에 놓는 드래곤 알 (#249): 알 아이템을 바닥에 놓으면 그 알 블록, 부수면 그 알이 돌아온다. 둥지 자리엔 못 놓는다(PROTECTED)', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    give(p.inv, 'dragon_egg.wood', 1);
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
+    room.onBlockChange(ra.idx, { seq: 1, x: 66, y: GROUND_Y + 1, z: 64, id: 'dragon_egg.wood' }, 1000);
+    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 64)).id).toBe('dragon_egg.wood');
+    expect(countOf(p.inv, 'dragon_egg.wood')).toBe(0);
+    expect(rejected(a)).toEqual([]);
+    room.onBlockChange(ra.idx, { seq: 2, x: 66, y: GROUND_Y + 1, z: 64, id: 'air' }, 2000);
+    expect(room.world.getBlock(66, GROUND_Y + 1, 64)).toBe(0);
+    expect(countOf(p.inv, 'dragon_egg.wood')).toBe(1); // 그 알이 돌아왔다
+    expect(room.placeEgg(ra.idx, 0, 'dragon_egg.wood', 3000)).toBe('NOT_AT_NEST'); // 둥지 카드 길은 그대로
+  });
+
   it('TNT (#195·#247): 라이터로 불을 붙이면 4초 뒤 터져 3칸 안의 블록이 부서지고(흑요석·상자는 남고) 옆 사람·동물이 다친다. 옆 TNT 는 번진다. 라이터 없으면 NO_FLINT', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });

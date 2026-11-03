@@ -138,6 +138,11 @@ export function dragonOfEgg(item: string): string | null {
   return isEggItem(item) ? item.slice(EGG_PREFIX.length) : null;
 }
 
+/** 드래곤마다의 알 블록 (#249): 알 아이템 dragon_egg.<id> 를 바닥에 놓으면 같은 id 의 이 블록이 된다. 엔드 알(dragon_egg)과 같은 모양·빛, 그림은 그 드래곤 색으로 물들인 껍질 dragon_egg_<id>. 부수면 그 알이 돌아온다(drops 기본 = 자기 자신). BLOCKS 에 blocks.json 뒤에 붙는다 */
+export function dragonEggBlocks(dragons: DragonRegistry): Record<string, unknown>[] {
+  return dragons.list.map((d) => ({ id: eggItem(d.id), name: `${d.name} 알`, hardness: 3.0, tool: null, lightEmit: 4, transparent: true, shape: 'egg', texture: `dragon_egg_${d.id}` }));
+}
+
 /** 알 레시피 16개 — 제작대에서 재료 → 알 1개. RECIPES 에 합쳐서 가방 "만들기" 탭에 그대로 뜬다 */
 export function eggRecipes(dragons: DragonRegistry): RecipeDef[] {
   return dragons.list.map((d) => ({
