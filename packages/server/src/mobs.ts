@@ -487,6 +487,22 @@ export class MobSystem {
     return n;
   }
 
+  /** TNT 폭발 (#247): radius 안의 몹(주민·치료 중인 좀비 주민 빼고)이 멀수록 적게 다치고 바깥으로 밀린다. byIdx 가 잡은 것으로 보상. 맞은 수 */
+  blast(at: { x: number; y: number; z: number }, radius: number, damage: number, byIdx: number, now: number): number {
+    let n = 0;
+    for (const m of [...this.mobs.values()]) {
+      if (m.kind === 'villager' || m.cureAt !== undefined) continue;
+      const dx = m.x - at.x,
+        dz = m.z - at.z;
+      const dmg = explosionDamage(Math.hypot(dx, m.y + mobSize(m.kind).h * 0.5 - at.y, dz), radius, damage);
+      if (dmg <= 0) continue;
+      n++;
+      const d = Math.hypot(dx, dz) || 1;
+      this.damage(m, dmg, byIdx, now, { x: dx / d, z: dz / d }, 1.5);
+    }
+    return n;
+  }
+
   private tickPoison(players: MobTarget[], now: number): void {
     for (const [idx, p] of [...this.poisoned]) {
       if (!players.some((t) => t.idx === idx) || now >= p.until) {

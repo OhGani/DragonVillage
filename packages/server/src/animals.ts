@@ -53,6 +53,7 @@ import {
   wanderPickVillager,
   WOOL_ITEM,
   WOOL_REGROW_MS,
+  explosionDamage,
 } from '@dragon-village/shared';
 
 export interface AnimalRow {
@@ -583,17 +584,36 @@ export class AnimalSystem {
     const last = this.lastHitAt.get(p.idx) ?? 0;
     if (now - last < HIT_COOLDOWN_MS) return 'COOLDOWN';
     this.lastHitAt.set(p.idx, now);
+    this.wound(a, damage, p.idx, p, now);
+    return null;
+  }
+
+  /** TNT 폭발 (#247): radius 안의 야생 동물(주민·펫·탈것 빼고)이 멀수록 적게 다친다. byIdx 가 잡은 것으로 보상. 맞은 수 */
+  blast(at: { x: number; y: number; z: number }, radius: number, damage: number, byIdx: number, now: number): number {
+    let n = 0;
+    for (const a of [...this.animals.values()]) {
+      if (a.kind === 'villager' || a.owner !== null) continue;
+      const dmg = explosionDamage(Math.hypot(a.x - at.x, a.y + mobSize(a.kind).h * 0.5 - at.y, a.z - at.z), radius, damage);
+      if (dmg <= 0) continue;
+      n++;
+      this.wound(a, dmg, byIdx, at, now);
+    }
+    return n;
+  }
+
+  /** 다치기: 남으면 from 반대쪽으로 달아나고, 죽으면 byIdx 에게 드롭·경험치 */
+  private wound(a: Animal, damage: number, byIdx: number, from: { x: number; z: number }, now: number): void {
     a.hp = Math.max(0, a.hp - Math.floor(damage));
     const id = ANIMAL_ID_BASE + a.id;
     if (a.hp > 0) {
       // 놀라서 때린 사람 반대쪽으로 달아난다
-      const dx = a.x - p.x,
-        dz = a.z - p.z;
+      const dx = a.x - from.x,
+        dz = a.z - from.z;
       const d = Math.hypot(dx, dz) || 1;
       a.target = { x: a.x + (dx / d) * 6, z: a.z + (dz / d) * 6 };
       a.pauseUntil = 0;
       this.hooks.json({ t: 'mob', ev: 'hit', id, mob: a.kind, x: a.x, y: a.y, z: a.z, dmg: Math.floor(damage) });
-      return null;
+      return;
     }
     const def = this.defs.get(a.kind);
     this.animals.delete(a.id);
@@ -601,8 +621,7 @@ export class AnimalSystem {
     this.hooks.json({ t: 'mob', ev: 'die', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
     const baby = this.isBaby(a, now);
     this.hooks.log(`${def.name}${baby ? ' 아기' : ''}이(가) 잡혔어요 (남은 ${def.name} ${this.wildCountOf(a.kind)}마리)`);
-    this.hooks.reward(p.idx, baby ? [] : rollDrops(def, this.seed, a.id), def.xp, { x: a.x, y: a.y + 1, z: a.z }, now);
-    return null;
+    this.hooks.reward(byIdx, baby ? [] : rollDrops(def, this.seed, a.id), def.xp, { x: a.x, y: a.y + 1, z: a.z }, now);
   }
 
   /**

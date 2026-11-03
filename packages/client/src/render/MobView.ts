@@ -622,7 +622,7 @@ export class MobView {
       this.burst(x, y + 0.6, z, 0xb388ff, 16, now);
     } else if (ev === 'die' || ev === 'explode') {
       const color = ev === 'explode' ? 0xffd27a : !f ? 0xffffff : f.kind === 0 ? 0x5d8b4a : f.kind === 2 ? SPIDER_DARK : f.kind === 3 ? GOLD : f.kind >= 4 ? 0x9aa3a9 : CREEPER_GREEN;
-      this.burst(x, y + mobSize(f?.kind ?? 0).h * 0.5, z, color, ev === 'explode' ? 28 : f?.kind === 3 ? 40 : 12, now);
+      this.burst(x, y + mobSize(f?.kind ?? 0).h * 0.5, z, color, ev === 'explode' ? (id < 0 ? 56 : 28) : f?.kind === 3 ? 40 : 12, now); // TNT(id -1)는 더 크게 (#247)
       this.remove(id);
     }
   }

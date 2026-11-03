@@ -91,17 +91,18 @@ export interface MobDef {
 }
 
 // 공격 간격은 2026-10-17 아들 "몹들의 공격 속도가 너무 빨라" 로 1.5배 늘림 (#187): 좀비류 1.2초 → 1.8초, 거미 1.0 → 1.5, 활 2.0 → 2.8, 블레이즈 2.5 → 3.5, 가스트 3 → 4, 드래곤 2 → 3
+// 피해는 2026-11-03 아빠 "몹도 조금만 더 강하게" 로 적대 몹 전부 +1 (#248, 보스·철 골렘은 그대로): 좀비류 3 → 4, 거미 2 → 3, 변명자·엔더맨·위더 스켈레톤 4 → 5, 활 3 → 4, 블레이즈 3 → 4, 가스트 5 → 6, 크리퍼 폭발 5 → 6(mobs.json)
 const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | 'food' | 'tameWith'>> = {
-  zombie: { id: 'zombie', hp: 20, damage: 3, speed: 2.3, reach: 1.6, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
-  creeper: { id: 'creeper', hp: 20, damage: 7, speed: 2.6, reach: 3.0, attackEveryMs: 0, fuseMs: 1500, explodeRadius: 3.5, poisonMs: 0 },
-  spider: { id: 'spider', hp: 16, damage: 2, speed: 3.4, reach: 1.9, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 3000 },
+  zombie: { id: 'zombie', hp: 20, damage: 4, speed: 2.3, reach: 1.6, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  creeper: { id: 'creeper', hp: 20, damage: 6, speed: 2.6, reach: 3.0, attackEveryMs: 0, fuseMs: 1500, explodeRadius: 3.5, poisonMs: 0 },
+  spider: { id: 'spider', hp: 16, damage: 3, speed: 3.4, reach: 1.9, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 3000 },
   spider_king: { id: 'spider_king', hp: 200, damage: 4, speed: 2.4, reach: 2.8, attackEveryMs: 2200, fuseMs: 0, explodeRadius: 0, poisonMs: 4000 },
   // 우민 (M7-5): 변명자는 도끼(세다), 약탈자는 석궁(6칸에서 쏜다, 화살 연출은 클라), 소환사는 보스 — 변명자를 부른다
-  vindicator: { id: 'vindicator', hp: 24, damage: 4, speed: 2.6, reach: 1.8, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
-  pillager: { id: 'pillager', hp: 24, damage: 3, speed: 2.4, reach: 6, attackEveryMs: 2800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
-  evoker: { id: 'evoker', hp: 150, damage: 3, speed: 2.2, reach: 2.0, attackEveryMs: 2200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  vindicator: { id: 'vindicator', hp: 24, damage: 5, speed: 2.6, reach: 1.8, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  pillager: { id: 'pillager', hp: 24, damage: 4, speed: 2.4, reach: 6, attackEveryMs: 2800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  evoker: { id: 'evoker', hp: 150, damage: 4, speed: 2.2, reach: 2.0, attackEveryMs: 2200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   // 스켈레톤 (M8-1): 활 — 6칸에서 쏜다(약탈자처럼). 뼈를 떨군다 → 강아지 길들이기
-  skeleton: { id: 'skeleton', hp: 20, damage: 3, speed: 2.2, reach: 6, attackEveryMs: 2800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  skeleton: { id: 'skeleton', hp: 20, damage: 4, speed: 2.2, reach: 6, attackEveryMs: 2800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   // 동물 (M8-1): 공격 없음. speed 는 따라올 때, 산책은 그 0.6배
   cow: { id: 'cow', hp: 10, damage: 0, speed: 1.8, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   pig: { id: 'pig', hp: 10, damage: 0, speed: 1.8, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
@@ -109,15 +110,15 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   chicken: { id: 'chicken', hp: 4, damage: 0, speed: 1.6, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   dog: { id: 'dog', hp: 8, damage: 0, speed: 2.6, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   // 사막 (v1.1-1, #157): 허스크는 모래색 좀비(조금 느리다). 엔더맨은 키 크고 빠르지만 순간이동은 없다 — 엔더 진주 출처
-  husk: { id: 'husk', hp: 20, damage: 3, speed: 2.1, reach: 1.6, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
-  enderman: { id: 'enderman', hp: 40, damage: 4, speed: 3.0, reach: 1.8, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0, neutral: true }, // 중립 (#162): 엔드 도착하자마자 죽던 것
+  husk: { id: 'husk', hp: 20, damage: 4, speed: 2.1, reach: 1.6, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  enderman: { id: 'enderman', hp: 40, damage: 5, speed: 3.0, reach: 1.8, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0, neutral: true }, // 중립 (#162): 엔드 도착하자마자 죽던 것
   // 설원 (v1.1-2, #160): 스트레이는 눈 덮인 스켈레톤 — 활은 같고 조금 느리다
-  stray: { id: 'stray', hp: 20, damage: 3, speed: 2.0, reach: 6, attackEveryMs: 2800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  stray: { id: 'stray', hp: 20, damage: 4, speed: 2.0, reach: 6, attackEveryMs: 2800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   // 네더 (v1.1-3, #161): 좀비 피글린(금 칼, 금 조각 드롭)·블레이즈(8칸에서 불을 쏜다, 막대기)·위더 스켈레톤(세고 키 큼, 머리 5%)·가스트(떠다니며 14칸에서 쏜다, 눈물)
-  zombified_piglin: { id: 'zombified_piglin', hp: 20, damage: 3, speed: 2.4, reach: 1.6, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0, neutral: true },
-  blaze: { id: 'blaze', hp: 20, damage: 3, speed: 2.0, reach: 8, attackEveryMs: 3500, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
-  wither_skeleton: { id: 'wither_skeleton', hp: 20, damage: 4, speed: 2.3, reach: 1.9, attackEveryMs: 2000, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
-  ghast: { id: 'ghast', hp: 10, damage: 5, speed: 1.4, reach: 14, attackEveryMs: 4000, fuseMs: 0, explodeRadius: 0, poisonMs: 0, hover: 6 },
+  zombified_piglin: { id: 'zombified_piglin', hp: 20, damage: 4, speed: 2.4, reach: 1.6, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0, neutral: true },
+  blaze: { id: 'blaze', hp: 20, damage: 4, speed: 2.0, reach: 8, attackEveryMs: 3500, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  wither_skeleton: { id: 'wither_skeleton', hp: 20, damage: 5, speed: 2.3, reach: 1.9, attackEveryMs: 2000, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  ghast: { id: 'ghast', hp: 10, damage: 6, speed: 1.4, reach: 14, attackEveryMs: 4000, fuseMs: 0, explodeRadius: 0, poisonMs: 0, hover: 6 },
   // 엔드 (v1.1-4, #162): 엔더 드래곤 — 사람 위 7칸에서 5초마다 내려꽂히며 문다(6). 엔더맨을 부른다. hp·xp·드롭은 bosses.json
   ender_dragon: { id: 'ender_dragon', hp: 300, damage: 7, speed: 6, reach: 3.5, attackEveryMs: 3000, fuseMs: 0, explodeRadius: 0, poisonMs: 0, hover: 7, swoop: 5000 }, // hp 300·물면 7 (#224)
   // 말 (v1.1-5, #166): 마을 숲 동물. 안장을 씌우면 내 말, 빈손 탭으로 탄다
@@ -132,7 +133,7 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   // 눈 골렘 (#223, 아들 14차 5번): 설원 포탈 둘레에 산다. 중립 — 먼저 안 덤비고, 맞으면 20초 동안 눈덩이를 던진다(8칸). 피해 0, 맞으면 밀려날 뿐
   snow_golem: { id: 'snow_golem', hp: 10, damage: 0, speed: 2.0, reach: 8, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 0, neutral: true },
   // 좀비 주민 (#244): 좀비와 같다. 황금 사과를 먹이면 주민으로 돌아온다
-  zombie_villager: { id: 'zombie_villager', hp: 20, damage: 3, speed: 2.3, reach: 1.6, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  zombie_villager: { id: 'zombie_villager', hp: 20, damage: 4, speed: 2.3, reach: 1.6, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
 };
 
 const RawPassive = z

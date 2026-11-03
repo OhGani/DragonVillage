@@ -211,17 +211,29 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(rejected(a)).toEqual([]);
   });
 
-  it('TNT (#195): 라이터로 불을 붙이면 4초 뒤 블록이 사라지고 옆 사람이 다친다. 라이터 없으면 NO_FLINT', () => {
+  it('TNT (#195·#247): 라이터로 불을 붙이면 4초 뒤 터져 3칸 안의 블록이 부서지고(흑요석·상자는 남고) 옆 사람·동물이 다친다. 옆 TNT 는 번진다. 라이터 없으면 NO_FLINT', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
     const a = inbox();
     const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
     const p = room.players.get(ra.idx)!;
-    give(p.inv, 'tnt', 1);
+    give(p.inv, 'tnt', 2);
     give(p.inv, 'flint_and_steel', 1);
     room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: 0 });
     room.onBlockChange(ra.idx, { seq: 1, x: 66, y: GROUND_Y + 1, z: 64, id: 'tnt' }, 1000);
+    room.onBlockChange(ra.idx, { seq: 2, x: 68, y: GROUND_Y + 1, z: 64, id: 'tnt' }, 1000); // 2칸 옆 — 번진다
     expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 64)).id).toBe('tnt');
+    // 시험용 블록을 직접 심는다: 1칸 옆 돌(부서짐), 2칸 옆 흑요석(남음), 1칸 옆 상자(남음), 5칸 옆 돌(멀어서 남음)
+    room.world.setBlock(67, GROUND_Y + 2, 64, BLOCKS.numOf('stone'));
+    room.world.setBlock(66, GROUND_Y + 1, 66, BLOCKS.numOf('obsidian'));
+    room.world.setBlock(66, GROUND_Y + 2, 64, BLOCKS.numOf('chest'));
+    room.world.setBlock(66, GROUND_Y + 1, 59, BLOCKS.numOf('stone'));
+    // 소 한 마리를 1칸 옆에
+    const cow = [...room.animals.animals.values()].find((an) => an.kind === 'cow')!;
+    cow.x = 67.5;
+    cow.y = GROUND_Y + 1;
+    cow.z = 64.5;
+    const cowHp = cow.hp;
     const flint = p.inv.findIndex((s) => s?.item === 'flint_and_steel');
     expect(room.ignite(ra.idx, 0, 66, GROUND_Y + 1, 64, 2000)).toBe('NO_FLINT');
     expect(room.ignite(ra.idx, flint, 66, GROUND_Y + 1, 64, 2000)).toBeNull();
@@ -231,9 +243,18 @@ describe('VillageRoom 블록 변경 검증', () => {
     const hp0 = room.hpOf(ra.idx);
     room.tick(6100);
     expect(room.world.getBlock(66, GROUND_Y + 1, 64)).toBe(0);
+    expect(room.world.getBlock(67, GROUND_Y + 2, 64)).toBe(0); // 돌은 부서졌다
+    expect(room.world.getBlock(66, GROUND_Y, 64)).toBe(0); // 바닥도 파였다
+    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 66)).id).toBe('obsidian');
+    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 2, 64)).id).toBe('chest');
+    expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 59)).id).toBe('stone');
     expect(room.hpOf(ra.idx)).toBeLessThan(hp0); // 2칸 옆에 서 있었다
     expect(a.json.some((m) => m.t === 'mob' && m.ev === 'explode' && m.mob === 'tnt')).toBe(true);
     expect(a.json.some((m) => m.t === 'health' && m.cause === 'tnt')).toBe(true);
+    expect(cow.hp < cowHp || ![...room.animals.animals.values()].includes(cow)).toBe(true); // 소도 다쳤다(또는 죽었다)
+    expect(BLOCKS.get(room.world.getBlock(68, GROUND_Y + 1, 64)).id).toBe('tnt'); // 옆 TNT 는 0.5초 뒤
+    room.tick(6700);
+    expect(room.world.getBlock(68, GROUND_Y + 1, 64)).toBe(0);
   });
 
   it('괭이·뼛가루 (#193·#199): 괭이로 흙이 밭이 되고(괭이 없으면 TOOL), 물에서 먼 밭도 갈리지만 작물이 안 자라고, 뼛가루는 싹을 바로 익힌다', () => {
@@ -2150,19 +2171,19 @@ describe('동굴 원정 + 포탈 2단계 (M7-3)', () => {
     m.z = p.pos.z;
     m.y = p.pos.y;
     a.clear();
-    room.tick(B + 200); // 물었다 (2)
-    expect(room.hpOf(ra.idx)).toBe(18);
-    expect(a.json.find((mm) => mm.t === 'health')).toMatchObject({ hp: 18, cause: 'spider' });
+    room.tick(B + 200); // 물었다 (3, #248)
+    expect(room.hpOf(ra.idx)).toBe(17);
+    expect(a.json.find((mm) => mm.t === 'health')).toMatchObject({ hp: 17, cause: 'spider' });
     m.x = p.pos.x + 30; // 멀리 치워 더는 안 물게
     room.tick(B + 1100);
     room.tick(B + 1250); // 1초: 독 1
-    expect(room.hpOf(ra.idx)).toBe(17);
+    expect(room.hpOf(ra.idx)).toBe(16);
     expect(a.json.some((mm) => mm.t === 'health' && mm.cause === 'poison')).toBe(true);
     room.tick(B + 2300); // 2초: 독 1
-    expect(room.hpOf(ra.idx)).toBe(16);
+    expect(room.hpOf(ra.idx)).toBe(15);
     room.tick(B + 3300); // 3초: 끝났다 (until = 3200)
     room.tick(B + 4400);
-    expect(room.hpOf(ra.idx)).toBe(16);
+    expect(room.hpOf(ra.idx)).toBe(15);
     expect(sys.poisoned.size).toBe(0);
     // 다시 물리고 곧장 귀환하면 독이 풀린다
     m.x = p.pos.x + 1;
@@ -2421,13 +2442,13 @@ describe('원정 밤의 몹 (M7-2)', () => {
     m.y = p.pos.y;
     a.clear();
     room.tick(NIGHT + 200);
-    expect(room.hpOf(ra.idx)).toBe(17);
-    expect(a.json.find((mm) => mm.t === 'health')).toMatchObject({ hp: 17, cause: 'zombie' });
+    expect(room.hpOf(ra.idx)).toBe(16); // 좀비 4 (#248)
+    expect(a.json.find((mm) => mm.t === 'health')).toMatchObject({ hp: 16, cause: 'zombie' });
     // 1.2초 안엔 다시 안 문다, 지나면 문다
     room.tick(NIGHT + 800);
-    expect(room.hpOf(ra.idx)).toBe(17);
+    expect(room.hpOf(ra.idx)).toBe(16);
     room.tick(NIGHT + 2100); // 1.8초마다 (#187)
-    expect(room.hpOf(ra.idx)).toBe(14);
+    expect(room.hpOf(ra.idx)).toBe(12); // 4씩 (#248)
     // 때리기: 맨손 1, 0.45초 쿨. 멀면 TOO_FAR
     expect(room.hitMob(ra.idx, 999, undefined, NIGHT + 2000)).toBe('NO_MOB');
     expect(room.hitMob(ra.idx, m.id, undefined, NIGHT + 2000)).toBeNull();
@@ -2468,7 +2489,7 @@ describe('원정 밤의 몹 (M7-2)', () => {
     expect(sys.beam(eye, { x: 0, y: 0, z: -1 }, 24, 2, ra.idx, t)).toBe(1); // 길 위 하나만
     expect(z2.hp).toBe(12);
     expect(side.hp).toBe(20);
-    expect(room.hpOf(ra.idx)).toBe(14); // 사람은 안 맞는다
+    expect(room.hpOf(ra.idx)).toBe(12); // 사람은 안 맞는다 (좀비 4씩 두 번, #248)
     expect(e.ended).toBe(false);
   });
 

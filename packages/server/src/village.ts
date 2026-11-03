@@ -243,10 +243,13 @@ export const GOLEM_GRUDGE_MS = 30_000;
 /** 눈덩이에 밀리는 세기 (#223) */
 const KNOCK_POWER = 7;
 /** 작물 익음 확인 주기 (#165) */
-export /** TNT (#195): 심지 4초, 반지름 4칸, 가운데 피해 10 (크리퍼 7) */
+export /** TNT (#195): 심지 4초. #247 로 세게: 피해 반지름 5칸·가운데 14(크리퍼 6), 3칸 안의 블록을 부수고(흑요석·기반암·액체·상자·침대·문·마을 건물 자리는 남는다, 드롭 없음) 몹·동물도 다친다 */
 const TNT_FUSE_MS = 4000;
-const TNT_RADIUS = 4;
-const TNT_DAMAGE = 10;
+const TNT_RADIUS = 5;
+const TNT_DAMAGE = 14;
+const TNT_BREAK_RADIUS = 3;
+/** 이보다 단단한 블록은 폭발에 안 부서진다 (고대 잔해 30·흑요석 50·네더라이트 블록 50) */
+const TNT_BLAST_PROOF = 30;
 const FLINT_AND_STEEL = 'flint_and_steel';
 const CROP_CHECK_MS = 10_000;
 /** 침대 윗면 (#204): 메셔 BED_HEIGHT 와 같다 */
@@ -1221,7 +1224,7 @@ export class VillageRoom {
   }
 
   /** 불붙은 TNT (#195): at 에 터진다 */
-  private fuses: { x: number; y: number; z: number; world: 'village' | 'expedition'; at: number }[] = [];
+  private fuses: { x: number; y: number; z: number; world: 'village' | 'expedition'; at: number; by: number }[] = [];
 
   /** TNT 에 불 붙이기 (#195): 라이터를 들고 TNT 를 탭. 오류: NO_FLINT · NOT_TNT · TOO_FAR */
   ignite(idx: number, slot: number, x: number, y: number, z: number, now = Date.now()): string | null {
@@ -1232,17 +1235,25 @@ export class VillageRoom {
     const world = this.worldOf(p);
     if (!world.inBounds(x, y, z) || this.registry.get(world.getBlock(x, y, z)).id !== 'tnt') return 'NOT_TNT';
     if (Math.hypot(x + 0.5 - p.pos.x, y + 0.5 - (p.pos.y + EYE), z + 0.5 - p.pos.z) > HIT_REACH + 1) return 'TOO_FAR';
-    this.lightFuse(x, y, z, p.world, now + TNT_FUSE_MS);
+    this.lightFuse(x, y, z, p.world, now + TNT_FUSE_MS, idx);
     return null;
   }
 
-  private lightFuse(x: number, y: number, z: number, world: 'village' | 'expedition', at: number): void {
+  /** by = 불 붙인 사람 (몹을 잡으면 그 사람 보상). 옆 TNT 로 번져도 같은 사람 */
+  private lightFuse(x: number, y: number, z: number, world: 'village' | 'expedition', at: number, by: number): void {
     if (this.fuses.some((f) => f.x === x && f.y === y && f.z === z && f.world === world)) return;
-    this.fuses.push({ x, y, z, world, at });
+    this.fuses.push({ x, y, z, world, at, by });
     this.broadcastJson({ t: 'mob', ev: 'fuse', id: -1, mob: 'tnt', x: x + 0.5, y: y + 0.5, z: z + 0.5 }, -1, world);
   }
 
-  /** 틱마다: 시간이 된 TNT 를 터뜨린다 — 블록은 없어지고 4칸 안의 사람이 다친다. 옆 TNT 는 0.5초 뒤 같이 */
+  /** 폭발에 부서지는 블록인가 (#247): 공기·액체·기반암처럼 hardness 없는 것·흑요석급·상자(속이 사라지니까)·침대·문(두 칸짜리)·둥지 알은 남는다. 마을 건물 자리는 밖에서 본다 */
+  private blastBreaks(def: ReturnType<BlockRegistry['get']>): boolean {
+    if (def.num === AIR_ID || def.fluid || def.hardness === null || def.hardness >= TNT_BLAST_PROOF) return false;
+    if (def.chest || def.bed || def.door || def.id === 'dragon_egg' || def.id === 'tnt') return false;
+    return true;
+  }
+
+  /** 틱마다: 시간이 된 TNT 를 터뜨린다 (#195·#247) — 3칸 안의 블록이 부서지고(드롭 없음), 5칸 안의 사람·몹·동물이 다친다(가운데 14). 3칸 안의 TNT 는 0.5초 뒤 같이 */
   private tickFuses(now: number): void {
     if (this.fuses.length === 0) return;
     const due = this.fuses.filter((f) => f.at <= now);
@@ -1251,19 +1262,48 @@ export class VillageRoom {
     for (const f of due) {
       const world = f.world === 'village' ? this.world : (this.expedition?.world ?? null);
       if (!world || !world.inBounds(f.x, f.y, f.z) || this.registry.get(world.getBlock(f.x, f.y, f.z)).id !== 'tnt') continue; // 그새 캐 갔다
-      world.setBlock(f.x, f.y, f.z, AIR_ID);
-      if (f.world === 'village') this.markDirtyBlock(f.x, f.y, f.z);
-      this.broadcast(encodeBlockChanged({ x: f.x, y: f.y, z: f.z, id: 'air', by: -1 }), -1, f.world);
       const cx = f.x + 0.5,
         cy = f.y + 0.5,
         cz = f.z + 0.5;
+      // 블록 부수기: TNT 자리 + 둥근 3칸. 마을 건물·둥지·깃대 자리는 그대로 (#88)
+      const broken: { x: number; y: number; z: number; id: string }[] = [];
+      const R = TNT_BREAK_RADIUS;
+      for (let dx = -R; dx <= R; dx++)
+        for (let dy = -R; dy <= R; dy++)
+          for (let dz = -R; dz <= R; dz++) {
+            if (dx * dx + dy * dy + dz * dz > R * R + 0.5) continue;
+            const x = f.x + dx,
+              y = f.y + dy,
+              z = f.z + dz;
+            if (!world.inBounds(x, y, z)) continue;
+            const cur = this.registry.get(world.getBlock(x, y, z));
+            const self = dx === 0 && dy === 0 && dz === 0;
+            if (!self && cur.id === 'tnt') {
+              this.lightFuse(x, y, z, f.world, now + 500, f.by); // 번진다
+              continue;
+            }
+            if (!self && !this.blastBreaks(cur)) continue;
+            if (!self && f.world === 'village' && this.isProtected(x, y, z)) continue;
+            world.setBlock(x, y, z, AIR_ID);
+            if (f.world === 'village') {
+              this.markDirtyBlock(x, y, z);
+              this.fluids.touch(x, y, z);
+            } else if (this.expedition) {
+              this.expedition.markModified(x, y, z);
+              this.expedition.fluids.touch(x, y, z);
+            }
+            broken.push({ x, y, z, id: 'air' });
+          }
+      this.broadcast(encodeBlockBatch({ blocks: broken }), -1, f.world);
+      // 사람·몹·동물 피해: 멀수록 적게. 갑옷은 통한다 (armorApplies)
       for (const q of this.playersIn(f.world)) {
         const dmg = explosionDamage(Math.hypot(q.pos.x - cx, q.pos.y + 0.9 - cy, q.pos.z - cz), TNT_RADIUS, TNT_DAMAGE);
         if (dmg > 0) this.hurt(q, dmg, 'tnt', now);
       }
+      const at = { x: cx, y: cy, z: cz };
+      for (const s of f.world === 'expedition' ? [this.mobSys] : [this.raid?.mobs ?? null, this.guardMobs]) s?.blast(at, TNT_RADIUS, TNT_DAMAGE, f.by, now);
+      if (f.world === 'village') this.animals.blast(at, TNT_RADIUS, TNT_DAMAGE, f.by, now);
       this.broadcastJson({ t: 'mob', ev: 'explode', id: -1, mob: 'tnt', x: cx, y: cy, z: cz }, -1, f.world);
-      for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as const)
-        if (world.inBounds(f.x + dx, f.y + dy, f.z + dz) && this.registry.get(world.getBlock(f.x + dx, f.y + dy, f.z + dz)).id === 'tnt') this.lightFuse(f.x + dx, f.y + dy, f.z + dz, f.world, now + 500);
     }
   }
 

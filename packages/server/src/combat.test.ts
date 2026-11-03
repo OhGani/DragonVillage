@@ -282,16 +282,16 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
     const json: { t: string; [k: string]: unknown }[] = [];
     const hurt: string[] = [];
     const rewards: { idx: number; drops: { item: string; count: number }[]; xp: number }[] = [];
-    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 52.5, eyeY: GROUND_Y + 1 + 1.6 }; // 13칸 떨어져 본다
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 48.5, eyeY: GROUND_Y + 1 + 1.6 }; // 17칸 떨어져 본다 (#248 뒤 주민이 빨리 좀비가 돼 13칸이면 12초 안에 사람 가까이 온다)
     const arena = { world: room.world, seed: 5, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0, spawns: [{ kind: 'villager' as const, x: 64.5, y: GROUND_Y + 1, z: 66.5 }] };
     const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: (_i, _a, cause) => hurt.push(cause), broadcast: () => {}, json: (o) => json.push(o as { t: string }), reward: (idx, drops, xp) => rewards.push({ idx, drops, xp }), bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 24, goal: null, quiet: true });
     const v = [...sys.mobs.values()].find((m) => m.kind === 'villager')!;
     expect(v.home).toBeTruthy();
     const vid = v.id;
     sys.spawnKind('zombie', 64.5, GROUND_Y + 1, 65.8); // 주민 옆에
-    for (let t = T0; t < T0 + 15_000; t += 100) sys.tick(t);
+    for (let t = T0; t < T0 + 12_000; t += 100) sys.tick(t); // #248 뒤 4씩 다섯 번이면 12초 안에 끝난다 (15초까지 돌리면 그새 좀비 둘이 사람까지 온다)
     expect(hurt).toEqual([]); // 사람은 멀어서 안 물렸다
-    expect(json.filter((m) => m.t === 'mob' && m.ev === 'hit' && m.id === vid).length).toBeGreaterThanOrEqual(7); // 3씩 일곱 번
+    expect(json.filter((m) => m.t === 'mob' && m.ev === 'hit' && m.id === vid).length).toBeGreaterThanOrEqual(5); // 4씩 다섯 번 (#248)
     expect(json.find((m) => m.t === 'mob' && m.ev === 'zombify')).toMatchObject({ id: vid, mob: 'zombie_villager' });
     expect(json.find((m) => m.t === 'error' && m.code === 'VILLAGER_ZOMBIFIED')).toBeTruthy();
     const zv = sys.mobs.get(vid)!;

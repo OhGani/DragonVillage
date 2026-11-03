@@ -9,11 +9,11 @@ function mob(kind: MobKind, x: number, z: number): MobState {
 }
 
 describe('원정 밤의 몹 (M7-2)', () => {
-  it('mobs.json 에서 이름·드롭·경험치·hp·피해·속도를 읽고 나머지는 기본값 (좀비는 #142 로 20·3·2.4)', () => {
+  it('mobs.json 에서 이름·드롭·경험치·hp·피해·속도를 읽고 나머지는 기본값 (좀비는 #142 로 20·3·2.4 → #248 피해 4)', () => {
     const z = MOBS.get('zombie');
     expect(z.name).toBe('좀비');
     expect(z.hp).toBe(20);
-    expect(z.damage).toBe(3);
+    expect(z.damage).toBe(4);
     expect(z.xp).toBe(5);
     expect(z.drops.map((d) => d.item)).toContain('rotten_flesh');
     const c = MOBS.get('creeper');
@@ -88,11 +88,11 @@ describe('원정 밤의 몹 (M7-2)', () => {
 });
 
 describe('거미와 원정지별 몹 (M7-3)', () => {
-  it('거미: mobs.json 이름·드롭, 빠르고 낮고, 물면 2 + 독 3초', () => {
+  it('거미: mobs.json 이름·드롭, 빠르고 낮고, 물면 3(#248) + 독 3초', () => {
     const s = MOBS.get('spider');
     expect(s.name).toBe('거미');
     expect(s.hp).toBe(16);
-    expect(s.damage).toBe(2);
+    expect(s.damage).toBe(3);
     expect(s.poisonMs).toBe(3000);
     expect(s.speed).toBeGreaterThan(MOBS.get('zombie').speed);
     expect(s.drops.map((d) => d.item)).toContain('string');
@@ -176,10 +176,10 @@ describe('거미와 원정지별 몹 (M7-3)', () => {
     expect(MOBS.get('skeleton').reach).toBe(6);
     expect(MOBS.get('zombie').passive).toBe(false);
     // 아들 13차 "좀비·스켈레톤 더 무섭게"(2026-10-06): mobs.json 의 hp·damage·speed 가 코드 기본값을 덮는다
-    expect(MOBS.get('zombie')).toMatchObject({ hp: 20, damage: 3, speed: 2.4 }); // 아빠 2026-10-07 "아직도 세다" (#142)
-    expect(MOBS.get('skeleton')).toMatchObject({ hp: 20, damage: 3, speed: 2.2 });
-    expect(MOBS.get('vindicator').damage).toBe(4);
-    expect(MOBS.get('creeper').damage).toBe(5); // 폭발 7 → 5 (#142)
+    expect(MOBS.get('zombie')).toMatchObject({ hp: 20, damage: 4, speed: 2.4 }); // 아빠 2026-10-07 "아직도 세다" (#142) → 2026-11-03 "조금만 더 강하게" 피해 +1 (#248)
+    expect(MOBS.get('skeleton')).toMatchObject({ hp: 20, damage: 4, speed: 2.2 });
+    expect(MOBS.get('vindicator').damage).toBe(5);
+    expect(MOBS.get('creeper').damage).toBe(6); // 폭발 7 → 5 (#142) → 6 (#248)
     expect(spawnKinds(['spider', 'cow', 'skeleton'])).toEqual(['spider', 'skeleton']);
     expect(mobSize('chicken').h).toBeLessThan(1);
   });
@@ -203,7 +203,7 @@ describe('좀비 주민 (#244)', () => {
   it('mobs.json 에서 좀비 주민을 읽는다(좀비와 같은 수치), 번호표는 빈틈 없이 맞고, 좀비·허스크·좀비 주민이 좀비류', () => {
     const zv = MOBS.get('zombie_villager');
     expect(zv.name).toBe('좀비 주민');
-    expect(zv).toMatchObject({ hp: 20, damage: 3, xp: 5, passive: false });
+    expect(zv).toMatchObject({ hp: 20, damage: 4, xp: 5, passive: false }); // 좀비와 같이 4 (#248)
     expect(zv.drops.map((d) => d.item)).toContain('rotten_flesh');
     expect(mobSize('zombie_villager')).toEqual(mobSize('zombie'));
     MOB_KINDS.forEach((k, i) => {
