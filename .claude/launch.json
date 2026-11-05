@@ -7,7 +7,7 @@
     },
     {
       "name": "dev",
-      "runtimeExecutable": "C:\\Users\\smile-user\\AppData\\Local\\Packages\\claude_pzs8sxrjxfjjc\\LocalCache\\Local\\nodejs\\node-v22.23.2-win-x64\\node.exe",
+      "runtimeExecutable": "node",
       "runtimeArgs": [
         "packages/client/node_modules/vite/bin/vite.js",
         "packages/client",
@@ -19,7 +19,7 @@
     },
     {
       "name": "server-test",
-      "runtimeExecutable": "C:\\Users\\smile-user\\AppData\\Local\\Packages\\claude_pzs8sxrjxfjjc\\LocalCache\\Local\\nodejs\\node-v22.23.2-win-x64\\node.exe",
+      "runtimeExecutable": "node",
       "runtimeArgs": [
         "tools/dev/test-server.cjs"
       ],
@@ -27,7 +27,7 @@
     },
     {
       "name": "dev-test",
-      "runtimeExecutable": "C:\\Users\\smile-user\\AppData\\Local\\Packages\\claude_pzs8sxrjxfjjc\\LocalCache\\Local\\nodejs\\node-v22.23.2-win-x64\\node.exe",
+      "runtimeExecutable": "node",
       "runtimeArgs": [
         "tools/dev/test-vite.cjs"
       ],
