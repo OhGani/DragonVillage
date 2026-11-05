@@ -18,25 +18,25 @@ import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
 import { hash3 } from '../math/prng';
 
-export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat' | 'snow_golem' | 'minecart' | 'zombie_villager';
-export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager'];
-export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24, snow_golem: 25, minecart: 26, zombie_villager: 27 };
-export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager'];
+export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat' | 'snow_golem' | 'minecart' | 'zombie_villager' | 'gorilla' | 'giant_gorilla' | 'warden' | 'giant_warden';
+export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden'];
+export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24, snow_golem: 25, minecart: 26, zombie_villager: 27, gorilla: 28, giant_gorilla: 29, warden: 30, giant_warden: 31 };
+export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden'];
 /** 순한 동물 (마을, M8-1). 규칙은 animals.ts */
 const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart']; // 보트도 passive 목록에서 드롭을 읽는다 (#209)
 
 /** 굴 보스 (M7-4, 거미 왕). 보스는 밤 스폰 목록에 안 들어가고, 원정지 구조물(거미 굴)에 하나만. 소환사(M7-5)는 방어전 마지막 파도의 보스 */
 export const BOSS_KIND: MobKind = 'spider_king';
-export const BOSS_KINDS: readonly MobKind[] = ['spider_king', 'evoker', 'ender_dragon'];
+export const BOSS_KINDS: readonly MobKind[] = ['spider_king', 'evoker', 'ender_dragon', 'giant_gorilla', 'giant_warden']; // 거대 고릴라 (#253)·거대 워든 (#254)
 export function isBoss(kind: MobKind): boolean {
   return BOSS_KINDS.includes(kind);
 }
 /** 원정지 보스(보스 바·나침반이 가리키는 것). 소환사는 마을 방어전 보스라 뺀다 (#162) */
-export const EXPEDITION_BOSS_KINDS: readonly MobKind[] = ['spider_king', 'ender_dragon'];
-export const BOSS_EMOJI: Partial<Record<MobKind, string>> = { spider_king: '🕷️', ender_dragon: '🐲', evoker: '🧙' };
+export const EXPEDITION_BOSS_KINDS: readonly MobKind[] = ['spider_king', 'ender_dragon', 'giant_gorilla', 'giant_warden']; // 소환사는 어두운 숲(#252)에선 보스지만 마을 방어전에선 아니라, 클라가 원정에서는 BOSS_KINDS 로 본다
+export const BOSS_EMOJI: Partial<Record<MobKind, string>> = { spider_king: '🕷️', ender_dragon: '🐲', evoker: '🧙', giant_gorilla: '🦍', giant_warden: '👹' };
 /** 보스가 부르는 부하 */
 export function bossMinionKind(kind: MobKind): MobKind {
-  return kind === 'evoker' ? 'vindicator' : kind === 'ender_dragon' ? 'enderman' : 'spider';
+  return kind === 'evoker' ? 'vindicator' : kind === 'ender_dragon' ? 'enderman' : kind === 'giant_gorilla' ? 'gorilla' : kind === 'giant_warden' ? 'warden' : 'spider';
 }
 /** 우민 (마을 방어전 M7-5) */
 export const RAIDER_KINDS: readonly MobKind[] = ['vindicator', 'pillager', 'evoker'];
@@ -80,6 +80,8 @@ export interface MobDef {
   readonly neutral?: boolean;
   /** 엔더 드래곤 (#162): hover 높이가 이 주기(ms)로 0 ~ hover 사이를 오르내린다 — 낮게 내려올 때 물고, 그때 칼이 닿는다 */
   readonly swoop?: number;
+  /** 고릴라 (#253): 때리면 아프고 밀려난다 (눈 골렘 눈덩이의 밀림 + 피해) */
+  readonly knock?: boolean;
   readonly drops: readonly MobDrop[];
   readonly xp: number;
   /** 순한 동물인가 (때리지 않으면 안 덤빈다) */
@@ -134,6 +136,12 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   snow_golem: { id: 'snow_golem', hp: 10, damage: 0, speed: 2.0, reach: 8, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 0, neutral: true },
   // 좀비 주민 (#244): 좀비와 같다. 황금 사과를 먹이면 주민으로 돌아온다
   zombie_villager: { id: 'zombie_villager', hp: 20, damage: 4, speed: 2.3, reach: 1.6, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  // 정글 (#253): 고릴라는 세고 밀친다. 거대 고릴라는 궁궐 왕좌 앞에서 자다 깨어나 고릴라를 부른다 (hp 400 은 bosses.json)
+  gorilla: { id: 'gorilla', hp: 24, damage: 5, speed: 2.6, reach: 2.2, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0, knock: true },
+  giant_gorilla: { id: 'giant_gorilla', hp: 400, damage: 9, speed: 2.4, reach: 3.8, attackEveryMs: 2500, fuseMs: 0, explodeRadius: 0, poisonMs: 0, knock: true },
+  // 깊은 어둠 (#254): 워든은 느리지만 세다. 거대 워든은 10칸에서 음파(sonic)를 쏜다 — 원거리 몹 규칙(reach ≥ 4)
+  warden: { id: 'warden', hp: 40, damage: 6, speed: 2.0, reach: 2.4, attackEveryMs: 2200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  giant_warden: { id: 'giant_warden', hp: 500, damage: 8, speed: 1.8, reach: 10, attackEveryMs: 4000, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
 };
 
 const RawPassive = z
@@ -186,8 +194,8 @@ const BossFile = z
   })
   .loose();
 
-const BOSS_NAME_KO: Partial<Record<MobKind, string>> = { spider_king: '거미 왕', evoker: '소환사', ender_dragon: '엔더 드래곤' };
-const BOSS_XP: Partial<Record<MobKind, number>> = { spider_king: 80, evoker: 100, ender_dragon: 500 };
+const BOSS_NAME_KO: Partial<Record<MobKind, string>> = { spider_king: '거미 왕', evoker: '소환사', ender_dragon: '엔더 드래곤', giant_gorilla: '거대 고릴라', giant_warden: '거대 워든' };
+const BOSS_XP: Partial<Record<MobKind, number>> = { spider_king: 80, evoker: 100, ender_dragon: 500, giant_gorilla: 150, giant_warden: 200 };
 
 function dropsFromRaw(raw: unknown): MobDrop[] {
   if (!Array.isArray(raw)) return [];
@@ -310,6 +318,10 @@ export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = {
   villager: MOB_SIZE,
   iron_golem: { w: 1.4, h: 2.7 },
   zombie_villager: MOB_SIZE,
+  gorilla: { w: 1.4, h: 2.2 }, // 정글 (#253): 그림(복셀 키 28 × 1.4)과 맞춘다 — 사람보다 크다
+  giant_gorilla: { w: 2.8, h: 4.4 },
+  warden: { w: 1.0, h: 2.9 }, // 깊은 어둠 (#254): 마인크래프트 워든처럼 세 칸 가까이 — 그림(복셀 키 50)과 맞춘다
+  giant_warden: { w: 2.0, h: 5.8 },
 };
 export function mobSize(kind: MobKind | number): { w: number; h: number } {
   return MOB_SIZES[typeof kind === 'number' ? (MOB_KIND_OF[kind] ?? 'zombie') : kind];

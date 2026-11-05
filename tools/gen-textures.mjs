@@ -571,6 +571,25 @@ const TEX = {
       c.set((x + 1) % S, y, 60, 40, 34);
     }
   },
+  // 정글 궁궐 (#253): 조약돌에 이끼 얼룩
+  mossy_cobblestone: (c) => {
+    c.cells(9, [118, 118, 118], 0.12, 0.62);
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++)
+        if (c.rnd() < 0.3) {
+          const [r, g, b] = c.get(x, y);
+          c.set(x, y, r * 0.55, g * 0.9, b * 0.45);
+        }
+  },
+  // 깊은 어둠 (#254): 심층암은 어둡고 결이 가로, 스컬크는 검푸른 바탕에 하늘빛 점
+  deepslate: (c) => {
+    c.noise([70, 70, 74], 8).blotch(0.1);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (y % 4 === 0) c.mul(x, y, 0.82);
+  },
+  sculk: (c) => {
+    c.noise([12, 36, 44], 8).blotch(0.15);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (c.rnd() < 0.08) c.set(x, y, 40, 190, 210);
+  },
   // 드래곤 알 껍질 (#85): 알 모양은 메시가 만드니 껍질 무늬만 16×16 에 가득 채운다
   dragon_egg: (c) => {
     c.noise([58, 22, 78], 10).blotch(0.14);

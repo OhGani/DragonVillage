@@ -39,7 +39,7 @@ describe('마을 건물 (M6-6)', () => {
   it('구조물은 아는 블록으로만 만들고, 지어지면 isBuildingBuiltAt 이 알아본다. 창고엔 문구멍이 있다', () => {
     for (const s of BUILDING_SITES) {
       const blocks = buildingBlocks(s.id, 40);
-      expect(blocks.length).toBeGreaterThan(s.id === 'portal_3' || s.id === 'portal_4' || s.id === 'portal_5' ? 3 : 20); // 포탈 3·4·5단계는 표식만 (#167)
+      expect(blocks.length).toBeGreaterThan(s.id.startsWith('portal_') && s.id !== 'portal_2' ? 3 : 20); // 포탈 3·4·5단계·원정지 포탈은 표식만 (#167·#255)
       for (const b of blocks) expect(BLOCKS.find(b.id), `${s.id}: 모르는 블록 ${b.id}`).toBeDefined();
       const world = new Map(blocks.map((b) => [`${b.x},${b.y},${b.z}`, b.id]));
       const idAt = (x: number, y: number, z: number) => world.get(`${x},${y},${z}`) ?? 'air';
@@ -128,6 +128,32 @@ describe('마을 건물 (M6-6)', () => {
     for (const k of k3) expect(k2.has(k)).toBe(false);
     for (const k of k4) expect(k2.has(k) || k3.has(k)).toBe(false);
     for (const k of k5) expect(k2.has(k) || k3.has(k) || k4.has(k)).toBe(false);
+  });
+
+  it('원정지 포탈 (#255): 어두운 숲·정글은 3단계, 깊은 어둠은 4단계 뒤에 창고에서 짓고, 같은 단 테두리에 서로·앞 단계와 안 겹치는 표식', () => {
+    const pad = BUILDING_SITES.find((s) => s.id === 'portal_2')!;
+    const keys = (id: string) => new Set(buildingBlocks(id, 40).map((b) => `${b.x},${b.y},${b.z}`));
+    const taken = new Set([...keys('portal_2'), ...keys('portal_3'), ...keys('portal_4'), ...keys('portal_5')]);
+    for (const [id, prev, exp] of [
+      ['portal_dark_forest', 'portal_3', 'dark_forest'],
+      ['portal_jungle', 'portal_3', 'jungle'],
+      ['portal_deep_dark', 'portal_4', 'deep_dark'],
+    ] as const) {
+      const s = BUILDING_SITES.find((x) => x.id === id)!;
+      expect([s.x0, s.z0, s.size]).toEqual([pad.x0, pad.z0, pad.size]);
+      const def = BUILDINGS.find(id)!;
+      expect(def.requires).toBe(prev);
+      expect(def.unlocks).toEqual([`expedition:${exp}`]);
+      expect(Object.keys(def.cost).length).toBeGreaterThan(0);
+      const blocks = buildingBlocks(id, 40);
+      expect(blocks).toHaveLength(4);
+      for (const b of blocks) {
+        const k = `${b.x},${b.y},${b.z}`;
+        expect(taken.has(k), `${id} 가 다른 표식 ${k} 을 덮어요`).toBe(false);
+        taken.add(k);
+        expect(b.x === pad.x0 || b.x === pad.x0 + 6 || b.z === pad.z0 || b.z === pad.z0 + 6).toBe(true); // 테두리에만
+      }
+    }
   });
 
   it('창고 재고로 비용을 낼 수 있는지 — 모자란 것만 돌려준다', () => {

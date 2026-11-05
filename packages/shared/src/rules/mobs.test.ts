@@ -226,6 +226,38 @@ describe('좀비 주민 (#244)', () => {
   });
 });
 
+describe('정글·깊은 어둠 몹 (#253·#254)', () => {
+  it('고릴라·워든은 mobs.json 에서, 거대 고릴라·거대 워든은 bosses.json 에서 읽는다. 거대 고릴라는 고릴라를, 거대 워든은 워든을 부른다', () => {
+    const g = MOBS.get('gorilla');
+    expect(g.name).toBe('고릴라');
+    expect(g).toMatchObject({ hp: 24, damage: 5, knock: true, passive: false, xp: 8 });
+    expect(g.drops.map((d) => d.item)).toContain('raw_gorilla_meat');
+    const w = MOBS.get('warden');
+    expect(w.name).toBe('워든');
+    expect(w).toMatchObject({ hp: 40, damage: 6, passive: false, xp: 15 });
+    expect(w.drops.map((d) => d.item)).toContain('sculk');
+    const gg = MOBS.get('giant_gorilla');
+    expect(isBoss('giant_gorilla') && isBoss('giant_warden')).toBe(true);
+    expect(gg.name).toBe('거대 고릴라');
+    expect(gg.hp).toBe(400);
+    expect(gg.xp).toBe(150);
+    expect(gg.knock).toBe(true);
+    expect(gg.drops.map((d) => `${d.item}×${d.max}`)).toEqual(expect.arrayContaining(['raw_gorilla_meat×10', 'diamond×64', 'netherite_ingot×64']));
+    const gw = MOBS.get('giant_warden');
+    expect(gw.name).toBe('거대 워든');
+    expect(gw.hp).toBe(500);
+    expect(gw.reach).toBe(10); // 음파 — 원거리
+    expect(gw.drops.map((d) => `${d.item}×${d.max}`)).toEqual(expect.arrayContaining(['ice×64', 'netherite_sword×1']));
+    expect(bossMinionKind('giant_gorilla')).toBe('gorilla');
+    expect(bossMinionKind('giant_warden')).toBe('warden');
+    expect(mobSize('gorilla').h).toBeGreaterThan(1.9); // 사람(1.8)보다 크다
+    expect(mobSize('giant_gorilla').h).toBe(mobSize('gorilla').h * 2);
+    expect(mobSize('warden').h).toBeGreaterThan(2.5); // 워든은 세 칸 가까이 (#254)
+    expect(mobSize('giant_warden').h).toBe(mobSize('warden').h * 2);
+    expect(spawnKinds(['skeleton', 'warden', 'zombie', 'giant_warden'])).toEqual(['skeleton', 'warden', 'zombie']); // 보스는 밤 스폰에 안 들어간다
+  });
+});
+
 describe('쳐다보기 (#222 엔더맨)', () => {
   const me = { x: 0, z: 0, eyeY: 1.6, yaw: 0, pitch: 0 };
   it('yaw 0 은 -z 를 본다: 앞 10칸은 보고, 옆·뒤·너무 먼 건 안 본다', () => {

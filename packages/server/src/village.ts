@@ -53,6 +53,7 @@ import {
   emptyChest,
   emptyInventory,
   encodeBlockBatch,
+  BOSS_EMOJI,
   encodeBlockChanged,
   encodeBlockChangeRejected,
   encodeChunk,
@@ -242,6 +243,11 @@ const LAPIS = 'lapis';
 export const GOLEM_GRUDGE_MS = 30_000;
 /** 눈덩이에 밀리는 세기 (#223) */
 const KNOCK_POWER = 7;
+/** 받침이 있으면 a, 없으면 b (소환사가 · 거미 왕이 / 소환사를 · 거미 왕을) — 보스 알림 (#252) */
+function josa(word: string, a: string, b: string): string {
+  const c = word.charCodeAt(word.length - 1);
+  return word + (c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 !== 0 ? a : b);
+}
 /** 작물 익음 확인 주기 (#165) */
 export /** TNT (#195): 심지 4초. #247 로 세게: 피해 반지름 5칸·가운데 14(크리퍼 6), 3칸 안의 블록을 부수고(흑요석·기반암·액체·상자·침대·문·마을 건물 자리는 남는다, 드롭 없음) 몹·동물도 다친다 */
 const TNT_FUSE_MS = 4000;
@@ -250,6 +256,9 @@ const TNT_DAMAGE = 14;
 const TNT_BREAK_RADIUS = 3;
 /** 이보다 단단한 블록은 폭발에 안 부서진다 (고대 잔해 30·흑요석 50·네더라이트 블록 50) */
 const TNT_BLAST_PROOF = 30;
+/** 불사의 토템 (#252, 소환사 전리품 — 아들 "죽으면 4개의 HP를 더 준다"): 가방에 있으면 죽을 때 하나 쓰고 하트 2개(hp 4)로 살아난다 */
+const TOTEM_OF_UNDYING = 'totem_of_undying';
+const TOTEM_HP = 4;
 const FLINT_AND_STEEL = 'flint_and_steel';
 const CROP_CHECK_MS = 10_000;
 /** 침대 윗면 (#204): 메셔 BED_HEIGHT 와 같다 */
@@ -1654,9 +1663,9 @@ export class VillageRoom {
         const p = this.players.get(idx);
         if (p && p.world === world) this.hurt(p, amount, cause, now);
       },
-      knock: (idx, x, z) => {
+      knock: (idx, x, z, _now, why) => {
         const p = this.players.get(idx);
-        if (p && p.world === world && p.hp > 0) this.sendJson(p, { t: 'knock', x, z, power: KNOCK_POWER }); // 눈덩이 (#223): 안 아프고 밀리기만
+        if (p && p.world === world && p.hp > 0) this.sendJson(p, { t: 'knock', x, z, power: KNOCK_POWER, why }); // 눈덩이 (#223): 안 아프고 밀리기만. 고릴라 (#253)
       },
       broadcast: (bytes) => this.broadcast(bytes, -1, world),
       json: (obj) => this.broadcastJson(obj, -1, world),
@@ -1671,7 +1680,7 @@ export class VillageRoom {
       bossWake: (kind) => {
         const name = MOBS.get(kind).name;
         this.log(`마을 ${this.info.code}: ${name} 깨어남`);
-        this.broadcastJson({ t: 'error', code: 'BOSS_WAKE', message: `🕷️ ${name}이 나타났다! 함께 잡아요` }, -1, world);
+        this.broadcastJson({ t: 'error', code: 'BOSS_WAKE', message: `${BOSS_EMOJI[kind] ?? '👹'} ${josa(name, '이', '가')} 나타났다! 함께 잡아요` }, -1, world);
       },
       bossDefeated: (kind, drops, xp, at, byIdx, now) => {
         // 협동 보스 (M7-4): 드롭은 마을 창고로(가방에 안 들어가는 큰 묶음), 경험치는 그 세계에 있는 모두에게 각각
@@ -1697,8 +1706,8 @@ export class VillageRoom {
         const loot = drops.map((d) => `${itemName(d.item, this.registry, ITEM_NAMES)} ${d.count}`).join(' · ');
         const who = participants ? `원정대 ${rewarded.size}명 모두 경험치 ${xp}` : `모두 경험치 ${xp}`;
         this.log(`마을 ${this.info.code}: ${name} 처치 (${by?.nick ?? '?'} 마무리) — 창고에 ${loot}, ${who}`);
-        this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 ${name}을 잡았다! ${who} · 전리품은 마을 창고에: ${loot}` }, -1, world);
-        if (world !== 'village') this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 원정대가 ${name}을 잡았어요! ${who} · 창고에 ${loot}` }, -1, 'village');
+        this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 ${josa(name, '을', '를')} 잡았다! ${who} · 전리품은 마을 창고에: ${loot}` }, -1, world);
+        if (world !== 'village') this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 원정대가 ${josa(name, '을', '를')} 잡았어요! ${who} · 창고에 ${loot}` }, -1, 'village');
         this.broadcastStorage();
         if (kind === 'ender_dragon' && world === 'expedition') this.openEndingPortal(now); // 엔딩 (#170)
       },
@@ -2364,6 +2373,17 @@ export class VillageRoom {
     const n = finalDamage(COMBAT, p.equip, amount, cause, p.guardUntil > now);
     if (n <= 0) {
       this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'blocked' }); // 방패가 전부 막았다
+      return;
+    }
+    if (p.hp - n <= 0 && countOf(p.inv, TOTEM_OF_UNDYING) > 0) {
+      // 불사의 토템 (#252): 죽는 대신 토템 하나를 쓰고 하트 2개로
+      const changed = new Set<number>();
+      take(p.inv, TOTEM_OF_UNDYING, 1, changed);
+      this.sendInv(p, changed);
+      p.hp = TOTEM_HP;
+      p.lastHurtAt = now;
+      this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'totem' });
+      this.log(`마을 ${this.info.code}: ${p.nick} 불사의 토템으로 살아남음 (${cause})`);
       return;
     }
     p.hp = Math.max(0, p.hp - n);

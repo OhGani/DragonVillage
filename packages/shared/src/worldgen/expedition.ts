@@ -1,6 +1,7 @@
 /**
  * 원정지 생성기 고르기 (M7-3). `expeditions.json generator` 이름 → 생성기. 서버(Expedition)와 클라(buildWorld)가 같은 함수를 부른다.
  * 여섯 곳 모두 있다 — 사막(desert) v1.1-1 (#157), 설원(snow) v1.1-2 (#160), 네더(nether) v1.1-3 (#161), 엔드(end) v1.1-4 (#162). 모르는 이름이면 hasGenerator 가 false → 서버는 NOT_YET.
+ * 아들 보스 설계의 셋을 앞당김 (2026-11-05): 어두운 숲(dark_forest, 소환사 #252), 정글(jungle, 거대 고릴라 #253), 깊은 어둠(deep_dark, 거대 워든 #254).
  */
 import type { VoxelWorld } from '../chunk/world';
 import type { BlockRegistry } from '../rules/blocks';
@@ -11,6 +12,9 @@ import { END_GEN_VERSION, generateEnd } from './end';
 import { NETHER_GEN_VERSION, generateNether } from './nether';
 import { SNOW_GEN_VERSION, generateSnow } from './snow';
 import { ISLAND_GEN_VERSION, generateIsland } from './island';
+import { DARK_FOREST_GEN_VERSION, generateDarkForest } from './darkForest';
+import { JUNGLE_GEN_VERSION, generateJungle } from './jungle';
+import { DEEP_DARK_GEN_VERSION, generateDeepDark } from './deepDark';
 import type { MobKind } from '../rules/mobs';
 import type { SpawnPoint } from './village';
 
@@ -55,6 +59,21 @@ const GENERATORS: Record<string, (registry: BlockRegistry, seed: number, treasur
   end: (registry, seed, treasures) => {
     const g = generateEnd(registry, seed, treasures);
     return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: g.layout.den, spawns: [], crystals: g.layout.crystals, genVersion: END_GEN_VERSION, ms: g.ms };
+  },
+  // 어두운 숲 (#252): 대저택 2층의 소환사가 보스, 1층은 변명자 셋이 지킨다
+  dark_forest: (registry, seed, treasures) => {
+    const g = generateDarkForest(registry, seed, treasures);
+    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: g.layout.den, spawns: g.layout.guards.map((p) => ({ kind: 'vindicator' as const, x: p.x + 0.5, y: p.y, z: p.z + 0.5 })), crystals: [], genVersion: DARK_FOREST_GEN_VERSION, ms: g.ms };
+  },
+  // 정글 (#253): 궁궐 왕좌 앞의 거대 고릴라가 보스, 문 앞에 고릴라 둘
+  jungle: (registry, seed, treasures) => {
+    const g = generateJungle(registry, seed, treasures);
+    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: g.layout.den, spawns: g.layout.guards.map((p) => ({ kind: 'gorilla' as const, x: p.x + 0.5, y: p.y, z: p.z + 0.5 })), crystals: [], genVersion: JUNGLE_GEN_VERSION, ms: g.ms };
+  },
+  // 깊은 어둠 (#254): 고대 도시 워든의 문 앞 거대 워든이 보스, 문 양옆에 워든 둘
+  deep_dark: (registry, seed, treasures) => {
+    const g = generateDeepDark(registry, seed, treasures);
+    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: g.layout.den, spawns: g.layout.guards.map((p) => ({ kind: 'warden' as const, x: p.x + 0.5, y: p.y, z: p.z + 0.5 })), crystals: [], genVersion: DEEP_DARK_GEN_VERSION, ms: g.ms };
   },
 };
 

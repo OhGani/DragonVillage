@@ -1885,6 +1885,33 @@
       "shape": "cross",
       "texture": "end_crystal",
       "_note": "엔드 흑요석 기둥 꼭대기 8개 (#224, 아들 14차 8번 '엔더 드래곤 회복도 있어'): 남아 있는 만큼 드래곤이 1초마다 회복한다(셋에 1). 활을 들고 겨눠 쏘면 40칸에서도 깨진다(마인크래프트처럼). 아이템으로는 안 나온다"
+    },
+    {
+      "id": "mossy_cobblestone",
+      "name": "이끼 낀 조약돌",
+      "hardness": 2.0,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "mossy_cobblestone",
+      "_note": "정글 궁궐·사당 (#253, 아들 보스 설계 '사치스러운 정글 궁궐')"
+    },
+    {
+      "id": "deepslate",
+      "name": "심층암",
+      "hardness": 3.0,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "deepslate",
+      "_note": "깊은 어둠의 땅속 (#254). 다이아몬드는 심층암 속에만"
+    },
+    {
+      "id": "sculk",
+      "name": "스컬크",
+      "hardness": 0.6,
+      "tool": null,
+      "lightEmit": 3,
+      "texture": "sculk",
+      "_note": "깊은 어둠 고대 도시 바닥 (#254, 아들 '깊은 어둠' 재료). 푸르스름하게 빛난다. 워든이 떨군다"
     }
   ]
 }

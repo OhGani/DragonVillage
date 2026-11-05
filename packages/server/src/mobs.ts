@@ -97,7 +97,7 @@ export interface MobHooks {
   players(now?: number): MobTarget[];
   hurt(idx: number, amount: number, cause: string, now: number): void;
   /** 피해 없이 밀기 (#223 눈 골렘 눈덩이): (x, z) 는 밀리는 방향 단위 벡터 */
-  knock?(idx: number, x: number, z: number, now: number): void;
+  knock?(idx: number, x: number, z: number, now: number, why?: string): void;
   /** 이 무대 사람 모두에게 */
   broadcast(bytes: Uint8Array): void;
   json(obj: unknown): void;
@@ -362,14 +362,14 @@ export class MobSystem {
           const ev = stepMob(m, m.grudge !== undefined ? { ...def, damage: GRUDGE_DAMAGE, attackEveryMs: GRUDGE_ATTACK_MS } : def, target, dt, now, this.groundAt);
           if (ev === 'attack') {
             // 원거리 몹은 화살이 날아가는 그림을 먼저 (피해는 바로)
-            if (isRangedMob(def)) this.hooks.json({ t: 'arrow', from: { x: m.x, y: m.y + mobSize(m.kind).h * 0.8, z: m.z }, to: { x: target.x, y: target.eyeY - 0.3, z: target.z }, fire: m.kind === 'ghast' || m.kind === 'blaze', snow: m.kind === 'snow_golem' }); // 가스트·블레이즈는 불덩이 (#173), 눈 골렘은 눈덩이 (#223)
+            if (isRangedMob(def)) this.hooks.json({ t: 'arrow', from: { x: m.x, y: m.y + mobSize(m.kind).h * 0.8, z: m.z }, to: { x: target.x, y: target.eyeY - 0.3, z: target.z }, fire: m.kind === 'ghast' || m.kind === 'blaze', snow: m.kind === 'snow_golem', sonic: m.kind === 'giant_warden' }); // 가스트·블레이즈는 불덩이 (#173), 눈 골렘은 눈덩이 (#223), 거대 워든은 음파 (#254)
             if (def.damage > 0) this.hooks.hurt(target.idx, m.grudge !== undefined ? GRUDGE_DAMAGE : (m.weakUntil ?? 0) > now ? Math.max(1, Math.floor(def.damage * MOB_WEAK_MUL)) : def.damage, m.kind, now); // 나약함 물약 (#245)
-            else {
-              // 눈 골렘 눈덩이 (#223): 안 아프고 밀려나기만
+            if (def.damage <= 0 || def.knock) {
+              // 눈 골렘 눈덩이 (#223): 안 아프고 밀려나기만. 고릴라 (#253): 아프고 나서 밀려난다
               const kx = target.x - m.x,
                 kz = target.z - m.z;
               const kd = Math.hypot(kx, kz) || 1;
-              this.hooks.knock?.(target.idx, kx / kd, kz / kd, now);
+              this.hooks.knock?.(target.idx, kx / kd, kz / kd, now, def.knock ? 'gorilla' : 'snow');
             }
             if (def.poisonMs > 0) this.poisoned.set(target.idx, { until: now + def.poisonMs, nextAt: now + POISON_EVERY_MS });
           } else if (ev === 'explode') this.explode(m, def, players, now);

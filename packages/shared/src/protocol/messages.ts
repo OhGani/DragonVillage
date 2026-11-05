@@ -14,7 +14,8 @@ import type { TodayCard } from '../rules/family';
 import type { MobEntry } from '../rules/mobs';
 import { ByteReader, ByteWriter } from './bytes';
 
-export const PROTOCOL_VERSION = 1;
+/** 바뀌면 옛 클라에 '새로고침해 주세요'. 2: 몹 체력 2바이트 (#254 — 거대 고릴라 400·거대 워든 500·엔더 드래곤 300 이 255 로 잘렸다) */
+export const PROTOCOL_VERSION = 2;
 
 /** 바이너리 메시지 종류 (첫 바이트) */
 export const MSG = {
@@ -204,8 +205,8 @@ export function encodePlayerMove(m: PlayerMoveMsg): Uint8Array {
 }
 /** 몹 상태 묶음 (M7-2): id·종류·위치·yaw·hp·상태 */
 export function encodeMobsState(list: readonly MobEntry[]): Uint8Array {
-  const w = new ByteWriter(2 + list.length * 21).u8(MSG.MobsState).u8(Math.min(255, list.length));
-  for (const m of list.slice(0, 255)) w.u16(m.id & 0xffff).u8(m.kind & 0xff).f32(m.x).f32(m.y).f32(m.z).f32(m.yaw).u8(Math.max(0, Math.min(255, m.hp))).u8(m.state & 0xff);
+  const w = new ByteWriter(2 + list.length * 22).u8(MSG.MobsState).u8(Math.min(255, list.length));
+  for (const m of list.slice(0, 255)) w.u16(m.id & 0xffff).u8(m.kind & 0xff).f32(m.x).f32(m.y).f32(m.z).f32(m.yaw).u16(Math.max(0, Math.min(0xffff, Math.round(m.hp)))).u8(m.state & 0xff); // 체력 2바이트 (#254)
   return w.finish();
 }
 export function encodePlayersState(list: readonly PlayerStateEntry[]): Uint8Array {
@@ -325,7 +326,7 @@ export function decodeServerBinary(bytes: Uint8Array): ServerBinary | null {
     case MSG.MobsState: {
       const n = r.u8();
       const list: MobEntry[] = [];
-      for (let i = 0; i < n; i++) list.push({ id: r.u16(), kind: r.u8(), x: r.f32(), y: r.f32(), z: r.f32(), yaw: r.f32(), hp: r.u8(), state: r.u8() });
+      for (let i = 0; i < n; i++) list.push({ id: r.u16(), kind: r.u8(), x: r.f32(), y: r.f32(), z: r.f32(), yaw: r.f32(), hp: r.u16(), state: r.u8() });
       return { type, msg: list };
     }
     case MSG.BlockChanged:
@@ -609,9 +610,9 @@ export type ServerJson =
   /** 원정에 따라온 펫 (#145): 원정 세계 사람들에게. 클라가 주인을 따라다니게 그린다 (서버 목록엔 없다) */
   | { t: 'companions'; list: { id: number; kind: number; name: string | null; owner: number }[] }
   /** 몹(스켈레톤·약탈자)이 쏜 화살: from(몹) → to(사람 가슴) (M8-2 3차) */
-  | { t: 'arrow'; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean; snow?: boolean }
-  /** 피해 없이 밀린다 (#223 눈 골렘 눈덩이): (x, z) 방향으로 power 만큼 */
-  | { t: 'knock'; x: number; z: number; power: number }
+  | { t: 'arrow'; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean; snow?: boolean; sonic?: boolean }
+  /** 밀린다 (#223 눈 골렘 눈덩이는 피해 없이, #253 고릴라는 아프고 나서): (x, z) 방향으로 power 만큼. why = 'snow' | 'gorilla' */
+  | { t: 'knock'; x: number; z: number; power: number; why?: string }
   /** 마을 방어전 상태 1Hz (M7-5). null = 끝났다/없다 */
   | { t: 'raid'; raid: RaidStateInfo | null }
   /** 누가 빔을 쐈다 (같은 세계 모두, 본인 포함) (M6-5). from 은 드래곤 입 근처, dir 은 단위 벡터 */

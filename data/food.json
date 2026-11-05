@@ -19,6 +19,8 @@
     { "id": "baked_potato", "name": "구운 감자", "heals": 5 },
     { "id": "mushroom_stew", "name": "버섯 스튜", "heals": 6, "_note": "그릇 + 갈색 버섯 + 빨간 버섯 (#207). 먹으면 그릇은 안 돌아온다(단순하게)" },
     { "id": "poisonous_potato", "name": "독 감자", "heals": 2, "_note": "아들 그림 2026-10-20. 좀비가 2% 로 떨군다(#212). 독 효과는 안 넣었다" },
-    { "id": "cake", "name": "케이크", "heals": 7 }
+    { "id": "cake", "name": "케이크", "heals": 7 },
+    { "id": "banana", "name": "바나나", "heals": 4, "_note": "정글 궁궐·사당 상자 (#253, 아들 정글 재료 '바나나')" },
+    { "id": "raw_gorilla_meat", "name": "안 익힌 고릴라 고기", "heals": 3, "_note": "고릴라 드롭·거대 고릴라 전리품 (#253). 굽는 건 아직" }
   ]
 }

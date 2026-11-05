@@ -275,6 +275,66 @@
       ]
     },
     {
+      "id": "portal_dark_forest",
+      "name": "어두운 숲 포탈",
+      "level": 3,
+      "requires": "portal_3",
+      "cost": {
+        "cobblestone": 60,
+        "log": 16,
+        "iron_ore": 10
+      },
+      "footprint": [
+        7,
+        7,
+        5
+      ],
+      "unlocks": [
+        "expedition:dark_forest"
+      ],
+      "_note": "아빠 2026-11-05 \"새로 만들어진 포탈도 창고에서 열어야\" (#255). 포탈 단 북쪽 테두리에 짙은 참나무 원목 + 잎 표식 둘"
+    },
+    {
+      "id": "portal_jungle",
+      "name": "정글 포탈",
+      "level": 3,
+      "requires": "portal_3",
+      "cost": {
+        "cobblestone": 60,
+        "gold_ore": 15,
+        "diamond": 2
+      },
+      "footprint": [
+        7,
+        7,
+        5
+      ],
+      "unlocks": [
+        "expedition:jungle"
+      ],
+      "_note": "#255. 포탈 단 서쪽 테두리에 이끼 낀 조약돌 + 정글 잎 표식 둘"
+    },
+    {
+      "id": "portal_deep_dark",
+      "name": "깊은 어둠 포탈",
+      "level": 4,
+      "requires": "portal_4",
+      "cost": {
+        "diamond": 6,
+        "iron_ore": 20,
+        "glowstone": 8
+      },
+      "footprint": [
+        7,
+        7,
+        5
+      ],
+      "unlocks": [
+        "expedition:deep_dark"
+      ],
+      "_note": "#255. 포탈 단 동쪽 테두리에 심층암 + 스컬크 표식 둘"
+    },
+    {
       "id": "portal_6",
       "name": "포탈 6단계 — 고대성",
       "level": 6,

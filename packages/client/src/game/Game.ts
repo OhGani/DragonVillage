@@ -7,6 +7,7 @@ import {
   type BlockChangedMsg,
   BOAT_SEAT_Y,
   BOSS_EMOJI,
+  BOSS_KINDS,
   bowOf,
   canStartExpedition,
   CARROT_ON_A_STICK,
@@ -919,7 +920,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       hud.setGuardAvailable(myEquip.shield !== null);
       bag.refresh();
     },
-    onArrow: (m) => mobView.shot(m.from, m.to, m.fire === true, m.snow === true), // 스켈레톤·약탈자 화살, 가스트·블레이즈 불덩이 (#173), 눈 골렘 눈덩이 (#223)
+    onArrow: (m) => mobView.shot(m.from, m.to, m.fire === true, m.snow === true, m.sonic === true), // 스켈레톤·약탈자 화살, 가스트·블레이즈 불덩이 (#173), 눈 골렘 눈덩이 (#223), 거대 워든 음파 (#254)
     onKnock: (m) => {
       // 눈덩이에 맞았다 (#223, 아들 14차 5번 "맞아도 에너지는 안 닳고 밀쳐짐"): 하트는 그대로, 뒤로 튕긴다
       const pl = ctx.player;
@@ -927,7 +928,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       pl.vel.z += m.z * m.power;
       pl.vel.y = Math.max(pl.vel.y, 4);
       hitSound();
-      hud.toast('☃️ 눈덩이에 맞았어요 — 밀려났어요', 1200);
+      hud.toast(m.why === 'gorilla' ? '🦍 고릴라가 밀쳤어요!' : '☃️ 눈덩이에 맞았어요 — 밀려났어요', 1200);
     },
     onDragonHp: (m) => hud.setDragonHp(m.hp, m.max),
     onDragonDown: (m) => {
@@ -1131,6 +1132,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         hurtSound();
         if (m.cause === 'poison') hud.toast('🤢 독이에요 — 잠깐 아파요', 1500);
         if (m.cause === 'drown') hud.toast('🫧 숨이 막혀요! 물 위로 올라가요', 1200); // #246
+        if (m.cause === 'totem') hud.toast('💛 불사의 토템이 살렸어요! 하트 2개로 다시', 2500); // #252
         if (m.cause === 'potion') hud.toast('💔 앗, 고통의 물약! 던져야 하는 거였어요', 2000); // #245
         if (m.cause === 'iron_golem') hud.toast('🗿 철 골렘한테 맞았어요 — 주민을 때리면 안 돼요', 1500); // #221
         if (m.cause === 'husk') {
@@ -1164,7 +1166,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         villagerFigures = nv;
         refreshPetNames(); // 새 주민이 보이면 이름표 (#172)
       }
-      const boss = list.find((m) => EXPEDITION_BOSS_KINDS.includes(MOB_KIND_OF[m.kind] ?? 'zombie'));
+      const bossKinds = ctx.kind === 'expedition' ? BOSS_KINDS : EXPEDITION_BOSS_KINDS; // 원정에선 소환사도 보스 (#252 어두운 숲), 마을 방어전의 소환사는 띠로만
+      const boss = list.find((m) => bossKinds.includes(MOB_KIND_OF[m.kind] ?? 'zombie'));
       bossInfo = boss ? { x: boss.x, z: boss.z, hp: boss.hp, kind: MOB_KIND_OF[boss.kind] ?? 'spider_king' } : null; // 바 글자(방향·거리)는 프레임마다 아래에서
       if (!boss) hud.hideBoss();
     },
@@ -1175,7 +1178,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         explosionSound();
       } else if (m.ev === 'die') {
         ding();
-        if (EXPEDITION_BOSS_KINDS.includes(m.mob as MobKind)) {
+        if ((ctx.kind === 'expedition' ? BOSS_KINDS : EXPEDITION_BOSS_KINDS).includes(m.mob as MobKind)) {
           hud.hideBoss();
           levelUp(); // 승리 팡파르 대신
         }

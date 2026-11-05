@@ -202,6 +202,114 @@ function dog(variant: number): AnimalParts {
   return { body: body.out, head: part(h, [0, 13, -9]), legs, tail: part(tail, [0, 14, 7]), wings: [], babyHead: 1.5 };
 }
 
+// ---------------------------------------------------------------- 고릴라 (#253, 아들 참고 그림 2026-11-05)
+/**
+ * 흰 털에 하늘빛 얼룩, 푸른 얼굴·주둥이·귀, 빨간 눈, 흰 송곳니, 손발은 푸르고 끝에 흰 털이 삐죽.
+ * 긴 앞팔로 몸을 받치고(어깨가 높고 엉덩이가 낮다) 머리는 가슴 앞에 낮게 내민다. 복셀로는 키 28·길이 35 — MobView 가 1.4배(키 약 2.2m, 사람 1.8m 보다 크다)로, 거대 고릴라는 2.8배로 그린다.
+ * 다리 순서는 동물과 같다: 앞왼(팔)·앞오른(팔)·뒤왼·뒤오른.
+ */
+export function gorillaParts(): AnimalParts {
+  const WHITE = 0xe9eef1,
+    SPECK = 0xbfe4ee,
+    BLUE = 0x5b85a6,
+    DEEP = 0x3d6382,
+    RED = 0x8e1c1c,
+    MOUTH = 0x1d2832;
+  const furC: ColorFn = (x, y, z) => fur(x, y, z, ((x * 7 + y * 13 + z * 5) >>> 0) % 9 === 0 ? SPECK : WHITE, 0.07);
+  const blue: ColorFn = soft(BLUE, 0.1);
+  /** 손발: 아래 rows 칸은 푸르고, 그 위 한 줄은 흰 털이 들쭉날쭉 내려온다 */
+  const paw =
+    (rows: number): ColorFn =>
+    (x, y, z) => {
+      if (y < rows - 1) return blue(x, y, z);
+      if (y === rows - 1) return ((x + z) & 1) === 0 ? furC(x, y, z) : blue(x, y, z);
+      return furC(x, y, z);
+    };
+  // 몸: 높은 가슴(어깨) + 낮은 엉덩이 — 비스듬히 이어진다. 앞뒤로 길게 (아빠 "앞뒤로 너무 짧다")
+  const body = new Builder()
+    .box(-8, 7, 15, 27, -9, 2, furC) // 가슴·어깨 16×13×12
+    .box(-7, 6, 11, 22, 3, 16, furC) // 엉덩이 14×12×14
+    .box(-6, 5, 22, 25, 3, 9, furC) // 등이 가슴에서 엉덩이로 비스듬히
+    .box(-5, 4, 15, 17, -10, -9, furC); // 목 아래 가슴 털
+  // 팔: 6×6×19, 어깨(y 19)에 축. 몸 바깥쪽에 붙는다
+  const arm = (x0: number): Part => {
+    const b = new Builder().box(x0, x0 + 5, 0, 18, -8, -3, paw(4));
+    return part(b, [x0 + 3, 19, -5.5]);
+  };
+  // 뒷다리: 6×6×12, 엉덩이 뒤쪽
+  const leg = (x0: number): Part => {
+    const b = new Builder().box(x0, x0 + 5, 0, 11, 10, 15, paw(3));
+    return part(b, [x0 + 3, 12, 12.5]);
+  };
+  const legs = [arm(-11), arm(6), leg(-7), leg(2)];
+  // 머리 10×10×8: 흰 털 바탕, 얼굴은 푸르게, 눈썹 자리에 푸른 무늬, 빨간 눈과 흰자
+  const h = new Builder().box(-5, 4, 16, 25, -15, -8, furC);
+  h.box(-4, 3, 16, 23, -15, -15, blue); // 얼굴 판
+  h.box(-5, 4, 24, 25, -15, -15, furC); // 이마 위는 흰 털
+  h.dot(-3, 24, -15, DEEP).dot(-2, 23, -15, DEEP).dot(1, 23, -15, DEEP).dot(2, 24, -15, DEEP); // 눈썹 무늬
+  h.dot(-4, 21, -15, 0xffffff).dot(-3, 21, -15, RED).dot(2, 21, -15, RED).dot(3, 21, -15, 0xffffff); // 눈
+  h.box(-3, 2, 16, 19, -18, -16, soft(BLUE, 0.06)); // 주둥이 6×4×3
+  h.box(-2, 1, 19, 19, -18, -18, soft(DEEP, 0.05)); // 콧등
+  h.dot(-2, 18, -18, MOUTH).dot(1, 18, -18, MOUTH); // 콧구멍
+  h.box(-3, 2, 16, 16, -18, -16, solid(MOUTH)); // 입
+  h.box(-3, 2, 14, 15, -17, -15, soft(BLUE, 0.06)); // 아래턱
+  h.box(-3, -3, 15, 16, -18, -18, solid(0xffffff)).box(2, 2, 15, 16, -18, -18, solid(0xffffff)); // 송곳니
+  h.box(-6, -6, 20, 22, -12, -10, blue).box(5, 5, 20, 22, -12, -10, blue); // 둥근 귀
+  return { body: body.out, head: part(h, [0, 20, -8]), legs, tail: null, wings: [], babyHead: 1 };
+}
+
+// ---------------------------------------------------------------- 워든 (#254, 아빠 참고 그림 2026-11-05 — 마인크래프트 워든)
+/**
+ * 키 50칸(약 2.8m): 다리 13 · 몸 21 · 머리 16. 검푸른 몸, 눈 없는 큰 머리, 머리 양옆 빛나는 하늘빛 뿔,
+ * 가슴엔 빛나는 갈비뼈와 그 안의 영혼, 팔다리엔 누런 뼈 무늬. 팔은 길어 무릎까지 온다.
+ * 다리 순서는 고릴라와 같다(앞왼 = 왼팔·앞오른 = 오른팔·뒤왼 = 왼다리·뒤오른 = 오른다리) — 같은 걸음·내리치기 움직임을 쓴다.
+ */
+export function wardenParts(): AnimalParts {
+  const DARK = 0x0f2c33,
+    DEEP = 0x0a1f25,
+    GLOW = 0x3df0ff,
+    TEAL = 0x1a9fb0,
+    BONE = 0xc8b47c,
+    MOUTH = 0x061114;
+  const skin: ColorFn = (x, y, z) => fur(x, y, z, ((x * 5 + y * 11 + z * 3) >>> 0) % 13 === 0 ? DEEP : DARK, 0.1);
+  /** 뼈 무늬: 이 칸이면 누렇게 */
+  const bony =
+    (test: (x: number, y: number, z: number) => boolean): ColorFn =>
+    (x, y, z) =>
+      test(x, y, z) ? fur(x, y, z, BONE, 0.08) : skin(x, y, z);
+  // 몸 18×21×11 — 아래쪽 옆구리에 뼈 무늬, 앞에 갈비뼈 + 영혼
+  const body = new Builder().box(-9, 8, 13, 33, -5, 5, bony((x, y, z) => y <= 17 && (x === -9 || x === 8 || z === 5) && ((x + y + z) & 3) !== 0));
+  for (let y = 21; y <= 31; y += 2)
+    for (let x = -6; x <= 5; x++) if (x !== -1 && x !== 0) body.dot(x, y, -5, TEAL); // 갈비뼈 줄 (가운데는 비었다)
+  body.box(-2, 1, 23, 29, -5, -5, solid(GLOW)); // 가슴 속 영혼
+  body.dot(-3, 26, -5, GLOW).dot(2, 26, -5, GLOW);
+  // 팔 8×28×8: 어깨(y 32)에 축, 아래팔에 뼈 무늬, 손등에 빛 점
+  const arm = (x0: number): Part => {
+    const b = new Builder().box(x0, x0 + 7, 6, 33, -4, 3, bony((x, y, z) => y >= 9 && y <= 16 && (z === -4 || ((x + y) & 1) === 0)));
+    b.dot(x0 + 3, 8, -4, GLOW).dot(x0 + 4, 8, -4, GLOW);
+    return part(b, [x0 + 4, 32, -0.5]);
+  };
+  // 다리 6×13×6: 엉덩이(y 13)에 축, 정강이 앞에 뼈 무늬
+  const leg = (x0: number): Part => {
+    const b = new Builder().box(x0, x0 + 5, 0, 12, -3, 2, bony((_x, y, z) => y >= 3 && y <= 9 && z === -3));
+    return part(b, [x0 + 3, 13, -0.5]);
+  };
+  const legs = [arm(-17), arm(9), leg(-7), leg(1)];
+  // 머리 16×16×10: 눈은 없고, 입은 어두운 가로 틈, 볼에 빛 점. 양옆 위로 빛나는 뿔 (두 마디로 휘어 올라간다)
+  const h = new Builder().box(-8, 7, 34, 49, -6, 3, skin);
+  h.box(-5, 4, 37, 38, -6, -6, solid(MOUTH)); // 입
+  h.box(-4, 3, 39, 39, -6, -6, soft(DEEP, 0.05)); // 윗입술 그늘
+  h.dot(-7, 41, -6, GLOW).dot(-6, 42, -6, TEAL).dot(6, 41, -6, GLOW).dot(5, 42, -6, TEAL); // 볼의 빛
+  for (const side of [-1, 1]) {
+    const x0 = side < 0 ? -11 : 8; // 첫 마디: 머리 바로 옆
+    h.box(x0, x0 + 2, 42, 47, -2, 0, (x, y) => (y >= 45 ? solid(GLOW)(x, y, 0) : solid(TEAL)(x, y, 0)));
+    const x1 = side < 0 ? -13 : 11; // 둘째 마디: 바깥 위로
+    h.box(x1, x1 + 1, 47, 52, -2, 0, solid(GLOW));
+    h.dot(side < 0 ? -14 : 13, 52, -1, GLOW);
+  }
+  return { body: body.out, head: part(h, [0, 34, -1]), legs, tail: null, wings: [], babyHead: 1 };
+}
+
 export function animalParts(kind: string, variant: number, opts: { sheared?: boolean } = {}): AnimalParts {
   switch (kind) {
     case 'cow':

@@ -94,6 +94,10 @@ export const BUILDING_SITES: readonly Site[] = [
   { id: 'portal_3', x0: 61, z0: 41, size: [7, 7, 5] },
   { id: 'portal_4', x0: 61, z0: 41, size: [7, 7, 5] },
   { id: 'portal_5', x0: 61, z0: 41, size: [7, 7, 5] },
+  // 원정지마다의 포탈 (#255): 같은 단 테두리에 그곳 느낌의 표식 둘 — 어두운 숲 북쪽, 정글 서쪽, 깊은 어둠 동쪽
+  { id: 'portal_dark_forest', x0: 61, z0: 41, size: [7, 7, 5] },
+  { id: 'portal_jungle', x0: 61, z0: 41, size: [7, 7, 5] },
+  { id: 'portal_deep_dark', x0: 61, z0: 41, size: [7, 7, 5] },
   // 둥지는 겹쳐 자란다: 7×7 둥지 바깥에 11×11 고리(큰 둥지), 그 바깥에 15×15 고리(드래곤 성)
   // 주민 집 세 채 (#168, 아들 13차 6번 "지금 건물 바깥 둘레"): 광장 남서쪽, 농장 남쪽에 한 줄. 서버가 처음부터 세운다(비용 없음, 마을 레벨엔 안 센다)
   { id: 'villager_house_1', x0: 44, z0: 80, size: [5, 5, 4] },
@@ -282,6 +286,15 @@ export function buildingBlocks(id: string, groundY: number): Placed[] {
       const mid = (dx: number, dz: number) => edge(dx, dz) && !corner(dx, dz) && (dx === (w - 1) >> 1 || dz === (d - 1) >> 1);
       return box(s, groundY, (dx, dz, dy) => (mid(dx, dz) && dy === 4 ? 'diamond_block' : null));
     }
+    case 'portal_dark_forest':
+      // 북쪽 테두리 모서리 옆 두 칸에 짙은 참나무 원목 + 잎 (#255)
+      return box(s, groundY, (dx, dz, dy) => (dz === 0 && (dx === 1 || dx === w - 2) ? (dy === 1 ? 'dark_oak_log' : dy === 2 ? 'dark_oak_leaves' : null) : null));
+    case 'portal_jungle':
+      // 서쪽 테두리 모서리 옆 두 칸에 이끼 낀 조약돌 + 정글 잎
+      return box(s, groundY, (dx, dz, dy) => (dx === 0 && (dz === 1 || dz === d - 2) ? (dy === 1 ? 'mossy_cobblestone' : dy === 2 ? 'jungle_leaves' : null) : null));
+    case 'portal_deep_dark':
+      // 동쪽 테두리 모서리 옆 두 칸에 심층암 + 스컬크
+      return box(s, groundY, (dx, dz, dy) => (dx === w - 1 && (dz === 1 || dz === d - 2) ? (dy === 1 ? 'deepslate' : dy === 2 ? 'sculk' : null) : null));
     default:
       return [];
   }
@@ -318,6 +331,12 @@ export function isBuildingBuiltAt(idAt: (x: number, y: number, z: number) => str
       return idAt(s.x0 + 3, groundY + 1, s.z0) === 'obsidian' && idAt(s.x0 + 3, groundY + 3, s.z0) === 'glowstone';
     case 'portal_5':
       return idAt(s.x0 + 3, groundY + 4, s.z0) === 'diamond_block';
+    case 'portal_dark_forest':
+      return idAt(s.x0 + 1, groundY + 1, s.z0) === 'dark_oak_log' && idAt(s.x0 + 1, groundY + 2, s.z0) === 'dark_oak_leaves';
+    case 'portal_jungle':
+      return idAt(s.x0, groundY + 1, s.z0 + 1) === 'mossy_cobblestone' && idAt(s.x0, groundY + 2, s.z0 + 1) === 'jungle_leaves';
+    case 'portal_deep_dark':
+      return idAt(s.x0 + s.size[0] - 1, groundY + 1, s.z0 + 1) === 'deepslate' && idAt(s.x0 + s.size[0] - 1, groundY + 2, s.z0 + 1) === 'sculk';
     default:
       return false;
   }

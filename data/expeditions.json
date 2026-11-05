@@ -1,5 +1,5 @@
 {
-  "_comment": "원정지 목록. 아들 답변(질문 7·11)의 재료 출처에서 역산해 6곳으로 확정. durationSec = 원정 시간(초). nightStartsAt = 밤 시작 초(0이면 항상 어두움). treasures = 재료가 들어있는 보물 상자 수(아들: 상자엔 재료만 들어있으면 됨). unlockedBy = 여는 포탈 단계. materials = 여기서 나오는 드래곤 재료(dragons.json materials id). nightMobs = 밤에만 나오는 몹. bossOrRareMobs = 특정 재료를 위해 잡아야 하는 몹. 원정지 6곳은 v1, release 필드가 있는 4곳(어두운 숲·정글·깊은 어둠·고대성)은 보스 설계에서 추가된 v1.1/v1.2. boss = 이 원정지의 보스(bosses.json). sonDetails = 아들 3차 디테일(2026-09-12). release가 붙은 것은 v1.1.",
+  "_comment": "원정지 목록. 아들 답변(질문 7·11)의 재료 출처에서 역산해 6곳으로 확정. durationSec = 원정 시간(초). nightStartsAt = 밤 시작 초(0이면 항상 어두움). treasures = 재료가 들어있는 보물 상자 수(아들: 상자엔 재료만 들어있으면 됨). unlockedBy = 여는 포탈 단계. materials = 여기서 나오는 드래곤 재료(dragons.json materials id). nightMobs = 밤에만 나오는 몹. bossOrRareMobs = 특정 재료를 위해 잡아야 하는 몹. 원정지 6곳은 v1, 어두운 숲·정글·깊은 어둠은 2026-11-05 앞당겨 만들었고(#252~#254) release 필드가 남은 고대성만 v1.2. boss = 이 원정지의 보스(bosses.json). sonDetails = 아들 3차 디테일(2026-09-12). release 가 붙은 것은 아직 안 만든 것.",
   "returnGraceSec": 60,
   "failedReturnKeepRatio": 0.5,
   "minStartMarginMin": 3,
@@ -671,7 +671,7 @@
       "durationSec": 600,
       "nightStartsAt": 240,
       "treasures": 3,
-      "unlockedBy": "portal_3",
+      "unlockedBy": "portal_dark_forest",
       "danger": 3,
       "materials": [
         "log",
@@ -686,9 +686,30 @@
         "structure": "woodland_mansion",
         "spawnChance": 1.0
       },
-      "release": "v1.1",
-      "_note": "삼림 대저택 — 소환사의 본거지 (아들 보스 설계)",
-      "sonDetails": {}
+      "_note": "삼림 대저택 — 소환사의 본거지 (아들 보스 설계). 2026-11-05 앞당겨 만듦 (#252): 1층 변명자 셋, 2층 소환사(변명자 소환). 죽이면 불사의 토템 10 (bosses.json) — 가방에 있으면 죽을 때 하나 쓰고 하트 2개로 살아난다",
+      "sonDetails": {},
+      "nightMobs": [
+        "zombie",
+        "skeleton",
+        "spider"
+      ],
+      "treasureBonus": {
+        "_comment": "대저택 상자 (#252): 에메랄드 1~2 는 꼭, 짙은 참나무 묘목 50%",
+        "extraPicks": 0,
+        "always": [
+          {
+            "item": "emerald",
+            "min": 1,
+            "max": 2
+          },
+          {
+            "item": "dark_oak_sapling",
+            "min": 1,
+            "max": 2,
+            "chance": 0.5
+          }
+        ]
+      }
     },
     {
       "id": "jungle",
@@ -697,13 +718,13 @@
       "durationSec": 600,
       "nightStartsAt": 360,
       "treasures": 4,
-      "unlockedBy": "portal_3",
+      "unlockedBy": "portal_jungle",
       "danger": 3,
       "materials": [
         "gold_ingot",
         "emerald",
         "banana",
-        "melon"
+        "melon_slice"
       ],
       "structures": [
         "jungle_palace"
@@ -713,9 +734,41 @@
         "structure": "jungle_palace",
         "spawnChance": 1.0
       },
-      "release": "v1.2",
-      "_note": "사치스러운 정글 궁궐 — 거대 고릴라 (아들 보스 설계)",
-      "sonDetails": {}
+      "_note": "사치스러운 정글 궁궐 — 거대 고릴라 (아들 보스 설계). 2026-11-05 앞당겨 만듦 (#253): 문 앞 고릴라 둘, 왕좌 앞 거대 고릴라(고릴라 소환, 때리면 밀친다). 죽이면 다이아·에메랄드·금·철·석영·네더라이트 각 64 + 고릴라 고기 10 (bosses.json)",
+      "sonDetails": {},
+      "nightMobs": [
+        "spider",
+        "zombie",
+        "creeper"
+      ],
+      "treasureBonus": {
+        "_comment": "궁궐·사당 상자 (#253, '사치스러운'): 공용 3가지에 1가지 더, 금 1~2·바나나 2~4 는 꼭, 에메랄드·정글 묘목 50%",
+        "extraPicks": 1,
+        "always": [
+          {
+            "item": "gold_ingot",
+            "min": 1,
+            "max": 2
+          },
+          {
+            "item": "banana",
+            "min": 2,
+            "max": 4
+          },
+          {
+            "item": "emerald",
+            "min": 1,
+            "max": 1,
+            "chance": 0.5
+          },
+          {
+            "item": "jungle_sapling",
+            "min": 1,
+            "max": 2,
+            "chance": 0.5
+          }
+        ]
+      }
     },
     {
       "id": "deep_dark",
@@ -724,7 +777,7 @@
       "durationSec": 600,
       "nightStartsAt": 0,
       "treasures": 3,
-      "unlockedBy": "portal_4",
+      "unlockedBy": "portal_deep_dark",
       "danger": 4,
       "materials": [
         "sculk",
@@ -738,9 +791,30 @@
         "structure": "ancient_city",
         "spawnChance": 1.0
       },
-      "release": "v1.2",
-      "_note": "고대 도시 — 거대 워든 (아들 보스 설계)",
-      "sonDetails": {}
+      "_note": "고대 도시 — 거대 워든 (아들 보스 설계). 2026-11-05 앞당겨 만듦 (#254): 땅속 거대한 홀, 워든의 문 앞 거대 워든(10칸에서 음파, 워든 소환), 문 양옆 워든 둘. 죽이면 얼음 64 + 네더라이트 칼 (bosses.json)",
+      "sonDetails": {},
+      "nightMobs": [
+        "skeleton",
+        "warden",
+        "zombie"
+      ],
+      "_nightMobsNote": "항상 캄캄해서 처음부터 나온다. 스켈레톤이 셋에 둘, 워든·좀비가 셋에 하나씩",
+      "treasureBonus": {
+        "_comment": "고대 도시 상자 (#254): 다이아몬드 1 은 꼭, 스컬크 2~4",
+        "extraPicks": 0,
+        "always": [
+          {
+            "item": "diamond",
+            "min": 1,
+            "max": 1
+          },
+          {
+            "item": "sculk",
+            "min": 2,
+            "max": 4
+          }
+        ]
+      }
     },
     {
       "id": "ancient_castle",

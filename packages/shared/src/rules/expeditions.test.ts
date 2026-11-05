@@ -22,8 +22,8 @@ describe('parseExpeditions', () => {
     expect(reg.rules).toEqual({ returnGraceSec: 60, failedReturnKeepRatio: 0.5, minStartMarginMin: 3, treasureChestLoot: { picks: 0, pool: [] } });
   });
 
-  it('실제 data/expeditions.json 이 통과하고 v1 6곳이 순서대로 있다', () => {
-    expect(EXPEDITIONS.v1().map((d) => d.id)).toEqual(['grass_island', 'cave', 'desert', 'snowfield', 'nether', 'the_end']);
+  it('실제 data/expeditions.json 이 통과하고 v1 9곳이 순서대로 있다 (어두운 숲·정글·깊은 어둠은 #252~#254 로 앞당김)', () => {
+    expect(EXPEDITIONS.v1().map((d) => d.id)).toEqual(['grass_island', 'cave', 'desert', 'snowfield', 'nether', 'the_end', 'dark_forest', 'jungle', 'deep_dark']);
     const island = EXPEDITIONS.require('grass_island');
     expect(island.generator).toBe('island');
     expect(island.durationSec).toBe(600);

@@ -20,6 +20,8 @@ export const ITEM_FALLBACK_KO: Readonly<Record<string, string>> = {
   wither_skeleton_skull: '위더 스켈레톤 머리',
   gold_nugget: '금 조각',
   apple: '사과',
+  banana: '바나나', // 정글 (#253)
+  raw_gorilla_meat: '안 익힌 고릴라 고기',
   redstone: '레드스톤 가루',
   // 레시피 재료 (recipes.json in)
   leather: '가죽',

@@ -11,7 +11,7 @@ import { ANIMAL_FLAG, MOB_KIND_OF, MOB_STATE, type MobEntry, mobSize, ANIMAL_ID_
 import { MOBS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { PLAYER_SHADES, type SkinPalette, VOXEL, playerVoxels } from './playerModel';
-import { type Part, animalParts, animalVariant, collarVoxels } from './animalModel';
+import { type Part, animalParts, animalVariant, collarVoxels, gorillaParts, wardenParts } from './animalModel';
 import { type Voxel, buildVoxelGeometry } from './voxelGeometry';
 import { nameSprite } from '../net/RemotePlayers';
 import { dragonMesh } from './DragonMesh';
@@ -278,6 +278,8 @@ interface Figure {
   shownHp: number;
   /** 몸 크기 배율 (거미 왕 2.2) */
   baseScale: number;
+  /** 종류별 몸 크기 (엔더맨 0.8·1.5·0.8, 가스트 4.4 …). 매 프레임 이것에 잠·아기·소환 배율을 곱한다 (#254 — 전엔 baseScale 로 덮어써서 다 보통 크기였다) */
+  scaleV: THREE.Vector3;
   /** 소환 연출 남은 시간 */
   summonT: number;
   /** 동물인가 (M8-1) */
@@ -322,6 +324,9 @@ const FIRE_MAT = new THREE.MeshBasicMaterial({ color: 0xff8a2a });
 /** 눈 골렘 눈덩이 (#223): 하얀 공 */
 const SNOW_GEOM = new THREE.SphereGeometry(0.16, 6, 6);
 const SNOW_MAT = new THREE.MeshBasicMaterial({ color: 0xf4f9ff });
+/** 거대 워든 음파 (#254): 크고 푸른 고리 */
+const SONIC_GEOM = new THREE.TorusGeometry(0.5, 0.12, 6, 12);
+const SONIC_MAT = new THREE.MeshBasicMaterial({ color: 0x3df0ff, transparent: true, opacity: 0.85 });
 
 export class MobView {
   private readonly group = new THREE.Group();
@@ -374,14 +379,14 @@ export class MobView {
   }
 
   /** 화살 연출 (M8-2): 눈에서 몹까지 가느다란 막대가 날아간다 */
-  shot(from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }, fire = false, snow = false): void {
-    const mesh = fire ? new THREE.Mesh(FIRE_GEOM, FIRE_MAT) : snow ? new THREE.Mesh(SNOW_GEOM, SNOW_MAT) : new THREE.Mesh(SHOT_GEOM, SHOT_MAT);
+  shot(from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }, fire = false, snow = false, sonic = false): void {
+    const mesh = fire ? new THREE.Mesh(FIRE_GEOM, FIRE_MAT) : snow ? new THREE.Mesh(SNOW_GEOM, SNOW_MAT) : sonic ? new THREE.Mesh(SONIC_GEOM, SONIC_MAT) : new THREE.Mesh(SHOT_GEOM, SHOT_MAT);
     const f = new THREE.Vector3(from.x, from.y, from.z),
       t = new THREE.Vector3(to.x, to.y, to.z);
     mesh.position.copy(f);
     mesh.lookAt(t);
     this.group.add(mesh);
-    this.shots.push({ mesh, from: f, to: t, born: -1, ms: fire ? 450 : 250, fire });
+    this.shots.push({ mesh, from: f, to: t, born: -1, ms: fire ? 450 : sonic ? 400 : 250, fire });
   }
 
   /** 던진 물약 (#245): 병이 포물선 없이 날아가 떨어진 자리에서 그 색으로 흩어진다 */
@@ -497,6 +502,17 @@ export class MobView {
         body.add(mesh);
       }
       babyHead = parts.babyHead;
+    } else if (kindName === 'gorilla' || kindName === 'giant_gorilla' || kindName === 'warden' || kindName === 'giant_warden') {
+      // 고릴라 (#253, 참고 그림): 흰 털 네발 자세 / 워든 (#254, 참고 그림): 빛나는 뿔·가슴의 영혼. 팔·다리·머리는 축이 있는 부위라 걷고 내리친다
+      const parts = kindName.endsWith('gorilla') ? gorillaParts() : wardenParts();
+      body.add(partMesh(parts.body, material));
+      head = pivotMesh(parts.head, material);
+      body.add(head);
+      for (const l of parts.legs) {
+        const mesh = pivotMesh(l, material);
+        legs.push(mesh);
+        body.add(mesh);
+      }
     } else if (kindName === 'ender_dragon') {
       // 엔더 드래곤 (v1.1-4): 아들의 엔더 드래곤 복셀(둥지 어른)을 2.5배로
       const dm = dragonMesh('ender', 'adult');
@@ -513,19 +529,22 @@ export class MobView {
     // 체력 바: 머리 위, 몸과 따로(돌지도 커지지도 않는다)
     const maxHp = MOBS.get(kindName).hp;
     const king = MOB_KIND_OF[m.kind] === 'spider_king';
-    const big = king || kindName === 'ender_dragon' || kindName === 'ghast';
+    const big = king || kindName === 'ender_dragon' || kindName === 'ghast' || kindName === 'giant_gorilla' || kindName === 'giant_warden';
     const baseScale = king ? 2.2 : 1;
     body.scale.setScalar(baseScale);
     if (kindName === 'enderman') body.scale.set(0.8, 1.5, 0.8); // 키 3칸, 홀쭉하게
     else if (kindName === 'wither_skeleton') body.scale.set(1.1, 1.3, 1.1);
     else if (kindName === 'iron_golem') body.scale.set(1.5, 1.45, 1.5);
     else if (kindName === 'ghast') body.scale.setScalar(4.4); // 네 칸짜리 상자
+    else if (kindName === 'gorilla') body.scale.setScalar(1.4); // 정글 (#253): 사람(1.8m)보다 큰 2.2m
+    else if (kindName === 'giant_gorilla') body.scale.setScalar(2.8); // 그 두 배
+    else if (kindName === 'giant_warden') body.scale.setScalar(2); // 깊은 어둠 (#254): 워든(2.8m)의 두 배
     const bar = canvasSprite(128, 28, big ? 2.2 : 1.1, big ? 0.4 : 0.24);
     bar.sprite.position.set(0, mobSize(m.kind).h + (big ? 0.7 : 0.35), 0);
     drawHpBar(bar.ctx, bar.tex, m.hp, maxHp);
     group.add(bar.sprite);
     this.group.add(group);
-    return { group, body, material, kind: m.kind, cur: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, target: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, state: m.state, hp: m.hp, flashUntil: 0, fuseT: 0, armL, armR, legL, legR, spiderLegs, walk: 0, bar, maxHp, shownHp: m.hp, baseScale, summonT: 0, animal: ANIMAL_NAMES.has(kindName), collar: null, nextHeart: 0, legs, head, tail, wings, babyHead, id: m.id, sheared: (m.state & ANIMAL_FLAG.sheared) !== 0, nameLabel: null };
+    return { group, body, material, kind: m.kind, cur: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, target: { x: m.x, y: m.y, z: m.z, yaw: m.yaw }, state: m.state, hp: m.hp, flashUntil: 0, fuseT: 0, armL, armR, legL, legR, spiderLegs, walk: 0, bar, maxHp, shownHp: m.hp, baseScale, scaleV: body.scale.clone(), summonT: 0, animal: ANIMAL_NAMES.has(kindName), collar: null, nextHeart: 0, legs, head, tail, wings, babyHead, id: m.id, sheared: (m.state & ANIMAL_FLAG.sheared) !== 0, nameLabel: null };
   }
 
   /** 서버 상태 묶음 (20Hz). 목록에 없는 몹은 지운다 */
@@ -835,6 +854,14 @@ export class MobView {
         leg.rotation.y = base + (i % 2 === 0 ? swing : -swing) * 0.5;
       });
       if (f.animal) this.animateAnimal(f, speed > 0.3, swing, now);
+      else if (f.legs.length) {
+        // 고릴라 (#253)·워든 (#254): 팔다리를 엇갈려 걷고, 덤빌 때는 두 팔을 번갈아 들어 내리친다
+        const attack = f.state === MOB_STATE.attack;
+        f.legs.forEach((leg, i) => {
+          leg.rotation.x = attack && i < 2 ? 1.3 * Math.abs(Math.sin(now * 0.006 + i * 1.6)) : i === 0 || i === 3 ? swing : -swing;
+        });
+        if (f.head) f.head.rotation.x = speed > 0.3 ? Math.sin(f.walk * 2) * 0.05 : 0;
+      }
       // 크리퍼 부풀기: 하얘지며 커진다
       if (f.state === MOB_STATE.fuse) {
         f.fuseT += dt;
@@ -843,7 +870,7 @@ export class MobView {
         f.material.color.setRGB(1 + f.fuseT, 1 + f.fuseT, 1 + f.fuseT);
       } else {
         f.fuseT = 0;
-        let s = f.baseScale;
+        let s = 1;
         if (f.state === MOB_STATE.sleep) s *= 0.85; // 잠든 보스는 웅크린다
         if (f.animal || MOB_KIND_OF[f.kind] === 'villager') {
           if (f.state & ANIMAL_FLAG.baby) s *= 0.5; // 아기 (주민 아기도)
@@ -856,7 +883,7 @@ export class MobView {
           f.summonT = Math.max(0, f.summonT - dt);
           s *= 1 + 0.12 * Math.sin((f.summonT / 0.8) * Math.PI); // 소환: 몸을 한 번 든다
         }
-        f.body.scale.set(s, s, s);
+        f.body.scale.copy(f.scaleV).multiplyScalar(s);
         f.material.color.setRGB(1, 1, 1);
         if (f.state === MOB_STATE.cure) {
           // 황금 사과를 먹은 좀비 주민 (#244): 부르르 떨며 1초마다 ✨

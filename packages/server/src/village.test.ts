@@ -229,6 +229,28 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(room.placeEgg(ra.idx, 0, 'dragon_egg.wood', 3000)).toBe('NOT_AT_NEST'); // 둥지 카드 길은 그대로
   });
 
+  it('불사의 토템 (#252): 가방에 있으면 죽을 피해를 맞아도 토템 하나를 쓰고 하트 2개(hp 4)로 산다. 없으면 죽는다', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    give(p.inv, 'totem_of_undying', 2);
+    room.hurt(p, 30, 'zombie', 1000);
+    expect(room.hpOf(ra.idx)).toBe(4);
+    expect(countOf(p.inv, 'totem_of_undying')).toBe(1);
+    expect(a.json.find((m) => m.t === 'health' && m.cause === 'totem')).toMatchObject({ hp: 4 });
+    room.hurt(p, 3, 'zombie', 2000); // 아직 안 죽는 피해는 토템을 안 쓴다
+    expect(room.hpOf(ra.idx)).toBe(1);
+    expect(countOf(p.inv, 'totem_of_undying')).toBe(1);
+    room.hurt(p, 30, 'zombie', 3000);
+    expect(room.hpOf(ra.idx)).toBe(4);
+    expect(countOf(p.inv, 'totem_of_undying')).toBe(0);
+    a.clear();
+    room.hurt(p, 30, 'zombie', 4000); // 토템이 없으면 죽어서 광장에서 다시 (hp 가득)
+    expect(a.json.some((m) => m.t === 'health' && m.hp === 0)).toBe(true);
+  });
+
   it('TNT (#195·#247): 라이터로 불을 붙이면 4초 뒤 터져 3칸 안의 블록이 부서지고(흑요석·상자는 남고) 옆 사람·동물이 다친다. 옆 TNT 는 번진다. 라이터 없으면 NO_FLINT', () => {
     const storage = new Storage(':memory:');
     const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
@@ -2120,6 +2142,51 @@ describe('체력·낙하·죽음·구슬 (M7-1)', () => {
     move(room, ra.idx, 64.5, y0 + 30, 64.5, 0);
     move(room, ra.idx, 64.5, y0, 64.5, FLAG_GROUND);
     expect(room.hpOf(ra.idx)).toBe(20);
+  });
+});
+
+describe('어두운 숲·정글·깊은 어둠 원정 (#252~#254)', () => {
+  const T0 = 50_000_000;
+
+  it('원정지 포탈 (#255): 포탈 3단계만으로는 안 열리고, 창고에서 어두운 숲 포탈을 지어야 간다. 정글·깊은 어둠은 그 포탈을 따로. 어두운 숲엔 변명자 셋과 잠든 소환사', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 777, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 44.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    expect(room.startExpedition(ra.idx, 'dark_forest', T0)).toBe('LOCKED');
+    expect(room.startExpedition(ra.idx, 'jungle', T0)).toBe('LOCKED');
+    expect(room.startExpedition(ra.idx, 'deep_dark', T0)).toBe('LOCKED');
+    room.onMove(ra.idx, { x: 78.5, y: GROUND_Y + 1, z: 60.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    storage.storageAdd('123456', 'cobblestone', 200);
+    storage.storageAdd('123456', 'iron_ore', 10);
+    storage.storageAdd('123456', 'gold_ore', 40);
+    storage.storageAdd('123456', 'diamond', 10);
+    storage.storageAdd('123456', 'glowstone', 10);
+    storage.storageAdd('123456', 'log', 20);
+    storage.storageAdd('123456', 'iron_ore', 10); // 포탈 2단계가 10, 어두운 숲 포탈이 10
+    expect(room.build(ra.idx, 'portal_2', T0)).toBeNull();
+    expect(room.build(ra.idx, 'portal_dark_forest', T0)).toBe('NEED_BUILDING'); // 3단계를 먼저
+    expect(room.build(ra.idx, 'portal_3', T0)).toBeNull();
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 44.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    expect(room.startExpedition(ra.idx, 'dark_forest', T0)).toBe('LOCKED'); // 3단계만으로는 안 열린다
+    expect(room.startExpedition(ra.idx, 'jungle', T0)).toBe('LOCKED');
+    room.onMove(ra.idx, { x: 78.5, y: GROUND_Y + 1, z: 60.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    expect(room.build(ra.idx, 'portal_dark_forest', T0)).toBeNull();
+    expect(BLOCKS.get(room.world.getBlock(62, GROUND_Y + 1, 41)).id).toBe('dark_oak_log'); // 단 북쪽 테두리 표식
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 44.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    expect(room.startExpedition(ra.idx, 'jungle', T0)).toBe('LOCKED'); // 정글 포탈은 따로
+    expect(room.startExpedition(ra.idx, 'deep_dark', T0)).toBe('LOCKED');
+    expect(room.startExpedition(ra.idx, 'dark_forest', T0)).toBeNull();
+    const e = room.expedition!;
+    expect(e.def.id).toBe('dark_forest');
+    expect(e.bossKind).toBe('evoker');
+    expect(e.den).toBeTruthy();
+    room.tick(T0 + 100);
+    const sys = room.mobSys!;
+    expect(sys.boss?.kind).toBe('evoker');
+    expect(sys.bossAwake).toBe(false);
+    expect([...sys.mobs.values()].filter((m) => m.kind === 'vindicator')).toHaveLength(3); // 1층 변명자 셋
   });
 });
 
