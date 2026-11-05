@@ -12,3 +12,6 @@ packages/server/data/
 
 # 검증용 임시 서버 데이터 (tools/dev/test-server.cjs)
 .test-data/
+
+# 서버 이전용 데이터 내보내기 (tools/dev/export-db.mjs)
+dragoncraft-export.sqlite

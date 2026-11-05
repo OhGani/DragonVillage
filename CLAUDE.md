@@ -22,6 +22,7 @@
 | `docs/ROADMAP.md` | M0–M9 마일스톤과 완료 기준, M0 작업 분해 |
 | `docs/DECISIONS.md` | 확정된 결정과 이유 (ADR) |
 | `docs/QUESTIONS-FOR-SON.md` | 아들에게 받아야 할 기획 답변 (미확정 항목) |
+| `docs/MIGRATION-ORACLE.md` | 서버 이전 (IDC PC → Oracle Cloud 도쿄 A1) 순서·되돌리기, `tools/linux/` 설치·반영 스크립트 |
 | `data/*.json` | 게임 데이터 — 아들이 직접 편집하는 파일들 (`tools.json` 곡괭이·도끼·검·창·삽·괭이 #75·#80·#102·#183·#191·#193, `combat.json` 갑옷·방패·활 #107, `pet-names.json` 펫 이름 목록 #109, `gifts.json` 모두에게 한 번씩 주는 선물 #79, `villager-talk.json` 주민 대화·이름 #172, `food.json` 먹을 것과 회복량 #186, `trades.json` 주민 가게 — 공용·직업별·곳별 사고 팔기 #225·#229, `enchants.json` 인챈트 9종·모루 #231·#232) |
 | `models/` | 드래곤 복셀 모델 생성기 + JSON 3종 + 뷰어. 게임의 드래곤 엔티티 메시는 이 복셀을 그대로 쓴다 |
 
