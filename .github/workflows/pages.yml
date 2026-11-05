@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   build-deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # ubuntu-latest 가 26.04 로 옮겨 가는 중(2026-10-19~11-19)이라 당분간 고정
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4 # package.json 의 packageManager 버전을 쓴다

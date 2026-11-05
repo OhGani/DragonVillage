@@ -5,7 +5,9 @@
   "version": "0.0.1",
   "description": "드래곤 크래프트 (Dragon Craft) — 아빠와 초5 아들이 함께 만드는 웹 복셀 드래곤 원정 게임",
   "packageManager": "pnpm@10.17.1",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "pnpm --filter @dragon-village/client dev",
     "dev:https": "pnpm --filter @dragon-village/client dev:https",
@@ -24,6 +26,6 @@
     "eslint": "^9.36.0",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.44.0",
-    "vitest": "^3.2.4"
+    "vitest": "^5.1.0"
   }
 }
