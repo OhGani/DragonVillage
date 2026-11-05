@@ -2,8 +2,8 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "client",
-      "url": "http://localhost:5173"
+      "name": "live",
+      "url": "http://168.110.0.197:5173"
     },
     {
       "name": "dev",
