@@ -18,6 +18,7 @@ if [ "${1:-}" != "--now" ]; then
     sleep 30
   done
 fi
-pm2 restart dragoncraft
+pm2 startOrReload tools/linux/ecosystem.config.cjs --update-env   # 설정(ecosystem)을 바꿨어도 반영된다
+pm2 save
 sleep 8
 curl -fsS "http://127.0.0.1:${PORT}/health" && echo

@@ -17,6 +17,7 @@ module.exports = {
       env: {
         PORT: '5173',
         DV_DEFAULT_CODE: '482913',
+        TZ: 'Asia/Seoul', // Oracle VM 시계는 UTC — 로그 시각·접속 로그·백업 파일 날짜를 IDC 때처럼 한국 시간으로 (할 일·게임 시간은 코드가 이미 서울 고정)
         // 시간 제한 스위치 (결정 #73). 켤 때는 아래 줄의 // 를 지우고 pm2 restart dragoncraft --update-env
         // DV_ENFORCE_TIME: '1',
       },
