@@ -1,9 +1,10 @@
 /**
  * 메싱 속도 벤치. 실행: pnpm exec vitest bench --run
+ * (vitest 5 부터 bench 는 test 의 context 로 받아 bench.compare 로 돌린다, #251)
  * 목표(ARCHITECTURE.md): 청크 1개 < 4ms (워커).
  */
 import { PADDED_VOLUME, paddedIndex, parseBlocks } from '@dragon-village/shared';
-import { bench, describe } from 'vitest';
+import { describe, test } from 'vitest';
 import { buildMeshBlockInfo } from './blockInfo';
 import { greedyMesh } from './greedyMesher';
 
@@ -62,16 +63,20 @@ for (let y = -1; y <= 16; y++)
     }
 
 describe('greedyMesh', () => {
-  bench('지표면 청크', () => {
-    greedyMesh(surface, info, light);
-  });
-  bench('지표면 청크 (빛 없이)', () => {
-    greedyMesh(surface, info);
-  });
-  bench('체커보드 (최악)', () => {
-    greedyMesh(checker, info, light);
-  });
-  bench('꽉 찬 청크', () => {
-    greedyMesh(full, info, light);
+  test('청크 하나 메싱', async ({ bench }) => {
+    await bench.compare(
+      bench('지표면 청크', () => {
+        greedyMesh(surface, info, light);
+      }),
+      bench('지표면 청크 (빛 없이)', () => {
+        greedyMesh(surface, info);
+      }),
+      bench('체커보드 (최악)', () => {
+        greedyMesh(checker, info, light);
+      }),
+      bench('꽉 찬 청크', () => {
+        greedyMesh(full, info, light);
+      }),
+    );
   });
 });

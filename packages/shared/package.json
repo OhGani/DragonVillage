@@ -14,5 +14,8 @@
   "dependencies": {
     "simplex-noise": "^4.0.3",
     "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2"
   }
 }
