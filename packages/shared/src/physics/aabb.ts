@@ -165,6 +165,7 @@ const scratchMove: MoveResult = { onGround: false, hitX: false, hitY: false, hit
  * 자동 턱 오르기. moveBody 로 옮긴 뒤 수평 충돌이 있었을 때 부른다.
  * start = 이동 전 위치, pos = 이동 후 위치(충돌로 막힌). 시작 위치에서 maxStep 만큼 올라가 → 수평 이동 → 내려앉기를 시도해,
  * 원래보다 더 멀리 갔고 더 높은 바닥에 섰으면 pos 를 그 자리로 옮기고 결과를 준다. 아니면 null (pos 그대로).
+ * land = false 면 내려앉지 않는다 — 나는 드래곤(중력 없음)은 턱 높이에 뜬 채로 지나간다 (아빠 2026-11-05)
  */
 export function tryStepUp(
   isSolid: SolidQuery,
@@ -175,6 +176,7 @@ export function tryStepUp(
   vz: number,
   dt: number,
   maxStep = 1,
+  land = true,
 ): StepUpResult | null {
   if (dt <= 0 || (vx === 0 && vz === 0)) return null;
   const p: Vec3 = { x: start.x, y: start.y, z: start.z };
@@ -192,6 +194,13 @@ export function tryStepUp(
   if (movedTry <= movedOrig + 1e-9) return null;
   const hvx = v.x,
     hvz = v.z;
+  if (!land) {
+    const dy = p.y - start.y;
+    pos.x = p.x;
+    pos.y = p.y;
+    pos.z = p.z;
+    return { dy, vx: hvx, vz: hvz };
+  }
   // 3) 내려앉기 — 턱 위에 서야 성공
   v.x = 0;
   v.y = -(maxStep + 0.05) / dt;

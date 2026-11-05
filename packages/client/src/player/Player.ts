@@ -52,6 +52,11 @@ const AUTO_STEP = 1.0;
  * 헤엄치며 밀면 올라선다 — 아니면 물길·강에 빠졌을 때 나올 길이 없다 (아빠 피드백 2026-09-13)
  */
 const WATER_STEP = 1.3;
+/**
+ * 드래곤 타고 날 때 막히면 저절로 떠오르는 높이 (아빠 2026-11-05 "드래곤 타고 있으면 턱에 걸려서 움직이지 않는다").
+ * 몸 상자가 드래곤 등 높이만큼 아래로 길어서(#178) 땅에 붙어 날면 한 칸 턱에 걸린다. 한 칸은 넘고, 두 칸 넘는 벽은 ▲ 로
+ */
+const FLY_STEP = 1.3;
 /** 턱을 오른 뒤 카메라가 따라 올라오는 속도 (1/초) */
 const STEP_CAM_SMOOTH = 14;
 const MAX_PITCH = (89.5 * Math.PI) / 180;
@@ -328,14 +333,15 @@ export class Player {
     moveBody(this.isSolid, pos, size, vel, h, this.moveOut);
     this.onGround = this.moveOut.onGround;
 
-    // 한 칸 턱 자동 오르기 (앞으로 걷다 막혔을 때). 물속에서는 바닥을 딛지 않아도(헤엄) 둑을 밀면 올라선다
-    if (!flying && !this.sneaking && (wasGround || this.inWater) && (this.moveOut.hitX || this.moveOut.hitZ)) {
-      const r = tryStepUp(this.isSolid, { x: px, y: py, z: pz }, pos, size, vx0, vz0, h, this.inWater ? WATER_STEP : AUTO_STEP);
+    // 한 칸 턱 자동 오르기 (앞으로 걷다 막혔을 때). 물속에서는 바닥을 딛지 않아도(헤엄) 둑을 밀면 올라선다.
+    // 드래곤으로 날 때는 땅에 안 붙어 있어도 오르고, 턱 위에 내려앉지 않고 뜬 채로 간다
+    if (!this.sneaking && (wasGround || this.inWater || flying) && (this.moveOut.hitX || this.moveOut.hitZ)) {
+      const r = tryStepUp(this.isSolid, { x: px, y: py, z: pz }, pos, size, vx0, vz0, h, flying ? FLY_STEP : this.inWater ? WATER_STEP : AUTO_STEP, !flying);
       if (r) {
         vel.x = r.vx;
         vel.z = r.vz;
         vel.y = 0;
-        this.onGround = true;
+        this.onGround = !flying;
         this.stepCamOffset -= r.dy;
       }
     }
