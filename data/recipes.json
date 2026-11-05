@@ -268,6 +268,19 @@
       }
     },
     {
+      "id": "cooked_moose_ribs",
+      "name": "구운 사슴 갈비",
+      "station": "furnace",
+      "in": {
+        "moose_ribs": 1,
+        "coal": 1
+      },
+      "out": {
+        "cooked_moose_ribs": 1
+      },
+      "_note": "설원 말코손바닥사슴 사냥 (2026-11-05)"
+    },
+    {
       "id": "cooked_mutton",
       "name": "익힌 양고기",
       "station": "furnace",

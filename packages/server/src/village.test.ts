@@ -1,5 +1,6 @@
 import {
   ANIMAL_ID_BASE,
+  isWild,
   buildingBlocks,
   BY_SERVER,
   countOf,
@@ -2487,6 +2488,10 @@ describe('원정 밤의 몹 (M7-2)', () => {
     expect(room.startExpedition(ra.idx, 'grass_island', T0)).toBeNull();
     const e = room.expedition!;
     const p = room.players.get(ra.idx)!;
+    // 초원 섬 사냥 동물(가젤·라쿤, 2026-11-05)은 처음부터 있다(첫 틱에 몹 체계가 생길 때) — 이 묶음은 밤 몹만 보므로 뺀다
+    room.tick(T0);
+    expect([...room.mobSys!.mobs.values()].some((m) => isWild(m.kind))).toBe(true);
+    for (const [id, m] of [...room.mobSys!.mobs]) if (isWild(m.kind)) room.mobSys!.mobs.delete(id);
     return { room, a, ra, e, p };
   }
 

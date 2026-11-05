@@ -412,3 +412,164 @@ function boat(): AnimalParts {
   b.box(-6, 5, 1, 2, -4, -3, light).box(-6, 5, 1, 2, 4, 5, light); // 가로 좌석 판 둘
   return { body: b.out, head: part(new Builder(), [0, 0, 0]), legs: [], tail: null, wings: [], babyHead: 1 };
 }
+
+// ---------------------------------------------------------------- 원정 사냥 동물 (2026-11-05, Alex's Mobs 참고 1차)
+/**
+ * 가젤·라쿤·길달리기새·꼬리감는원숭이·방울뱀·들소·말코손바닥사슴·회색곰. 마을 동물과 같은 좌표 규칙(앞 −z, 바닥 y 0, 1 복셀 = 1.8/32 m).
+ * 키는 MOB_SIZES 와 맞춘다. 머리·다리·꼬리·날개는 축이 있는 부위라 MobView 가 걷기·들이받기·꼬리 흔들기를 한다.
+ */
+export const WILD_MODEL_KINDS = ['gazelle', 'raccoon', 'roadrunner', 'capuchin', 'rattlesnake', 'bison', 'moose', 'grizzly'] as const;
+
+function gazelle(): AnimalParts {
+  const tan = 0xc49a5c,
+    belly = 0xf0e6d2,
+    stripe = 0x5a3a22;
+  const hide: ColorFn = (x, y, z) => (y <= 13 ? fur(x, y, z, belly, 0.05) : y === 15 ? fur(x, y, z, stripe, 0.08) : fur(x, y, z, tan, 0.1));
+  const body = new Builder().box(-4, 3, 12, 18, -7, 6, hide); // 몸 8×7×14, 옆구리 짙은 줄
+  const legs = fourLegs(2, 12, 4, -6, 4, (x, y, z) => (y <= 1 ? 0x2a2018 : fur(x, y, z, 0xb08850, 0.08)));
+  const h = new Builder().box(-2, 1, 17, 21, -9, -7, hide); // 목
+  h.box(-2, 1, 20, 24, -13, -8, soft(tan, 0.08)); // 머리
+  h.box(-1, 0, 20, 23, -13, -13, soft(belly, 0.04)); // 얼굴 흰 줄
+  h.dot(-1, 20, -13, 0x2a2018).dot(0, 20, -13, 0x2a2018); // 코
+  h.dot(-2, 23, -12, 0x1a1a1a).dot(1, 23, -12, 0x1a1a1a); // 눈
+  h.box(-3, -3, 23, 24, -9, -9, soft(tan, 0.08)).box(2, 2, 23, 24, -9, -9, soft(tan, 0.08)); // 귀
+  const horn = solid(0x3a2a1a);
+  h.box(-2, -2, 25, 28, -10, -10, horn).box(-2, -2, 28, 29, -9, -8, horn).box(1, 1, 25, 28, -10, -10, horn).box(1, 1, 28, 29, -9, -8, horn); // 뒤로 휜 긴 뿔
+  const tail = new Builder().box(-1, 0, 15, 17, 7, 7, soft(stripe, 0.06));
+  return { body: body.out, head: part(h, [0, 19, -7]), legs, tail: part(tail, [0, 18, 7]), wings: [], babyHead: 1.4 };
+}
+
+function raccoon(): AnimalParts {
+  const gray = 0x7d7d7d,
+    dark = 0x2a2a2a;
+  const body = new Builder().box(-3, 2, 4, 9, -5, 4, soft(gray, 0.14));
+  const legs = fourLegs(2, 4, 3, -4, 2, soft(0x3a3a3a, 0.08));
+  const h = new Builder().box(-3, 2, 6, 11, -10, -6, soft(gray, 0.1));
+  h.box(-3, 2, 8, 9, -10, -10, solid(dark)); // 검은 가면
+  h.dot(-2, 9, -10, 0xffffff).dot(1, 9, -10, 0xffffff).dot(-2, 8, -10, 0x101010).dot(1, 8, -10, 0x101010); // 눈 (가면 속)
+  h.box(-3, 2, 10, 10, -10, -10, soft(0xe8e8e8, 0.04)); // 흰 눈썹
+  h.box(-1, 0, 6, 7, -11, -11, soft(0xe8e8e8, 0.04)).dot(-1, 7, -12, 0x101010).dot(0, 7, -12, 0x101010); // 흰 주둥이 + 코
+  h.box(-3, -2, 12, 12, -8, -8, soft(gray, 0.1)).box(1, 2, 12, 12, -8, -8, soft(gray, 0.1)); // 귀
+  const tail = new Builder().box(-1, 0, 5, 7, 5, 12, (x, y, z) => (z % 2 === 0 ? fur(x, y, z, dark, 0.06) : fur(x, y, z, 0xa0a0a0, 0.06))); // 줄무늬 꼬리
+  return { body: body.out, head: part(h, [0, 8, -5]), legs, tail: part(tail, [0, 7, 5]), wings: [], babyHead: 1.4 };
+}
+
+function roadrunner(): AnimalParts {
+  const streak: ColorFn = (x, y, z) => (((x * 5 + y * 7 + z * 3) >>> 0) % 5 === 0 ? 0xe8e0d0 : fur(x, y, z, 0x6b5a45, 0.16)); // 갈색에 흰 점무늬
+  const body = new Builder().box(-2, 1, 6, 10, -4, 3, streak);
+  body.box(-2, 1, 6, 7, -4, -1, soft(0xe0d8c8, 0.05)); // 흰 가슴
+  const legC = solid(0x7a8a9a); // 푸르스름한 다리
+  const legs = [-2, 1].map((lx) => part(new Builder().box(lx, lx, 0, 5, 0, 0, legC).box(lx - 1, lx + 1, 0, 0, -2, 1, legC), [lx + 0.5, 6, 0.5]));
+  const h = new Builder().box(-2, 1, 10, 14, -7, -4, streak);
+  h.box(-1, 0, 15, 17, -5, -2, soft(0x2a2018, 0.08)); // 볏
+  h.box(-1, 0, 11, 11, -11, -8, solid(0x3a3a3a)); // 긴 부리
+  h.dot(-2, 13, -7, 0xffffff).dot(1, 13, -7, 0xffffff).dot(-2, 12, -6, 0x3a7ad0).dot(1, 12, -6, 0xe07a30); // 눈과 파랑·주황 맨살
+  const tail = new Builder().box(-1, 0, 8, 10, 4, 12, soft(0x3a2e22, 0.1)); // 길고 곧은 꼬리
+  const wings = [-3, 2].map((wx) => part(new Builder().box(wx, wx, 7, 9, -2, 2, streak), [wx + 0.5, 9, 0]));
+  return { body: body.out, head: part(h, [0, 10, -4]), legs, tail: part(tail, [0, 10, 4]), wings, babyHead: 1.3 };
+}
+
+function capuchin(): AnimalParts {
+  const brown = 0x5a3d28,
+    cream = 0xe8d0b0;
+  const body = new Builder().box(-2, 1, 6, 11, -3, 2, soft(brown, 0.12));
+  body.box(-2, 1, 7, 10, -3, -3, soft(cream, 0.06)); // 가슴
+  const legs = fourLegs(2, 6, 3, -3, 1, soft(0x3a2818, 0.08));
+  const h = new Builder().box(-3, 2, 11, 16, -6, -2, soft(brown, 0.1));
+  h.box(-2, 1, 11, 14, -6, -6, soft(cream, 0.05)); // 얼굴
+  h.box(-3, 2, 16, 16, -6, -2, solid(0x2a1a10)); // 검은 정수리 털
+  h.dot(-1, 13, -7, 0x1a1a1a).dot(0, 13, -7, 0x1a1a1a); // 눈
+  h.dot(-1, 11, -7, 0x8a5a48).dot(0, 11, -7, 0x8a5a48); // 입
+  h.box(-4, -4, 13, 14, -4, -4, soft(cream, 0.05)).box(3, 3, 13, 14, -4, -4, soft(cream, 0.05)); // 귀
+  const tail = new Builder().box(-1, -1, 8, 8, 3, 9, soft(brown, 0.1)).box(-1, -1, 9, 13, 9, 9, soft(brown, 0.1)).box(-1, -1, 13, 13, 7, 8, soft(brown, 0.1)); // 말아 올린 긴 꼬리
+  return { body: body.out, head: part(h, [0, 12, -2]), legs, tail: part(tail, [-0.5, 9, 3]), wings: [], babyHead: 1.3 };
+}
+
+function rattlesnake(): AnimalParts {
+  const skin: ColorFn = (x, y, z) => (((z + 40) % 5 === 0 || (z + 40) % 5 === 1) && y === 2 ? fur(x, y, z, 0x6a4a2a, 0.08) : fur(x, y, z, 0xb89a6a, 0.1)); // 등 마름모 무늬
+  const body = new Builder();
+  for (let z = -10; z <= 12; z++) {
+    const x0 = Math.round(Math.sin(z * 0.35) * 2);
+    body.box(x0 - 1, x0, 0, 2, z, z, skin); // S 자로 구불구불
+  }
+  const h = new Builder().box(-2, 1, 0, 3, -14, -11, skin);
+  h.dot(-2, 2, -13, 0xd8c040).dot(1, 2, -13, 0xd8c040); // 노란 눈
+  h.dot(-1, 1, -15, 0xd03030).dot(0, 1, -16, 0xd03030); // 혀
+  const tx = Math.round(Math.sin(13 * 0.35) * 2);
+  const tail = new Builder().box(tx - 1, tx, 1, 3, 13, 16, (_x, _y, z) => (z % 2 === 0 ? 0xd8c8a0 : 0x8a7a5a)); // 방울
+  return { body: body.out, head: part(h, [0, 1, -11]), legs: [], tail: part(tail, [tx - 0.5, 2, 13]), wings: [], babyHead: 1 };
+}
+
+function bison(): AnimalParts {
+  const shag: ColorFn = (x, y, z) => fur(x, y, z, ((x * 3 + y * 5 + z * 7) >>> 0) % 7 < 2 ? 0x6a4a30 : 0x3a2418, 0.2);
+  const coat = soft(0x5e4030, 0.14);
+  const body = new Builder().box(-7, 6, 14, 30, -10, 1, shag); // 털북숭이 앞몸·혹
+  body.box(-6, 5, 14, 25, 2, 12, coat); // 뒷몸
+  const legs = fourLegs(4, 14, 6, -8, 8, soft(0x2e2016, 0.1), { rows: 4, color: shag });
+  const h = new Builder().box(-4, 3, 13, 23, -16, -11, shag); // 낮게 내민 머리
+  h.box(-2, 1, 10, 13, -15, -12, solid(0x2a1a10)); // 턱수염
+  h.dot(-2, 15, -17, 0x1a1a1a).dot(1, 15, -17, 0x1a1a1a); // 코
+  h.box(-4, 3, 13, 16, -17, -17, soft(0x3a2a20, 0.06));
+  h.dot(-4, 20, -17, 0x1a1a1a).dot(3, 20, -17, 0x1a1a1a); // 눈
+  const horn = solid(0xd8d0c0);
+  h.box(-6, -5, 20, 21, -13, -12, horn).box(-6, -6, 22, 23, -13, -13, horn).box(4, 5, 20, 21, -13, -12, horn).box(5, 5, 22, 23, -13, -13, horn); // 짧게 위로 휜 뿔
+  const tail = new Builder().box(-1, 0, 16, 22, 13, 13, coat).box(-1, 0, 14, 15, 13, 13, solid(0x2a1a10));
+  return { body: body.out, head: part(h, [0, 20, -11]), legs, tail: part(tail, [0, 23, 13]), wings: [], babyHead: 1.4 };
+}
+
+function moose(): AnimalParts {
+  const coat = soft(0x4a3424, 0.14);
+  const body = new Builder().box(-5, 4, 18, 29, -9, 8, coat);
+  body.box(-4, 3, 30, 31, -9, -3, coat); // 어깨 혹
+  const legs = fourLegs(3, 18, 5, -7, 5, (x, y, z) => (y <= 8 ? fur(x, y, z, 0x9a8a78, 0.08) : fur(x, y, z, 0x3a2a1e, 0.1))); // 긴 다리, 아래는 밝게
+  const h = new Builder().box(-2, 1, 24, 30, -12, -9, coat); // 목
+  h.box(-3, 2, 27, 32, -19, -11, coat); // 긴 머리
+  h.box(-3, 2, 25, 28, -20, -16, soft(0x5a4434, 0.1)); // 늘어진 주둥이
+  h.dot(-2, 26, -21, 0x1a1a1a).dot(1, 26, -21, 0x1a1a1a); // 콧구멍
+  h.dot(-3, 31, -15, 0x1a1a1a).dot(2, 31, -15, 0x1a1a1a); // 눈
+  h.box(-1, 0, 22, 25, -14, -13, coat); // 턱 밑 수염
+  const antler = soft(0xc8b08a, 0.08);
+  h.box(-4, -3, 33, 33, -12, -11, antler).box(2, 3, 33, 33, -12, -11, antler); // 뿔 밑동
+  h.box(-11, -4, 34, 35, -13, -9, antler).box(3, 10, 34, 35, -13, -9, antler); // 넓적한 손바닥 뿔
+  for (const x of [-11, -9, -7, 6, 8, 10]) h.dot(x, 36, -11, 0xc8b08a); // 뿔 끝 가지
+  const tail = new Builder().box(-1, 0, 26, 28, 9, 9, coat);
+  return { body: body.out, head: part(h, [0, 28, -11]), legs, tail: part(tail, [0, 29, 9]), wings: [], babyHead: 1.4 };
+}
+
+function grizzly(): AnimalParts {
+  const coat = soft(0x6b4a2e, 0.18);
+  const body = new Builder().box(-7, 6, 9, 22, -10, 10, coat);
+  body.box(-6, 5, 23, 24, -9, -3, coat); // 어깨 혹
+  const legs = fourLegs(4, 9, 7, -9, 6, soft(0x4f3520, 0.12));
+  const h = new Builder().box(-5, 4, 13, 21, -18, -10, coat);
+  h.box(-2, 1, 13, 16, -21, -19, soft(0x9a7a5a, 0.08)); // 주둥이
+  h.dot(-1, 16, -22, 0x1a1a1a).dot(0, 16, -22, 0x1a1a1a); // 코
+  h.dot(-3, 19, -19, 0x1a1a1a).dot(2, 19, -19, 0x1a1a1a); // 눈
+  h.box(-5, -3, 22, 23, -13, -12, coat).box(2, 4, 22, 23, -13, -12, coat); // 둥근 귀
+  const tail = new Builder().box(-1, 0, 18, 19, 11, 11, coat);
+  return { body: body.out, head: part(h, [0, 17, -10]), legs, tail: part(tail, [0, 19, 11]), wings: [], babyHead: 1.4 };
+}
+
+/** 원정 사냥 동물 부위 (모르는 종류면 null) */
+export function wildParts(kind: string): AnimalParts | null {
+  switch (kind) {
+    case 'gazelle':
+      return gazelle();
+    case 'raccoon':
+      return raccoon();
+    case 'roadrunner':
+      return roadrunner();
+    case 'capuchin':
+      return capuchin();
+    case 'rattlesnake':
+      return rattlesnake();
+    case 'bison':
+      return bison();
+    case 'moose':
+      return moose();
+    case 'grizzly':
+      return grizzly();
+    default:
+      return null;
+  }
+}

@@ -46,7 +46,7 @@ import {
   pickSpawn,
   rollDrops,
   spawnKinds,
-  stepMob, isLookingAt, hash3, separationPushes, type SepBody, isZombieKind, zombieVillagerRoll, CURE_MS, CURE_REWARD, MOB_POISON_EVERY_MS, MOB_SLOW_MUL, MOB_WEAK_MUL, SPLASH_RADIUS, type PotionOutcome } from '@dragon-village/shared';
+  stepMob, isLookingAt, hash3, separationPushes, type SepBody, isMobKind, isWild, WILD_FLEE_MS, WILD_HERD_R, WILD_LEASH, isZombieKind, zombieVillagerRoll, CURE_MS, CURE_REWARD, MOB_POISON_EVERY_MS, MOB_SLOW_MUL, MOB_WEAK_MUL, SPLASH_RADIUS, type PotionOutcome } from '@dragon-village/shared';
 
 /** 몹이 도는 무대 — 원정지(Expedition) 또는 마을(방어전) */
 export interface MobArena {
@@ -63,6 +63,10 @@ export interface MobArena {
   readonly spawns?: readonly { kind: MobKind; x: number; y: number; z: number }[];
   /** 엔드 수정 자리 (#224): 남아 있는 수정만큼 엔더 드래곤이 회복한다 */
   readonly crystals?: readonly { x: number; y: number; z: number }[];
+  /** 사냥 동물 (2026-11-05, expeditions.json wildAnimals): 종류 → 마릿수. 시작 때 무리로 푼다 */
+  readonly wildAnimals?: Readonly<Record<string, number>>;
+  /** 사람이 처음 서는 자리 — 사냥 동물은 여기서 WILD_SAFE_R 칸 밖에만 둔다 */
+  readonly safe?: { x: number; y: number; z: number } | null;
   readonly ended: boolean;
   elapsedSec(now: number): number;
 }
@@ -151,6 +155,9 @@ const ENDER_NEAR = 2.5;
 const ENDER_AWAY = 7;
 /** 주민이 부른 철 골렘 (#221): 방어전 골렘(7)보다 약하게 — 초5가 4초 만에 죽지 않게. 3씩 2초마다 */
 const GRUDGE_DAMAGE = 3;
+/** 사냥 동물을 두지 않는 거리 (사람 시작 자리에서) · 세계 가장자리 여백 */
+const WILD_SAFE_R = 16;
+const WILD_EDGE = 6;
 const GRUDGE_ATTACK_MS = 2000;
 
 export class MobSystem {
@@ -199,6 +206,63 @@ export class MobSystem {
         m.home = { x: s.x, z: s.z }; // 집 둘레를 산책한다 (#229)
       }
     }
+    this.spawnWild(e.wildAnimals ?? {}, e.safe ?? null);
+  }
+
+  /**
+   * 사냥 동물 풀기 (2026-11-05): 종류마다 2~3마리 무리로, 세계 곳곳의 땅(나뭇잎·통나무·물 위는 빼고) 위에.
+   * 사람 시작 자리 WILD_SAFE_R 칸 안에는 안 둔다. 시드·무리 번호로 결정론
+   */
+  private spawnWild(animals: Readonly<Record<string, number>>, safe: { x: number; z: number } | null): void {
+    const w = this.e.world;
+    let herd = 0;
+    for (const [id, n] of Object.entries(animals)) {
+      if (!isMobKind(id) || !isWild(id)) continue;
+      let left = n;
+      for (let tries = 0; left > 0 && tries < 40; tries++) {
+        const h = herd++;
+        const size = Math.min(left, hash3(this.e.seed, h, 31, 7) < 0.5 ? 2 : 3);
+        let center: { x: number; y: number; z: number } | null = null;
+        for (let a = 0; a < 30 && !center; a++) {
+          const x = WILD_EDGE + Math.floor(hash3(this.e.seed, h, a, 32) * (w.sizeX - WILD_EDGE * 2)) + 0.5,
+            z = WILD_EDGE + Math.floor(hash3(this.e.seed, h, a, 33) * (w.sizeZ - WILD_EDGE * 2)) + 0.5;
+          if (safe && Math.hypot(x - safe.x, z - safe.z) < WILD_SAFE_R) continue;
+          const y = this.wildGround(x, z);
+          if (y !== null) center = { x, y, z };
+        }
+        if (!center) continue;
+        for (let k = 0; k < size; k++) {
+          const ang = hash3(this.e.seed, h, k, 34) * Math.PI * 2,
+            r = k === 0 ? 0 : 1.2 + k * 0.6;
+          const x = center.x + Math.cos(ang) * r,
+            z = center.z + Math.sin(ang) * r;
+          const y = k === 0 ? center.y : this.wildGround(x, z);
+          if (y === null || Math.abs(y - center.y) > 2) continue;
+          const m = this.spawnKind(id, x, y, z);
+          m.home = { x: center.x, z: center.z };
+          m.yaw = ang;
+          left--;
+        }
+      }
+    }
+  }
+
+  /** 사냥 동물이 설 땅: 하늘에서 내려오며 나뭇잎·통나무(나무 위)는 지나치고, 물 위·위가 막힌 곳은 못 선다 */
+  private wildGround(x: number, z: number): number | null {
+    const bx = Math.floor(x),
+      bz = Math.floor(z);
+    const w = this.e.world;
+    if (!w.inBounds(bx, 0, bz)) return null;
+    for (let y = Math.min(w.sizeY - 3, 90); y >= 1; y--) {
+      const here = this.registry.get(w.getBlock(bx, y, bz));
+      if (here.fluid) return null; // 물·용암 위
+      if (!here.solid) continue;
+      if (here.id.includes('leaves') || here.id.endsWith('_log') || here.id === 'log') continue; // 나무 위가 아니라 그 밑 땅
+      const a1 = this.registry.get(w.getBlock(bx, y + 1, bz)),
+        a2 = this.registry.get(w.getBlock(bx, y + 2, bz));
+      return !a1.solid && !a2.solid && !a1.fluid && !a2.fluid ? y + 1 : null;
+    }
+    return null;
   }
 
   /** 밤인가 (항상 어두운 무대는 언제나) */
@@ -209,7 +273,7 @@ export class MobSystem {
   /** 보스·주민(순한 것)을 빼고 몇 마리 — 밤 스폰 상한(MOB_MAX)에 세는 수. 사막 마을 주민 8이 상한을 다 차지해 밤 몹이 하나도 안 나오던 것 (#244 에서 고침) */
   get regularCount(): number {
     let n = 0;
-    for (const m of this.mobs.values()) if (m !== this.boss && !this.defs.get(m.kind).passive) n++;
+    for (const m of this.mobs.values()) if (m !== this.boss && !this.defs.get(m.kind).passive && !isWild(m.kind)) n++; // 사냥 동물도 안 센다 (2026-11-05)
     return n;
   }
 
@@ -311,6 +375,12 @@ export class MobSystem {
           }
         }
         if (best > this.opts.aggroRange) target = null; // 너무 멀면 서성이거나 goal 로
+        if (isWild(m.kind)) {
+          // 사냥 동물 (2026-11-05): 달아나거나 산책했으면 끝, 덤빌 사람이 있으면 아래 공통 공격으로
+          target = this.stepWild(m, def, players, dt, now);
+          if (!target) continue;
+          best = Math.hypot(target.x - m.x, target.z - m.z);
+        }
         if (m.grudge !== undefined) {
           // 주민이 부른 철 골렘 (#221): 주민을 때린 사람만 쫓고, 그 사람이 없어지거나 시간이 지나면 사라진다
           target = players.find((p) => p.idx === m.grudge) ?? null;
@@ -666,6 +736,7 @@ export class MobSystem {
     const dealt = Math.floor(amount);
     m.hp = Math.max(0, m.hp - dealt);
     m.angryUntil = now + ANGRY_MS; // 중립 몹은 맞으면 화난다 (#161)
+    if (isWild(m.kind) && m.hp > 0) this.wildHurt(m, byIdx, push, now);
     if (m === this.boss && !this.bossAwake) this.wake(m, now);
     if (m.hp > 0) {
       if (push && !isBoss(m.kind)) {
@@ -691,6 +762,80 @@ export class MobSystem {
       return;
     }
     this.hooks.reward(byIdx, rollDrops(def, this.e.seed, m.id, looting), def.xp, { x: m.x, y: m.y + 1, z: m.z }, now); // 약탈 (#231)
+  }
+
+  /**
+   * 사냥 동물 한 걸음 (2026-11-05). 덤빌 사람을 돌려주면 공통 공격(stepMob·피해·밀침·독)으로 간다. null 이면 이번 걸음은 끝.
+   * - 달아나는 동물: fleeUntil 까지 fleeDir 쪽으로 1.5배 빠르기로 뛴다(막히면 옆으로 꺾는다). 아니면 집 둘레 산책
+   * - 덤비는 동물: aggroR 안에 들어온 사람(또는 때린 사람)을 쫓고, aggroR × WILD_LEASH(화났으면 24칸) 밖으로 멀어지면 포기
+   */
+  private stepWild(m: MobState, def: ReturnType<MobRegistry['get']>, players: MobTarget[], dt: number, now: number): MobTarget | null {
+    if (!m.home) m.home = { x: m.x, z: m.z };
+    if (def.flee) {
+      if ((m.fleeUntil ?? 0) > now && m.fleeDir) {
+        const bx = m.x,
+          bz = m.z;
+        stepMob(m, { ...def, speed: def.speed * 1.5, reach: 0, fuseMs: 0 }, { x: m.x + m.fleeDir.x * 4, y: m.y, z: m.z + m.fleeDir.z * 4 }, dt, now, this.groundAt);
+        if (m.x === bx && m.z === bz) {
+          const a = Math.atan2(m.fleeDir.z, m.fleeDir.x) + (hash3(m.id, Math.floor(now / 300), 41, this.e.seed) < 0.5 ? 1.2 : -1.2);
+          m.fleeDir = { x: Math.cos(a), z: Math.sin(a) };
+        }
+        m.home = { x: m.x, z: m.z }; // 달아난 곳이 새 집 (되돌아오지 않는다)
+        m.wanderTo = null;
+        return null;
+      }
+      this.wander(m, def, dt, now);
+      return null;
+    }
+    const aggro = def.aggroR ?? 6;
+    const angry = (m.angryUntil ?? 0) > now;
+    let cur = m.huntIdx !== undefined ? players.find((p) => p.idx === m.huntIdx) : undefined;
+    if (cur && Math.hypot(cur.x - m.x, cur.z - m.z) > (angry ? 24 : aggro * WILD_LEASH)) cur = undefined;
+    if (!cur) {
+      let best = aggro;
+      for (const p of players) {
+        const d = Math.hypot(p.x - m.x, p.z - m.z);
+        if (d <= best && Math.abs(p.y - m.y) < 4) {
+          best = d;
+          cur = p;
+        }
+      }
+    }
+    m.huntIdx = cur?.idx;
+    if (cur) {
+      m.wanderTo = null;
+      return cur;
+    }
+    this.wander(m, def, dt, now);
+    return null;
+  }
+
+  /** 사냥 동물이 맞았다: 달아나는 동물은 무리(WILD_HERD_R 안 같은 종류)째 맞은 쪽 반대로, 덤비는 동물은 때린 사람을 쫓는다 */
+  private wildHurt(m: MobState, byIdx: number, push: { x: number; z: number } | undefined, now: number): void {
+    const def = this.defs.get(m.kind);
+    if (!def.flee) {
+      if (byIdx >= 0) m.huntIdx = byIdx;
+      return;
+    }
+    let dir = push;
+    if (!dir || (dir.x === 0 && dir.z === 0)) {
+      const a = hash3(m.id, m.hp, 42, this.e.seed) * Math.PI * 2;
+      dir = { x: Math.cos(a), z: Math.sin(a) };
+    }
+    const l = Math.hypot(dir.x, dir.z) || 1;
+    const ux = dir.x / l,
+      uz = dir.z / l;
+    // 때린 쪽(맞은 동물에서 밀린 방향 반대로 2칸)에서 각자 멀어지는 쪽으로 — 무리 반대편 동물이 사람을 가로질러 뛰지 않게
+    const fromX = m.x - ux * 2,
+      fromZ = m.z - uz * 2;
+    for (const o of this.mobs.values()) {
+      if (o.kind !== m.kind || (o !== m && Math.hypot(o.x - m.x, o.z - m.z) > WILD_HERD_R)) continue;
+      const ox = o.x - fromX,
+        oz = o.z - fromZ;
+      const ol = Math.hypot(ox, oz);
+      o.fleeUntil = now + WILD_FLEE_MS;
+      o.fleeDir = o === m || ol < 0.01 ? { x: ux, z: uz } : { x: ox / ol, z: oz / ol };
+    }
   }
 
   /** 원정 주민 산책 (#229): 2~6초마다 반은 집 3~10칸 안의 자리로 천천히(0.6배) 걷고, 반은 쉰다. 시드·번호·시각으로 결정론 */

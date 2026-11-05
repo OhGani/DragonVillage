@@ -446,6 +446,205 @@
       "_note": "깊은 어둠 거대 워든의 부하 (#254, 아들 보스 설계 '워든 군대'). 느리지만 세다"
     }
   ],
+  "_wildComment": "원정 사냥 동물 (아빠 2026-11-05 '원정에서 몹을 사냥할 수 있게', Alex's Mobs 참고 1차). 원정지마다 몇 마리는 expeditions.json 의 animals. 가젤·라쿤·길달리기새·원숭이는 맞으면 무리째 달아나고, 들소·사슴·곰·방울뱀은 가까이 가면 먼저 덤빈다. hp·damage·speed·drops·xp 는 마음대로 바꿔도 돼",
+  "wild": [
+    {
+      "id": "gazelle",
+      "name": "가젤",
+      "hp": 10,
+      "speed": 3.2,
+      "drops": [
+        [
+          "mutton",
+          [
+            1,
+            2
+          ],
+          1
+        ],
+        [
+          "gazelle_horn",
+          [
+            0,
+            1
+          ],
+          0.4
+        ]
+      ],
+      "xp": 3,
+      "_note": "초원 섬. 무리 지어 다니고 한 마리가 맞으면 다 같이 달아난다"
+    },
+    {
+      "id": "raccoon",
+      "name": "라쿤",
+      "hp": 8,
+      "speed": 2.6,
+      "drops": [
+        [
+          "raccoon_tail",
+          [
+            0,
+            1
+          ],
+          0.5
+        ],
+        [
+          "leather",
+          [
+            0,
+            1
+          ],
+          0.5
+        ]
+      ],
+      "xp": 2,
+      "_note": "초원 섬. 줄무늬 꼬리"
+    },
+    {
+      "id": "roadrunner",
+      "name": "길달리기새",
+      "hp": 6,
+      "speed": 4.2,
+      "drops": [
+        [
+          "feather",
+          [
+            1,
+            2
+          ],
+          1
+        ],
+        [
+          "roadrunner_feather",
+          [
+            0,
+            1
+          ],
+          0.5
+        ]
+      ],
+      "xp": 3,
+      "_note": "사막. 아주 빨라서 잡기 어렵다"
+    },
+    {
+      "id": "capuchin",
+      "name": "꼬리감는원숭이",
+      "hp": 8,
+      "speed": 3,
+      "drops": [
+        [
+          "banana",
+          [
+            0,
+            1
+          ],
+          0.5
+        ]
+      ],
+      "xp": 3,
+      "_note": "정글. 맞으면 달아난다"
+    },
+    {
+      "id": "rattlesnake",
+      "name": "방울뱀",
+      "hp": 8,
+      "damage": 2,
+      "speed": 2.2,
+      "drops": [
+        [
+          "rattlesnake_rattle",
+          [
+            0,
+            1
+          ],
+          0.6
+        ]
+      ],
+      "xp": 4,
+      "_note": "사막. 5칸 안에 가면 먼저 물고, 물리면 독"
+    },
+    {
+      "id": "bison",
+      "name": "들소",
+      "hp": 30,
+      "damage": 5,
+      "speed": 2.4,
+      "drops": [
+        [
+          "beef",
+          [
+            1,
+            3
+          ],
+          1
+        ],
+        [
+          "bison_fur",
+          [
+            0,
+            2
+          ],
+          1
+        ]
+      ],
+      "xp": 8,
+      "_note": "설원. 7칸 안에 가면 들이받고 밀친다"
+    },
+    {
+      "id": "moose",
+      "name": "말코손바닥사슴",
+      "hp": 30,
+      "damage": 5,
+      "speed": 2.4,
+      "drops": [
+        [
+          "moose_ribs",
+          [
+            1,
+            2
+          ],
+          1
+        ],
+        [
+          "leather",
+          [
+            0,
+            2
+          ],
+          1
+        ]
+      ],
+      "xp": 8,
+      "_note": "설원. 6칸 안에 가면 덤빈다. 큰 뿔"
+    },
+    {
+      "id": "grizzly",
+      "name": "회색곰",
+      "hp": 36,
+      "damage": 6,
+      "speed": 2.5,
+      "drops": [
+        [
+          "bear_fur",
+          [
+            1,
+            2
+          ],
+          1
+        ],
+        [
+          "salmon",
+          [
+            0,
+            1
+          ],
+          0.3
+        ]
+      ],
+      "xp": 10,
+      "_note": "어두운 숲. 8칸 안에 가면 덤빈다. 가장 세다"
+    }
+  ],
   "passive": [
     {
       "id": "happy_ghast",

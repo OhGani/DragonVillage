@@ -21,6 +21,8 @@
     { "id": "poisonous_potato", "name": "독 감자", "heals": 2, "_note": "아들 그림 2026-10-20. 좀비가 2% 로 떨군다(#212). 독 효과는 안 넣었다" },
     { "id": "cake", "name": "케이크", "heals": 7 },
     { "id": "banana", "name": "바나나", "heals": 4, "_note": "정글 궁궐·사당 상자 (#253, 아들 정글 재료 '바나나')" },
-    { "id": "raw_gorilla_meat", "name": "안 익힌 고릴라 고기", "heals": 3, "_note": "고릴라 드롭·거대 고릴라 전리품 (#253). 굽는 건 아직" }
+    { "id": "raw_gorilla_meat", "name": "안 익힌 고릴라 고기", "heals": 3, "_note": "고릴라 드롭·거대 고릴라 전리품 (#253). 굽는 건 아직" },
+    { "id": "moose_ribs", "name": "사슴 갈비", "heals": 3, "_note": "설원 말코손바닥사슴 사냥 (2026-11-05). 화로에 구우면 구운 사슴 갈비" },
+    { "id": "cooked_moose_ribs", "name": "구운 사슴 갈비", "heals": 8 }
   ]
 }

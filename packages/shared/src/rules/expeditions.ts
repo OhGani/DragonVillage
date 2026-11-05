@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { hash3 } from '../math/prng';
 import { DataError, koreanizeMessage } from './blocks';
+import { WILD_KINDS } from './mobs';
 
 const NAME_RE = /^[a-z0-9_]+$/;
 
@@ -19,6 +20,8 @@ const RawExpedition = z
     treasures: z.number().int().min(0, '0 이상이어야 해요'),
     unlockedBy: z.string().min(1),
     nightMobs: z.array(z.string()).optional(),
+    /** 사냥 동물 (2026-11-05): 동물 id → 몇 마리. 처음부터 무리로 돌아다닌다 */
+    wildAnimals: z.record(z.string(), z.number().int().min(0, '0 이상이어야 해요').max(20, '한 종류는 20마리까지예요')).optional(),
     danger: z.number().int().min(0, '0 이상이어야 해요').max(10, '0~10 사이여야 해요'),
     materials: z.array(z.string()),
     release: z.string().optional(),
@@ -78,6 +81,8 @@ export interface ExpeditionDef {
   readonly unlockedBy: string;
   /** 밤에 나오는 몹 (mobs.ts 가 아는 것만 쓴다 — 첫째가 셋에 둘, 나머지가 셋에 하나) */
   readonly nightMobs: readonly string[];
+  /** 사냥 동물 (2026-11-05, mobs.ts WILD_KINDS) → 마릿수. 없으면 {} */
+  readonly wildAnimals: Readonly<Record<string, number>>;
   /** 상자 보너스 (#159, 사막) — 없으면 공용 규칙만 */
   readonly treasureBonus: TreasureBonus | null;
   /** 보스 몹 id (expeditions.json boss.id). 없으면 null */
@@ -249,6 +254,8 @@ export function parseExpeditions(raw: unknown, fileName = 'data/expeditions.json
     const where = `${i + 1}번째 원정지(id: ${e.id})`;
     if (seen.has(e.id)) problems.push(`${where}: id 가 두 번 나와요. 하나는 이름을 바꿔 주세요`);
     seen.add(e.id);
+    for (const id of Object.keys(e.wildAnimals ?? {}))
+      if (!(WILD_KINDS as readonly string[]).includes(id)) problems.push(`${where}: wildAnimals 의 '${id}' 는 모르는 동물이에요 (쓸 수 있는 것: ${WILD_KINDS.join(', ')})`);
     if (e.nightStartsAt > e.durationSec) problems.push(`${where}: 밤 시작(${e.nightStartsAt}초)이 원정 시간(${e.durationSec}초)보다 늦어요`);
     if (e.nightStartsAt > 0 && e.nightStartsAt < EVENING_SEC) problems.push(`${where}: 밤 시작은 0(항상 어두움) 또는 ${EVENING_SEC}초 이상이어야 해요 (저녁 시간이 필요해요)`);
     return {
@@ -260,6 +267,7 @@ export function parseExpeditions(raw: unknown, fileName = 'data/expeditions.json
       treasures: e.treasures,
       unlockedBy: e.unlockedBy,
       nightMobs: e.nightMobs ?? [],
+      wildAnimals: e.wildAnimals ?? {},
       danger: e.danger,
       materials: e.materials,
       release: e.release ?? 'v1',

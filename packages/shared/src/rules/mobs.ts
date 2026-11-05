@@ -18,12 +18,27 @@ import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
 import { hash3 } from '../math/prng';
 
-export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat' | 'snow_golem' | 'minecart' | 'zombie_villager' | 'gorilla' | 'giant_gorilla' | 'warden' | 'giant_warden';
-export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden'];
-export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24, snow_golem: 25, minecart: 26, zombie_villager: 27, gorilla: 28, giant_gorilla: 29, warden: 30, giant_warden: 31 };
-export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden'];
+export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat' | 'snow_golem' | 'minecart' | 'zombie_villager' | 'gorilla' | 'giant_gorilla' | 'warden' | 'giant_warden' | 'gazelle' | 'raccoon' | 'roadrunner' | 'rattlesnake' | 'bison' | 'moose' | 'grizzly' | 'capuchin';
+export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin'];
+export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24, snow_golem: 25, minecart: 26, zombie_villager: 27, gorilla: 28, giant_gorilla: 29, warden: 30, giant_warden: 31, gazelle: 32, raccoon: 33, roadrunner: 34, rattlesnake: 35, bison: 36, moose: 37, grizzly: 38, capuchin: 39 };
+export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin'];
 /** 순한 동물 (마을, M8-1). 규칙은 animals.ts */
 const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart']; // 보트도 passive 목록에서 드롭을 읽는다 (#209)
+
+/**
+ * 원정 사냥 동물 (아빠 2026-11-05 "원정에서 몹을 사냥할 수 있게", Alex's Mobs 참고 1차 8마리).
+ * 원정지(`expeditions.json animals`)에 처음부터 무리로 돌아다닌다. 낮·밤 상관없고 밤 몹 상한(MOB_MAX)에 안 센다.
+ * flee(가젤·라쿤·길달리기새·원숭이): 맞으면 근처 같은 종류까지 다 같이 달아난다. aggroR(들소·사슴·곰·방울뱀): 그 거리 안에 사람이 오면 먼저 덤빈다.
+ * 이름·체력·드롭·경험치는 mobs.json `wild` (아들 편집)
+ */
+export const WILD_KINDS: readonly MobKind[] = ['gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin'];
+export function isWild(kind: MobKind): boolean {
+  return WILD_KINDS.includes(kind);
+}
+/** 맞은 사냥 동물이 달아나는 시간 · 같이 달아나는 무리 거리 · 덤비는 동물이 쫓다 포기하는 거리(aggroR 의 배수) */
+export const WILD_FLEE_MS = 5000;
+export const WILD_HERD_R = 10;
+export const WILD_LEASH = 2.5;
 
 /** 굴 보스 (M7-4, 거미 왕). 보스는 밤 스폰 목록에 안 들어가고, 원정지 구조물(거미 굴)에 하나만. 소환사(M7-5)는 방어전 마지막 파도의 보스 */
 export const BOSS_KIND: MobKind = 'spider_king';
@@ -82,6 +97,10 @@ export interface MobDef {
   readonly swoop?: number;
   /** 고릴라 (#253): 때리면 아프고 밀려난다 (눈 골렘 눈덩이의 밀림 + 피해) */
   readonly knock?: boolean;
+  /** 사냥 동물 (WILD_KINDS): 맞으면 달아난다 */
+  readonly flee?: boolean;
+  /** 사냥 동물 (WILD_KINDS): 이 거리(칸) 안에 사람이 오면 먼저 덤빈다 */
+  readonly aggroR?: number;
   readonly drops: readonly MobDrop[];
   readonly xp: number;
   /** 순한 동물인가 (때리지 않으면 안 덤빈다) */
@@ -142,6 +161,15 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   // 깊은 어둠 (#254): 워든은 느리지만 세다. 거대 워든은 10칸에서 음파(sonic)를 쏜다 — 원거리 몹 규칙(reach ≥ 4)
   warden: { id: 'warden', hp: 40, damage: 6, speed: 2.0, reach: 2.4, attackEveryMs: 2200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   giant_warden: { id: 'giant_warden', hp: 500, damage: 8, speed: 1.8, reach: 10, attackEveryMs: 4000, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  // 원정 사냥 동물 (2026-11-05, WILD_KINDS). 달아나는 넷은 피해 0, 덤비는 넷은 aggroR 안에 오면 먼저 온다. hp·damage·speed 는 mobs.json wild 가 덮는다
+  gazelle: { id: 'gazelle', hp: 10, damage: 0, speed: 3.2, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0, flee: true },
+  raccoon: { id: 'raccoon', hp: 8, damage: 0, speed: 2.6, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0, flee: true },
+  roadrunner: { id: 'roadrunner', hp: 6, damage: 0, speed: 4.2, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0, flee: true }, // 아주 빠르다 (문서: 모드에서 가장 빠른 축)
+  capuchin: { id: 'capuchin', hp: 8, damage: 0, speed: 3.0, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0, flee: true },
+  rattlesnake: { id: 'rattlesnake', hp: 8, damage: 2, speed: 2.2, reach: 1.4, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 4000, aggroR: 5 }, // 물면 독 (문서: 독 III)
+  bison: { id: 'bison', hp: 30, damage: 5, speed: 2.4, reach: 2.0, attackEveryMs: 2200, fuseMs: 0, explodeRadius: 0, poisonMs: 0, knock: true, aggroR: 7 }, // 들이받아 밀친다
+  moose: { id: 'moose', hp: 30, damage: 5, speed: 2.4, reach: 2.0, attackEveryMs: 2200, fuseMs: 0, explodeRadius: 0, poisonMs: 0, aggroR: 6 },
+  grizzly: { id: 'grizzly', hp: 36, damage: 6, speed: 2.5, reach: 2.0, attackEveryMs: 2000, fuseMs: 0, explodeRadius: 0, poisonMs: 0, aggroR: 8 }, // 가장 세다
 };
 
 const RawPassive = z
@@ -156,22 +184,23 @@ const RawPassive = z
   })
   .loose();
 
+const RawFighter = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    hp: z.number().optional(),
+    damage: z.number().optional(),
+    speed: z.number().optional(),
+    xp: z.number().optional(),
+    drops: z.array(z.tuple([z.string(), z.tuple([z.number(), z.number()]), z.number()]).rest(z.unknown())).optional(),
+  })
+  .loose();
 const MobFile = z
   .object({
     passive: z.array(RawPassive).optional(),
-    hostile: z.array(
-      z
-        .object({
-          id: z.string(),
-          name: z.string(),
-          hp: z.number().optional(),
-          damage: z.number().optional(),
-          speed: z.number().optional(),
-          xp: z.number().optional(),
-          drops: z.array(z.tuple([z.string(), z.tuple([z.number(), z.number()]), z.number()]).rest(z.unknown())).optional(),
-        })
-        .loose(),
-    ),
+    hostile: z.array(RawFighter),
+    /** 원정 사냥 동물 (WILD_KINDS, 2026-11-05) — 적대 몹과 같은 칸 */
+    wild: z.array(RawFighter).optional(),
   })
   .loose();
 
@@ -262,7 +291,7 @@ export function parseMobs(raw: unknown, xpByMob: ReadonlyMap<string, readonly [n
       };
       continue;
     }
-    const src = result.data.hostile.find((h) => h.id === kind);
+    const src = (isWild(kind) ? (result.data.wild ?? []) : result.data.hostile).find((h) => h.id === kind);
     const evoker = bosses.find((x) => x.id === 'evoker');
     const minion = evoker?.minionDrops?.[kind];
     const drops: MobDrop[] = src ? (src.drops ?? []).map(([item, [min, max], chance]) => ({ item, min, max, chance })) : dropsFromRaw(minion);
@@ -322,6 +351,14 @@ export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = {
   giant_gorilla: { w: 2.8, h: 4.4 },
   warden: { w: 1.0, h: 2.9 }, // 깊은 어둠 (#254): 마인크래프트 워든처럼 세 칸 가까이 — 그림(복셀 키 50)과 맞춘다
   giant_warden: { w: 2.0, h: 5.8 },
+  gazelle: { w: 0.8, h: 1.3 },
+  raccoon: { w: 0.6, h: 0.6 },
+  roadrunner: { w: 0.5, h: 0.8 },
+  capuchin: { w: 0.5, h: 0.8 },
+  rattlesnake: { w: 0.7, h: 0.35 },
+  bison: { w: 1.4, h: 1.8 },
+  moose: { w: 1.3, h: 2.2 },
+  grizzly: { w: 1.3, h: 1.5 },
 };
 export function mobSize(kind: MobKind | number): { w: number; h: number } {
   return MOB_SIZES[typeof kind === 'number' ? (MOB_KIND_OF[kind] ?? 'zombie') : kind];
@@ -390,6 +427,10 @@ export interface MobState {
   despawnAt?: number;
   /** 엔더맨 (#222): 다음 순간이동 가능 시각 */
   nextTeleportAt?: number;
+  /** 사냥 동물 (2026-11-05): 달아나는 동물은 이 시각까지 fleeDir 쪽으로 뛴다, 덤비는 동물은 huntIdx 를 쫓는다 */
+  fleeUntil?: number;
+  fleeDir?: { x: number; z: number };
+  huntIdx?: number;
   /** 원정 주민 (#229): 집 자리와 산책 목표·다음 산책 시각 */
   home?: { x: number; z: number };
   wanderTo?: { x: number; y: number; z: number } | null;

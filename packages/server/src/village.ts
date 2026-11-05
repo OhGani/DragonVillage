@@ -1724,6 +1724,8 @@ export class VillageRoom {
       boss: e.bossKind,
       spawns: e.spawns,
       crystals: e.crystals,
+      wildAnimals: e.def.wildAnimals,
+      safe: e.spawn,
       get ended() {
         return e.ended;
       },

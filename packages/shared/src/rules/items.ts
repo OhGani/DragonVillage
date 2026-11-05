@@ -22,6 +22,14 @@ export const ITEM_FALLBACK_KO: Readonly<Record<string, string>> = {
   apple: '사과',
   banana: '바나나', // 정글 (#253)
   raw_gorilla_meat: '안 익힌 고릴라 고기',
+  // 원정 사냥 동물 드롭 (2026-11-05, mobs.json wild)
+  gazelle_horn: '가젤 뿔',
+  raccoon_tail: '라쿤 꼬리',
+  roadrunner_feather: '길달리기새 깃털',
+  rattlesnake_rattle: '방울뱀 방울',
+  bison_fur: '들소 털가죽',
+  moose_ribs: '사슴 갈비',
+  bear_fur: '곰 털가죽',
   redstone: '레드스톤 가루',
   // 레시피 재료 (recipes.json in)
   leather: '가죽',

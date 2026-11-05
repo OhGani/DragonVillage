@@ -1,5 +1,6 @@
 import { ANIMAL_ID_BASE, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, HP_MAX, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, give, type ServerBinary, GUARD_MAX_MS, meleeBonus, knockbackFactor, rollDrops, HIT_REACH, MOB_STATE } from '@dragon-village/shared';
-import { BLOCKS, MOBS } from '@dragon-village/shared/data';
+import { BLOCKS, EXPEDITIONS, MOBS } from '@dragon-village/shared/data';
+import { Expedition } from './expedition';
 import { describe, expect, it } from 'vitest';
 import { MobSystem } from './mobs';
 import { Storage } from './storage';
@@ -335,4 +336,85 @@ describe('몹끼리 겹치지 않게 (아빠 2026-11-05)', () => {
       for (let j = i + 1; j < zs.length; j++) expect(Math.hypot(zs[i]!.x - zs[j]!.x, zs[i]!.z - zs[j]!.z)).toBeGreaterThan(0.55); // 몸 폭 0.6
     expect(hurt.filter((c) => c === 'zombie').length).toBeGreaterThan(0);
   });
+});
+
+describe('원정 사냥 동물 (2026-11-05)', () => {
+  const setup = (wildAnimals: Record<string, number> = {}, safe: { x: number; y: number; z: number } | null = null) => {
+    const room = makeRoom(new Storage(':memory:'));
+    const hurt: string[] = [];
+    const rewards: { item: string; count: number }[][] = [];
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 64.5, eyeY: GROUND_Y + 1 + 1.6 };
+    const arena = { world: room.world, seed: 5, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0, wildAnimals, safe };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: (_i, _a, cause) => hurt.push(cause), broadcast: () => {}, json: () => {}, reward: (_i, drops) => rewards.push(drops), bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 40, goal: null, quiet: true });
+    return { sys, me, hurt, rewards };
+  };
+
+  it('wildAnimals 대로 땅 위에 무리로 풀리고, 사람 시작 자리 16칸 안엔 없고, 밤 몹 상한에 안 센다', () => {
+    const { sys } = setup({ gazelle: 6, bison: 3 }, { x: 64.5, y: GROUND_Y + 1, z: 64.5 });
+    expect(sys.countOf('gazelle')).toBe(6);
+    expect(sys.countOf('bison')).toBe(3);
+    for (const m of sys.mobs.values()) {
+      expect(Math.hypot(m.x - 64.5, m.z - 64.5)).toBeGreaterThanOrEqual(15);
+      expect(sys.groundAt(m.x, m.z, m.y)).toBe(m.y); // 땅에 서 있다 (공중·땅속 아님)
+    }
+    expect(sys.regularCount).toBe(0);
+    const again = setup({ gazelle: 6, bison: 3 }, { x: 64.5, y: GROUND_Y + 1, z: 64.5 }).sys; // 같은 시드면 같은 자리
+    expect([...again.mobs.values()].map((m) => `${m.kind}${m.x.toFixed(2)},${m.z.toFixed(2)}`)).toEqual([...sys.mobs.values()].map((m) => `${m.kind}${m.x.toFixed(2)},${m.z.toFixed(2)}`));
+  });
+
+  it('가젤은 안 덤비고, 때리면 무리째 맞은 쪽 반대로 달아난다. 잡으면 양고기', () => {
+    const { sys, me, hurt, rewards } = setup();
+    const g = sys.spawnKind('gazelle', 64.5, GROUND_Y + 1, 62.5);
+    const friend = sys.spawnKind('gazelle', 66.5, GROUND_Y + 1, 61.5);
+    const behind = sys.spawnKind('gazelle', 64.5, GROUND_Y + 1, 67.5); // 사람 뒤쪽(무리 반대편) — 사람을 가로질러 뛰면 안 된다
+    for (let t = T0; t < T0 + 2000; t += 100) sys.tick(t);
+    expect(hurt).toEqual([]);
+    g.x = 64.5;
+    g.z = 62.5;
+    const f0 = Math.hypot(friend.x - me.x, friend.z - me.z);
+    expect(sys.hit(me, g.id, 2, T0 + 2000)).toBeNull();
+    for (let t = T0 + 2100; t < T0 + 4000; t += 100) sys.tick(t);
+    expect(Math.hypot(g.x - me.x, g.z - me.z)).toBeGreaterThan(6);
+    expect(g.z).toBeLessThan(62.5); // 사람(z 64.5)에게서 멀어지는 쪽(-z)
+    expect(Math.hypot(friend.x - me.x, friend.z - me.z)).toBeGreaterThan(f0 + 3); // 무리도 같이
+    expect(behind.z).toBeGreaterThan(67.5); // 뒤쪽 가젤은 뒤로(+z) 달아난다
+    for (let i = 0; i < 10 && sys.mobs.has(g.id); i++) {
+      g.x = 64.5;
+      g.z = 62.5;
+      sys.hit(me, g.id, 4, T0 + 5000 + i * 1000);
+    }
+    expect(sys.mobs.has(g.id)).toBe(false);
+    expect(rewards.flat().some((d) => d.item === 'mutton')).toBe(true);
+  });
+
+  it('들소는 7칸 안에 오면 먼저 들이받고, 멀리 있으면 안 온다', () => {
+    const near = setup();
+    near.sys.spawnKind('bison', 64.5, GROUND_Y + 1, 58.5); // 6칸
+    for (let t = T0; t < T0 + 5000; t += 100) near.sys.tick(t);
+    expect(near.hurt).toContain('bison');
+    const far = setup();
+    const b = far.sys.spawnKind('bison', 64.5, GROUND_Y + 1, 49.5); // 15칸
+    for (let t = T0; t < T0 + 5000; t += 100) far.sys.tick(t);
+    expect(far.hurt).toEqual([]);
+    expect(Math.hypot(b.x - 64.5, b.z - 64.5)).toBeGreaterThan(7);
+  });
+
+  it('곰은 멀리서 맞으면(활) 때린 사람을 쫓아온다', () => {
+    const { sys, me, hurt } = setup();
+    const bear = sys.spawnKind('grizzly', 64.5, GROUND_Y + 1, 48.5); // 16칸 — 그냥은 안 온다
+    expect(sys.hit(me, bear.id, 2, T0, 24)).toBeNull();
+    for (let t = T0 + 100; t < T0 + 9000; t += 100) sys.tick(t);
+    expect(hurt).toContain('grizzly');
+  });
+});
+
+describe('원정지마다 사냥 동물이 실제 지형에 다 풀린다 (2026-11-05)', () => {
+  for (const def of EXPEDITIONS.defs.filter((d) => Object.keys(d.wildAnimals).length > 0)) {
+    it(`${def.name}: ${Object.entries(def.wildAnimals).map(([k, n]) => `${k} ${n}`).join(', ')}`, () => {
+      const exp = new Expedition(def, 1234, BLOCKS, T0);
+      const arena = { world: exp.world, seed: 1234, nightStartsAt: def.nightStartsAt, nightMobs: [], den: null, ended: false, elapsedSec: () => 0, wildAnimals: def.wildAnimals, safe: exp.spawn };
+      const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [], hurt: () => {}, broadcast: () => {}, json: () => {}, reward: () => {}, bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 40, goal: null, quiet: true });
+      for (const [kind, n] of Object.entries(def.wildAnimals)) expect(sys.countOf(kind as never)).toBe(n);
+    });
+  }
 });

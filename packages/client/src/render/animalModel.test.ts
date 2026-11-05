@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { HORSE_COATS, animalParts, animalVariant, horseCoat, horseVoxels } from './animalModel';
+import { mobSize } from '@dragon-village/shared';
+import { HORSE_COATS, WILD_MODEL_KINDS, animalParts, animalVariant, horseCoat, horseVoxels, wildParts } from './animalModel';
 
 describe('말 털색 (#177)', () => {
   it('검정·갈색·흰색·회색·얼룩말 다섯 가지가 번호로 고르게 나온다', () => {
@@ -20,5 +21,24 @@ describe('말 털색 (#177)', () => {
       expect(legs).toHaveLength(4);
       for (const l of legs) for (const c of l.v) if (c.y === 0) expect(['#2a2622', '#7a7772']).toContain(c.c);
     }
+  });
+});
+
+describe('원정 사냥 동물 모델 (2026-11-05)', () => {
+  const VOXEL = 1.8 / 32;
+  for (const kind of WILD_MODEL_KINDS) {
+    it(`${kind}: 발이 땅(y 0)에 닿고, 키가 몸 판정(MOB_SIZES)과 비슷하다`, () => {
+      const p = wildParts(kind)!;
+      const all = [...p.body, ...p.head.v, ...p.legs.flatMap((l) => l.v), ...(p.tail?.v ?? []), ...p.wings.flatMap((w) => w.v)];
+      expect(all.length).toBeGreaterThan(30);
+      expect(Math.min(...all.map((v) => v.y))).toBe(0);
+      const top = (Math.max(...all.map((v) => v.y)) + 1) * VOXEL;
+      const h = mobSize(kind).h;
+      expect(top).toBeGreaterThan(h * 0.6);
+      expect(top).toBeLessThan(h * 1.45);
+    });
+  }
+  it('모르는 종류는 null', () => {
+    expect(wildParts('cow')).toBeNull();
   });
 });

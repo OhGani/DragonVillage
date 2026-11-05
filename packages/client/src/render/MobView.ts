@@ -11,7 +11,7 @@ import { ANIMAL_FLAG, MOB_KIND_OF, MOB_STATE, type MobEntry, mobSize, ANIMAL_ID_
 import { MOBS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { PLAYER_SHADES, type SkinPalette, VOXEL, playerVoxels } from './playerModel';
-import { type Part, animalParts, animalVariant, collarVoxels, gorillaParts, wardenParts } from './animalModel';
+import { type Part, WILD_MODEL_KINDS, animalParts, animalVariant, collarVoxels, gorillaParts, wardenParts, wildParts } from './animalModel';
 import { type Voxel, buildVoxelGeometry } from './voxelGeometry';
 import { nameSprite } from '../net/RemotePlayers';
 import { dragonMesh } from './DragonMesh';
@@ -45,6 +45,8 @@ const CREEPER_GREEN = 0x4caf50;
 const MOB_SIZE_H = 1.9;
 const SPIDER_DARK = 0x2a2320;
 const ANIMAL_NAMES = new Set(['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'boat', 'minecart']); // 보트·수레도 동물 체계로 그린다 (#209·#237)
+/** 원정 사냥 동물 (2026-11-05): 동물처럼 부위로 그리지만 상태는 몹 규칙(MOB_STATE)이라 따로 움직인다 */
+const WILD_NAMES = new Set<string>(WILD_MODEL_KINDS);
 const KING_DARK = 0x3a2344;
 const KING_BELLY = 0x4a2a4e;
 const GOLD = 0xffd54f;
@@ -492,6 +494,25 @@ export class MobView {
       }
     } else if (kindName === 'snow_golem') {
       body.add(partMesh(snowGolemVoxels(), material)); // 눈 골렘 (#223)
+    } else if (WILD_NAMES.has(kindName)) {
+      const parts = wildParts(kindName)!;
+      body.add(partMesh(parts.body, material));
+      head = pivotMesh(parts.head, material);
+      body.add(head);
+      for (const l of parts.legs) {
+        const mesh = pivotMesh(l, material);
+        legs.push(mesh);
+        body.add(mesh);
+      }
+      if (parts.tail) {
+        tail = pivotMesh(parts.tail, material);
+        body.add(tail);
+      }
+      for (const w of parts.wings) {
+        const mesh = pivotMesh(w, material);
+        wings.push(mesh);
+        body.add(mesh);
+      }
     } else if (ANIMAL_NAMES.has(kindName)) {
       const parts = animalParts(kindName, animalVariant(m.id), { sheared: (m.state & ANIMAL_FLAG.sheared) !== 0 });
       body.add(partMesh(parts.body, material));
@@ -692,6 +713,23 @@ export class MobView {
     f.body.position.y = sitting ? -0.14 : 0;
   }
 
+  /** 사냥 동물 (2026-11-05): 다리는 대각선 짝, 덤빌 땐 머리를 숙여 들이받고 꼬리(방울뱀 방울)를 빠르게 떤다, 서 있으면 가끔 풀 뜯기 */
+  private animateWild(f: Figure, moving: boolean, swing: number, now: number): void {
+    const t = now / 1000 + (f.id % 97) * 0.37;
+    const attack = f.state === MOB_STATE.attack;
+    f.legs.forEach((leg, i) => {
+      leg.rotation.x = i === 0 || i === 3 ? swing : -swing;
+    });
+    if (f.head) {
+      const ph = t % 6;
+      f.head.rotation.x = attack ? -0.5 * Math.max(0, Math.sin(now * 0.012)) : moving ? Math.sin(f.walk * 2) * 0.06 : ph < 1.5 ? -0.5 * Math.sin((ph / 1.5) * Math.PI) : 0;
+    }
+    if (f.tail) f.tail.rotation.z = Math.sin(t * (attack ? 30 : moving ? 8 : 2.2)) * (attack ? 0.35 : 0.25);
+    f.wings.forEach((w, i) => {
+      w.rotation.z = (i === 0 ? -1 : 1) * (moving ? Math.abs(Math.sin(f.walk * 3)) * 0.6 : 0);
+    });
+  }
+
   /** 떠오르는 글자 (사랑 ♥·냠·어른!) */
   private popText(x: number, y: number, z: number, text: string, color: string, now: number): void {
     const c = canvasSprite(96, 48, 0.9, 0.45);
@@ -864,6 +902,7 @@ export class MobView {
         leg.rotation.y = base + (i % 2 === 0 ? swing : -swing) * 0.5;
       });
       if (f.animal) this.animateAnimal(f, speed > 0.3, swing, now);
+      else if (WILD_NAMES.has(MOB_KIND_OF[f.kind] ?? '')) this.animateWild(f, speed > 0.3, swing, now);
       else if (f.legs.length) {
         // 고릴라 (#253)·워든 (#254): 팔다리를 엇갈려 걷고, 덤빌 때는 두 팔을 번갈아 들어 내리친다
         const attack = f.state === MOB_STATE.attack;

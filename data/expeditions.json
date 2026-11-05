@@ -266,6 +266,11 @@
         "sugar_cane",
         "melon"
       ],
+      "wildAnimals": {
+        "gazelle": 6,
+        "raccoon": 4
+      },
+      "_wildAnimalsNote": "사냥 동물 (2026-11-05): 처음부터 무리로 돌아다닌다. 숫자를 바꾸거나 다른 원정지에 옮겨도 돼 (gazelle·raccoon·roadrunner·capuchin 은 달아나고, rattlesnake·bison·moose·grizzly 는 덤빈다)",
       "nightMobs": [
         "zombie",
         "creeper",
@@ -395,6 +400,11 @@
         "gold_ingot",
         "ender_pearl"
       ],
+      "wildAnimals": {
+        "roadrunner": 4,
+        "rattlesnake": 4
+      },
+      "_wildAnimalsNote": "사냥 동물 (2026-11-05): 처음부터 무리로 돌아다닌다. 숫자를 바꾸거나 다른 원정지에 옮겨도 돼 (gazelle·raccoon·roadrunner·capuchin 은 달아나고, rattlesnake·bison·moose·grizzly 는 덤빈다)",
       "nightMobs": [
         "husk",
         "creeper",
@@ -478,6 +488,11 @@
         "snow_block",
         "water_bucket"
       ],
+      "wildAnimals": {
+        "bison": 4,
+        "moose": 3
+      },
+      "_wildAnimalsNote": "사냥 동물 (2026-11-05): 처음부터 무리로 돌아다닌다. 숫자를 바꾸거나 다른 원정지에 옮겨도 돼 (gazelle·raccoon·roadrunner·capuchin 은 달아나고, rattlesnake·bison·moose·grizzly 는 덤빈다)",
       "nightMobs": [
         "stray",
         "zombie"
@@ -688,6 +703,10 @@
       },
       "_note": "삼림 대저택 — 소환사의 본거지 (아들 보스 설계). 2026-11-05 앞당겨 만듦 (#252): 1층 변명자 셋, 2층 소환사(변명자 소환). 죽이면 불사의 토템 10 (bosses.json) — 가방에 있으면 죽을 때 하나 쓰고 하트 2개로 살아난다",
       "sonDetails": {},
+      "wildAnimals": {
+        "grizzly": 3
+      },
+      "_wildAnimalsNote": "사냥 동물 (2026-11-05): 처음부터 무리로 돌아다닌다. 숫자를 바꾸거나 다른 원정지에 옮겨도 돼 (gazelle·raccoon·roadrunner·capuchin 은 달아나고, rattlesnake·bison·moose·grizzly 는 덤빈다)",
       "nightMobs": [
         "zombie",
         "skeleton",
@@ -736,6 +755,10 @@
       },
       "_note": "사치스러운 정글 궁궐 — 거대 고릴라 (아들 보스 설계). 2026-11-05 앞당겨 만듦 (#253): 문 앞 고릴라 둘, 왕좌 앞 거대 고릴라(고릴라 소환, 때리면 밀친다). 죽이면 다이아·에메랄드·금·철·석영·네더라이트 각 64 + 고릴라 고기 10 (bosses.json)",
       "sonDetails": {},
+      "wildAnimals": {
+        "capuchin": 6
+      },
+      "_wildAnimalsNote": "사냥 동물 (2026-11-05): 처음부터 무리로 돌아다닌다. 숫자를 바꾸거나 다른 원정지에 옮겨도 돼 (gazelle·raccoon·roadrunner·capuchin 은 달아나고, rattlesnake·bison·moose·grizzly 는 덤빈다)",
       "nightMobs": [
         "spider",
         "zombie",
