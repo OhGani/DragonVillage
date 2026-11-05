@@ -53,10 +53,18 @@ const AUTO_STEP = 1.0;
  */
 const WATER_STEP = 1.3;
 /**
- * 드래곤 타고 날 때 막히면 저절로 떠오르는 높이 (아빠 2026-11-05 "드래곤 타고 있으면 턱에 걸려서 움직이지 않는다").
- * 몸 상자가 드래곤 등 높이만큼 아래로 길어서(#178) 땅에 붙어 날면 한 칸 턱에 걸린다. 한 칸은 넘고, 두 칸 넘는 벽은 ▲ 로
+ * 드래곤 타고 날 때 턱 넘기 (아빠 2026-11-05 "드래곤 타고 있으면 턱에 걸려서 움직이지 않는다" → "툭 한번 튀는 느낌").
+ * 몸 상자가 드래곤 등 높이만큼 아래로 길어서(#178) 땅에 붙어 날면 한 칸 턱에 걸린다.
+ * 순간이동으로 올리지 않고, 가는 쪽 FLY_LOOK 초 앞에 FLY_STEP 칸 이하로 넘을 수 있는 턱이 있으면 미리 FLY_CLIMB_V 로 날아오른다.
+ * 두 칸 넘는 벽은 ▲ 로
  */
 const FLY_STEP = 1.3;
+const FLY_LOOK = 0.35;
+const FLY_CLIMB_V = 7;
+/** 턱이 안 보여도 이만큼(초)은 오르기를 이어 간다 — 걸치는 순간 끊기지 않게 */
+const FLY_CLIMB_HOLD = 0.05;
+/** 다 넘은 뒤 오르던 속도를 거두는 빠르기 (1/초). 보통 날기는 8 */
+const FLY_BRAKE = 30;
 /** 턱을 오른 뒤 카메라가 따라 올라오는 속도 (1/초) */
 const STEP_CAM_SMOOTH = 14;
 const MAX_PITCH = (89.5 * Math.PI) / 180;
@@ -103,6 +111,12 @@ export class Player {
    * fixed(몹·동물 — 서버가 움직인다)는 내가 다 비키고, 다른 사람과는 반씩. 탈것을 타거나 누웠을 땐 안 본다
    */
   obstacles: readonly SepBody[] = [];
+  /** 드래곤 턱 넘기: 남은 오르기 시간(초) */
+  private flyClimbT = 0;
+  private flyBraking = false;
+  private readonly probePos: Vec3 = { x: 0, y: 0, z: 0 };
+  private readonly probeVel: Vec3 = { x: 0, y: 0, z: 0 };
+  private readonly probeOut: MoveResult = { onGround: false, hitX: false, hitY: false, hitZ: false, hitCeiling: false };
   private readonly pushVel: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly pushOut: MoveResult = { onGround: false, hitX: false, hitY: false, hitZ: false, hitCeiling: false };
   /** 자동 턱 오르기 뒤 카메라 보정(음수 → 0 으로 수렴). 몸은 바로 올라가고 눈은 부드럽게 따라온다 */
@@ -159,6 +173,24 @@ export class Player {
       }
     }
     return null;
+  }
+
+  /** 드래곤 턱 넘기: 지금 속도로 FLY_LOOK 초 가면 막히고, FLY_STEP 칸 올라가면 더 갈 수 있나 (몸 상자는 탈것까지 늘린 것) */
+  private ledgeAhead(pos: Vec3, size: BodySize, vx: number, vz: number): boolean {
+    const sp = Math.hypot(vx, vz);
+    if (sp < 0.5) return false;
+    const look = Math.max(FLY_LOOK, 0.4 / sp); // 느릴 때도 0.4칸 앞은 본다
+    const p = this.probePos,
+      v = this.probeVel;
+    p.x = pos.x;
+    p.y = pos.y;
+    p.z = pos.z;
+    v.x = vx;
+    v.y = 0;
+    v.z = vz;
+    moveBody(this.isSolid, p, size, v, look, this.probeOut);
+    if (!this.probeOut.hitX && !this.probeOut.hitZ) return false;
+    return tryStepUp(this.isSolid, { x: pos.x, y: pos.y, z: pos.z }, p, size, vx, vz, look, FLY_STEP, false) !== null;
   }
 
   /** 탈것에 앉은 높이 (#178): 타고 있으면 몸 상자가 이만큼 아래로 길어져 탈것이 땅속에 안 들어간다 */
@@ -286,7 +318,15 @@ export class Player {
       // 날기: 시선 위아래 × 앞으로 밀기 + ▲ 위로 / ▼ 아래로. 아무것도 없으면 멈춤 (중력 없음)
       const look = pitchT * Math.sign(input.moveZ) * RIDE_SPEED * 0.8;
       const target = look + (input.jump ? RIDE_CLIMB : input.sneak ? -RIDE_CLIMB : 0);
-      vel.y += (target - vel.y) * Math.min(1, 8 * h);
+      // 턱을 넘고 나면 오르던 힘을 빨리 거둔다 (안 그러면 한 칸 턱에 두 칸 넘게 붕 뜬다)
+      const brake = this.flyClimbT <= 0 && this.flyBraking && vel.y > target;
+      vel.y += (target - vel.y) * Math.min(1, (brake ? FLY_BRAKE : 8) * h);
+      if (!brake) this.flyBraking = false;
+      if (this.flyClimbT > 0) {
+        vel.y = Math.max(vel.y, FLY_CLIMB_V); // 앞에 턱 — 부드럽게 날아오른다
+        this.flyClimbT -= h;
+        this.flyBraking = true;
+      }
     } else if (this.mountKind === 'boat') {
       // 보트 (#209): 물 위에 뜬다 — 발을 수면에 맞추고 중력 없음. 물이 없으면 떨어진다(땅에선 느릿느릿)
       if (boatSurface !== null) {
@@ -333,18 +373,19 @@ export class Player {
     moveBody(this.isSolid, pos, size, vel, h, this.moveOut);
     this.onGround = this.moveOut.onGround;
 
-    // 한 칸 턱 자동 오르기 (앞으로 걷다 막혔을 때). 물속에서는 바닥을 딛지 않아도(헤엄) 둑을 밀면 올라선다.
-    // 드래곤으로 날 때는 땅에 안 붙어 있어도 오르고, 턱 위에 내려앉지 않고 뜬 채로 간다
-    if (!this.sneaking && (wasGround || this.inWater || flying) && (this.moveOut.hitX || this.moveOut.hitZ)) {
-      const r = tryStepUp(this.isSolid, { x: px, y: py, z: pz }, pos, size, vx0, vz0, h, flying ? FLY_STEP : this.inWater ? WATER_STEP : AUTO_STEP, !flying);
+    // 한 칸 턱 자동 오르기 (앞으로 걷다 막혔을 때). 물속에서는 바닥을 딛지 않아도(헤엄) 둑을 밀면 올라선다
+    if (!flying && !this.sneaking && (wasGround || this.inWater) && (this.moveOut.hitX || this.moveOut.hitZ)) {
+      const r = tryStepUp(this.isSolid, { x: px, y: py, z: pz }, pos, size, vx0, vz0, h, this.inWater ? WATER_STEP : AUTO_STEP);
       if (r) {
         vel.x = r.vx;
         vel.z = r.vz;
         vel.y = 0;
-        this.onGround = !flying;
+        this.onGround = true;
         this.stepCamOffset -= r.dy;
       }
     }
+    // 드래곤으로 날 때: 가는 쪽 조금 앞에 넘을 수 있는 턱이 있으면 다음 걸음부터 날아오른다 (순간이동 없이)
+    if (flying && (vx0 !== 0 || vz0 !== 0) && this.ledgeAhead(pos, size, vx0, vz0)) this.flyClimbT = FLY_CLIMB_HOLD;
     if (seat === 0 && !this.riding && this.obstacles.length) {
       // 몸끼리 밀어내기: 벽은 그대로 막히게 moveBody 로 옮긴다 (몹에 밀려 벽 속으로 안 들어간다)
       const p = pushOutOf({ x: pos.x, y: pos.y, z: pos.z, r: PLAYER_SIZE.w / 2, h: PLAYER_SIZE.h }, this.obstacles, (o) => (o.fixed ? 1 : 0.5));

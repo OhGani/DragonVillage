@@ -87,6 +87,26 @@ describe('드래곤 타고 날 때 턱 넘기 (아빠 2026-11-05 "턱에 걸려�
     expect(p.pos.y).toBeGreaterThanOrEqual(9 + RIDE_SEAT_Y - 0.01); // 턱 위 (드래곤 등 높이만큼)
   });
 
+  it('넘을 때 툭 튀지 않고 부드럽게 올라간다 (한 번에 0.3칸 넘게 안 뛴다, 멈추지도 않는다)', () => {
+    const { world, registry } = ledgeWorld();
+    const p = new Player(world as never, registry as never, { x: 32, y: 8, z: 46 });
+    p.riding = true;
+    p.liftForMount();
+    let maxDy = 0,
+      minDz = Infinity;
+    for (let i = 0; i < 60; i++) {
+      const y0 = p.pos.y,
+        z0 = p.pos.z;
+      p.update(forward, 1 / 30);
+      maxDy = Math.max(maxDy, p.pos.y - y0);
+      if (z0 > 36) minDz = Math.min(minDz, z0 - p.pos.z);
+    }
+    expect(p.pos.z).toBeLessThan(36);
+    expect(maxDy).toBeLessThan(0.3);
+    expect(minDz).toBeGreaterThan(0.05); // 턱 앞에서도 멈춰 서지 않고 계속 나아간다
+    expect(p.pos.y).toBeLessThan(9 + RIDE_SEAT_Y + 1); // 넘고 나서 턱 위로 한 칸 넘게 붕 뜨지 않는다
+  });
+
   it('높은 벽(세 칸)은 저절로 못 넘는다 — ▲ 로 올라가야 한다', () => {
     const { world, registry } = ledgeWorld(3);
     const p = new Player(world as never, registry as never, { x: 32, y: 8, z: 46 });
