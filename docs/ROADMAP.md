@@ -106,7 +106,7 @@ M5는 게임 엔진과 거의 독립적인 API·DB 작업 → 순서 조정 가�
 
 목표: **아빠는 PC로, 아들은 폰으로 같은 마을에 집을 짓는다. 폰을 잠갔다 켜도 그 자리.** 서버가 세계의 진실(규칙 1). M1-4 아들 이틀 테스트는 아직 미기록 — 아빠 지시로 M2 를 먼저 착수(저장이 서버로 옮겨 가므로 M2 빌드에서 같은 테스트를 한다).
 
-호스팅: 이 IDC PC(공인 115.68.221.179). **이미 열려 있는 5173 포트를 게임 서버가 쓴다**(클라 빌드 + WebSocket `/ws`). 개발용 Vite 는 5174 (`/ws` 를 5173 으로 프록시). 결정 #60.
+호스팅: ~~이 IDC PC(공인 115.68.221.179)~~ → **2026-11-05 Oracle Cloud 도쿄 A1 (168.110.0.197:5173, #258, `docs/MIGRATION-ORACLE.md`)**. 아래는 IDC 때 기록. **이미 열려 있는 5173 포트를 게임 서버가 쓴다**(클라 빌드 + WebSocket `/ws`). 개발용 Vite 는 5174 (`/ws` 를 5173 으로 프록시). 결정 #60.
 
 ### 1. 프로토콜 (`shared/protocol`) — 완료 2026-09-18
 - [x] `ByteWriter/ByteReader`(LE), 바이너리 메시지 코덱: PlayerMove·PlayersState·BlockChangeReq/Changed/Rejected·BlockBatch(액체)·ChunkData(청크 blob)·Ping/Pong. 블록은 **문자열 id**(#39). 라운드트립 테스트 9개

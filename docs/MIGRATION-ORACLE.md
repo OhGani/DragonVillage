@@ -75,3 +75,13 @@ curl -s localhost:5173/health
 - **백업**: 서버가 매일 `data/backup-YYYY-MM-DD.sqlite`(7개)·매주 `data/backup-weekly`(8개)를 만든다. 같은 VM 안이라 VM 이 사라지면 같이 사라지니, 가끔 `scp` 로 아빠 PC 에 받아 둔다(나중에 Oracle 오브젝트 스토리지 자동 복사).
 - **되돌리기**: 새 서버에 문제가 있으면 IDC 에서 `Enable-ScheduledTask -TaskName DragonCraftServer` — 5분 안에 옛 서버가 다시 뜬다(옮긴 뒤 새 서버에서 생긴 진행은 빠진다).
 - **IDC 해지 전에**: 개발(Claude Code)도 이 PC 에서 하고 있으니, 아빠 PC 에 Node 22 + pnpm + 저장소를 준비하고 옮긴다.
+
+---
+
+## 이전 기록 — 2026-11-05 완료
+
+- 16:31 IDC 접속자 0 확인 → 작업 스케줄러 `DragonCraftServer` **Disabled**, 5173 서버 종료.
+- `tools/dev/export-db.mjs` → 무결성 ok · 계정 12 · 가방 12 · 드래곤 22 · 바뀐 청크 96 · 동물 58, SHA-256 `e924f274…283e1b1e`.
+- `scp` 로 새 서버에 보내 SHA-256 같음 확인 → pm2 멈춤 → 설치 때 생긴 빈 마을은 `~/empty-village-before-migration/` 로 → 옮긴 파일로 바꿔 `pm2 startOrReload --update-env`.
+- 16:32 새 서버 시작(한국 시간), 저장 청크 85개 불러옴(IDC 와 같음), 계정 12 · 드래곤 22 · 동물 58 일치. 설치 직후 빈 마을로 만들어진 주간 백업은 지웠다(다음 백업이 진짜 마을로 다시 만든다).
+- 옛 IDC 데이터(`packages/server/data/`)는 그대로 둔다 — 되돌리기용.

@@ -14,4 +14,4 @@ packages/server/data/
 .test-data/
 
 # 서버 이전용 데이터 내보내기 (tools/dev/export-db.mjs)
-dragoncraft-export.sqlite
+dragoncraft-export.sqlite*
