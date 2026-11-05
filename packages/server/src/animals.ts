@@ -382,7 +382,10 @@ export class AnimalSystem {
         worstNeed = 0;
       for (const [kind, n] of Object.entries(INITIAL_ANIMALS) as [MobKind, number][]) {
         const need = n - (kind === 'villager' ? this.houseVillagerCount() + (this.hooks.kidnapped?.() ?? 0) : this.wildCountOf(kind));
-        if (need > worstNeed) (worst = kind), (worstNeed = need);
+        if (need > worstNeed) {
+          worst = kind;
+          worstNeed = need;
+        }
       }
       if (worst) {
         const made = this.spawnHerd(worst, Math.min(RESPAWN_BATCH, worstNeed, ANIMALS_MAX - this.animals.size), this.animals.size + Math.floor(now / 1000), now);

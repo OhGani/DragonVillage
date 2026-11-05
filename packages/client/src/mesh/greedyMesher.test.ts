@@ -399,7 +399,7 @@ describe('표지판 (#197)', () => {
   it('기둥 + 판 = 상자 둘 12면, 판은 8/16~16/16 높이에 동서로 넓고 얇다', () => {
     const m = greedyMesh(padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? SIGN : 0)), info).opaque!;
     expect(m.indexCount / 6).toBe(12);
-    let zs = new Set<number>();
+    const zs = new Set<number>();
     for (let i = 0; i < m.vertexCount; i++) {
       expect(m.meta[i * 4]).toBe(15);
       const y = m.positions[i * 3 + 1]!;

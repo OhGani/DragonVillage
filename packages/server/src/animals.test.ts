@@ -57,7 +57,10 @@ describe('마을 동물 (M8-1)', () => {
     const room = makeRoom(storage);
     const total = Object.values(INITIAL_ANIMALS).reduce((a, b) => a + b, 0);
     // 소 전부·돼지 하나를 없앤 것처럼 지우고, 강아지 하나는 길들인 것으로
-    for (const a of [...room.animals.animals.values()]) if (a.kind === 'cow' || (a.kind === 'pig' && a.id % 2 === 0)) (room.animals.animals.delete(a.id), storage.deleteAnimal(a.id));
+    for (const a of [...room.animals.animals.values()]) if (a.kind === 'cow' || (a.kind === 'pig' && a.id % 2 === 0)) {
+      room.animals.animals.delete(a.id);
+      storage.deleteAnimal(a.id);
+    }
     const dog = [...room.animals.animals.values()].find((a) => a.kind === 'dog')!;
     dog.owner = 'b'.repeat(32);
     dog.dirty = true;
