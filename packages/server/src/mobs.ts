@@ -155,8 +155,12 @@ const ENDER_NEAR = 2.5;
 const ENDER_AWAY = 7;
 /** 주민이 부른 철 골렘 (#221): 방어전 골렘(7)보다 약하게 — 초5가 4초 만에 죽지 않게. 3씩 2초마다 */
 const GRUDGE_DAMAGE = 3;
-/** 사냥 동물을 두지 않는 거리 (사람 시작 자리에서) · 세계 가장자리 여백 */
+/**
+ * 사냥 동물 무리를 두는 고리 (사람 시작 자리에서 WILD_SAFE_R ~ WILD_NEAR_R 칸) · 세계 가장자리 여백.
+ * 섬 전체에 흩었더니 30~90칸 밖이라 폰(보이는 거리 청크 5개)에서 하나도 안 보였다 (아빠 2026-11-05 "초원섬에서 동물 안 보임")
+ */
 const WILD_SAFE_R = 16;
+const WILD_NEAR_R = 44;
 const WILD_EDGE = 6;
 const GRUDGE_ATTACK_MS = 2000;
 
@@ -210,12 +214,14 @@ export class MobSystem {
   }
 
   /**
-   * 사냥 동물 풀기 (2026-11-05): 종류마다 2~3마리 무리로, 세계 곳곳의 땅(나뭇잎·통나무·물 위는 빼고) 위에.
-   * 사람 시작 자리 WILD_SAFE_R 칸 안에는 안 둔다. 시드·무리 번호로 결정론
+   * 사냥 동물 풀기 (2026-11-05): 종류마다 2~3마리 무리로, 땅(나뭇잎·통나무·물 위는 빼고) 위에.
+   * 무리는 사람 시작 자리 둘레 WILD_SAFE_R ~ WILD_NEAR_R 칸 고리에 방향을 고르게 나눠(황금각) 둔다 — 포탈에서 둘러보면 보인다.
+   * 그 고리에 땅이 없으면(물가) 조금씩 바깥으로 찾는다. 시작 자리를 모르면 세계 곳곳. 시드·무리 번호로 결정론
    */
   private spawnWild(animals: Readonly<Record<string, number>>, safe: { x: number; z: number } | null): void {
     const w = this.e.world;
     let herd = 0;
+    const turn0 = hash3(this.e.seed, 0, 0, 35) * Math.PI * 2; // 첫 무리 방향 (원정마다 다르게)
     for (const [id, n] of Object.entries(animals)) {
       if (!isMobKind(id) || !isWild(id)) continue;
       let left = n;
@@ -223,10 +229,18 @@ export class MobSystem {
         const h = herd++;
         const size = Math.min(left, hash3(this.e.seed, h, 31, 7) < 0.5 ? 2 : 3);
         let center: { x: number; y: number; z: number } | null = null;
-        for (let a = 0; a < 30 && !center; a++) {
-          const x = WILD_EDGE + Math.floor(hash3(this.e.seed, h, a, 32) * (w.sizeX - WILD_EDGE * 2)) + 0.5,
+        for (let a = 0; a < 40 && !center; a++) {
+          let x: number, z: number;
+          if (safe) {
+            const ang = turn0 + h * 2.399963 + a * 0.9;
+            const r = WILD_SAFE_R + 2 + hash3(this.e.seed, h, a, 36) * (WILD_NEAR_R - WILD_SAFE_R - 4) + Math.max(0, a - 20) * 1.5; // 스무 번 못 찾으면 조금씩 바깥으로
+            x = Math.floor(safe.x + Math.cos(ang) * r) + 0.5;
+            z = Math.floor(safe.z + Math.sin(ang) * r) + 0.5;
+            if (x < WILD_EDGE || z < WILD_EDGE || x > w.sizeX - WILD_EDGE || z > w.sizeZ - WILD_EDGE) continue;
+          } else {
+            x = WILD_EDGE + Math.floor(hash3(this.e.seed, h, a, 32) * (w.sizeX - WILD_EDGE * 2)) + 0.5;
             z = WILD_EDGE + Math.floor(hash3(this.e.seed, h, a, 33) * (w.sizeZ - WILD_EDGE * 2)) + 0.5;
-          if (safe && Math.hypot(x - safe.x, z - safe.z) < WILD_SAFE_R) continue;
+          }
           const y = this.wildGround(x, z);
           if (y !== null) center = { x, y, z };
         }

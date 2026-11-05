@@ -409,12 +409,19 @@ describe('원정 사냥 동물 (2026-11-05)', () => {
 });
 
 describe('원정지마다 사냥 동물이 실제 지형에 다 풀린다 (2026-11-05)', () => {
-  for (const def of EXPEDITIONS.defs.filter((d) => Object.keys(d.wildAnimals).length > 0)) {
-    it(`${def.name}: ${Object.entries(def.wildAnimals).map(([k, n]) => `${k} ${n}`).join(', ')}`, () => {
-      const exp = new Expedition(def, 1234, BLOCKS, T0);
-      const arena = { world: exp.world, seed: 1234, nightStartsAt: def.nightStartsAt, nightMobs: [], den: null, ended: false, elapsedSec: () => 0, wildAnimals: def.wildAnimals, safe: exp.spawn };
+  for (const def of EXPEDITIONS.defs.filter((d) => Object.keys(d.wildAnimals).length > 0))
+    for (const seed of [1234, 777, 42]) {
+    it(`${def.name} (시드 ${seed}): ${Object.entries(def.wildAnimals).map(([k, n]) => `${k} ${n}`).join(', ')}`, () => {
+      const exp = new Expedition(def, seed, BLOCKS, T0);
+      const arena = { world: exp.world, seed, nightStartsAt: def.nightStartsAt, nightMobs: [], den: null, ended: false, elapsedSec: () => 0, wildAnimals: def.wildAnimals, safe: exp.spawn };
       const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [], hurt: () => {}, broadcast: () => {}, json: () => {}, reward: () => {}, bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 40, goal: null, quiet: true });
       for (const [kind, n] of Object.entries(def.wildAnimals)) expect(sys.countOf(kind as never)).toBe(n);
+      // 시작 자리에서 보이는 거리에 (아빠 2026-11-05 "초원섬에서 동물 안 보임" — 섬 전체에 흩어 30~90칸 밖이었다)
+      for (const m of sys.mobs.values()) {
+        const d = Math.hypot(m.x - exp.spawn.x, m.z - exp.spawn.z);
+        expect(d).toBeGreaterThanOrEqual(14);
+        expect(d).toBeLessThanOrEqual(60);
+      }
     });
-  }
+    }
 });
