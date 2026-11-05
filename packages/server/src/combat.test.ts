@@ -321,3 +321,18 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
     expect(sys.hit(me, vid, 5, T0 + 62_000)).toBe('VILLAGER'); // 다시 못 때린다
   });
 });
+
+describe('몹끼리 겹치지 않게 (아빠 2026-11-05)', () => {
+  it('한 점에 몰아 넣은 좀비 넷이 사람에게 다가가면서 서로 떨어지고, 그래도 때린다', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const hurt: string[] = [];
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 64.5, eyeY: GROUND_Y + 1 + 1.6 };
+    const arena = { world: room.world, seed: 5, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0 };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: (_i, _a, cause) => hurt.push(cause), broadcast: () => {}, json: () => {}, reward: () => {}, bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 24, goal: null, quiet: true });
+    const zs = [0, 1, 2, 3].map((i) => sys.spawnKind('zombie', 64.5 + i * 0.01, GROUND_Y + 1, 58.5));
+    for (let t = T0; t < T0 + 6000; t += 100) sys.tick(t);
+    for (let i = 0; i < zs.length; i++)
+      for (let j = i + 1; j < zs.length; j++) expect(Math.hypot(zs[i]!.x - zs[j]!.x, zs[i]!.z - zs[j]!.z)).toBeGreaterThan(0.55); // 몸 폭 0.6
+    expect(hurt.filter((c) => c === 'zombie').length).toBeGreaterThan(0);
+  });
+});

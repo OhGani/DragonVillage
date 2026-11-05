@@ -34,6 +34,8 @@ import {
   type MobKind,
   type MobRegistry,
   mobSize,
+  separationPushes,
+  type SepBody,
   PET_FOLLOW_STOP,
   PET_TELEPORT_RANGE,
   RESPAWN_BATCH,
@@ -237,47 +239,30 @@ export class AnimalSystem {
     return made;
   }
 
-  /** 서로 밀어내기 (#174): 0.9칸보다 가까운 둘은 살짝 떨어뜨린다 (앉은 것·탄 말·원정 간 것은 빼고). 밀린 자리에 땅이 없으면 그대로 */
-  private separate(): void {
-    const list = [...this.animals.values()].filter((a) => !a.away && a.ridden === null && !a.sitting && a.kind !== 'boat' && a.kind !== 'minecart');
-    // 1칸 격자에 넣고 이웃 칸끼리만 본다 (동물 40마리 × 매 틱이라 전부 비교하면 시험이 느려진다)
-    const cell = new Map<string, Animal[]>();
-    for (const a of list) {
-      const k = `${Math.floor(a.x)},${Math.floor(a.z)}`;
-      let bucket = cell.get(k);
-      if (!bucket) {
-        bucket = [];
-        cell.set(k, bucket);
+  /**
+   * 서로 밀어내기 (#174 → 아빠 2026-11-05 "몹, 캐릭터는 서로 겹치지 않게"): 몸 폭(말 1.3·닭 0.4 …, 아기는 반)만큼 떨어뜨린다.
+   * 앉은 것·보트·수레는 안 밀리고(남이 비킨다), 탄 것·원정 간 것은 빼고. 밀린 자리에 땅이 없거나 한 칸 넘게 다르면 그대로
+   */
+  private separate(now: number): void {
+    const list = [...this.animals.values()].filter((a) => !a.away && a.ridden === null);
+    const bodies: SepBody[] = list.map((a) => {
+      const s = mobSize(a.kind);
+      const k = this.isBaby(a, now) ? 0.5 : 1;
+      return { x: a.x, y: a.y, z: a.z, r: (s.w / 2) * k, h: s.h * k, mass: s.w * s.w * s.h * k, fixed: a.sitting || a.kind === 'boat' || a.kind === 'minecart' };
+    });
+    separationPushes(bodies).forEach((p, i) => {
+      if (p.dx === 0 && p.dz === 0) return;
+      const c = list[i]!;
+      const nx = c.x + p.dx,
+        nz = c.z + p.dz;
+      const gy = this.groundAt(nx, nz, c.y);
+      if (gy !== null && Math.abs(gy - c.y) <= 1) {
+        c.x = nx;
+        c.z = nz;
+        c.y = gy;
+        c.dirty = true;
       }
-      bucket.push(a);
-    }
-    for (const a of list)
-      for (let ox = -1; ox <= 1; ox++)
-        for (let oz = -1; oz <= 1; oz++)
-          for (const b of cell.get(`${Math.floor(a.x) + ox},${Math.floor(a.z) + oz}`) ?? []) {
-            if (b.id <= a.id) continue;
-            const dx = b.x - a.x,
-              dz = b.z - a.z;
-            const d = Math.hypot(dx, dz);
-            if (d >= 0.9 || Math.abs(a.y - b.y) > 1.5) continue;
-            const push = (0.9 - d) / 2;
-            const ux = d > 0.01 ? dx / d : Math.cos(a.id * 1.7),
-              uz = d > 0.01 ? dz / d : Math.sin(a.id * 1.7);
-            for (const [c, sgn] of [
-              [a, -1],
-              [b, 1],
-            ] as const) {
-              const nx = c.x + ux * push * sgn,
-                nz = c.z + uz * push * sgn;
-              const gy = this.groundAt(nx, nz, c.y);
-              if (gy !== null && Math.abs(gy - c.y) <= 1) {
-                c.x = nx;
-                c.z = nz;
-                c.y = gy;
-                c.dirty = true;
-              }
-            }
-          }
+    });
   }
 
   /** 내 펫 전부 부르기 (#174): 앉은 것·풀어놓은 것도 따라오기로 바꾸고 옆에 세운다. 탄 말·원정 간 것은 빼고. 부른 수 */
@@ -373,7 +358,7 @@ export class AnimalSystem {
     this.lastStepAt = now;
     const players = this.hooks.players();
     for (const a of [...this.animals.values()]) if (!a.away && a.ridden === null) this.step(a, players, dt, now);
-    this.separate();
+    this.separate(now);
     // 야생이 목표보다 줄면 다시 생긴다 (10분마다, 가장 모자란 종류를 둘씩 무리로) (#106)
     if (this.lastRespawnAt > now) this.lastRespawnAt = now; // 시계가 거꾸로면(테스트·시간 조정) 지금부터
     if (now - this.lastRespawnAt >= RESPAWN_EVERY_MS && this.animals.size < ANIMALS_MAX) {

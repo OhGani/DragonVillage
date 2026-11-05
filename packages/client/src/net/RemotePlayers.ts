@@ -3,7 +3,7 @@
  * 서버 위치(20Hz)를 받아 부드럽게 따라간다 (지수 보간, 약 100ms 지연).
  * 인형 생김새는 `render/playerModel.ts` — 얼굴·머리카락·손·신발이 있고 색 16가지마다 다른 사람이다 (#86).
  */
-import { blockOf, DOOR_DIR, FLAG_RIDING, FLAG_SNEAK, type PlayerInfo, type PlayerStateEntry, type RidingInfo, skyOf, type SleepInfo } from '@dragon-village/shared';
+import { blockOf, DOOR_DIR, FLAG_RIDING, FLAG_SNEAK, type PlayerInfo, type PlayerStateEntry, type RidingInfo, type SepBody, skyOf, type SleepInfo } from '@dragon-village/shared';
 import { mountMesh, mountSeat } from '../render/DragonMesh';
 import { sanitizeEquipment } from '@dragon-village/shared';
 import { COMBAT } from '@dragon-village/shared/data';
@@ -172,6 +172,15 @@ export class RemotePlayers {
   positionOf(idx: number): { x: number; y: number; z: number } | null {
     const f = this.figures.get(idx);
     return f ? { x: f.cur.x, y: f.cur.y, z: f.cur.z } : null;
+  }
+
+  /** 겹치지 않게 (아빠 2026-11-05): (x, z) 에서 range 칸 안 다른 사람 몸 (누운 사람·탄 사람은 빼고). 서로 반씩 비킨다 */
+  bodiesNear(x: number, z: number, range: number, out: SepBody[]): void {
+    for (const f of this.figures.values()) {
+      if (f.sleeping || f.mount || f.target.flags & FLAG_RIDING) continue;
+      if (Math.abs(f.cur.x - x) > range || Math.abs(f.cur.z - z) > range) continue;
+      out.push({ x: f.cur.x, y: f.cur.y, z: f.cur.z, r: 0.3, h: 1.8 });
+    }
   }
 
   /** 침대에 눕기·일어나기 (#204) */

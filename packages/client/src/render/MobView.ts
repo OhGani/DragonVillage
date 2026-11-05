@@ -7,7 +7,7 @@
  * 거미 왕(M7-4)은 같은 거미 복셀을 2.2배로, 자줏빛 몸에 금 왕관. 잠들었을 땐 낮게 웅크리고, 소환할 땐 몸을 든다.
  * 동물(M8-1)은 `animalModel.ts` — 마인크래프트 비율·색 변종, 머리·다리·꼬리·날개를 따로 움직인다(걷기·풀 뜯기·꼬리·날개). 아기는 머리가 크다.
  */
-import { ANIMAL_FLAG, MOB_KIND_OF, MOB_STATE, type MobEntry, mobSize, ANIMAL_ID_BASE } from '@dragon-village/shared';
+import { ANIMAL_FLAG, MOB_KIND_OF, MOB_STATE, type MobEntry, mobSize, ANIMAL_ID_BASE, type SepBody } from '@dragon-village/shared';
 import { MOBS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { PLAYER_SHADES, type SkinPalette, VOXEL, playerVoxels } from './playerModel';
@@ -376,6 +376,16 @@ export class MobView {
   positionOf(id: number): { x: number; y: number; z: number } | null {
     const f = this.figures.get(id);
     return f ? { x: f.cur.x, y: f.cur.y + mobSize(f.kind).h * 0.5 * (f.state & ANIMAL_FLAG.baby ? 0.5 : 1), z: f.cur.z } : null;
+  }
+
+  /** 겹치지 않게 (아빠 2026-11-05): (x, z) 에서 range 칸 안 몹·동물 몸을 out 에 넣는다. 서버가 움직이니 fixed — 내가 다 비킨다 */
+  bodiesNear(x: number, z: number, range: number, out: SepBody[]): void {
+    for (const f of this.figures.values()) {
+      if (Math.abs(f.cur.x - x) > range || Math.abs(f.cur.z - z) > range) continue;
+      const s = mobSize(f.kind);
+      const k = f.animal && f.state & ANIMAL_FLAG.baby ? 0.5 : 1;
+      out.push({ x: f.cur.x, y: f.cur.y, z: f.cur.z, r: (s.w / 2) * k, h: s.h * k, fixed: true });
+    }
   }
 
   /** 화살 연출 (M8-2): 눈에서 몹까지 가느다란 막대가 날아간다 */

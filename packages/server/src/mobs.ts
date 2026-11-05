@@ -46,7 +46,7 @@ import {
   pickSpawn,
   rollDrops,
   spawnKinds,
-  stepMob, isLookingAt, hash3, isZombieKind, zombieVillagerRoll, CURE_MS, CURE_REWARD, MOB_POISON_EVERY_MS, MOB_SLOW_MUL, MOB_WEAK_MUL, SPLASH_RADIUS, type PotionOutcome } from '@dragon-village/shared';
+  stepMob, isLookingAt, hash3, separationPushes, type SepBody, isZombieKind, zombieVillagerRoll, CURE_MS, CURE_REWARD, MOB_POISON_EVERY_MS, MOB_SLOW_MUL, MOB_WEAK_MUL, SPLASH_RADIUS, type PotionOutcome } from '@dragon-village/shared';
 
 /** 몹이 도는 무대 — 원정지(Expedition) 또는 마을(방어전) */
 export interface MobArena {
@@ -380,8 +380,40 @@ export class MobSystem {
           else m.state = MOB_STATE.walk;
         } else stepMob(m, def, null, dt, now, this.groundAt);
       }
+      this.separate(now);
     }
     if (!this.opts.quiet) this.hooks.broadcast(encodeMobsState(this.entries()));
+  }
+
+  /**
+   * 서로 겹치지 않게 (아빠 2026-11-05 "몹, 캐릭터는 서로 겹치지 않게"): 몹·동행 펫·지킴이끼리 몸 폭만큼 밀어낸다.
+   * 큰 몸(거미 왕·철 골렘)은 덜 밀리고, 잠든 보스·돌아오는 좀비 주민·말 거는 중인 주민은 안 밀린다.
+   * 떠 있는 몹(가스트·엔더 드래곤)은 빼고, 밀린 자리에 설 땅이 없거나 한 칸 넘게 높낮이가 다르면 그대로 (절벽·용암으로 안 밀린다)
+   */
+  private separate(now: number): void {
+    const ents: { x: number; y: number; z: number }[] = [];
+    const bodies: SepBody[] = [];
+    const add = (e: { x: number; y: number; z: number }, kind: MobKind, fixed: boolean): void => {
+      if (this.defs.get(kind).hover) return;
+      const s = mobSize(kind);
+      ents.push(e);
+      bodies.push({ x: e.x, y: e.y, z: e.z, r: s.w / 2, h: s.h, mass: s.w * s.w * s.h, fixed });
+    };
+    for (const m of this.mobs.values()) add(m, m.kind, (m === this.boss && !this.bossAwake) || m.cureAt !== undefined || (m.busyUntil ?? 0) > now);
+    for (const c of this.companions.values()) add(c, c.kind, false);
+    if (bodies.length < 2) return;
+    separationPushes(bodies).forEach((p, i) => {
+      if (p.dx === 0 && p.dz === 0) return;
+      const e = ents[i]!;
+      const nx = e.x + p.dx,
+        nz = e.z + p.dz;
+      const gy = this.groundAt(nx, nz, e.y);
+      if (gy !== null && Math.abs(gy - e.y) <= 1) {
+        e.x = nx;
+        e.z = nz;
+        e.y = gy;
+      }
+    });
   }
 
   /** 보스: 가까이 오면 깨어나고, 깨어 있으면 주기마다 부하를 부른다 */

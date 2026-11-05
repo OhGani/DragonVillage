@@ -15,7 +15,7 @@ import {
   RIDE_SEAT_Y,
   tryStepUp,
   type Vec3,
-  type VoxelWorld, CART_SEAT_Y, advanceCart, type CartState } from '@dragon-village/shared';
+  type VoxelWorld, CART_SEAT_Y, advanceCart, type CartState, pushOutOf, type SepBody } from '@dragon-village/shared';
 import type * as THREE from 'three';
 import type { InputState } from '../input/InputState';
 
@@ -93,6 +93,13 @@ export class Player {
   /** 걷기 주기 (라디안) — 손·카메라 흔들림용 */
   walkCycle = 0;
   horizontalSpeed = 0;
+  /**
+   * 겹치지 않게 (아빠 2026-11-05 "몹, 캐릭터는 서로 겹치지 않게"): 근처 몹·동물·다른 사람 몸. Game 이 매 프레임 넣는다.
+   * fixed(몹·동물 — 서버가 움직인다)는 내가 다 비키고, 다른 사람과는 반씩. 탈것을 타거나 누웠을 땐 안 본다
+   */
+  obstacles: readonly SepBody[] = [];
+  private readonly pushVel: Vec3 = { x: 0, y: 0, z: 0 };
+  private readonly pushOut: MoveResult = { onGround: false, hitX: false, hitY: false, hitZ: false, hitCeiling: false };
   /** 자동 턱 오르기 뒤 카메라 보정(음수 → 0 으로 수렴). 몸은 바로 올라가고 눈은 부드럽게 따라온다 */
   private stepCamOffset = 0;
   private accumulator = 0;
@@ -330,6 +337,16 @@ export class Player {
         vel.y = 0;
         this.onGround = true;
         this.stepCamOffset -= r.dy;
+      }
+    }
+    if (seat === 0 && !this.riding && this.obstacles.length) {
+      // 몸끼리 밀어내기: 벽은 그대로 막히게 moveBody 로 옮긴다 (몹에 밀려 벽 속으로 안 들어간다)
+      const p = pushOutOf({ x: pos.x, y: pos.y, z: pos.z, r: PLAYER_SIZE.w / 2, h: PLAYER_SIZE.h }, this.obstacles, (o) => (o.fixed ? 1 : 0.5));
+      if (p.dx !== 0 || p.dz !== 0) {
+        this.pushVel.x = p.dx / h;
+        this.pushVel.y = 0;
+        this.pushVel.z = p.dz / h;
+        moveBody(this.isSolid, pos, PLAYER_SIZE, this.pushVel, h, this.pushOut);
       }
     }
     pos.y += seat; // 탈것 상자 → 다시 내 발 높이 (#178)

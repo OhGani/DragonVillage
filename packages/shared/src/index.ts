@@ -33,6 +33,7 @@ export * from './chunk/world';
 export * from './chunk/serialize';
 export * from './physics/raycast';
 export * from './physics/aabb';
+export * from './physics/separation';
 export * from './math/prng';
 export * from './fluid/fluidSim';
 export * from './light/lightEngine';

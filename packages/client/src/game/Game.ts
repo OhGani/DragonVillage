@@ -85,7 +85,7 @@ import {
   xpProgress,
   raycastVoxels,
   CRYSTAL_SHOT_RANGE,
-  countOf, parseEnchanted, countBookshelves, CART_SEAT_Y, CURE_ITEM, MOB_STATE } from '@dragon-village/shared';
+  countOf, parseEnchanted, countBookshelves, CART_SEAT_Y, CURE_ITEM, MOB_STATE, type SepBody } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP, TRADES, ENCHANTS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { beam as beamSound, bell, ding, explosion as explosionSound, fireworkLaunch, fireworkPop, hit as hitSound, hurt as hurtSound, levelUp, lose, roar } from '../audio/sound';
@@ -361,6 +361,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   let bossInfo: { x: number; z: number; hp: number; kind: MobKind } | null = null;
   // 원정 몹 (M7-2): 서버 상태를 그리고, 조준한 몹을 탭/클릭하면 때린다
   const mobView = new MobView(scene);
+  const bodies: SepBody[] = [];
   mobView.onFireHit = () => fireworkPop(); // 가스트·블레이즈 불덩이가 터지는 소리 (#215)
   let hitCooldown = 0;
   let stamina: { value: number; max: number; at: number; readyAt: number } | null = null;
@@ -1772,6 +1773,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     interaction.heldItem = hud.selectedItem;
 
     player.carrotStick = hud.selectedItem === CARROT_ON_A_STICK; // 돼지 조종 (#185)
+    // 겹치지 않게 (아빠 2026-11-05): 6칸 안 몹·동물·다른 사람 몸
+    bodies.length = 0;
+    mobView.bodiesNear(player.pos.x, player.pos.z, 6, bodies);
+    remote.bodiesNear(player.pos.x, player.pos.z, 6, bodies);
+    player.obstacles = bodies;
     player.update(inp, dt);
     // 몹을 조준하고 있으면 탭/클릭은 때리기 (블록은 안 부순다)
     hitCooldown = Math.max(0, hitCooldown - dt);

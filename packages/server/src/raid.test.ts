@@ -178,6 +178,8 @@ describe('마을 방어전 (M7-5)', () => {
     // 사람들은 멀리, 우민 하나를 깃대 옆에
     for (const r of [ra, rb]) room.onMove(r.idx, { x: 64.5, y: GROUND_Y + 1, z: 110.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, t);
     const m = [...sys.mobs.values()][0]!;
+    // 다른 우민도 뺀다: 몹끼리 밀어내기(2026-11-05) 뒤로는 깃대에 한 점으로 뭉치지 않아, 4칸 옆에 선 아빠를 쫓아가 쓰러뜨린다 (점령 규칙 시험이 아니게 된다)
+    for (const id of [...sys.mobs.keys()]) if (id !== m.id) sys.mobs.delete(id);
     const hold = () => {
       m.x = RAID_GOAL.x;
       m.z = RAID_GOAL.z;
