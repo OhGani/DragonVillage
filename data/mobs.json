@@ -1018,7 +1018,32 @@
       "tameWith": [
         "salmon",
         "cod"
-      ]
+      ],
+      "breedWith": [
+        "cod",
+        "salmon"
+      ],
+      "drops": [
+        [
+          "string",
+          [
+            0,
+            2
+          ],
+          1.0
+        ]
+      ],
+      "xp": 1,
+      "gifts": [
+        ["rabbit_foot", 5],
+        ["rabbit_hide", 5],
+        ["string", 5],
+        ["chicken", 5],
+        ["feather", 5],
+        ["rotten_flesh", 5],
+        ["phantom_membrane", 1]
+      ],
+      "_note": "구현 2026-11-06: 마을 주민 집 둘레에 5마리, 털 11가지(번호로). 사람을 피하고(대구·연어를 들면 다가온다), 대구·연어를 들고 탭 → 1/3 로 길들임. 길들인 둘에게 대구·연어 → 아기. 크리퍼는 고양이 6칸 안에 못 온다. 주인이 침대에서 자고 일어나면 70% 로 gifts 중 하나를 준다 (숫자 = 무게, 팬텀 막은 드물게)"
     },
     {
       "id": "goat",

@@ -13,7 +13,7 @@ import { hash3 } from '../math/prng';
 import type { MobKind } from './mobs';
 
 /** 동물 종류 (mobs.json passive id). dog = 강아지(늑대) */
-export const ANIMAL_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'boat', 'minecart'];
+export const ANIMAL_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'boat', 'minecart', 'cat'];
 export function isAnimal(kind: MobKind): boolean {
   return ANIMAL_KINDS.includes(kind);
 }
@@ -81,8 +81,8 @@ export const HOME_RANGE = 24;
 export const TAME_CHANCE = 0.34;
 /** 종류별 야생 목표 수 (처음 뿌리는 수 = 모자라면 채우는 기준. 길들인 것은 세지 않는다). 아빠 2026-09-24: 19 → "너무 많다" 11 → "안 보인다" 무리 16 */
 /** 종류별 야생 목표 — 아들 13차 답(2026-10-07, #129) "25마리로 늘려줘" (전엔 3·3·3·4·3 = 16) */
-export const INITIAL_ANIMALS: Readonly<Partial<Record<MobKind, number>>> = { cow: 5, pig: 5, sheep: 5, chicken: 6, dog: 4, horse: 3, villager: 6 }; // 주민 3 → 6 (집마다 둘, #229 아빠 "주민 수 좀 늘려 줘")
-export const ANIMALS_MAX = 40;
+export const INITIAL_ANIMALS: Readonly<Partial<Record<MobKind, number>>> = { cow: 5, pig: 5, sheep: 5, chicken: 6, dog: 4, horse: 3, villager: 6, cat: 5 }; // 고양이 5 (2026-11-06, 마인크래프트 마을 고양이 최대 5) // 주민 3 → 6 (집마다 둘, #229 아빠 "주민 수 좀 늘려 줘")
+export const ANIMALS_MAX = 45; // 고양이 5 더함 (2026-11-06)
 /** 모자란 종류를 채우는 간격 · 한 번에 생기는 수 */
 export const RESPAWN_EVERY_MS = 10 * 60_000;
 export const RESPAWN_BATCH = 2;
@@ -103,6 +103,39 @@ export const EGG_MAX = 3;
 export function animalMaxHp(base: number, kind: MobKind, tamed: boolean): number {
   if (kind === 'dog' && tamed) return 20;
   return base;
+}
+
+/**
+ * 고양이 (2026-11-06, 아빠가 보낸 마인크래프트 고양이 그림 11가지 + 위키 설명).
+ * - 마을 주민 집 둘레에 산다(숲이 아니라). 길들이지 않은 고양이는 사람을 피한다 — CAT_SHY_R 안에 오면 CAT_FLEE 칸 떨어지게 달아난다.
+ *   단, 대구·연어를 들고 있으면 피하지 않고 다가온다(먹이 따라오기).
+ * - 대구·연어를 들고 탭 → 1/3 확률로 길들임(강아지와 같다). 길들이면 빨간 목걸이, 주인을 따라다니고, 빈손 탭으로 앉기·풀어놓기.
+ * - 길들인 어른 둘에게 대구·연어를 주면 아기 고양이 — 아기도 같은 주인의 고양이.
+ * - 크리퍼는 고양이를 무서워해 CREEPER_CAT_R 칸 안에 고양이가 있으면 터지지 않고 달아난다.
+ * - 주인이 침대에서 CAT_GIFT_SLEEP_MS 넘게 자고 일어나면, 곁(CAT_GIFT_R)의 내 고양이가 CAT_GIFT_CHANCE 확률로 선물(mobs.json cat gifts)을 준다. 한 사람에게 CAT_GIFT_COOLDOWN_MS 에 한 번.
+ */
+export const CAT_SHY_R = 6;
+export const CAT_FLEE = 10;
+export const CREEPER_CAT_R = 6;
+export const CAT_GIFT_CHANCE = 0.7;
+export const CAT_GIFT_SLEEP_MS = 10_000;
+export const CAT_GIFT_R = 16;
+export const CAT_GIFT_COOLDOWN_MS = 5 * 60_000;
+/** 고양이 털 11가지 (마인크래프트 자바판 순서) — 동물 번호로 정해져 모두에게 같은 고양이 */
+export const CAT_COATS = ['tabby', 'tuxedo', 'red', 'siamese', 'british', 'calico', 'persian', 'ragdoll', 'white', 'jellie', 'black'] as const;
+export type CatCoat = (typeof CAT_COATS)[number];
+export const CAT_COAT_NAMES: Record<CatCoat, string> = { tabby: '얼룩 고양이', tuxedo: '턱시도 고양이', red: '치즈 고양이', siamese: '샴고양이', british: '브리티시 쇼트헤어', calico: '삼색 고양이', persian: '페르시안', ragdoll: '래그돌', white: '흰 고양이', jellie: '젤리 고양이', black: '검은 고양이' };
+
+/** 고양이 선물 뽑기 (결정론: 시드·사람·몇 번째 잠). 안 주면 null */
+export function catGiftRoll(gifts: readonly { item: string; weight: number }[], seed: number, who: number, n: number): string | null {
+  if (gifts.length === 0 || hash3(who, n, 51, seed) >= CAT_GIFT_CHANCE) return null;
+  const total = gifts.reduce((s, g) => s + g.weight, 0);
+  let r = hash3(who, n, 52, seed) * total;
+  for (const g of gifts) {
+    r -= g.weight;
+    if (r < 0) return g.item;
+  }
+  return gifts[gifts.length - 1]!.item;
 }
 
 /** 걷기 목표 뽑기 (결정론: 시드·id·차례). 지금 자리에서 WANDER_RANGE 안, 집에서 HOME_RANGE 안으로 당긴다 */

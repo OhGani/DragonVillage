@@ -44,7 +44,7 @@ const CREEPER_GREEN = 0x4caf50;
 /** 사람 모양 몹 키 (좀비 주민 연출 글자 높이, #244) */
 const MOB_SIZE_H = 1.9;
 const SPIDER_DARK = 0x2a2320;
-const ANIMAL_NAMES = new Set(['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'boat', 'minecart']); // 보트·수레도 동물 체계로 그린다 (#209·#237)
+const ANIMAL_NAMES = new Set(['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'boat', 'minecart', 'cat']); // 보트·수레도 동물 체계로 그린다 (#209·#237)
 /** 원정 사냥 동물 (2026-11-05): 동물처럼 부위로 그리지만 상태는 몹 규칙(MOB_STATE)이라 따로 움직인다 */
 const WILD_NAMES = new Set<string>(WILD_MODEL_KINDS);
 const KING_DARK = 0x3a2344;
@@ -634,7 +634,7 @@ export class MobView {
         f.bar.sprite.visible = m.hp < f.maxHp; // 동물은 다쳤을 때만 체력 바
         const tamed = (m.state & ANIMAL_FLAG.tamed) !== 0;
         if (tamed && !f.collar) {
-          f.collar = partMesh(collarVoxels(), new THREE.MeshBasicMaterial({ vertexColors: true }));
+          f.collar = partMesh(collarVoxels(MOB_KIND_OF[m.kind] ?? 'dog'), new THREE.MeshBasicMaterial({ vertexColors: true }));
           f.body.add(f.collar);
         }
       }
@@ -669,6 +669,10 @@ export class MobView {
       else if (ev === 'milk') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '🥛', '#ffffff', now);
       else if (ev === 'free') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '자유!', '#ffeb3b', now);
       else if (ev === 'follow') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '따라가요', '#ffffff', now);
+    } else if (ev === 'gift') {
+      this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '🎁', '#ffffff', now); // 고양이 선물 (2026-11-06)
+    } else if (ev === 'hiss') {
+      this.popText(x, y + 1.0, z, '하악!', '#ff8a65', now); // 크리퍼를 쫓는 고양이 (2026-11-06)
     } else if (ev === 'teleport' && f) {
       // 엔더맨 순간이동 (#222): 있던 자리와 새 자리에 보랏빛 가루, 인형은 바로 옮긴다
       this.burst(f.cur.x, f.cur.y + 1.2, f.cur.z, 0xb388ff, 14, now);
@@ -715,7 +719,7 @@ export class MobView {
     });
     if (f.head) {
       let nod = moving ? Math.sin(f.walk * 2) * 0.06 : 0;
-      if (!moving && !sitting && kindName !== 'dog') {
+      if (!moving && !sitting && kindName !== 'dog' && kindName !== 'cat') {
         const ph = t % 7; // 7초마다 1.8초 풀 뜯기
         if (ph < 1.8) nod -= (kindName === 'chicken' ? 0.5 : 0.75) * Math.sin((ph / 1.8) * Math.PI);
       }
@@ -726,6 +730,10 @@ export class MobView {
       if (kindName === 'dog') {
         f.tail.rotation.x = sitting ? -0.35 : tamed ? -2.2 : -0.9; // 길들이면 꼬리를 세운다
         f.tail.rotation.z = tamed || moving ? Math.sin(t * 9) * 0.45 : 0;
+      } else if (kindName === 'cat') {
+        // 고양이 (2026-11-06): 걸을 땐 꼬리를 낮게 뒤로, 서 있으면 살랑, 앉으면 바닥에 내려놓는다
+        f.tail.rotation.x = sitting ? 0.9 : moving ? 0.35 : -0.25 + Math.sin(t * 1.3) * 0.15;
+        f.tail.rotation.y = sitting ? 0 : Math.sin(t * (moving ? 6 : 1.8)) * 0.3;
       } else {
         f.tail.rotation.x = 0.15;
         f.tail.rotation.z = Math.sin(t * 2.2) * 0.25; // 파리 쫓기
@@ -734,7 +742,7 @@ export class MobView {
     f.wings.forEach((w, i) => {
       w.rotation.z = (i === 0 ? -1 : 1) * (moving ? Math.abs(Math.sin(f.walk * 3)) * 0.9 : 0);
     });
-    f.body.position.y = sitting ? -0.14 : 0;
+    f.body.position.y = sitting ? (kindName === 'cat' ? -0.08 : -0.14) : 0;
   }
 
   /** 사냥 동물 (2026-11-05): 다리는 대각선 짝, 덤빌 땐 머리를 숙여 들이받고 꼬리(방울뱀 방울)를 빠르게 떤다, 서 있으면 가끔 풀 뜯기 */

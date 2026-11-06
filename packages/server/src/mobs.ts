@@ -46,7 +46,7 @@ import {
   pickSpawn,
   rollDrops,
   spawnKinds,
-  stepMob, isLookingAt, hash3, separationPushes, type SepBody, isMobKind, isWild, WILD_FLEE_MS, WILD_HERD_R, WILD_LEASH, PUFF_R, isZombieKind, zombieVillagerRoll, CURE_MS, CURE_REWARD, MOB_POISON_EVERY_MS, MOB_SLOW_MUL, MOB_WEAK_MUL, SPLASH_RADIUS, type PotionOutcome } from '@dragon-village/shared';
+  stepMob, isLookingAt, hash3, separationPushes, type SepBody, isMobKind, isWild, WILD_FLEE_MS, WILD_HERD_R, WILD_LEASH, PUFF_R, CREEPER_CAT_R, isZombieKind, zombieVillagerRoll, CURE_MS, CURE_REWARD, MOB_POISON_EVERY_MS, MOB_SLOW_MUL, MOB_WEAK_MUL, SPLASH_RADIUS, type PotionOutcome } from '@dragon-village/shared';
 
 /** 몹이 도는 무대 — 원정지(Expedition) 또는 마을(방어전) */
 export interface MobArena {
@@ -619,6 +619,29 @@ export class MobSystem {
             continue;
           }
         }
+        if (m.kind === 'creeper') {
+          // 크리퍼는 고양이를 무서워한다 (2026-11-06): 따라온 고양이가 CREEPER_CAT_R 안이면 심지를 끄고 반대쪽으로 달아난다
+          let cat: { x: number; z: number } | null = null,
+            cd: number = CREEPER_CAT_R;
+          for (const c of this.companions.values()) {
+            if (c.kind !== 'cat') continue;
+            const d = Math.hypot(c.x - m.x, c.z - m.z);
+            if (d < cd) {
+              cd = d;
+              cat = c;
+            }
+          }
+          if (cat) {
+            const d = cd || 1;
+            m.fuseAt = 0;
+            stepMob(m, { ...def, speed: def.speed * 1.2, reach: 0, fuseMs: 0 }, { x: m.x + ((m.x - cat.x) / d) * 4, y: m.y, z: m.z + ((m.z - cat.z) / d) * 4 }, dt, now, this.groundAt);
+            if (now - (m.hissAt ?? 0) > 3000) {
+              m.hissAt = now;
+              this.hooks.json({ t: 'mob', ev: 'hiss', id: m.id, mob: m.kind, x: cat.x, y: m.y, z: cat.z });
+            }
+            continue;
+          }
+        }
         if (target) {
           const ev = stepMob(m, m.grudge !== undefined ? { ...def, damage: GRUDGE_DAMAGE, attackEveryMs: GRUDGE_ATTACK_MS } : def, target, dt, now, this.groundAt);
           if (ev === 'attack') {
@@ -850,6 +873,7 @@ export class MobSystem {
       // 주인 근처(또는 내 근처) 가장 가까운 몹 — 잠든 보스는 건드리지 않는다
       let prey: MobState | null = null;
       let best = guard ? GUARD_AGGRO : PET_AGGRO;
+      if (c.kind !== 'cat') // 고양이는 안 문다 — 대신 크리퍼가 무서워한다 (2026-11-06)
       for (const m of this.mobs.values()) {
         if (m === this.boss && !this.bossAwake) continue;
         if (m.cureAt !== undefined || m.kind === 'villager') continue; // 주민·돌아오는 중인 좀비 주민은 안 문다 (#244)

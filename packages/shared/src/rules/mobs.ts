@@ -18,12 +18,12 @@ import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
 import { hash3 } from '../math/prng';
 
-export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat' | 'snow_golem' | 'minecart' | 'zombie_villager' | 'gorilla' | 'giant_gorilla' | 'warden' | 'giant_warden' | 'gazelle' | 'raccoon' | 'roadrunner' | 'rattlesnake' | 'bison' | 'moose' | 'grizzly' | 'capuchin' | 'salmon' | 'cod' | 'tropical_fish' | 'pufferfish';
-export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish'];
-export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24, snow_golem: 25, minecart: 26, zombie_villager: 27, gorilla: 28, giant_gorilla: 29, warden: 30, giant_warden: 31, gazelle: 32, raccoon: 33, roadrunner: 34, rattlesnake: 35, bison: 36, moose: 37, grizzly: 38, capuchin: 39, salmon: 40, cod: 41, tropical_fish: 42, pufferfish: 43 };
-export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish'];
+export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat' | 'snow_golem' | 'minecart' | 'zombie_villager' | 'gorilla' | 'giant_gorilla' | 'warden' | 'giant_warden' | 'gazelle' | 'raccoon' | 'roadrunner' | 'rattlesnake' | 'bison' | 'moose' | 'grizzly' | 'capuchin' | 'salmon' | 'cod' | 'tropical_fish' | 'pufferfish' | 'cat';
+export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'cat'];
+export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24, snow_golem: 25, minecart: 26, zombie_villager: 27, gorilla: 28, giant_gorilla: 29, warden: 30, giant_warden: 31, gazelle: 32, raccoon: 33, roadrunner: 34, rattlesnake: 35, bison: 36, moose: 37, grizzly: 38, capuchin: 39, salmon: 40, cod: 41, tropical_fish: 42, pufferfish: 43, cat: 44 };
+export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'cat'];
 /** 순한 동물 (마을, M8-1). 규칙은 animals.ts */
-const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart']; // 보트도 passive 목록에서 드롭을 읽는다 (#209)
+const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'cat']; // 보트도 passive 목록에서 드롭을 읽는다 (#209)
 
 /**
  * 원정 사냥 동물 (아빠 2026-11-05 "원정에서 몹을 사냥할 수 있게", Alex's Mobs 참고 1차 8마리).
@@ -113,6 +113,8 @@ export interface MobDef {
   readonly food: readonly string[];
   /** 길들이는 아이템 (mobs.json tameWith) */
   readonly tameWith: readonly string[];
+  /** 고양이 선물 (2026-11-06, mobs.json passive gifts): 주인이 자고 일어나면 이 중 하나를 무게대로 */
+  readonly gifts?: readonly { item: string; weight: number }[];
 }
 
 // 공격 간격은 2026-10-17 아들 "몹들의 공격 속도가 너무 빨라" 로 1.5배 늘림 (#187): 좀비류 1.2초 → 1.8초, 거미 1.0 → 1.5, 활 2.0 → 2.8, 블레이즈 2.5 → 3.5, 가스트 3 → 4, 드래곤 2 → 3
@@ -134,6 +136,7 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   sheep: { id: 'sheep', hp: 8, damage: 0, speed: 1.8, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   chicken: { id: 'chicken', hp: 4, damage: 0, speed: 1.6, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   dog: { id: 'dog', hp: 8, damage: 0, speed: 2.6, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  cat: { id: 'cat', hp: 10, damage: 0, speed: 2.8, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 }, // 고양이 (2026-11-06): 마을에, 사람을 피하고, 대구·연어로 길들인다
   // 사막 (v1.1-1, #157): 허스크는 모래색 좀비(조금 느리다). 엔더맨은 키 크고 빠르지만 순간이동은 없다 — 엔더 진주 출처
   husk: { id: 'husk', hp: 20, damage: 4, speed: 2.1, reach: 1.6, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   enderman: { id: 'enderman', hp: 40, damage: 5, speed: 3.0, reach: 1.8, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0, neutral: true }, // 중립 (#162): 엔드 도착하자마자 죽던 것
@@ -184,8 +187,9 @@ const RawPassive = z
   .object({
     id: z.string(),
     name: z.string(),
-    breedWith: z.string().optional(),
-    followsWhenHolding: z.string().optional(),
+    breedWith: z.union([z.string(), z.array(z.string())]).optional(),
+    followsWhenHolding: z.union([z.string(), z.array(z.string())]).optional(),
+    gifts: z.array(z.tuple([z.string(), z.number()])).optional(),
     tameWith: z.union([z.string(), z.array(z.string())]).optional(),
     drops: z.array(z.tuple([z.string(), z.tuple([z.number(), z.number()]), z.number()]).rest(z.unknown())).optional(),
     xp: z.union([z.number(), z.tuple([z.number(), z.number()])]).optional(),
@@ -285,7 +289,7 @@ export function parseMobs(raw: unknown, xpByMob: ReadonlyMap<string, readonly [n
     }
     if (PASSIVE_KINDS.includes(kind)) {
       const src = (result.data.passive ?? []).find((h) => h.id === kind);
-      const food = [...new Set([src?.breedWith, src?.followsWhenHolding, ...(kind === 'chicken' ? ['pumpkin_seeds', 'melon_seeds'] : [])].filter((x): x is string => typeof x === 'string'))];
+      const food = [...new Set([src?.breedWith, src?.followsWhenHolding, ...(kind === 'chicken' ? ['pumpkin_seeds', 'melon_seeds'] : [])].flat().filter((x): x is string => typeof x === 'string'))];
       const tame = src?.tameWith === undefined ? [] : Array.isArray(src.tameWith) ? src.tameWith : [src.tameWith];
       const xpRange = xpByMob?.get(kind);
       defs[kind] = {
@@ -296,6 +300,7 @@ export function parseMobs(raw: unknown, xpByMob: ReadonlyMap<string, readonly [n
         passive: true,
         food,
         tameWith: tame,
+        ...(src?.gifts ? { gifts: src.gifts.map(([item, weight]) => ({ item, weight })) } : {}),
       };
       continue;
     }
@@ -343,6 +348,7 @@ export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = {
   sheep: { w: 0.9, h: 1.3 },
   chicken: { w: 0.4, h: 0.7 },
   dog: { w: 0.6, h: 0.85 },
+  cat: { w: 0.6, h: 0.7 },
   husk: MOB_SIZE,
   enderman: { w: 0.6, h: 2.9 },
   stray: MOB_SIZE,
@@ -436,6 +442,8 @@ export interface MobState {
   lastAttackAt: number;
   /** 중립 몹(좀비 피글린): 이 시각까지 화나 있다 — 맞으면 20초 (#161) */
   angryUntil?: number;
+  /** 크리퍼가 고양이에게 하악질 들은 시각 (2026-11-06) */
+  hissAt?: number;
   /** 철 골렘 (#221): 이 사람만 쫓는다(주민을 때린 사람). despawnAt 이 지나면 사라진다 */
   grudge?: number;
   despawnAt?: number;

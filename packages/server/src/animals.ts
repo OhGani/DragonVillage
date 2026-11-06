@@ -14,6 +14,11 @@ import {
   type BlockRegistry,
   BREED_COOLDOWN_MS,
   BREED_RANGE,
+  CAT_FLEE,
+  CAT_GIFT_COOLDOWN_MS,
+  CAT_GIFT_R,
+  CAT_SHY_R,
+  catGiftRoll,
   EGG_EVERY_MS,
   EGG_ITEM,
   EGG_MAX,
@@ -223,6 +228,7 @@ export class AnimalSystem {
   /** 같은 종류 n 마리를 한 무리로: 첫 마리 자리 곁(HERD_SPREAD)에 나머지. 곁에 못 서면 따로 선다. 돌려주는 값 = 실제로 생긴 수 */
   private spawnHerd(kind: MobKind, n: number, i: number, now: number): number {
     if (kind === 'villager') return this.spawnVillagers(n, now); // 주민은 숲이 아니라 집 앞에 (#168)
+    if (kind === 'cat') return this.spawnCats(n, now); // 고양이는 마을(주민 집 둘레)에 (2026-11-06)
     const first = this.spawnWild(kind, i, now);
     if (!first) return 0;
     let made = 1;
@@ -304,6 +310,29 @@ export class AnimalSystem {
     const y = this.groundAt(x, z, GROUND_Y + 4) ?? GROUND_Y + 1;
     this.add({ kind: 'villager', x, y, z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: x, homeZ: z, woolAt: 0, eggs: 0, lastEggAt: now, name: BLACKSMITH_NAME }, now);
     this.hooks.log('대장장이가 대장간 앞에 왔어요');
+  }
+
+  /** 고양이 (2026-11-06): 주민 집 문 앞에서 2~5칸 떨어진 곳에 하나씩, 집을 돌아가며. 그 자리가 집(산책 둘레) */
+  private spawnCats(n: number, now: number): number {
+    let made = 0;
+    for (let k = 0; k < n; k++) {
+      const i = this.countOf('cat') + k;
+      const door = villagerSpot(i);
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const ang = ((i * 5 + attempt * 3) % 12) * (Math.PI / 6);
+        const d = 2 + (attempt % 4);
+        const x = Math.floor(door.x + Math.cos(ang) * d) + 0.5,
+          z = Math.floor(door.z + Math.sin(ang) * d) + 0.5;
+        const y = this.groundAt(x, z, GROUND_Y + 4);
+        if (y === null) continue;
+        const under = this.registry.get(this.world.getBlock(Math.floor(x), y - 1, Math.floor(z))).id;
+        if (under !== 'grass' && under !== 'dirt' && under !== 'grass_path' && under !== 'gravel') continue; // 땅 위에만 (지붕 위 말고)
+        this.add({ kind: 'cat', x, y, z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: x, homeZ: z, woolAt: 0, eggs: 0, lastEggAt: now, name: null }, now);
+        made++;
+        break;
+      }
+    }
+    return made;
   }
 
   /** 주민 (#168): 집 문 앞에 하나씩. 집은 세 채, 집마다 한 명씩 돌아가며 */
@@ -471,6 +500,24 @@ export class AnimalSystem {
       }
     }
     let speed = def.speed;
+    if (!goal && a.kind === 'cat' && a.owner === null) {
+      // 길들이지 않은 고양이 (2026-11-06): 사람이 CAT_SHY_R 안에 오면 CAT_FLEE 칸 떨어지게 달아난다 (대구·연어를 들었으면 위에서 따라온다)
+      let near: AnimalViewer | null = null,
+        nd: number = CAT_SHY_R;
+      for (const p of players) {
+        const d = Math.hypot(p.x - a.x, p.z - a.z);
+        if (d < nd) {
+          nd = d;
+          near = p;
+        }
+      }
+      if (near) {
+        const d = nd || 1;
+        const run = CAT_FLEE - nd + 1;
+        goal = { x: a.x + ((a.x - near.x) / d) * run, z: a.z + ((a.z - near.z) / d) * run, stop: 0.3 };
+        speed *= 1.3;
+      }
+    }
     const roams = a.kind === 'villager' && a.name !== BLACKSMITH_NAME; // 주민은 마을 전체를 돌아다닌다 (#210). 대장장이는 대장간 앞에
     if (!goal) {
       speed *= roams ? VILLAGER_SPEED_MULT : WANDER_SPEED_MULT;
@@ -553,7 +600,8 @@ export class AnimalSystem {
     const x = (a.x + b.x) / 2,
       z = (a.z + b.z) / 2;
     const y = this.groundAt(x, z, a.y) ?? a.y;
-    const baby = this.add({ kind: a.kind, x, y, z, bornAt: now, adultAt: now + BABY_MS, owner: null, sitting: false, homeX: a.homeX, homeZ: a.homeZ, woolAt: 0, eggs: 0, lastEggAt: now, name: null }, now);
+    const owner = a.kind === 'cat' && a.owner !== null && a.owner === b.owner ? a.owner : null; // 길들인 고양이 둘의 아기는 같은 주인의 고양이 (2026-11-06)
+    const baby = this.add({ kind: a.kind, x, y, z, bornAt: now, adultAt: now + BABY_MS, owner, sitting: false, homeX: a.homeX, homeZ: a.homeZ, woolAt: 0, eggs: 0, lastEggAt: now, name: null }, now);
     this.hooks.json({ t: 'mob', ev: 'love', id: ANIMAL_ID_BASE + baby.id, mob: baby.kind, x, y, z });
     this.hooks.log(`${this.defs.get(a.kind).name} 아기가 태어났어요`);
   }
@@ -652,6 +700,7 @@ export class AnimalSystem {
       this.hooks.json({ t: 'mob', ev: 'egg', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
       return null;
     }
+    if (held && a.owner === null && def.tameWith.includes(held) && def.food.includes(held)) return this.tryTame(a, p, held); // 고양이 (2026-11-06): 길들이지 않은 고양이에게 생선 = 길들이기 (사랑은 길들인 뒤)
     if (held && def.food.includes(held)) {
       if (!this.hooks.consume(p.idx, held)) return 'NOT_FOOD';
       if (this.isBaby(a, now)) {
@@ -678,20 +727,7 @@ export class AnimalSystem {
       this.hooks.log(`${def.name}에 안장을 씌웠어요 — 이제 ${p.idx}번의 말`);
       return null;
     }
-    if (held && a.owner === null && def.tameWith.includes(held)) {
-      if (!this.hooks.consume(p.idx, held)) return 'NOT_FOOD';
-      a.tameAttempts++;
-      if (tameRoll(this.seed, a.id, a.tameAttempts)) {
-        a.owner = p.token;
-        a.hp = animalMaxHp(def.hp, a.kind, true);
-        a.homeX = a.x;
-        a.homeZ = a.z;
-        a.dirty = true;
-        this.hooks.json({ t: 'mob', ev: 'tame', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
-        this.hooks.log(`${def.name}이(가) 길들여졌어요`);
-      } else this.hooks.json({ t: 'mob', ev: 'eat', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
-      return null;
-    }
+    if (held && a.owner === null && def.tameWith.includes(held)) return this.tryTame(a, p, held);
     if (a.owner === p.token && !held) {
       // 빈손 탭은 세 가지를 돈다 (#174): 따라오기 → 앉기 → 풀어놓기(그 자리 둘레 산책) → 따라오기
       a.target = null;
@@ -712,6 +748,49 @@ export class AnimalSystem {
       return null;
     }
     return 'NOT_FOOD';
+  }
+
+  /** 길들이기 한 번: 든 것 하나를 쓰고 tameRoll (1/3). 오류 NOT_FOOD */
+  private tryTame(a: Animal, p: AnimalViewer, held: string): string | null {
+    const def = this.defs.get(a.kind);
+    const id = ANIMAL_ID_BASE + a.id;
+    if (!this.hooks.consume(p.idx, held)) return 'NOT_FOOD';
+    a.tameAttempts++;
+    if (tameRoll(this.seed, a.id, a.tameAttempts)) {
+      a.owner = p.token;
+      a.hp = animalMaxHp(def.hp, a.kind, true);
+      a.homeX = a.x;
+      a.homeZ = a.z;
+      a.target = null;
+      a.dirty = true;
+      this.hooks.json({ t: 'mob', ev: 'tame', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
+      this.hooks.log(`${def.name}이(가) 길들여졌어요`);
+    } else this.hooks.json({ t: 'mob', ev: 'eat', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
+    return null;
+  }
+
+  /** 사람별 고양이 선물 횟수·마지막 시각 (2026-11-06) */
+  private readonly giftN = new Map<string, number>();
+  private readonly giftAt = new Map<string, number>();
+
+  /**
+   * 고양이 선물 (2026-11-06, 마인크래프트 "잠에서 깨면 70% 로 선물"): 주인 곁(CAT_GIFT_R)에 내 고양이가 있으면 선물 하나를 가방에.
+   * 한 사람에게 CAT_GIFT_COOLDOWN_MS 에 한 번. 준 아이템(없으면 null)
+   */
+  catGift(p: AnimalViewer, now: number): string | null {
+    const cat = [...this.animals.values()].find((a) => a.kind === 'cat' && a.owner === p.token && !a.away && a.ridden === null && !this.isBaby(a, now) && Math.hypot(a.x - p.x, a.z - p.z) <= CAT_GIFT_R);
+    if (!cat) return null;
+    if (now - (this.giftAt.get(p.token) ?? -Infinity) < CAT_GIFT_COOLDOWN_MS) return null;
+    const n = (this.giftN.get(p.token) ?? 0) + 1;
+    this.giftN.set(p.token, n);
+    this.giftAt.set(p.token, now);
+    let who = 0;
+    for (let i = 0; i < p.token.length; i++) who = (who * 31 + p.token.charCodeAt(i)) | 0;
+    const item = catGiftRoll(this.defs.get('cat').gifts ?? [], this.seed, who, n);
+    if (!item) return null;
+    this.hooks.reward(p.idx, [{ item, count: 1 }], 0, { x: cat.x, y: cat.y + 0.5, z: cat.z }, now);
+    this.hooks.json({ t: 'mob', ev: 'gift', id: ANIMAL_ID_BASE + cat.id, mob: cat.kind, x: cat.x, y: cat.y, z: cat.z, item, to: p.idx });
+    return item;
   }
 
   /** 주민 자리 (#169): 방어전 때 철 골렘이 설 곳 */

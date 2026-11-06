@@ -34,7 +34,7 @@ describe('마을 동물 (M8-1)', () => {
     const total = Object.values(INITIAL_ANIMALS).reduce((a, b) => a + b, 0);
     expect(room.animals.animals.size).toBe(total);
     for (const a of room.animals.animals.values()) {
-      if (a.kind === 'villager') continue; // 주민은 집 앞 (#168)
+      if (a.kind === 'villager' || a.kind === 'cat') continue; // 주민은 집 앞 (#168), 고양이는 집 둘레 (2026-11-06)
       expect(isAnimalSpot(a.x, a.z)).toBe(true);
       expect(BLOCKS.get(room.world.getBlock(Math.floor(a.x), Math.floor(a.y) - 1, Math.floor(a.z))).id).toBe('grass');
       expect(a.adultAt).toBeNull();
@@ -516,5 +516,86 @@ describe('마을 동물 (M8-1)', () => {
     const c = inbox();
     again.join('a'.repeat(32), '아빠', 0, c.send);
     expect((c.json.find((m) => m.t === 'pets')!.list as { name: string | null }[]).some((p) => p.name === '초코')).toBe(true);
+  });
+
+  it('고양이 (2026-11-06): 주민 집 둘레에 5마리, 사람을 피하고(생선을 들면 다가옴), 대구로 길들이고, 둘이면 아기도 내 고양이, 자고 일어나면 선물', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    const cats = [...room.animals.animals.values()].filter((x) => x.kind === 'cat');
+    expect(cats).toHaveLength(INITIAL_ANIMALS.cat!);
+    // 집 문 앞 6칸 안
+    for (const c of cats) expect(Math.min(...VILLAGER_HOUSES.map((_, i) => Math.hypot(c.homeX - villagerSpot(i).x, c.homeZ - villagerSpot(i).z)))).toBeLessThan(6.5);
+    const cat = cats[0]!;
+    // 피한다: 빈손으로 3칸 앞에 서면 멀어진다
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 70.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    cat.x = 64.5;
+    cat.z = 73.5;
+    cat.y = GROUND_Y + 1;
+    for (let t = T0; t < T0 + 3000; t += 200) room.tick(t);
+    expect(Math.hypot(cat.x - 64.5, cat.z - 70.5)).toBeGreaterThan(5);
+    // 대구를 들면 다가온다
+    room.giveItems(ra.idx, 'cod', 30);
+    const slot = p.inv.findIndex((s) => s?.item === 'cod');
+    room.setHeld(ra.idx, 'cod');
+    cat.x = 64.5;
+    cat.z = 75.5;
+    for (let t = T0 + 3000; t < T0 + 8000; t += 200) room.tick(t);
+    expect(Math.hypot(cat.x - 64.5, cat.z - 70.5)).toBeLessThan(3);
+    // 대구로 길들이기 (먹이이자 길들이는 것 — 길들이지 않은 고양이는 사랑이 아니라 길들이기)
+    let tries = 0;
+    while (cat.owner === null && tries < 20) {
+      expect(room.useMob(ra.idx, ANIMAL_ID_BASE + cat.id, slot, T0 + 9000 + 100 * tries)).toBeNull();
+      tries++;
+    }
+    expect(cat.owner).toBe('a'.repeat(32));
+    expect(a.json.some((m) => m.t === 'mob' && m.ev === 'love' && m.id === ANIMAL_ID_BASE + cat.id)).toBe(false);
+    // 길들인 고양이는 못 때린다
+    expect(room.hitMob(ra.idx, ANIMAL_ID_BASE + cat.id, undefined, T0 + 12_000)).toBe('PET');
+    // 둘째도 길들여 둘에게 대구 → 아기는 내 고양이
+    const cat2 = cats[1]!;
+    cat2.x = p.pos.x - 1.5;
+    cat2.z = p.pos.z;
+    cat2.y = p.pos.y;
+    tries = 0;
+    while (cat2.owner === null && tries < 20) {
+      room.useMob(ra.idx, ANIMAL_ID_BASE + cat2.id, slot, T0 + 13_000 + 100 * tries);
+      tries++;
+    }
+    expect(cat2.owner).toBe('a'.repeat(32));
+    cat.x = p.pos.x + 1;
+    cat.z = p.pos.z;
+    cat2.x = p.pos.x - 1;
+    cat2.z = p.pos.z;
+    const before = room.animals.countOf('cat');
+    expect(room.useMob(ra.idx, ANIMAL_ID_BASE + cat.id, slot, T0 + 20_000)).toBeNull();
+    expect(room.useMob(ra.idx, ANIMAL_ID_BASE + cat2.id, slot, T0 + 20_100)).toBeNull();
+    for (let t = T0 + 20_200; t < T0 + 21_500; t += 200) room.tick(t);
+    expect(room.animals.countOf('cat')).toBe(before + 1);
+    const kitten = [...room.animals.animals.values()].filter((x) => x.kind === 'cat').at(-1)!;
+    expect(kitten.adultAt).not.toBeNull();
+    expect(kitten.owner).toBe('a'.repeat(32));
+    // 자고 일어나면 선물 (70%, 결정론) — 5분 쿨타임이라 여러 번 자 본다
+    let gifts = 0;
+    for (let k = 0; k < 10; k++) {
+      const t = T0 + 30_000 + k * 6 * 60_000;
+      cat.x = p.pos.x + 1;
+      cat.z = p.pos.z;
+      p.sleeping = { x: p.pos.x, y: p.pos.y, z: p.pos.z, facing: 'n' } as never;
+      p.sleptAt = t - 20_000;
+      a.clear();
+      room.sleep(ra.idx, null, t);
+      if (a.json.some((m) => m.t === 'mob' && m.ev === 'gift')) gifts++;
+    }
+    expect(gifts).toBeGreaterThanOrEqual(4);
+    expect(gifts).toBeLessThanOrEqual(10);
+    // 짧게 자면(10초 미만) 없음
+    p.sleeping = { x: p.pos.x, y: p.pos.y, z: p.pos.z, facing: 'n' } as never;
+    p.sleptAt = T0 + 99 * 60_000;
+    a.clear();
+    room.sleep(ra.idx, null, T0 + 99 * 60_000 + 3000);
+    expect(a.json.some((m) => m.t === 'mob' && m.ev === 'gift')).toBe(false);
   });
 });

@@ -161,6 +161,27 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
     expect(arrows[0]!.from.z).toBeLessThan(arrows[0]!.to.z); // 몹에서 사람 쪽으로
   });
 
+  it('고양이 (2026-11-06): 따라온 고양이 곁에선 크리퍼가 안 터지고 달아난다(하악!). 고양이는 몹을 물지 않는다', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const json: { t: string; [k: string]: unknown }[] = [];
+    const hurt: string[] = [];
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 64.5, eyeY: GROUND_Y + 1 + 1.6 };
+    const arena = { world: room.world, seed: 5, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0 };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: (_i, _a, cause) => hurt.push(cause), broadcast: () => {}, json: (o) => json.push(o as { t: string }), reward: () => {}, bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 24, goal: null, quiet: true });
+    sys.addCompanion({ id: 40_001, kind: 'cat', owner: 0, name: null, x: 65.5, y: GROUND_Y + 1, z: 64.5 });
+    const creeper = sys.spawnKind('creeper', 64.5, GROUND_Y + 1, 61.5);
+    for (let t = T0; t < T0 + 6000; t += 100) sys.tick(t);
+    expect(hurt).not.toContain('creeper');
+    expect(sys.mobs.has(creeper.id)).toBe(true);
+    expect(creeper.hp).toBe(MOBS.get('creeper').hp); // 고양이는 안 문다
+    expect(Math.hypot(creeper.x - 64.5, creeper.z - 64.5)).toBeGreaterThan(4);
+    expect(json.some((m) => m.t === 'mob' && m.ev === 'hiss')).toBe(true);
+    // 고양이가 없으면 터진다
+    sys.removeCompanionsOf(0);
+    for (let t = T0 + 6000; t < T0 + 20_000 && sys.mobs.has(creeper.id); t += 100) sys.tick(t);
+    expect(hurt).toContain('creeper');
+  });
+
   it('인챈트 효과 (#231): 강타 검은 좀비에 +4, 약탈은 드롭이 더, 밀치기는 더 멀리', () => {
     const room = makeRoom(new Storage(':memory:'));
     const json: { t: string; [k: string]: unknown }[] = [];

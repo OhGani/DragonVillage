@@ -202,6 +202,94 @@ function dog(variant: number): AnimalParts {
   return { body: body.out, head: part(h, [0, 13, -9]), legs, tail: part(tail, [0, 14, 7]), wings: [], babyHead: 1.5 };
 }
 
+// ---------------------------------------------------------------- 고양이 (2026-11-06, 아빠가 보낸 마인크래프트 고양이 11가지)
+/**
+ * 털 11가지: 바탕·무늬·배·발·주둥이·눈(왼/오른)·코. 무늬 pattern —
+ * stripes(줄무늬), points(얼굴·귀·발·꼬리 끝이 짙음: 샴·래그돌), patches(큰 얼룩: 삼색·젤리), tux(검정 + 흰 가슴·발), plain.
+ * 그림은 참고만 하고 새로 칠했다
+ */
+interface CatPaint {
+  base: number;
+  mark: number;
+  belly: number;
+  feet: number;
+  muzzle: number;
+  eyeL: number;
+  eyeR: number;
+  nose: number;
+  pattern: 'stripes' | 'points' | 'patches' | 'tux' | 'plain';
+  patch2?: number;
+  flatFace?: boolean;
+}
+export const CAT_PAINTS: Record<string, CatPaint> = {
+  tabby: { base: 0x8a6a4c, mark: 0x5a4130, belly: 0xc9b39a, feet: 0xd9c8b4, muzzle: 0xb89a7c, eyeL: 0xe6d23a, eyeR: 0xe6d23a, nose: 0xe39a9a, pattern: 'stripes' },
+  tuxedo: { base: 0x1d1d2b, mark: 0x14141f, belly: 0xf2f2f2, feet: 0xf2f2f2, muzzle: 0xf2f2f2, eyeL: 0x5fd35f, eyeR: 0x5fd35f, nose: 0xe39a9a, pattern: 'tux' },
+  red: { base: 0xf0a238, mark: 0xd27a1c, belly: 0xf6d9a8, feet: 0xf6e7cf, muzzle: 0xf6d3a0, eyeL: 0x5aa82c, eyeR: 0x5aa82c, nose: 0xe39a9a, pattern: 'stripes' },
+  siamese: { base: 0xe8dccb, mark: 0x4a3a30, belly: 0xf2eadf, feet: 0x4a3a30, muzzle: 0x4a3a30, eyeL: 0x3f8fe0, eyeR: 0x3f8fe0, nose: 0x3a2c24, pattern: 'points' },
+  british: { base: 0xa5a5a5, mark: 0x8a8a8a, belly: 0xbdbdbd, feet: 0x9a9a9a, muzzle: 0xb5b5b5, eyeL: 0xe6c23a, eyeR: 0xe6c23a, nose: 0x6a6a6a, pattern: 'plain' },
+  calico: { base: 0xefefef, mark: 0xe0952e, patch2: 0x2a2420, belly: 0xf6f6f6, feet: 0xf6f6f6, muzzle: 0xf6f6f6, eyeL: 0x4cc3e0, eyeR: 0x4cc3e0, nose: 0xe39a9a, pattern: 'patches' },
+  persian: { base: 0xf1d9b3, mark: 0xe3c79c, belly: 0xf7e6c9, feet: 0xe8cda4, muzzle: 0xf1d9b3, eyeL: 0x3f6fd0, eyeR: 0x3f6fd0, nose: 0xe39a9a, pattern: 'plain', flatFace: true },
+  ragdoll: { base: 0xf1efea, mark: 0x8c7a6c, belly: 0xf7f6f2, feet: 0xd8d0c6, muzzle: 0xf1efea, eyeL: 0x3f6fd0, eyeR: 0x3f6fd0, nose: 0xe39a9a, pattern: 'points' },
+  white: { base: 0xf4f4f4, mark: 0xe6e6e6, belly: 0xfafafa, feet: 0xeaeaea, muzzle: 0xfafafa, eyeL: 0xe6c23a, eyeR: 0x4cc3e0, nose: 0xe390b8, pattern: 'plain' },
+  jellie: { base: 0x4a4a4e, mark: 0x2a2a2e, patch2: 0xe8e8e8, belly: 0xe8e8e8, feet: 0xe8e8e8, muzzle: 0xe8e8e8, eyeL: 0x5fd35f, eyeR: 0x5fd35f, nose: 0xe39a9a, pattern: 'patches' },
+  black: { base: 0x17141f, mark: 0x0f0d16, belly: 0x1d1a26, feet: 0x1d1a26, muzzle: 0x1d1a26, eyeL: 0xe6c23a, eyeR: 0xe6c23a, nose: 0xd98aa8, pattern: 'plain' },
+};
+/** 번호 → 털 (CAT_COATS 순서) */
+export const CAT_COAT_LIST = ['tabby', 'tuxedo', 'red', 'siamese', 'british', 'calico', 'persian', 'ragdoll', 'white', 'jellie', 'black'] as const;
+export function catCoat(variant: number): (typeof CAT_COAT_LIST)[number] {
+  return CAT_COAT_LIST[Math.min(CAT_COAT_LIST.length - 1, Math.floor(variant * CAT_COAT_LIST.length))]!;
+}
+/** 고양이: 몸 4×6×16(낮고 길다), 다리 2×6, 머리 5×4×5 + 귀 + 주둥이, 꼬리 1×1×8 (마인크래프트 비율). 앞이 −z */
+function cat(variant: number): AnimalParts {
+  const P = CAT_PAINTS[catCoat(variant)]!;
+  const h3 = (x: number, y: number, z: number, k: number) => ((((x + 7) * 73856093) ^ ((y + 3) * 19349663) ^ ((z + 41) * 83492791) ^ k) >>> 0) % 100;
+  /** 몸 칸 색: 무늬 규칙대로 */
+  const coat = (x: number, y: number, z: number): number => {
+    switch (P.pattern) {
+      case 'stripes':
+        return fur(x, y, z, (z + 40) % 3 === 0 && y >= 8 ? P.mark : P.base, 0.1);
+      case 'points':
+        return fur(x, y, z, z >= 6 ? scaleColor(P.base, 0.92) : P.base, 0.08);
+      case 'patches': {
+        const r = h3(x >> 1, y >> 1, z >> 2, 5);
+        return fur(x, y, z, r < 30 ? P.mark : r < 50 ? (P.patch2 ?? P.mark) : P.base, 0.08);
+      }
+      case 'tux':
+        return fur(x, y, z, P.base, 0.1);
+      default:
+        return fur(x, y, z, P.base, 0.08);
+    }
+  };
+  const bodyF: ColorFn = (x, y, z) => (y <= 6 ? fur(x, y, z, P.belly, 0.06) : coat(x, y, z));
+  const body = new Builder().box(-2, 1, 6, 11, -6, 9, bodyF); // 몸 4×6×16 (y 6~11)
+  if (P.pattern === 'tux') body.box(-2, 1, 6, 9, -6, -4, solid(P.belly)); // 흰 가슴
+  if (P.pattern === 'patches' && P.patch2 !== undefined && P.mark === 0x2a2a2e) body.box(-2, 1, 6, 8, -6, 9, (x, y, z) => fur(x, y, z, P.belly, 0.05)); // 젤리: 아래쪽 흰 배
+  const legF: ColorFn = (x, y, z) => (y <= 1 ? fur(x, y, z, P.feet, 0.05) : P.pattern === 'points' ? fur(x, y, z, y <= 3 ? P.mark : P.base, 0.06) : P.pattern === 'tux' ? fur(x, y, z, y <= 2 ? P.feet : P.base, 0.05) : coat(x, y, z));
+  const legs = fourLegs(2, 6, 2, -5, 7, legF); // 다리 2×6
+  // 머리 5×4×5 — 앞 얼굴 z −11
+  const headF: ColorFn = (x, y, z) => (P.pattern === 'points' ? fur(x, y, z, z <= -10 || y >= 13 ? P.mark : scaleColor(P.mark, 1.25), 0.06) : coat(x, y, z));
+  const h = new Builder().box(-3, 1, 9, 12, -11, -7, headF);
+  if (P.pattern === 'tux') h.box(-1, 0, 9, 10, -11, -11, solid(P.belly)); // 하얀 턱
+  if (!P.flatFace) {
+    h.box(-2, 0, 9, 10, -12, -12, (x, y, z) => fur(x, y, z, P.muzzle, 0.05)); // 주둥이 3×2×1
+    h.dot(-1, 10, -12, P.nose); // 코
+  } else h.dot(-1, 10, -11, P.nose); // 페르시안: 눌린 얼굴 — 주둥이 없이 코만
+  h.dot(-3, 11, -11, P.eyeL).dot(-2, 11, -11, 0x101010); // 왼눈 (눈동자 안쪽)
+  h.dot(1, 11, -11, P.eyeR).dot(0, 11, -11, 0x101010); // 오른눈
+  const earF: ColorFn = (x, y, z) => (P.pattern === 'points' || P.pattern === 'tux' ? fur(x, y, z, P.pattern === 'tux' ? P.base : P.mark, 0.05) : coat(x, y, z));
+  h.box(-3, -2, 13, 13, -9, -8, earF).box(0, 1, 13, 13, -9, -8, earF); // 귀 2×1×2
+  // 꼬리 1×1×8: 몸 뒤 위(z 10, y 11)에서 비스듬히 위로 — 축은 몸 뒤 위
+  const tailF: ColorFn = (x, y, z) => {
+    const tip = z >= 15;
+    if (P.pattern === 'points') return fur(x, y, z, P.mark, 0.05);
+    if (P.pattern === 'tux' && tip) return P.belly;
+    if (P.pattern === 'stripes') return fur(x, y, z, z % 2 === 0 ? P.mark : P.base, 0.06);
+    return coat(x, y, z);
+  };
+  const tail = new Builder().box(-1, -1, 11, 11, 10, 17, tailF);
+  return { body: body.out, head: part(h, [0, 10, -6]), legs, tail: part(tail, [0, 11, 10]), wings: [], babyHead: 1.4 };
+}
+
 // ---------------------------------------------------------------- 고릴라 (#253, 아들 참고 그림 2026-11-05)
 /**
  * 흰 털에 하늘빛 얼룩, 푸른 얼굴·주둥이·귀, 빨간 눈, 흰 송곳니, 손발은 푸르고 끝에 흰 털이 삐죽.
@@ -326,6 +414,8 @@ export function animalParts(kind: string, variant: number, opts: { sheared?: boo
       return boat();
     case 'minecart':
       return minecart();
+    case 'cat':
+      return cat(variant);
     default:
       return dog(variant);
   }
@@ -373,9 +463,14 @@ export function animalVoxels(kind: string, variant: number): Voxel[] {
   return [...p.body, ...p.head.v, ...p.legs.flatMap((l) => l.v), ...(p.tail ? p.tail.v : []), ...p.wings.flatMap((w) => w.v)];
 }
 
-/** 길들인 강아지 목줄: 목(z −8) 둘레의 빨간 고리 + 금색 이름표 */
-export function collarVoxels(): Voxel[] {
+/** 길들인 강아지 목줄: 목(z −8) 둘레의 빨간 고리 + 금색 이름표. 고양이는 몸 앞(z −6)에 */
+export function collarVoxels(kind = 'dog'): Voxel[] {
   const out: Voxel[] = [];
+  if (kind === 'cat') {
+    for (let x = -3; x <= 2; x++) for (let y = 5; y <= 12; y++) if (x === -3 || x === 2 || y === 5 || y === 12) out.push({ x, y, z: -6, c: '#e53935' }); // 몸 앞(z −6) 둘레
+    out.push({ x: -1, y: 4, z: -6, c: '#ffd54f' }, { x: 0, y: 4, z: -6, c: '#ffd54f' });
+    return out;
+  }
   for (let x = -3; x <= 2; x++) for (let y = 10; y <= 15; y++) if (x === -3 || x === 2 || y === 10 || y === 15) out.push({ x, y, z: -8, c: '#e53935' });
   out.push({ x: -1, y: 9, z: -8, c: '#ffd54f' }, { x: 0, y: 9, z: -8, c: '#ffd54f' }); // 이름표
   return out;

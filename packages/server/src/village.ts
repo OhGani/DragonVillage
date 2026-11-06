@@ -20,6 +20,7 @@ import {
   type BlockDef,
   type BlockRegistry,
   BOAT,
+  CAT_GIFT_SLEEP_MS,
   bodyOverlapsBlock,
   BONE_MEAL,
   bowDamage,
@@ -337,6 +338,8 @@ export interface RoomPlayer {
   guardShown: boolean;
   /** 침대에 누워 있음 (#204). 접속 동안만 */
   sleeping: SleepInfo | null;
+  /** 누운 시각 (고양이 선물, 2026-11-06) */
+  sleptAt?: number;
   /** 탄 드래곤의 기력 (M6-5). 탈 때 가득 찬다. 사이는 회복 공식으로 채운다 */
   stamina: Stamina;
   /** 다음에 빔을 쏠 수 있는 시각 */
@@ -2319,13 +2322,15 @@ export class VillageRoom {
    * 침대에 눕기 (#204, 아빠 2026-10-20 "캐릭터가 침대 위에 누울 수 있다"): 발·머리 어느 칸을 탭해도 된다.
    * 두 칸 가운데·침대 윗면으로 옮겨 눕고, at 이 null 이면 일어난다. 남이 누운 침대엔 못 눕는다. 밤 건너뛰기는 없다
    */
-  sleep(idx: number, at: { x: number; y: number; z: number } | null): string | null {
+  sleep(idx: number, at: { x: number; y: number; z: number } | null, now = Date.now()): string | null {
     const p = this.players.get(idx);
     if (!p) return 'NOT_IN_VILLAGE';
     if (!at) {
       if (p.sleeping) {
         p.sleeping = null;
         this.broadcastJson({ t: 'sleep', idx, at: null }, -1, p.world);
+        // 고양이 선물 (2026-11-06): 충분히 자고 일어나면 곁의 내 고양이가 선물을 줄 수 있다
+        if (p.world === 'village' && now - (p.sleptAt ?? now) >= CAT_GIFT_SLEEP_MS) this.animals.catGift({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held: p.held }, now);
       }
       return null;
     }
@@ -2341,6 +2346,7 @@ export class VillageRoom {
     if (Math.hypot(p.pos.x - spot.x, p.pos.z - spot.z) > 6 || Math.abs(p.pos.y - at.y) > 3) return 'TOO_FAR';
     for (const o of this.players.values()) if (o !== p && o.world === p.world && o.sleeping && Math.abs(o.sleeping.x - spot.x) < 0.01 && Math.abs(o.sleeping.z - spot.z) < 0.01 && Math.abs(o.sleeping.y - spot.y) < 0.01) return 'OCCUPIED';
     p.sleeping = spot;
+    p.sleptAt = now;
     p.pos.x = spot.x;
     p.pos.y = spot.y;
     p.pos.z = spot.z;

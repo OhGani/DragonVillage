@@ -1247,6 +1247,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         }
       } else if (m.ev === 'hit') hitSound();
       else if (m.ev === 'love' || m.ev === 'tame' || m.ev === 'grow' || m.ev === 'milk') ding();
+      else if (m.ev === 'gift' && m.to === myIdx && m.item) {
+        // 고양이 선물 (2026-11-06): 자고 일어났더니 곁의 내 고양이가
+        ding();
+        hud.toast(`🐱🎁 고양이가 선물을 가져왔어요 — ${nameOf(m.item)}`, 3500);
+      }
       else if (m.ev === 'shear') {
         ding();
         hud.toast('✂️ 양털을 깎았어요 — 가방에 들어왔어요 (5분 뒤 다시)', 2500);
@@ -1982,8 +1987,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const baby = (f.state & ANIMAL_FLAG.baby) !== 0;
         const tamed = (f.state & ANIMAL_FLAG.tamed) !== 0;
         const foods = def.food.map((i) => nameOf(i)).join('·');
-        const tip = def.id === 'boat' ? '🛶 빈손 탭 → 타기 · 때리면 보트가 가방으로' : def.id === 'minecart' ? '🛒 빈손 탭 → 타기 · 때리면 수레가 가방으로' : def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (isMountKind(def.id) ? (pets.get(aimedMob)?.mine ? `빈손 탭 → ${def.id === 'pig' ? '🐷' : '🐴'} 타기${def.id === 'pig' ? ' · 🥕 당근 낚싯대를 들면 빨라요' : ''} · 보면서 🐾 버튼 → 이름 짓기` : `남의 ${def.name}이에요`) : pets.get(aimedMob)?.mine ? `${{ follow: '🐾 따라오는 중 · 빈손 탭 → 앉기', sit: '🐾 앉아 있음 · 빈손 탭 → 풀어놓기', free: '🐾 자유 · 빈손 탭 → 따라오기' }[pets.get(aimedMob)!.mode]} · 보면서 🐾 버튼 → 이름 짓기` : '남이 길들인 강아지예요') : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.id === 'pig' && !baby ? `🏇 안장을 들고 탭 → 내 돼지로 · ${foods}을(를) 들고 탭 → 먹이기` : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
-        const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : def.id === 'cow' && !baby ? ' · 🪣 빈 양동이 들고 탭 → 우유' : def.id === 'villager' ? ' · 탭 → 💬 대화' : '';
+        const tip = def.id === 'boat' ? '🛶 빈손 탭 → 타기 · 때리면 보트가 가방으로' : def.id === 'minecart' ? '🛒 빈손 탭 → 타기 · 때리면 수레가 가방으로' : def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (isMountKind(def.id) ? (pets.get(aimedMob)?.mine ? `빈손 탭 → ${def.id === 'pig' ? '🐷' : '🐴'} 타기${def.id === 'pig' ? ' · 🥕 당근 낚싯대를 들면 빨라요' : ''} · 보면서 🐾 버튼 → 이름 짓기` : `남의 ${def.name}이에요`) : pets.get(aimedMob)?.mine ? `${{ follow: '🐾 따라오는 중 · 빈손 탭 → 앉기', sit: '🐾 앉아 있음 · 빈손 탭 → 풀어놓기', free: '🐾 자유 · 빈손 탭 → 따라오기' }[pets.get(aimedMob)!.mode]} · 보면서 🐾 버튼 → 이름 짓기` : `남이 길들인 ${def.name}예요`) : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.id === 'pig' && !baby ? `🏇 안장을 들고 탭 → 내 돼지로 · ${foods}을(를) 들고 탭 → 먹이기` : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
+        const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : def.id === 'cow' && !baby ? ' · 🪣 빈 양동이 들고 탭 → 우유' : def.id === 'villager' ? ' · 탭 → 💬 대화' : def.id === 'cat' ? (tamed ? ` · 🐟 ${foods} 들고 탭 → 사랑 · 같이 자면 🎁 선물` : ' · 사람을 피해요 — 생선을 들면 다가와요') : '';
         hud.toast(`${def.name}${baby ? ' (아기)' : ''}${tamed ? ' 🐾' : ''} · ${tip}${extra}`, 3000);
       } else if (f && MOB_KIND_OF[f.kind] === 'zombie_villager') {
         hud.toast(f.state === MOB_STATE.cure ? '🧟 좀비 주민 · 황금 사과를 먹고 돌아오는 중 — 때리지 말아요' : '🧟 좀비 주민 · 🍎 황금 사과를 들고 탭 → 주민으로 되돌리기 (사과 + 금 8)', 3000);

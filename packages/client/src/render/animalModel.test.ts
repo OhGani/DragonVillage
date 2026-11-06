@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { mobSize } from '@dragon-village/shared';
-import { HORSE_COATS, TROPICAL_VARIANTS, WILD_MODEL_KINDS, animalParts, animalVariant, horseCoat, horseVoxels, pufferPuffedVoxels, wildParts } from './animalModel';
+import { CAT_COATS, mobSize } from '@dragon-village/shared';
+import { CAT_COAT_LIST, HORSE_COATS, animalVoxels, catCoat, collarVoxels, TROPICAL_VARIANTS, WILD_MODEL_KINDS, animalParts, animalVariant, horseCoat, horseVoxels, pufferPuffedVoxels, wildParts } from './animalModel';
 
 describe('말 털색 (#177)', () => {
   it('검정·갈색·흰색·회색·얼룩말 다섯 가지가 번호로 고르게 나온다', () => {
@@ -66,5 +66,30 @@ describe('물고기 모델 (2026-11-06)', () => {
     const big = pufferPuffedVoxels();
     const h = (vs: { y: number }[]) => Math.max(...vs.map((v) => v.y)) - Math.min(...vs.map((v) => v.y)) + 1;
     expect(h(big)).toBeGreaterThanOrEqual(h(small) * 2);
+  });
+});
+
+describe('고양이 모델 (2026-11-06)', () => {
+  const VOXEL = 1.8 / 32;
+  it('털 11가지가 번호로 다 나오고(공유 CAT_COATS 와 같은 순서), 서로 색이 다르다', () => {
+    expect([...CAT_COAT_LIST]).toEqual([...CAT_COATS]);
+    const seen = new Set<string>();
+    for (let id = 1; id <= 400; id++) seen.add(catCoat(animalVariant(id)));
+    expect(seen.size).toBe(11);
+    const sigs = new Set(CAT_COAT_LIST.map((_, i) => animalVoxels('cat', (i + 0.5) / CAT_COAT_LIST.length).map((v) => v.c).sort().join()));
+    expect(sigs.size).toBe(11);
+  });
+  it('발이 땅에 닿고 키가 몸 판정과 비슷하다, 페르시안만 주둥이가 없다, 목걸이는 몸과 안 겹친다', () => {
+    for (let i = 0; i < 11; i++) {
+      const v = (i + 0.5) / 11;
+      const all = animalVoxels('cat', v);
+      expect(Math.min(...all.map((c) => c.y))).toBe(0);
+      const h = (Math.max(...all.map((c) => c.y)) + 1) * VOXEL;
+      expect(Math.abs(h - mobSize('cat').h)).toBeLessThan(0.15);
+      const muzzle = animalParts('cat', v).head.v.some((c) => c.z === -12);
+      expect(muzzle).toBe(catCoat(v) !== 'persian');
+    }
+    const body = new Set(animalParts('cat', 0.05).body.map((c) => `${c.x},${c.y},${c.z}`));
+    for (const c of collarVoxels('cat')) expect(body.has(`${c.x},${c.y},${c.z}`)).toBe(false);
   });
 });
