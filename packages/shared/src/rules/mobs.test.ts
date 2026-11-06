@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import bossesJson from '../../../../data/bosses.json';
 import { MOBS } from './data';
-import { BOSS_KIND, MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, isBoss, isLookingAt, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob, bossMinionKind, MOB_KINDS, MOB_KIND_OF, MOB_KIND_NUM, isZombieKind, zombieVillagerRoll, CURE_MS } from './mobs';
+import { BOSS_KIND, MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, isBoss, isLookingAt, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob, bossMinionKind, bossMinionKinds, KING_KINDS, MOB_KINDS, MOB_KIND_OF, MOB_KIND_NUM, isZombieKind, zombieVillagerRoll, CURE_MS } from './mobs';
 
 const flat = () => 41; // 어디나 발 높이 41
 
@@ -115,7 +116,8 @@ describe('거미와 원정지별 몹 (M7-3)', () => {
     expect(spawnKinds(['husk', 'creeper', 'enderman'])).toEqual(['husk', 'creeper', 'enderman']);
     expect(spawnKinds(['stray', 'zombie'])).toEqual(['stray', 'zombie']); // 설원 (v1.1-2)
     expect(spawnKinds(['zombified_piglin', 'wither_skeleton', 'blaze', 'ghast'])).toEqual(['zombified_piglin', 'wither_skeleton', 'blaze', 'ghast']); // 네더 (v1.1-3)
-    expect(spawnKinds(['witch'])).toEqual(['zombie', 'creeper']); // 아직 없는 몹만 적혀 있으면 기본
+    expect(spawnKinds(['witch'])).toEqual(['witch']); // 마녀는 늪 (2026-11-06) 부터 진짜 몹
+    expect(spawnKinds(['phantom'])).toEqual(['zombie', 'creeper']); // 아직 없는 몹만 적혀 있으면 기본
     expect(spawnKinds(undefined)).toEqual(['zombie', 'creeper']);
     const picks = Array.from({ length: 9 }, (_, i) => pickKind(['spider', 'zombie'], i + 1));
     expect(picks.filter((k) => k === 'spider').length).toBe(6);
@@ -271,5 +273,29 @@ describe('쳐다보기 (#222 엔더맨)', () => {
   it('조금만 빗나가도 아니다 (8°)', () => {
     expect(isLookingAt(me, { x: 2, y: 0, z: -10, kind: 'enderman' })).toBe(false);
     expect(isLookingAt(me, { x: 0.3, y: 0, z: -10, kind: 'enderman' })).toBe(true);
+  });
+});
+
+describe('네 왕의 부하 (아들 설계 + 아빠 그림 변종, 2026-11-06)', () => {
+  it('왕마다 부르는 부하에 아들이 bosses.json 에 적은 부하(아직 없는 몹 빼고)가 다 들어 있고, 모두 이름·체력이 있는 몹이다', () => {
+    const raw = bossesJson as unknown as { finalBosses: { id: string; kings?: { id: string; minions: string[] }[] }[] };
+    const kings = raw.finalBosses.find((b) => b.id === 'four_kings')!.kings!;
+    expect(kings.map((k) => k.id)).toEqual([...KING_KINDS]);
+    for (const k of kings) {
+      const mine = bossMinionKinds(k.id as MobKind);
+      for (const m of k.minions) if ((MOB_KINDS as readonly string[]).includes(m)) expect(mine, `${k.id} → ${m}`).toContain(m);
+      for (const m of mine) {
+        expect(MOBS.get(m).name).not.toBe(m); // 한국어 이름
+        expect(MOBS.get(m).hp).toBeGreaterThan(0);
+      }
+    }
+    expect(bossMinionKinds('creeper_king')).toContain('charged_creeper');
+    expect(bossMinionKinds('enderman_king')).toContain('endermite');
+    expect(bossMinionKinds('skeleton_king')).toEqual(expect.arrayContaining(['stray', 'wither_skeleton', 'bogged', 'parched']));
+    expect(bossMinionKinds('zombie_king')).toEqual(expect.arrayContaining(['husk', 'zombie_villager', 'baby_zombie', 'drowned', 'frostbite']));
+    expect(MOBS.get('charged_creeper').explodeRadius).toBeGreaterThan(MOBS.get('creeper').explodeRadius);
+    expect(MOBS.get('bogged').poisonMs).toBeGreaterThan(0); // 독 화살
+    expect(mobSize('baby_zombie').h).toBeLessThan(mobSize('zombie').h);
+    for (const z of ['baby_zombie', 'drowned', 'frostbite'] as const) expect(isZombieKind(z)).toBe(true);
   });
 });

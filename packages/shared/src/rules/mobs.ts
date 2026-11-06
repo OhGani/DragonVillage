@@ -18,10 +18,10 @@ import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
 import { hash3 } from '../math/prng';
 
-export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat' | 'snow_golem' | 'minecart' | 'zombie_villager' | 'gorilla' | 'giant_gorilla' | 'warden' | 'giant_warden' | 'gazelle' | 'raccoon' | 'roadrunner' | 'rattlesnake' | 'bison' | 'moose' | 'grizzly' | 'capuchin' | 'salmon' | 'cod' | 'tropical_fish' | 'pufferfish' | 'cat';
-export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'cat'];
-export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24, snow_golem: 25, minecart: 26, zombie_villager: 27, gorilla: 28, giant_gorilla: 29, warden: 30, giant_warden: 31, gazelle: 32, raccoon: 33, roadrunner: 34, rattlesnake: 35, bison: 36, moose: 37, grizzly: 38, capuchin: 39, salmon: 40, cod: 41, tropical_fish: 42, pufferfish: 43, cat: 44 };
-export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'cat'];
+export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat' | 'snow_golem' | 'minecart' | 'zombie_villager' | 'gorilla' | 'giant_gorilla' | 'warden' | 'giant_warden' | 'gazelle' | 'raccoon' | 'roadrunner' | 'rattlesnake' | 'bison' | 'moose' | 'grizzly' | 'capuchin' | 'salmon' | 'cod' | 'tropical_fish' | 'pufferfish' | 'cat' | 'guardian' | 'elder_guardian' | 'slime' | 'giant_slime' | 'witch' | 'skeleton_king' | 'creeper_king' | 'enderman_king' | 'zombie_king' | 'bogged' | 'parched' | 'charged_creeper' | 'endermite' | 'baby_zombie' | 'drowned' | 'frostbite';
+export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'cat', 'guardian', 'elder_guardian', 'slime', 'giant_slime', 'witch', 'skeleton_king', 'creeper_king', 'enderman_king', 'zombie_king', 'bogged', 'parched', 'charged_creeper', 'endermite', 'baby_zombie', 'drowned', 'frostbite'];
+export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24, snow_golem: 25, minecart: 26, zombie_villager: 27, gorilla: 28, giant_gorilla: 29, warden: 30, giant_warden: 31, gazelle: 32, raccoon: 33, roadrunner: 34, rattlesnake: 35, bison: 36, moose: 37, grizzly: 38, capuchin: 39, salmon: 40, cod: 41, tropical_fish: 42, pufferfish: 43, cat: 44, guardian: 45, elder_guardian: 46, slime: 47, giant_slime: 48, witch: 49, skeleton_king: 50, creeper_king: 51, enderman_king: 52, zombie_king: 53, bogged: 54, parched: 55, charged_creeper: 56, endermite: 57, baby_zombie: 58, drowned: 59, frostbite: 60 };
+export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'cat', 'guardian', 'elder_guardian', 'slime', 'giant_slime', 'witch', 'skeleton_king', 'creeper_king', 'enderman_king', 'zombie_king', 'bogged', 'parched', 'charged_creeper', 'endermite', 'baby_zombie', 'drowned', 'frostbite'];
 /** 순한 동물 (마을, M8-1). 규칙은 animals.ts */
 const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'cat']; // 보트도 passive 목록에서 드롭을 읽는다 (#209)
 
@@ -42,16 +42,38 @@ export const WILD_LEASH = 2.5;
 
 /** 굴 보스 (M7-4, 거미 왕). 보스는 밤 스폰 목록에 안 들어가고, 원정지 구조물(거미 굴)에 하나만. 소환사(M7-5)는 방어전 마지막 파도의 보스 */
 export const BOSS_KIND: MobKind = 'spider_king';
-export const BOSS_KINDS: readonly MobKind[] = ['spider_king', 'evoker', 'ender_dragon', 'giant_gorilla', 'giant_warden']; // 거대 고릴라 (#253)·거대 워든 (#254)
+export const BOSS_KINDS: readonly MobKind[] = ['spider_king', 'evoker', 'ender_dragon', 'giant_gorilla', 'giant_warden', 'elder_guardian', 'giant_slime', 'skeleton_king', 'creeper_king', 'enderman_king', 'zombie_king']; // 거대 고릴라 (#253)·거대 워든 (#254)·엘더 가디언·큰 슬라임·네 왕 (2026-11-06)
+/** 고대성의 네 왕 (아들 보스 설계, 2026-11-06): 스켈레톤·크리퍼·엔더맨·좀비 왕. 한 번에 싸운다 — 한 무대에 보스가 넷 */
+export const KING_KINDS: readonly MobKind[] = ['skeleton_king', 'creeper_king', 'enderman_king', 'zombie_king'];
 export function isBoss(kind: MobKind): boolean {
   return BOSS_KINDS.includes(kind);
 }
 /** 원정지 보스(보스 바·나침반이 가리키는 것). 소환사는 마을 방어전 보스라 뺀다 (#162) */
-export const EXPEDITION_BOSS_KINDS: readonly MobKind[] = ['spider_king', 'ender_dragon', 'giant_gorilla', 'giant_warden']; // 소환사는 어두운 숲(#252)에선 보스지만 마을 방어전에선 아니라, 클라가 원정에서는 BOSS_KINDS 로 본다
-export const BOSS_EMOJI: Partial<Record<MobKind, string>> = { spider_king: '🕷️', ender_dragon: '🐲', evoker: '🧙', giant_gorilla: '🦍', giant_warden: '👹' };
+export const EXPEDITION_BOSS_KINDS: readonly MobKind[] = ['spider_king', 'ender_dragon', 'giant_gorilla', 'giant_warden', 'elder_guardian', 'giant_slime', 'skeleton_king', 'creeper_king', 'enderman_king', 'zombie_king']; // 소환사는 어두운 숲(#252)에선 보스지만 마을 방어전에선 아니라, 클라가 원정에서는 BOSS_KINDS 로 본다
+export const BOSS_EMOJI: Partial<Record<MobKind, string>> = { spider_king: '🕷️', ender_dragon: '🐲', evoker: '🧙', giant_gorilla: '🦍', giant_warden: '👹', elder_guardian: '🐡', giant_slime: '🟩', skeleton_king: '💀', creeper_king: '💥', enderman_king: '👁️', zombie_king: '🧟' };
 /** 보스가 부르는 부하 */
 export function bossMinionKind(kind: MobKind): MobKind {
-  return kind === 'evoker' ? 'vindicator' : kind === 'ender_dragon' ? 'enderman' : kind === 'giant_gorilla' ? 'gorilla' : kind === 'giant_warden' ? 'warden' : 'spider';
+  return bossMinionKinds(kind)[0]!;
+}
+/**
+ * 보스가 부르는 부하 목록 — 부를 때마다 돌아가며. 네 왕은 아들 설계(bosses.json four_kings.kings.minions) + 아빠가 보낸 그림의 변종(2026-11-06):
+ * 스켈레톤 왕 = 스켈레톤·스트레이·위더 스켈레톤·보그드·파치트, 크리퍼 왕 = 크리퍼·충전된 크리퍼, 엔더맨 왕 = 엔더맨·엔더마이트,
+ * 좀비 왕 = 좀비·허스크·좀비 주민·아기 좀비·드라운드·프로스트바이트
+ */
+export function bossMinionKinds(kind: MobKind): readonly MobKind[] {
+  const by: Partial<Record<MobKind, readonly MobKind[]>> = {
+    evoker: ['vindicator'],
+    ender_dragon: ['enderman'],
+    giant_gorilla: ['gorilla'],
+    giant_warden: ['warden'],
+    elder_guardian: ['guardian'],
+    giant_slime: ['slime'],
+    skeleton_king: ['skeleton', 'stray', 'wither_skeleton', 'bogged', 'parched'],
+    creeper_king: ['creeper', 'charged_creeper'],
+    enderman_king: ['enderman', 'endermite'],
+    zombie_king: ['zombie', 'husk', 'zombie_villager', 'baby_zombie', 'drowned', 'frostbite'],
+  };
+  return by[kind] ?? ['spider'];
 }
 /** 우민 (마을 방어전 M7-5) */
 export const RAIDER_KINDS: readonly MobKind[] = ['vindicator', 'pillager', 'evoker'];
@@ -105,6 +127,10 @@ export interface MobDef {
   readonly swim?: boolean;
   /** 복어 (2026-11-06): 사람이 PUFF_R 칸 안에 오면 부풀고(state = attack), 부푼 채 닿으면 따끔 + 독 */
   readonly puff?: boolean;
+  /** 슬라임 (2026-11-06): 죽으면 이 몹 n 마리로 쪼개진다 */
+  readonly split?: { kind: MobKind; n: number };
+  /** 쏘는 것의 생김새 (2026-11-06): laser(가디언 빛줄기)·potion(마녀 물약). 없으면 화살/불덩이 규칙대로 */
+  readonly shot?: 'laser' | 'potion';
   readonly drops: readonly MobDrop[];
   readonly xp: number;
   /** 순한 동물인가 (때리지 않으면 안 덤빈다) */
@@ -136,6 +162,16 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   sheep: { id: 'sheep', hp: 8, damage: 0, speed: 1.8, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   chicken: { id: 'chicken', hp: 4, damage: 0, speed: 1.6, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   dog: { id: 'dog', hp: 8, damage: 0, speed: 2.6, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  // 바다 신전·늪·고대성 (2026-11-06, 아빠 "원정지 3개 더"): 가디언·엘더 가디언(빛줄기), 슬라임·큰 슬라임(쪼개짐), 마녀(독 물약), 네 왕(아들 보스 설계, hp 600)
+  guardian: { id: 'guardian', hp: 30, damage: 4, speed: 1.8, reach: 8, attackEveryMs: 3000, fuseMs: 0, explodeRadius: 0, poisonMs: 0, shot: 'laser' },
+  elder_guardian: { id: 'elder_guardian', hp: 350, damage: 7, speed: 1.4, reach: 10, attackEveryMs: 3200, fuseMs: 0, explodeRadius: 0, poisonMs: 0, shot: 'laser' },
+  slime: { id: 'slime', hp: 12, damage: 3, speed: 2.2, reach: 1.5, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  giant_slime: { id: 'giant_slime', hp: 300, damage: 7, speed: 2.0, reach: 3.2, attackEveryMs: 2200, fuseMs: 0, explodeRadius: 0, poisonMs: 0, split: { kind: 'slime', n: 4 }, knock: true },
+  witch: { id: 'witch', hp: 26, damage: 3, speed: 2.0, reach: 7, attackEveryMs: 3200, fuseMs: 0, explodeRadius: 0, poisonMs: 3000, shot: 'potion' },
+  skeleton_king: { id: 'skeleton_king', hp: 600, damage: 6, speed: 2.0, reach: 12, attackEveryMs: 2600, fuseMs: 0, explodeRadius: 0, poisonMs: 0 }, // 화살 비 (12칸)
+  creeper_king: { id: 'creeper_king', hp: 600, damage: 9, speed: 2.2, reach: 3.6, attackEveryMs: 3000, fuseMs: 0, explodeRadius: 0, poisonMs: 0, knock: true },
+  enderman_king: { id: 'enderman_king', hp: 600, damage: 8, speed: 2.6, reach: 3.6, attackEveryMs: 2400, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  zombie_king: { id: 'zombie_king', hp: 600, damage: 7, speed: 2.2, reach: 3.6, attackEveryMs: 2000, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   cat: { id: 'cat', hp: 10, damage: 0, speed: 2.8, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0 }, // 고양이 (2026-11-06): 마을에, 사람을 피하고, 대구·연어로 길들인다
   // 사막 (v1.1-1, #157): 허스크는 모래색 좀비(조금 느리다). 엔더맨은 키 크고 빠르지만 순간이동은 없다 — 엔더 진주 출처
   husk: { id: 'husk', hp: 20, damage: 4, speed: 2.1, reach: 1.6, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
@@ -161,6 +197,14 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   // 눈 골렘 (#223, 아들 14차 5번): 설원 포탈 둘레에 산다. 중립 — 먼저 안 덤비고, 맞으면 20초 동안 눈덩이를 던진다(8칸). 피해 0, 맞으면 밀려날 뿐
   snow_golem: { id: 'snow_golem', hp: 10, damage: 0, speed: 2.0, reach: 8, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 0, neutral: true },
   // 좀비 주민 (#244): 좀비와 같다. 황금 사과를 먹이면 주민으로 돌아온다
+  // 네 왕의 부하 변종 (아빠가 보낸 그림 2026-11-06): 보그드(늪, 독 화살)·파치트(사막 스켈레톤)·충전된 크리퍼(폭발이 크다)·엔더마이트(작은 벌레)·아기 좀비(작고 빠르다)·드라운드(바다 좀비)·프로스트바이트(얼음 좀비)
+  bogged: { id: 'bogged', hp: 16, damage: 3, speed: 2.2, reach: 6, attackEveryMs: 2800, fuseMs: 0, explodeRadius: 0, poisonMs: 3000 },
+  parched: { id: 'parched', hp: 20, damage: 4, speed: 2.2, reach: 6, attackEveryMs: 2800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  charged_creeper: { id: 'charged_creeper', hp: 20, damage: 12, speed: 2.6, reach: 3.0, attackEveryMs: 0, fuseMs: 1500, explodeRadius: 5, poisonMs: 0 },
+  endermite: { id: 'endermite', hp: 8, damage: 2, speed: 3.2, reach: 1.2, attackEveryMs: 1200, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  baby_zombie: { id: 'baby_zombie', hp: 20, damage: 3, speed: 3.4, reach: 1.3, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  drowned: { id: 'drowned', hp: 20, damage: 4, speed: 2.2, reach: 1.6, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
+  frostbite: { id: 'frostbite', hp: 22, damage: 4, speed: 2.0, reach: 1.6, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   zombie_villager: { id: 'zombie_villager', hp: 20, damage: 4, speed: 2.3, reach: 1.6, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0 },
   // 정글 (#253): 고릴라는 세고 밀친다. 거대 고릴라는 궁궐 왕좌 앞에서 자다 깨어나 고릴라를 부른다 (hp 400 은 bosses.json)
   gorilla: { id: 'gorilla', hp: 24, damage: 5, speed: 2.6, reach: 2.2, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0, knock: true },
@@ -235,8 +279,8 @@ const BossFile = z
   })
   .loose();
 
-const BOSS_NAME_KO: Partial<Record<MobKind, string>> = { spider_king: '거미 왕', evoker: '소환사', ender_dragon: '엔더 드래곤', giant_gorilla: '거대 고릴라', giant_warden: '거대 워든' };
-const BOSS_XP: Partial<Record<MobKind, number>> = { spider_king: 80, evoker: 100, ender_dragon: 500, giant_gorilla: 150, giant_warden: 200 };
+const BOSS_NAME_KO: Partial<Record<MobKind, string>> = { spider_king: '거미 왕', evoker: '소환사', ender_dragon: '엔더 드래곤', giant_gorilla: '거대 고릴라', giant_warden: '거대 워든', elder_guardian: '엘더 가디언', giant_slime: '큰 슬라임', skeleton_king: '스켈레톤 왕', creeper_king: '크리퍼 왕', enderman_king: '엔더맨 왕', zombie_king: '좀비 왕' };
+const BOSS_XP: Partial<Record<MobKind, number>> = { spider_king: 80, evoker: 100, ender_dragon: 500, giant_gorilla: 150, giant_warden: 200, elder_guardian: 150, giant_slime: 120, skeleton_king: 300, creeper_king: 300, enderman_king: 300, zombie_king: 300 };
 
 function dropsFromRaw(raw: unknown): MobDrop[] {
   if (!Array.isArray(raw)) return [];
@@ -269,6 +313,15 @@ export function parseMobs(raw: unknown, xpByMob: ReadonlyMap<string, readonly [n
     const b = BossFile.safeParse(bossesRaw);
     if (!b.success) throw new DataError('data/bosses.json', b.error.issues.map((i) => `${i.path.map(String).join('.')}: ${koreanizeMessage(i.message)}`));
     bosses = [...(b.data.midBosses ?? []), ...(b.data.finalBosses ?? [])];
+    // 네 왕 (2026-11-06): four_kings.kings 안의 넷도 보스 한 마리씩
+    for (const f of b.data.finalBosses ?? []) {
+      const kings = (f as { kings?: unknown }).kings;
+      if (!Array.isArray(kings)) continue;
+      for (const k of kings) {
+        const e = BossEntry.safeParse(k);
+        if (e.success) bosses.push(e.data);
+      }
+    }
   }
   const defs = {} as Record<MobKind, MobDef>;
   for (const kind of MOB_KINDS) {
@@ -349,6 +402,15 @@ export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = {
   chicken: { w: 0.4, h: 0.7 },
   dog: { w: 0.6, h: 0.85 },
   cat: { w: 0.6, h: 0.7 },
+  guardian: { w: 1.0, h: 1.0 },
+  elder_guardian: { w: 2.4, h: 2.4 },
+  slime: { w: 1.0, h: 1.0 },
+  giant_slime: { w: 3.2, h: 3.2 },
+  witch: MOB_SIZE,
+  skeleton_king: { w: 1.6, h: 5.4 },
+  creeper_king: { w: 1.6, h: 4.8 },
+  enderman_king: { w: 1.6, h: 7.0 },
+  zombie_king: { w: 1.6, h: 5.4 },
   husk: MOB_SIZE,
   enderman: { w: 0.6, h: 2.9 },
   stray: MOB_SIZE,
@@ -361,6 +423,13 @@ export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = {
   villager: MOB_SIZE,
   iron_golem: { w: 1.4, h: 2.7 },
   zombie_villager: MOB_SIZE,
+  bogged: MOB_SIZE,
+  parched: MOB_SIZE,
+  charged_creeper: MOB_SIZE,
+  endermite: { w: 0.4, h: 0.3 },
+  baby_zombie: { w: 0.5, h: 0.95 },
+  drowned: MOB_SIZE,
+  frostbite: MOB_SIZE,
   gorilla: { w: 1.4, h: 2.2 }, // 정글 (#253): 그림(복셀 키 28 × 1.4)과 맞춘다 — 사람보다 크다
   giant_gorilla: { w: 2.8, h: 4.4 },
   warden: { w: 1.0, h: 2.9 }, // 깊은 어둠 (#254): 마인크래프트 워든처럼 세 칸 가까이 — 그림(복셀 키 50)과 맞춘다
@@ -396,7 +465,7 @@ export const POISON_DAMAGE = 1;
 /** 중립 몹이 맞고 화나 있는 시간 (#161) */
 export const ANGRY_MS = 20_000;
 /** 좀비 주민 (#244): 주민을 무는 좀비류 · 밤 스폰 좀비류 중 좀비 주민으로 나올 비율 · 황금 사과 뒤 돌아오는 시간 · 되돌린 사람 보상 */
-export const ZOMBIE_KINDS: readonly MobKind[] = ['zombie', 'husk', 'zombie_villager'];
+export const ZOMBIE_KINDS: readonly MobKind[] = ['zombie', 'husk', 'zombie_villager', 'baby_zombie', 'drowned', 'frostbite'];
 export function isZombieKind(kind: MobKind): boolean {
   return ZOMBIE_KINDS.includes(kind);
 }
@@ -444,6 +513,10 @@ export interface MobState {
   angryUntil?: number;
   /** 크리퍼가 고양이에게 하악질 들은 시각 (2026-11-06) */
   hissAt?: number;
+  /** 보스가 마지막으로 부하를 부른 시각 (보스 여럿, 2026-11-06) */
+  summonAt?: number;
+  /** 보스가 부하를 부른 횟수 — 부하 종류를 돌아가며 고른다 */
+  summonN?: number;
   /** 철 골렘 (#221): 이 사람만 쫓는다(주민을 때린 사람). despawnAt 이 지나면 사라진다 */
   grudge?: number;
   despawnAt?: number;

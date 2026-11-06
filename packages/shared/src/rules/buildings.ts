@@ -98,6 +98,10 @@ export const BUILDING_SITES: readonly Site[] = [
   { id: 'portal_dark_forest', x0: 61, z0: 41, size: [7, 7, 5] },
   { id: 'portal_jungle', x0: 61, z0: 41, size: [7, 7, 5] },
   { id: 'portal_deep_dark', x0: 61, z0: 41, size: [7, 7, 5] },
+  // 2026-11-06 원정지 셋: 바다 신전 남쪽, 늪 북쪽(어두운 숲 표식 안쪽), 고대성(포탈 6단계) 서쪽(정글 표식 안쪽)
+  { id: 'portal_ocean', x0: 61, z0: 41, size: [7, 7, 5] },
+  { id: 'portal_swamp', x0: 61, z0: 41, size: [7, 7, 5] },
+  { id: 'portal_6', x0: 61, z0: 41, size: [7, 7, 5] },
   // 둥지는 겹쳐 자란다: 7×7 둥지 바깥에 11×11 고리(큰 둥지), 그 바깥에 15×15 고리(드래곤 성)
   // 주민 집 세 채 (#168, 아들 13차 6번 "지금 건물 바깥 둘레"): 광장 남서쪽, 농장 남쪽에 한 줄. 서버가 처음부터 세운다(비용 없음, 마을 레벨엔 안 센다)
   { id: 'villager_house_1', x0: 44, z0: 80, size: [5, 5, 4] },
@@ -295,6 +299,15 @@ export function buildingBlocks(id: string, groundY: number): Placed[] {
     case 'portal_deep_dark':
       // 동쪽 테두리 모서리 옆 두 칸에 심층암 + 스컬크
       return box(s, groundY, (dx, dz, dy) => (dx === w - 1 && (dz === 1 || dz === d - 2) ? (dy === 1 ? 'deepslate' : dy === 2 ? 'sculk' : null) : null));
+    case 'portal_ocean':
+      // 남쪽 테두리 모서리 옆 두 칸에 프리즈머린 벽돌 + 바다 랜턴 (2026-11-06)
+      return box(s, groundY, (dx, dz, dy) => (dz === d - 1 && (dx === 1 || dx === w - 2) ? (dy === 1 ? 'prismarine_bricks' : dy === 2 ? 'sea_lantern' : null) : null));
+    case 'portal_swamp':
+      // 북쪽 테두리 안쪽 두 칸(어두운 숲 표식 옆)에 가문비 원목 + 슬라임 블록
+      return box(s, groundY, (dx, dz, dy) => (dz === 0 && (dx === 2 || dx === w - 3) ? (dy === 1 ? 'spruce_log' : dy === 2 ? 'slime_block' : null) : null));
+    case 'portal_6':
+      // 고대성 (아들 "포탈 6단계"): 서쪽 테두리 안쪽 두 칸(정글 표식 옆)에 석재 벽돌 + 석영 블록(첫 왕의 머리)
+      return box(s, groundY, (dx, dz, dy) => (dx === 0 && (dz === 2 || dz === d - 3) ? (dy === 1 ? 'stone_bricks' : dy === 2 ? 'quartz_block' : null) : null));
     default:
       return [];
   }
@@ -337,6 +350,12 @@ export function isBuildingBuiltAt(idAt: (x: number, y: number, z: number) => str
       return idAt(s.x0, groundY + 1, s.z0 + 1) === 'mossy_cobblestone' && idAt(s.x0, groundY + 2, s.z0 + 1) === 'jungle_leaves';
     case 'portal_deep_dark':
       return idAt(s.x0 + s.size[0] - 1, groundY + 1, s.z0 + 1) === 'deepslate' && idAt(s.x0 + s.size[0] - 1, groundY + 2, s.z0 + 1) === 'sculk';
+    case 'portal_ocean':
+      return idAt(s.x0 + 1, groundY + 1, s.z0 + s.size[1] - 1) === 'prismarine_bricks' && idAt(s.x0 + 1, groundY + 2, s.z0 + s.size[1] - 1) === 'sea_lantern';
+    case 'portal_swamp':
+      return idAt(s.x0 + 2, groundY + 1, s.z0) === 'spruce_log' && idAt(s.x0 + 2, groundY + 2, s.z0) === 'slime_block';
+    case 'portal_6':
+      return idAt(s.x0, groundY + 1, s.z0 + 2) === 'stone_bricks' && idAt(s.x0, groundY + 2, s.z0 + 2) === 'quartz_block';
     default:
       return false;
   }

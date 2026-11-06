@@ -1912,6 +1912,69 @@
       "lightEmit": 3,
       "texture": "sculk",
       "_note": "깊은 어둠 고대 도시 바닥 (#254, 아들 '깊은 어둠' 재료). 푸르스름하게 빛난다. 워든이 떨군다"
+    },
+    {
+      "id": "prismarine",
+      "name": "프리즈머린",
+      "hardness": 1.5,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "prismarine",
+      "_note": "바다 신전 벽 (2026-11-06). 청록빛이 일렁이는 돌"
+    },
+    {
+      "id": "prismarine_bricks",
+      "name": "프리즈머린 벽돌",
+      "hardness": 1.5,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "prismarine_bricks",
+      "_note": "바다 신전 바닥·기둥 (2026-11-06)"
+    },
+    {
+      "id": "dark_prismarine",
+      "name": "어두운 프리즈머린",
+      "hardness": 1.5,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "dark_prismarine",
+      "_note": "바다 신전 띠·지붕 (2026-11-06)"
+    },
+    {
+      "id": "sea_lantern",
+      "name": "바다 랜턴",
+      "hardness": 0.3,
+      "tool": null,
+      "lightEmit": 15,
+      "texture": "sea_lantern",
+      "_note": "바다 신전의 불빛 (2026-11-06). 발광석처럼 밝다"
+    },
+    {
+      "id": "stone_bricks",
+      "name": "석재 벽돌",
+      "hardness": 1.5,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "stone_bricks",
+      "_note": "고대성 벽 (2026-11-06)"
+    },
+    {
+      "id": "mossy_stone_bricks",
+      "name": "이끼 낀 석재 벽돌",
+      "hardness": 1.5,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "mossy_stone_bricks",
+      "_note": "고대성 — 오래된 벽 (2026-11-06)"
+    },
+    {
+      "id": "cracked_stone_bricks",
+      "name": "금 간 석재 벽돌",
+      "hardness": 1.5,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "cracked_stone_bricks",
+      "_note": "고대성 — 무너져 가는 벽 (2026-11-06)"
     }
   ]
 }

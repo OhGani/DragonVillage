@@ -335,6 +335,26 @@
       "_note": "#255. 포탈 단 동쪽 테두리에 심층암 + 스컬크 표식 둘"
     },
     {
+      "id": "portal_swamp",
+      "name": "늪 포탈",
+      "level": 2,
+      "requires": "portal_2",
+      "cost": { "cobblestone": 50, "log": 16, "iron_ore": 8 },
+      "footprint": [7, 7, 5],
+      "unlocks": ["expedition:swamp"],
+      "_note": "2026-11-06 아빠 \"원정지 3개 더\". 포탈 단 북쪽 안쪽 두 칸에 가문비 원목 + 슬라임 블록 표식"
+    },
+    {
+      "id": "portal_ocean",
+      "name": "바다 신전 포탈",
+      "level": 3,
+      "requires": "portal_3",
+      "cost": { "cobblestone": 60, "sand": 32, "gold_ore": 10, "diamond": 2 },
+      "footprint": [7, 7, 5],
+      "unlocks": ["expedition:ocean_monument"],
+      "_note": "2026-11-06. 포탈 단 남쪽 테두리에 프리즈머린 벽돌 + 바다 랜턴 표식"
+    },
+    {
       "id": "portal_6",
       "name": "포탈 6단계 — 고대성",
       "level": 6,
@@ -350,8 +370,8 @@
       "unlocks": [
         "expedition:ancient_castle"
       ],
-      "release": "v1.2",
-      "_note": "네 왕의 고대성. 엔딩 원정. 메아리 조각(echo_shard)은 아들 12차 답(2026-10-06)으로 뺌 — 어디서 구하는지 몰라서"
+      "requires": "portal_5",
+      "_note": "네 왕의 고대성. 2026-11-06 아빠 \"원정지 3개 더\" 로 앞당김 — 포탈 단 서쪽 안쪽에 석재 벽돌 + 석영 표식. 엔딩 원정. 메아리 조각(echo_shard)은 아들 12차 답(2026-10-06)으로 뺌 — 어디서 구하는지 몰라서"
     }
   ]
 }

@@ -614,7 +614,7 @@ export type ServerJson =
   /** 원정에 따라온 펫 (#145): 원정 세계 사람들에게. 클라가 주인을 따라다니게 그린다 (서버 목록엔 없다) */
   | { t: 'companions'; list: { id: number; kind: number; name: string | null; owner: number }[] }
   /** 몹(스켈레톤·약탈자)이 쏜 화살: from(몹) → to(사람 가슴) (M8-2 3차) */
-  | { t: 'arrow'; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean; snow?: boolean; sonic?: boolean }
+  | { t: 'arrow'; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean; snow?: boolean; sonic?: boolean; laser?: boolean; potion?: boolean }
   /** 밀린다 (#223 눈 골렘 눈덩이는 피해 없이, #253 고릴라는 아프고 나서): (x, z) 방향으로 power 만큼. why = 'snow' | 'gorilla' */
   | { t: 'knock'; x: number; z: number; power: number; why?: string }
   /** 마을 방어전 상태 1Hz (M7-5). null = 끝났다/없다 */

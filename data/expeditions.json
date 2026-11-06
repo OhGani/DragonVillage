@@ -413,7 +413,7 @@
         "husk",
         "creeper",
         "enderman"
-      ],
+      , "parched"],
       "structures": [
         "desert_pyramid"
       ],
@@ -500,7 +500,7 @@
       "nightMobs": [
         "stray",
         "zombie"
-      ],
+      , "frostbite"],
       "_note": "아이스 드래곤 재료. 눈 바이옴에 가야만 있음 (아들 답변 7)",
       "sonDetails": {
         "details": [
@@ -844,30 +844,78 @@
       }
     },
     {
+      "id": "swamp",
+      "name": "늪",
+      "generator": "swamp",
+      "durationSec": 600,
+      "nightStartsAt": 300,
+      "treasures": 3,
+      "unlockedBy": "portal_swamp",
+      "danger": 2,
+      "materials": ["slime_ball", "brown_mushroom", "red_mushroom"],
+      "structures": ["witch_hut", "slime_pit"],
+      "boss": { "id": "giant_slime", "structure": "slime_pit", "spawnChance": 1.0 },
+      "_note": "2026-11-06 아빠 \"원정지 3개 더\": 얕은 물웅덩이·늪 참나무·버섯, 물 위 기둥 마녀 오두막(마녀 둘, 독 물약을 던진다), 슬라임 웅덩이의 큰 슬라임(아빠가 보낸 그림 — 밝은 테두리·비치는 속·2×2 눈, 때리면 밀치고 죽으면 슬라임 넷으로). 5분 뒤 밤",
+      "sonDetails": {},
+      "nightMobs": ["slime", "zombie", "witch", "bogged", "drowned"],
+      "treasureBonus": {
+        "_comment": "늪 상자: 슬라임 볼 2~4 는 꼭, 버섯 50%",
+        "extraPicks": 0,
+        "always": [
+          { "item": "slime_ball", "min": 2, "max": 4 },
+          { "item": "brown_mushroom", "min": 1, "max": 3, "chance": 0.5 }
+        ]
+      }
+    },
+    {
+      "id": "ocean_monument",
+      "name": "바다 신전",
+      "generator": "ocean",
+      "durationSec": 600,
+      "nightStartsAt": 360,
+      "treasures": 3,
+      "unlockedBy": "portal_ocean",
+      "danger": 4,
+      "materials": ["prismarine", "sea_lantern", "cod", "salmon"],
+      "structures": ["ocean_monument"],
+      "boss": { "id": "elder_guardian", "structure": "ocean_monument", "spawnChance": 1.0 },
+      "_note": "2026-11-06 아빠 \"원정지 3개 더\": 온통 바다, 가운데 도착 섬에서 프리즈머린 다리로 바다 신전까지. 신전 안은 마른 바닥(숨 걱정 없음) — 복도 구석 가디언 넷, 가운데 방 엘더 가디언(10칸 빛줄기, 가디언을 부른다). 바다엔 물고기가 많다",
+      "sonDetails": {},
+      "wildAnimals": { "salmon": 10, "cod": 10, "tropical_fish": 12, "pufferfish": 6 },
+      "nightMobs": ["drowned", "zombie", "skeleton"],
+      "treasureBonus": {
+        "_comment": "신전 상자: 프리즈머린 4~8·금 1~2 는 꼭, 바다 랜턴 50%",
+        "extraPicks": 1,
+        "always": [
+          { "item": "prismarine", "min": 4, "max": 8 },
+          { "item": "gold_ingot", "min": 1, "max": 2 },
+          { "item": "sea_lantern", "min": 1, "max": 2, "chance": 0.5 }
+        ]
+      }
+    },
+    {
       "id": "ancient_castle",
       "name": "고대성",
       "generator": "ancient_castle",
       "durationSec": 900,
       "nightStartsAt": 0,
-      "treasures": 0,
+      "treasures": 3,
       "unlockedBy": "portal_6",
       "danger": 6,
-      "materials": [
-        "wither_skeleton_skull",
-        "gunpowder",
-        "ender_pearl"
-      ],
-      "structures": [
-        "ancient_castle"
-      ],
-      "boss": {
-        "id": "four_kings",
-        "structure": "ancient_castle",
-        "spawnChance": 1.0
-      },
-      "release": "v1.2",
-      "_note": "네 왕의 성 — 첫 번째 왕들의 머리가 걸려 있다. 엔딩 원정. 15분. 포탈 6단계(엔드 이후)",
-      "sonDetails": {}
+      "materials": ["wither_skeleton_skull", "gunpowder", "ender_pearl"],
+      "structures": ["ancient_castle"],
+      "boss": { "id": "four_kings", "structure": "ancient_castle", "spawnChance": 1.0 },
+      "_note": "네 왕의 성 — 첫 번째 왕들의 머리가 걸려 있다. 엔딩 원정. 15분. 포탈 6단계(엔드 이후). 2026-11-06 앞당겨 만듦: 방 넷(입구 → 초반 → 중간 → 최종), 방마다 스켈레톤·크리퍼·엔더맨·좀비가 bosses.json mobsPerKind 만큼(사람이 적으면 줄어든다), 최종 방에 네 왕이 한 번에. 다 잡으면 '마을의 수호자'",
+      "sonDetails": {},
+      "nightMobs": ["skeleton", "zombie"],
+      "treasureBonus": {
+        "_comment": "고대성 상자: 다이아몬드 1·금 2~4 는 꼭",
+        "extraPicks": 1,
+        "always": [
+          { "item": "diamond", "min": 1, "max": 1 },
+          { "item": "gold_ingot", "min": 2, "max": 4 }
+        ]
+      }
     }
   ]
 }

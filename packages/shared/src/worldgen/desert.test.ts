@@ -193,7 +193,7 @@ describe('generateDesert 배치', () => {
     expect(hasGenerator('desert')).toBe(true);
     expect(def.unlockedBy).toBe('portal_2');
     expect(def.nightStartsAt).toBe(360);
-    expect(spawnKinds(def.nightMobs)).toEqual(['husk', 'creeper', 'enderman']);
+    expect(spawnKinds(def.nightMobs)).toEqual(['husk', 'creeper', 'enderman', 'parched']); // 파치트 (사막 스켈레톤, 2026-11-06)
     const w = generateExpedition(def, BLOCKS, SEED);
     expect(w.den).toBeNull();
     expect(w.treasures.length).toBe(4);

@@ -175,7 +175,7 @@ export interface NetEvents {
   /** 엔딩 포탈이 열렸다 (#170) */
   onEnding(at: { x: number; y: number; z: number }): void;
   /** 몹이 쏜 화살 (M8-2 3차) */
-  onArrow(m: { from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean; snow?: boolean; sonic?: boolean }): void; // 거대 워든 음파 (#254)
+  onArrow(m: { from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean; snow?: boolean; sonic?: boolean; laser?: boolean; potion?: boolean }): void; // 거대 워든 음파 (#254)
   /** 피해 없이 밀린다 (#223) */
   onKnock(m: { x: number; z: number; power: number; why?: string }): void; // why: snow(눈덩이) · gorilla(#253)
   /** 마을 방어전 상태 (M7-5). null = 끝/없음 */

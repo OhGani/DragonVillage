@@ -602,6 +602,45 @@ const TEX = {
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (x % 3 === 1 || y % 3 === 1) c.mul(x, y, 0.55);
     for (const [x, y] of [[6, 7], [9, 7], [7, 9], [8, 9]]) c.set(x, y, 200, 120, 60);
   },
+  // 바다 신전 (2026-11-06): 프리즈머린은 청록 얼룩, 벽돌은 칸 줄, 어두운 것은 짙은 청록 판, 바다 랜턴은 밝은 하늘빛 판 + 흰 빛
+  prismarine: (c) => {
+    c.noise([92, 160, 146], 16).blotch(0.12);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (c.rnd() < 0.12) c.set(x, y, 70, 120, 140);
+  },
+  prismarine_bricks: (c) => {
+    c.noise([110, 176, 160], 8);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (y % 4 === 3 || (x + (Math.floor(y / 4) % 2 ? 4 : 0)) % 8 === 7) c.mul(x, y, 0.72);
+  },
+  dark_prismarine: (c) => {
+    c.noise([46, 84, 70], 8);
+    c.frame([30, 58, 48]);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if ((x === 7 || x === 8 || y === 7 || y === 8) && x > 0 && y > 0 && x < 15 && y < 15) c.mul(x, y, 0.8);
+  },
+  sea_lantern: (c) => {
+    c.noise([196, 226, 222], 10);
+    c.frame([150, 196, 196]);
+    for (let y = 3; y <= 12; y++) for (let x = 3; x <= 12; x++) if ((x + y) % 3 === 0) c.set(x, y, 240, 252, 250);
+  },
+  // 고대성 (2026-11-06): 석재 벽돌 — 두 줄 벽돌, 이끼 낀 것·금 간 것
+  stone_bricks: (c) => {
+    c.noise([122, 122, 122], 8);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (y % 8 === 7 || (x + (y < 8 ? 0 : 8)) % 16 === 15) c.set(x, y, 84, 84, 84);
+  },
+  mossy_stone_bricks: (c) => {
+    c.noise([122, 122, 122], 8);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (y % 8 === 7 || (x + (y < 8 ? 0 : 8)) % 16 === 15) c.set(x, y, 84, 84, 84);
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++)
+        if (c.rnd() < 0.28) {
+          const [r, g, b] = c.get(x, y);
+          c.set(x, y, r * 0.55, g * 0.9, b * 0.45);
+        }
+  },
+  cracked_stone_bricks: (c) => {
+    c.noise([118, 118, 118], 9);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (y % 8 === 7 || (x + (y < 8 ? 0 : 8)) % 16 === 15) c.set(x, y, 84, 84, 84);
+    for (const [x, y] of [[3, 1], [4, 2], [4, 3], [5, 4], [5, 5], [11, 9], [10, 10], [10, 11], [9, 12], [9, 13]]) c.set(x, y, 60, 60, 60);
+  },
   dried_ghast: (c) => {
     c.noise([206, 202, 196], 8).blotch(0.06);
     // 감은 눈 두 개와 입

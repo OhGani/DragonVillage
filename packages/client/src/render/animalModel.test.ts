@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { endermanVoxels, skeletonVoxels } from './skeletonModel';
+import { endermiteVoxels, zombieVoxels } from './zombieModel';
 import { CAT_COATS, mobSize } from '@dragon-village/shared';
 import { CAT_COAT_LIST, HORSE_COATS, animalVoxels, catCoat, collarVoxels, TROPICAL_VARIANTS, WILD_MODEL_KINDS, animalParts, animalVariant, horseCoat, horseVoxels, pufferPuffedVoxels, wildParts } from './animalModel';
 
@@ -91,5 +93,32 @@ describe('고양이 모델 (2026-11-06)', () => {
     }
     const body = new Set(animalParts('cat', 0.05).body.map((c) => `${c.x},${c.y},${c.z}`));
     for (const c of collarVoxels('cat')) expect(body.has(`${c.x},${c.y},${c.z}`)).toBe(false);
+  });
+});
+
+describe('스켈레톤·좀비 가족·엔더맨 모델 (아빠 그림 2026-11-06)', () => {
+  const ys = (v: { y: number }[]) => [Math.min(...v.map((q) => q.y)), Math.max(...v.map((q) => q.y))];
+  const xs = (v: { x: number }[]) => [Math.min(...v.map((q) => q.x)), Math.max(...v.map((q) => q.x))];
+  it('스켈레톤 다섯: 팔다리가 2칸으로 가늘고, 갈비 사이가 비어 있고, 활(위더는 검)을 든다. 종류마다 색이 다르다', () => {
+    const sigs = new Set<string>();
+    for (const k of ['skeleton', 'wither', 'stray', 'bogged', 'parched'] as const) {
+      const v = skeletonVoxels(k);
+      expect(xs(v.leg)).toEqual([-1, 0]);
+      expect(ys(v.arm)).toEqual([-12, -1]);
+      if (k !== 'stray') expect(v.torso.length).toBeLessThan(8 * 12 * 4); // 속이 빈 갈비 (스트레이는 해진 옷을 덧입었다)
+      expect(v.item.length).toBeGreaterThan(5);
+      sigs.add(v.head.map((q) => q.c).sort().join());
+    }
+    expect(sigs.size).toBe(5);
+    expect(skeletonVoxels('bogged').head.some((q) => q.y >= 8)).toBe(true); // 버섯 모자
+  });
+  it('좀비 가족: 좀비 주민은 코가 튀어나오고 로브가 무릎까지, 사막 좀비 주민은 두건 색이 다르다. 엔더맨 팔다리는 30칸, 엔더마이트는 작다', () => {
+    const zv = zombieVoxels('zombie_villager');
+    expect(Math.min(...zv.head.map((q) => q.z))).toBe(-6); // 코
+    expect(ys(zv.torso)[0]).toBe(-6); // 로브 자락
+    expect(zombieVoxels('desert_zombie_villager').head.map((q) => q.c).join()).not.toBe(zv.head.map((q) => q.c).join());
+    for (const k of ['zombie', 'husk', 'drowned', 'frostbite', 'zombie_king'] as const) expect(ys(zombieVoxels(k).leg)).toEqual([-12, -1]);
+    expect(ys(endermanVoxels().leg)).toEqual([-30, -1]);
+    expect(ys(endermiteVoxels())[1]).toBeLessThanOrEqual(2);
   });
 });

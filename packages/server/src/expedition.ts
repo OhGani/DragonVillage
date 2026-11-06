@@ -52,7 +52,9 @@ export class Expedition {
   /** 보스 자리 (동굴 거미 왕 굴, 엔드 기반암 분수). 없으면 null */
   readonly den: { x: number; y: number; z: number } | null;
   /** 시작부터 서 있는 몹 (#223 눈 골렘)·엔드 수정 자리 (#224) */
-  readonly spawns: readonly { kind: MobKind; x: number; y: number; z: number }[];
+  readonly spawns: readonly { kind: MobKind; x: number; y: number; z: number; rank?: number }[];
+  /** 함께 싸우는 보스 여럿 (고대성 네 왕, 2026-11-06) */
+  readonly kings: readonly { kind: MobKind; x: number; y: number; z: number }[];
   readonly crystals: readonly { x: number; y: number; z: number }[];
   /** 보스 종류 — 자리가 있고 expeditions.json boss.id 가 아는 몹이면 (#162) */
   readonly bossKind: MobKind | null;
@@ -72,6 +74,7 @@ export class Expedition {
     this.treasures = gen.treasures;
     this.den = gen.den;
     this.spawns = gen.spawns;
+    this.kings = gen.kings ?? [];
     this.crystals = gen.crystals;
     this.bossKind = gen.den && def.bossId && isMobKind(def.bossId) ? def.bossId : null;
     this.treasureKeys = new Set(gen.treasures.map((t) => `${t.x},${t.y},${t.z}`));

@@ -36,7 +36,7 @@ import {
   type VoxelWorld,
   ANGRY_MS,
   beamHitsMob,
-  bossMinionKind,
+  bossMinionKinds,
   encodeMobsState,
   explosionDamage,
   isBoss,
@@ -61,6 +61,8 @@ export interface MobArena {
   readonly boss?: MobKind | null;
   /** 시작부터 서 있는 몹 (#223 설원 눈 골렘) */
   readonly spawns?: readonly { kind: MobKind; x: number; y: number; z: number }[];
+  /** 함께 싸우는 보스 여럿 (고대성 네 왕, 2026-11-06): den 보스와 같이 잠들었다 같이 깬다 */
+  readonly kings?: readonly { kind: MobKind; x: number; y: number; z: number }[];
   /** 엔드 수정 자리 (#224): 남아 있는 수정만큼 엔더 드래곤이 회복한다 */
   readonly crystals?: readonly { x: number; y: number; z: number }[];
   /** 사냥 동물 (2026-11-05, expeditions.json wildAnimals): 종류 → 마릿수. 시작 때 무리로 푼다 */
@@ -188,7 +190,8 @@ export class MobSystem {
   /** 보스 (굴이 있는 무대, 또는 spawnBoss 로 넣은 것). 죽으면 null */
   boss: MobState | null = null;
   bossAwake = false;
-  private lastSummonAt = 0;
+  /** 함께 싸우는 다른 보스들 (고대성 네 왕, 2026-11-06). 첫 보스는 boss, 나머지가 여기. boss 가 죽으면 하나가 boss 로 올라간다 */
+  readonly kings = new Set<MobState>();
   /** 엔드 수정 회복 (#224): 마지막 회복 시각·마지막으로 센 수정 수 */
   private lastHealAt = 0;
   private lastCrystals = -1;
@@ -214,6 +217,7 @@ export class MobSystem {
       const y = (this.groundAt(e.den.x + 0.5, e.den.z + 0.5, e.den.y) ?? e.den.y) + hover;
       this.spawnBoss(kind, e.den.x + 0.5, y, e.den.z + 0.5, false); // 24칸 안에 사람이 오면 깬다 (거미 왕·엔더 드래곤 같음)
     }
+    for (const k of e.kings ?? []) this.spawnBoss(k.kind, k.x, this.groundAt(k.x, k.z, k.y) ?? k.y, k.z, false); // 네 왕 (2026-11-06): 첫째가 boss, 나머지는 kings
     for (const s of e.spawns ?? []) {
       const m = this.spawnKind(s.kind, s.x, this.groundAt(s.x, s.z, s.y) ?? s.y, s.z); // 시작부터 서 있는 몹 (#223 눈 골렘, #228 사막 주민)
       if (s.kind === 'villager') {
@@ -461,7 +465,7 @@ export class MobSystem {
   /** 보스·주민(순한 것)을 빼고 몇 마리 — 밤 스폰 상한(MOB_MAX)에 세는 수. 사막 마을 주민 8이 상한을 다 차지해 밤 몹이 하나도 안 나오던 것 (#244 에서 고침) */
   get regularCount(): number {
     let n = 0;
-    for (const m of this.mobs.values()) if (m !== this.boss && !this.defs.get(m.kind).passive && !isWild(m.kind)) n++; // 사냥 동물도 안 센다 (2026-11-05)
+    for (const m of this.mobs.values()) if (!this.isBossMob(m) && !this.defs.get(m.kind).passive && !isWild(m.kind)) n++; // 사냥 동물도 안 센다 (2026-11-05)
     return n;
   }
 
@@ -508,11 +512,15 @@ export class MobSystem {
   /** 보스 넣기. asleep 이면 가까이 올 때까지 잔다 (거미 왕), 아니면 바로 덤빈다 (소환사) */
   spawnBoss(kind: MobKind, x: number, y: number, z: number, awake: boolean): MobState {
     const id = this.nextId++;
-    const m: MobState = { id, kind, x, y, z, yaw: 0, hp: this.defs.get(kind).hp, state: awake ? MOB_STATE.walk : MOB_STATE.sleep, fuseAt: 0, lastAttackAt: 0 };
+    const m: MobState = { id, kind, x, y, z, yaw: 0, hp: this.defs.get(kind).hp, state: awake ? MOB_STATE.walk : MOB_STATE.sleep, fuseAt: 0, lastAttackAt: 0, summonAt: 0 };
     this.mobs.set(id, m);
-    this.boss = m;
-    this.bossAwake = awake;
-    this.lastSummonAt = 0;
+    if (this.boss) {
+      this.kings.add(m); // 이미 보스가 있으면 함께 싸우는 보스로 (네 왕)
+      if (this.bossAwake) m.state = MOB_STATE.walk;
+    } else {
+      this.boss = m;
+      this.bossAwake = awake;
+    }
     this.hooks.json({ t: 'mob', ev: 'spawn', id, mob: kind, x, y, z });
     return m;
   }
@@ -534,6 +542,8 @@ export class MobSystem {
       if (spot) {
         let kind = pickKind(this.kinds, this.turn);
         if (isZombieKind(kind) && kind !== 'zombie_villager' && zombieVillagerRoll(this.e.seed, this.turn)) kind = 'zombie_villager'; // 좀비·허스크 여덟에 하나는 좀비 주민 (#244)
+        else if (kind === 'zombie' && hash3(this.turn, 1, 77, this.e.seed) < 0.12) kind = 'baby_zombie'; // 좀비 여덟에 하나쯤 아기 좀비 (2026-11-06)
+        else if (kind === 'creeper' && hash3(this.turn, 2, 77, this.e.seed) < 0.1) kind = 'charged_creeper'; // 크리퍼 열에 하나 충전된 크리퍼
         this.spawnKind(kind, spot.x, spot.y, spot.z);
       }
     }
@@ -547,7 +557,7 @@ export class MobSystem {
       this.lastStepAt = now;
       this.stepCompanions(players, dt, now);
       for (const m of [...this.mobs.values()]) {
-        if (m === this.boss && !this.bossAwake) continue; // 잠든 보스는 안 움직인다
+        if (this.sleepingBoss(m)) continue; // 잠든 보스는 안 움직인다
         if (m.cureAt !== undefined) {
           // 좀비 주민이 황금 사과를 먹었다 (#244): 돌아올 때까지 서서 떤다
           if (now >= m.cureAt) this.cureDone(m, now);
@@ -590,7 +600,7 @@ export class MobSystem {
             }
         }
         if (def.neutral && (m.angryUntil ?? 0) < now) target = null; // 중립(좀비 피글린·엔더맨·눈 골렘): 맞기 전엔 가만히 (#161)
-        if (target && m.kind === 'enderman') this.teleportNear(m, target, now);
+        if (target && (m.kind === 'enderman' || m.kind === 'enderman_king')) this.teleportNear(m, target, now); // 엔더맨 왕 (2026-11-06)
         if (m.kind === 'villager' && (m.busyUntil ?? 0) > now) {
           // 말 걸거나 거래 중 (#233): 서서 그 사람을 본다
           const p = players.find((t) => t.idx === m.busyWith);
@@ -646,7 +656,7 @@ export class MobSystem {
           const ev = stepMob(m, m.grudge !== undefined ? { ...def, damage: GRUDGE_DAMAGE, attackEveryMs: GRUDGE_ATTACK_MS } : def, target, dt, now, this.groundAt);
           if (ev === 'attack') {
             // 원거리 몹은 화살이 날아가는 그림을 먼저 (피해는 바로)
-            if (isRangedMob(def)) this.hooks.json({ t: 'arrow', from: { x: m.x, y: m.y + mobSize(m.kind).h * 0.8, z: m.z }, to: { x: target.x, y: target.eyeY - 0.3, z: target.z }, fire: m.kind === 'ghast' || m.kind === 'blaze', snow: m.kind === 'snow_golem', sonic: m.kind === 'giant_warden' }); // 가스트·블레이즈는 불덩이 (#173), 눈 골렘은 눈덩이 (#223), 거대 워든은 음파 (#254)
+            if (isRangedMob(def)) this.hooks.json({ t: 'arrow', from: { x: m.x, y: m.y + mobSize(m.kind).h * 0.8, z: m.z }, to: { x: target.x, y: target.eyeY - 0.3, z: target.z }, fire: m.kind === 'ghast' || m.kind === 'blaze', snow: m.kind === 'snow_golem', sonic: m.kind === 'giant_warden', laser: def.shot === 'laser', potion: def.shot === 'potion' }); // 가스트·블레이즈는 불덩이 (#173), 눈 골렘은 눈덩이 (#223), 거대 워든은 음파 (#254)
             if (def.damage > 0) this.hooks.hurt(target.idx, m.grudge !== undefined ? GRUDGE_DAMAGE : (m.weakUntil ?? 0) > now ? Math.max(1, Math.floor(def.damage * MOB_WEAK_MUL)) : def.damage, m.kind, now); // 나약함 물약 (#245)
             if (def.damage <= 0 || def.knock) {
               // 눈 골렘 눈덩이 (#223): 안 아프고 밀려나기만. 고릴라 (#253): 아프고 나서 밀려난다
@@ -683,7 +693,7 @@ export class MobSystem {
       ents.push(e);
       bodies.push({ x: e.x, y: e.y, z: e.z, r: s.w / 2, h: s.h, mass: s.w * s.w * s.h, fixed });
     };
-    for (const m of this.mobs.values()) add(m, m.kind, (m === this.boss && !this.bossAwake) || m.cureAt !== undefined || (m.busyUntil ?? 0) > now);
+    for (const m of this.mobs.values()) add(m, m.kind, this.sleepingBoss(m) || m.cureAt !== undefined || (m.busyUntil ?? 0) > now);
     for (const c of this.companions.values()) add(c, c.kind, false);
     if (bodies.length < 2) return;
     separationPushes(bodies).forEach((p, i) => {
@@ -701,15 +711,30 @@ export class MobSystem {
   }
 
   /** 보스: 가까이 오면 깨어나고, 깨어 있으면 주기마다 부하를 부른다 */
+  /** 보스(첫 보스 또는 함께 싸우는 보스)인가 */
+  private isBossMob(m: MobState): boolean {
+    return m === this.boss || this.kings.has(m);
+  }
+  /** 아직 자는 보스인가 — 함께 싸우는 보스도 첫 보스와 같이 잔다 */
+  private sleepingBoss(m: MobState): boolean {
+    return !this.bossAwake && this.isBossMob(m);
+  }
+
   private tickBoss(players: MobTarget[], now: number): void {
     const b = this.boss;
     if (!b) return;
     if (!this.bossAwake) {
-      const near = players.some((p) => Math.hypot(p.x - b.x, p.y - b.y, p.z - b.z) <= BOSS_AGGRO_RANGE);
+      const all = [b, ...this.kings];
+      const near = players.some((p) => all.some((k) => Math.hypot(p.x - k.x, p.y - k.y, p.z - k.z) <= BOSS_AGGRO_RANGE));
       if (near) this.wake(b, now);
       return;
     }
-    if (this.lastSummonAt === 0) this.lastSummonAt = now; // 첫 소환은 주기 뒤
+    for (const k of [b, ...this.kings]) this.tickSummon(k, players, now);
+  }
+
+  /** 깨어 있는 보스 하나: 엔드 수정 회복(엔더 드래곤), 주기마다 부하 둘. 부하 상한은 보스 수만큼 늘어난다 */
+  private tickSummon(b: MobState, players: MobTarget[], now: number): void {
+    if (!b.summonAt) b.summonAt = now; // 첫 소환은 주기 뒤
     if (b.kind === 'ender_dragon' && this.e.crystals?.length && now - this.lastHealAt >= 1000) {
       // 엔드 수정 (#224, 아들 14차 8번 "회복도 있어"): 남은 수정 수만큼 1초마다 회복 (셋에 1, 최소 1). 깨지면 모두에게 알린다
       this.lastHealAt = now;
@@ -723,17 +748,19 @@ export class MobSystem {
       }
     }
     for (const id of [...this.minions]) if (!this.mobs.has(id)) this.minions.delete(id);
-    if (now - this.lastSummonAt >= BOSS_SUMMON_EVERY_MS && this.minions.size < BOSS_MINIONS_MAX && players.length) {
-      this.lastSummonAt = now;
-      const kind = bossMinionKind(b.kind);
+    const cap = BOSS_MINIONS_MAX * (1 + this.kings.size);
+    if (now - b.summonAt >= BOSS_SUMMON_EVERY_MS && this.minions.size < cap && players.length) {
+      b.summonAt = now;
+      const kinds = bossMinionKinds(b.kind);
+      b.summonN = (b.summonN ?? 0) + 1;
       let n = 0;
-      for (let i = 0; i < 8 && n < BOSS_SUMMON_COUNT && this.minions.size < BOSS_MINIONS_MAX; i++) {
+      for (let i = 0; i < 8 && n < BOSS_SUMMON_COUNT && this.minions.size < cap; i++) {
         const a = (i / 8) * Math.PI * 2 + this.turn;
         const x = Math.floor(b.x + Math.cos(a) * 3) + 0.5,
           z = Math.floor(b.z + Math.sin(a) * 3) + 0.5;
         const y = this.groundAt(x, z, b.y - (this.defs.get(b.kind).hover ?? 0)); // 떠 있는 보스(드래곤)는 그 아래 땅에 부하를 세운다
         if (y === null) continue;
-        const m = this.spawnKind(kind, x, y, z);
+        const m = this.spawnKind(kinds[((b.summonN ?? 0) * BOSS_SUMMON_COUNT + n) % kinds.length]!, x, y, z); // 부를 때마다 다른 부하 (네 왕)
         this.minions.add(m.id);
         n++;
       }
@@ -753,10 +780,12 @@ export class MobSystem {
 
   private wake(b: MobState, now: number): void {
     this.bossAwake = true;
-    b.state = MOB_STATE.walk;
-    this.lastSummonAt = now; // 첫 소환은 주기 뒤
-    this.hooks.json({ t: 'mob', ev: 'wake', id: b.id, mob: b.kind, x: b.x, y: b.y, z: b.z });
-    this.hooks.bossWake(b.kind, { x: b.x, y: b.y, z: b.z }, now);
+    for (const k of [this.boss ?? b, ...this.kings]) {
+      k.state = MOB_STATE.walk;
+      k.summonAt = now; // 첫 소환은 주기 뒤
+      this.hooks.json({ t: 'mob', ev: 'wake', id: k.id, mob: k.kind, x: k.x, y: k.y, z: k.z });
+    }
+    this.hooks.bossWake(b.kind, { x: b.x, y: b.y, z: b.z }, now); // 알림은 한 번 (네 왕이면 마을이 '네 왕' 으로 알린다)
   }
 
   /** 독: 초당 1, 끝나거나 무대에서 나가면 풀린다 */
@@ -875,7 +904,7 @@ export class MobSystem {
       let best = guard ? GUARD_AGGRO : PET_AGGRO;
       if (c.kind !== 'cat') // 고양이는 안 문다 — 대신 크리퍼가 무서워한다 (2026-11-06)
       for (const m of this.mobs.values()) {
-        if (m === this.boss && !this.bossAwake) continue;
+        if (this.sleepingBoss(m)) continue;
         if (m.cureAt !== undefined || m.kind === 'villager') continue; // 주민·돌아오는 중인 좀비 주민은 안 문다 (#244)
         const d = owner ? Math.min(Math.hypot(m.x - owner.x, m.z - owner.z), Math.hypot(m.x - c.x, m.z - c.z)) : Math.hypot(m.x - c.x, m.z - c.z);
         if (d < best) {
@@ -952,7 +981,7 @@ export class MobSystem {
     m.hp = Math.max(0, m.hp - dealt);
     m.angryUntil = now + ANGRY_MS; // 중립 몹은 맞으면 화난다 (#161)
     if (isWild(m.kind) && m.hp > 0) this.wildHurt(m, byIdx, push, now);
-    if (m === this.boss && !this.bossAwake) this.wake(m, now);
+    if (this.sleepingBoss(m)) this.wake(m, now);
     if (m.hp > 0) {
       if (push && !isBoss(m.kind) && !this.defs.get(m.kind).swim) { // 물고기는 안 밀린다 — 둑 위로 밀려 나가면 안 된다
         const nx = m.x + push.x * KNOCKBACK * knock,
@@ -971,8 +1000,14 @@ export class MobSystem {
     const def = this.defs.get(m.kind);
     this.mobs.delete(m.id);
     this.hooks.json({ t: 'mob', ev: 'die', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z });
-    if (m === this.boss) {
-      this.boss = null;
+    if (def.split) this.splitInto(m, def.split.kind, def.split.n); // 큰 슬라임은 슬라임 넷으로 (2026-11-06)
+    if (this.isBossMob(m)) {
+      if (m === this.boss) {
+        // 함께 싸우는 보스가 남았으면 하나가 첫 보스로 올라간다 (네 왕)
+        const next = this.kings.values().next();
+        this.boss = next.done ? null : next.value;
+        if (!next.done) this.kings.delete(next.value);
+      } else this.kings.delete(m);
       this.hooks.bossDefeated(m.kind, rollDrops(def, this.e.seed, m.id), def.xp, { x: m.x, y: m.y + 1, z: m.z }, byIdx, now);
       return;
     }
@@ -1174,10 +1209,22 @@ export class MobSystem {
     this.hooks.broadcast(encodeMobsState(this.entries()));
   }
 
+  /** 슬라임 쪼개기 (2026-11-06): 죽은 자리 둘레에 n 마리 */
+  private splitInto(m: MobState, kind: MobKind, n: number): void {
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const x = m.x + Math.cos(a) * 1.5,
+        z = m.z + Math.sin(a) * 1.5;
+      const y = this.groundAt(x, z, m.y) ?? m.y;
+      this.spawnKind(kind, x, y, z);
+    }
+  }
+
   clear(): void {
     this.mobs.clear();
     this.poisoned.clear();
     this.minions.clear();
+    this.kings.clear();
     this.boss = null;
   }
 }

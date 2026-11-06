@@ -161,6 +161,92 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
     expect(arrows[0]!.from.z).toBeLessThan(arrows[0]!.to.z); // 몹에서 사람 쪽으로
   });
 
+  it('네 왕 (고대성, 2026-11-06): 보스 넷이 같이 자다 같이 깨고(알림은 한 번), 저마다 부하를 부르고, 하나씩 잡을 때마다 보스 전리품 — 마지막까지 잡으면 보스가 없다', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const json: { t: string; [k: string]: unknown }[] = [];
+    const wakes: string[] = [];
+    const downs: string[] = [];
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 70.5, eyeY: GROUND_Y + 1 + 1.6 };
+    const kings = [
+      { kind: 'skeleton_king' as const, x: 60.5, y: GROUND_Y + 1, z: 58.5 },
+      { kind: 'creeper_king' as const, x: 68.5, y: GROUND_Y + 1, z: 58.5 },
+      { kind: 'enderman_king' as const, x: 60.5, y: GROUND_Y + 1, z: 52.5 },
+      { kind: 'zombie_king' as const, x: 68.5, y: GROUND_Y + 1, z: 52.5 },
+    ];
+    const arena = { world: room.world, seed: 5, nightStartsAt: 0, nightMobs: [], den: null, kings, ended: false, elapsedSec: () => 0 };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: () => {}, broadcast: () => {}, json: (o) => json.push(o as { t: string }), reward: () => {}, bossWake: (k) => wakes.push(k), bossDefeated: (k) => downs.push(k) }, { autoSpawn: false, aggroRange: 14, goal: null, quiet: true });
+    expect(sys.boss?.kind).toBe('skeleton_king');
+    expect([...sys.kings].map((k) => k.kind)).toEqual(['creeper_king', 'enderman_king', 'zombie_king']);
+    expect(sys.bossAwake).toBe(false);
+    for (const m of sys.mobs.values()) expect(m.state).toBe(MOB_STATE.sleep);
+    for (let t = T0; t < T0 + 9000; t += 100) sys.tick(t);
+    expect(sys.bossAwake).toBe(true);
+    expect(wakes).toEqual(['skeleton_king']); // 알림은 한 번
+    expect(json.filter((m) => m.t === 'mob' && m.ev === 'wake')).toHaveLength(4);
+    const minionKinds = new Set([...sys.minions].map((id) => sys.mobs.get(id)?.kind).filter(Boolean));
+    expect(minionKinds.size).toBeGreaterThanOrEqual(3); // 왕마다 자기 종족을 부른다
+    // 하나씩 잡는다
+    let t = T0 + 10_000;
+    while (sys.boss && t < T0 + 60_000) {
+      const b = sys.boss;
+      b.hp = 1;
+      me.x = b.x;
+      me.z = b.z + 1.5;
+      expect(sys.hit(me, b.id, 5, t)).toBeNull();
+      t += 1000;
+    }
+    expect(downs.sort()).toEqual(['creeper_king', 'enderman_king', 'skeleton_king', 'zombie_king']);
+    expect(sys.boss).toBeNull();
+    expect(sys.kings.size).toBe(0);
+    expect(MOBS.get('zombie_king').drops.map((d) => d.item)).toEqual(['chicken', 'milk_bucket']); // bosses.json 아들 드롭
+    expect(MOBS.get('enderman_king').xp).toBe(300);
+  });
+
+  it('큰 슬라임 (늪): 죽으면 보스 전리품 + 슬라임 넷으로 쪼개진다. 마녀는 독 물약, 가디언은 빛줄기를 쏜다', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const json: { t: string; [k: string]: unknown }[] = [];
+    const hurt: string[] = [];
+    const downs: string[] = [];
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 64.5, eyeY: GROUND_Y + 1 + 1.6 };
+    const arena = { world: room.world, seed: 5, nightStartsAt: 0, nightMobs: [], den: { x: 64, y: GROUND_Y + 1, z: 60 }, boss: 'giant_slime' as const, ended: false, elapsedSec: () => 0 };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: (_i, _a, c) => hurt.push(c), broadcast: () => {}, json: (o) => json.push(o as { t: string }), reward: () => {}, bossWake: () => {}, bossDefeated: (k) => downs.push(k) }, { autoSpawn: false, aggroRange: 24, goal: null, quiet: true });
+    const b = sys.boss!;
+    expect(b.kind).toBe('giant_slime');
+    b.hp = 1;
+    expect(sys.hit(me, b.id, 5, T0)).toBeNull();
+    expect(downs).toEqual(['giant_slime']);
+    expect([...sys.mobs.values()].filter((m) => m.kind === 'slime')).toHaveLength(4);
+    expect(MOBS.get('giant_slime').drops.map((d) => d.item)).toContain('slime_block');
+    // 마녀·가디언
+    const witch = sys.spawnKind('witch', 64.5, GROUND_Y + 1, 70.5);
+    const guard = sys.spawnKind('guardian', 58.5, GROUND_Y + 1, 64.5);
+    for (const m of [...sys.mobs.values()]) if (m.kind === 'slime') sys.mobs.delete(m.id);
+    json.length = 0;
+    for (let t = T0 + 1000; t < T0 + 8000; t += 100) sys.tick(t);
+    expect(hurt).toContain('witch');
+    expect(hurt).toContain('guardian');
+    expect(json.some((m) => m.t === 'arrow' && m.potion === true)).toBe(true);
+    expect(json.some((m) => m.t === 'arrow' && m.laser === true)).toBe(true);
+    expect(sys.poisoned.has(0)).toBe(true);
+    void witch;
+    void guard;
+  });
+
+  it('고대성 (2026-11-06): 혼자 가면 방 몹이 1/4 쯤만, 네 왕은 다, 방마다 따로 덤빈다(aggro 14)', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    room.join('a'.repeat(32), '아빠', 0, inbox().send);
+    const e = new Expedition(EXPEDITIONS.require('ancient_castle'), 777, BLOCKS, T0);
+    const sys = (room as unknown as { makeMobSystem(e: Expedition): MobSystem }).makeMobSystem(e);
+    const all = e.spawns.length;
+    const regular = [...sys.mobs.values()].filter((m) => !m.kind.endsWith('_king')).length;
+    expect(all).toBe((2 + 8 + 14 + 30) * 4);
+    expect(regular).toBeGreaterThan(all * 0.15);
+    expect(regular).toBeLessThan(all * 0.35);
+    expect([sys.boss, ...sys.kings].map((k) => k?.kind).sort()).toEqual(['creeper_king', 'enderman_king', 'skeleton_king', 'zombie_king']);
+    expect(sys.opts.aggroRange).toBe(14);
+  });
+
   it('고양이 (2026-11-06): 따라온 고양이 곁에선 크리퍼가 안 터지고 달아난다(하악!). 고양이는 몹을 물지 않는다', () => {
     const room = makeRoom(new Storage(':memory:'));
     const json: { t: string; [k: string]: unknown }[] = [];

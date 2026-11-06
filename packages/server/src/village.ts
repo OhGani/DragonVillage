@@ -21,6 +21,7 @@ import {
   type BlockRegistry,
   BOAT,
   CAT_GIFT_SLEEP_MS,
+  KING_KINDS,
   bodyOverlapsBlock,
   BONE_MEAL,
   bowDamage,
@@ -1713,7 +1714,8 @@ export class VillageRoom {
       bossWake: (kind) => {
         const name = MOBS.get(kind).name;
         this.log(`마을 ${this.info.code}: ${name} 깨어남`);
-        this.broadcastJson({ t: 'error', code: 'BOSS_WAKE', message: `${BOSS_EMOJI[kind] ?? '👹'} ${josa(name, '이', '가')} 나타났다! 함께 잡아요` }, -1, world);
+        if (KING_KINDS.includes(kind)) this.broadcastJson({ t: 'error', code: 'BOSS_WAKE', message: '👑 네 왕이 깨어났다! 스켈레톤·크리퍼·엔더맨·좀비 왕 — 함께 물리쳐요' }, -1, world); // 고대성 (2026-11-06)
+        else this.broadcastJson({ t: 'error', code: 'BOSS_WAKE', message: `${BOSS_EMOJI[kind] ?? '👹'} ${josa(name, '이', '가')} 나타났다! 함께 잡아요` }, -1, world);
       },
       bossDefeated: (kind, drops, xp, at, byIdx, now) => {
         // 협동 보스 (M7-4): 드롭은 마을 창고로(가방에 안 들어가는 큰 묶음), 경험치는 그 세계에 있는 모두에게 각각
@@ -1743,6 +1745,13 @@ export class VillageRoom {
         if (world !== 'village') this.broadcastJson({ t: 'error', code: 'BOSS_DOWN', message: `🏆 원정대가 ${josa(name, '을', '를')} 잡았어요! ${who} · 창고에 ${loot}` }, -1, 'village');
         this.broadcastStorage();
         if (kind === 'ender_dragon' && world === 'expedition') this.openEndingPortal(now); // 엔딩 (#170)
+        if (KING_KINDS.includes(kind) && world === 'expedition' && this.mobSys && !this.mobSys.boss) {
+          // 네 왕을 다 잡았다 (아들 보스 설계 ending): "마을의 수호자"
+          this.log(`마을 ${this.info.code}: 네 왕을 모두 물리침`);
+          const msg = '👑🏆 네 왕을 모두 물리쳤어요! 이제 우리는 마을의 수호자예요';
+          this.broadcastJson({ t: 'error', code: 'KINGS_DOWN', message: msg }, -1, 'expedition');
+          this.broadcastJson({ t: 'error', code: 'KINGS_DOWN', message: msg }, -1, 'village');
+        }
       },
     };
   }
@@ -1755,7 +1764,9 @@ export class VillageRoom {
       nightMobs: e.def.nightMobs,
       den: e.den,
       boss: e.bossKind,
-      spawns: e.spawns,
+      // 고대성 (2026-11-06): 방 몹은 rank 가 사람 수 비율보다 작은 것만 (6명이면 다, 1명이면 1/4 — 아빠 임시 규칙, bosses.json _dadNote)
+      spawns: e.spawns.filter((s) => s.rank === undefined || s.rank < Math.max(0.25, Math.min(1, this.players.size / 6))),
+      kings: e.kings,
       crystals: e.crystals,
       wildAnimals: e.def.wildAnimals,
       safe: e.spawn,
@@ -1764,7 +1775,7 @@ export class VillageRoom {
       },
       elapsedSec: (now) => e.elapsedSec(now),
     };
-    return new MobSystem(arena, this.registry, MOBS, this.mobHooks('expedition'));
+    return new MobSystem(arena, this.registry, MOBS, this.mobHooks('expedition'), e.def.generator === 'ancient_castle' ? { aggroRange: 14 } : {}); // 고대성은 방마다 따로 덤비게 (옆 방 몹이 벽 너머로 몰려오지 않게)
   }
 
   // ---------------------------------------------------------------- 마을 방어전 (M7-5)

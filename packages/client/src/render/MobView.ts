@@ -13,6 +13,8 @@ import * as THREE from 'three';
 import { PLAYER_SHADES, type SkinPalette, VOXEL, playerVoxels } from './playerModel';
 import { type Part, FISH_MODEL_KINDS, WILD_MODEL_KINDS, animalParts, animalVariant, collarVoxels, gorillaParts, pufferPuffedVoxels, wardenParts, wildParts } from './animalModel';
 import { type Voxel, buildVoxelGeometry } from './voxelGeometry';
+import { ENDERMAN_SPOTS, SKELETON_KIND_OF, endermanVoxels, skeletonVoxels } from './skeletonModel';
+import { endermiteVoxels, zombieKindOf, zombieVoxels } from './zombieModel';
 import { nameSprite } from '../net/RemotePlayers';
 import { dragonMesh } from './DragonMesh';
 
@@ -38,7 +40,142 @@ const HUMANOID: Partial<Record<string, SkinPalette>> = {
   zombie_villager: { shirt: 0x6b4f2a, skin: 0x5d8b4a, hair: 0x2c3e2b, pants: 0x5a4224, shoes: 0x3a2a1a, eyes: 0xc0392b },
   // 철 골렘 (#169): 잿빛 쇠, 덩굴 자국. 몸을 1.4배로
   iron_golem: { shirt: 0xc9cfcf, skin: 0xd6dcdc, hair: 0xb8c4b8, pants: 0xc9cfcf, shoes: 0x9aa39a, eyes: 0xb03030 },
+  // 늪 마녀 (2026-11-06): 보랏빛 로브, 푸르스름한 살, 초록 눈 — 뾰족 모자는 따로
+  witch: { shirt: 0x4a2a5e, skin: 0xb5b08e, hair: 0x2a1d24, pants: 0x3a2048, shoes: 0x241a20, eyes: 0x3fae4a },
+  // 네 왕 (아들 보스 설계, 2026-11-06): 자기 종족과 같은 몸을 크게 + 금 왕관
+  skeleton_king: { shirt: 0xdcdcdc, skin: 0xd8d8d8, hair: 0xbdbdbd, pants: 0xcfcfcf, shoes: 0x9e9e9e, eyes: 0xff4040 },
+  zombie_king: { ...ZOMBIE, eyes: 0xff4040 },
+  enderman_king: { shirt: 0x141414, skin: 0x161616, hair: 0x101010, pants: 0x141414, shoes: 0x0e0e0e, eyes: 0xff4dff },
 };
+const GOLD_CROWN = 0xf5c518;
+/** 금 왕관 (네 왕): 머리 윗면(top y)에 8×8 테 + 모서리·가운데 뿔, 앞에 빨간 보석. 사람 머리는 x −4..3, z −4..3 */
+function crownVoxels(top: number): Voxel[] {
+  const out: Voxel[] = [];
+  for (let x = -4; x <= 3; x++)
+    for (let z = -4; z <= 3; z++) {
+      if (x !== -4 && x !== 3 && z !== -4 && z !== 3) continue;
+      out.push({ x, y: top, z, c: css(z === -4 && (x === -1 || x === 0) ? 0xd32f2f : GOLD_CROWN) });
+      const spike = (x === -4 || x === 3 || x === -1 || x === 0) && (z === -4 || z === 3 || z === -1 || z === 0);
+      if (spike) out.push({ x, y: top + 1, z, c: css(GOLD_CROWN) });
+      if ((x === -4 || x === 3) && (z === -4 || z === 3)) out.push({ x, y: top + 2, z, c: css(0xffe27a) });
+    }
+  return out;
+}
+/** 마녀 모자: 머리 위(top y) 넓은 챙 10×10, 위로 좁아지는 뾰족 원뿔, 초록 띠 */
+function witchHatVoxels(top: number): Voxel[] {
+  const out: Voxel[] = [];
+  const HAT = 0x2b1f33,
+    BAND = 0x3fae4a;
+  for (let x = -5; x <= 4; x++) for (let z = -5; z <= 4; z++) out.push({ x, y: top, z, c: css(HAT) });
+  const layers: [number, number, number][] = [
+    [-4, 3, 2],
+    [-3, 2, 2],
+    [-2, 1, 2],
+    [-1, 0, 2],
+  ];
+  let y = top + 1;
+  layers.forEach(([a, b, hgt], i) => {
+    for (let k = 0; k < hgt; k++, y++) for (let x = a; x <= b; x++) for (let z = a; z <= b; z++) out.push({ x, y, z, c: css(i === 0 && k === 0 ? BAND : HAT) });
+  });
+  out.push({ x: 0, y, z: 1, c: css(HAT) }); // 꼭지는 뒤로 꺾인다
+  return out;
+}
+/** 가디언 (바다 신전, 2026-11-06): 몸 12×12×12 상자가 바닥 위 3칸에 떠 있고, 앞면 가운데 큰 눈 하나, 모서리·면에 가시, 뒤로 꼬리. elder 면 하얗고 잿빛 얼룩 */
+function guardianVoxels(elder: boolean): Voxel[] {
+  const out: Voxel[] = [];
+  const base = elder ? 0xcfc9b2 : 0x5fa89a;
+  const spot = elder ? 0x9a8fa8 : 0x3f7d72;
+  const spike = elder ? 0xe6dfcc : 0xd98c4a;
+  const fin = elder ? 0xb39fc0 : 0xc47a3a;
+  const Y0 = 3;
+  for (let y = Y0; y < Y0 + 12; y++)
+    for (let z = -6; z <= 5; z++)
+      for (let x = -6; x <= 5; x++) {
+        const shell = x === -6 || x === 5 || y === Y0 || y === Y0 + 11 || z === -6 || z === 5;
+        if (!shell) continue;
+        const h = ((x + 9) * 73856093) ^ ((y + 3) * 19349663) ^ ((z + 7) * 83492791);
+        out.push({ x, y, z, c: css(((h >>> 0) % 7 === 0 ? spot : base)) });
+      }
+  // 눈: 앞면(z −6) 가운데 4×4 흰자, 2×2 눈동자
+  for (let y = Y0 + 4; y < Y0 + 8; y++) for (let x = -2; x <= 1; x++) out.push({ x, y, z: -7, c: css(x >= -1 && x <= 0 && y >= Y0 + 5 && y <= Y0 + 6 ? (elder ? 0x6a3fa0 : 0xe8742a) : 0xf2efe6) });
+  // 가시: 여덟 모서리 + 네 옆면 가운데
+  for (const [x, y, z] of [
+    [-7, Y0 - 1, -7],
+    [6, Y0 - 1, -7],
+    [-7, Y0 - 1, 6],
+    [6, Y0 - 1, 6],
+    [-7, Y0 + 12, -7],
+    [6, Y0 + 12, -7],
+    [-7, Y0 + 12, 6],
+    [6, Y0 + 12, 6],
+    [-8, Y0 + 5, 0],
+    [7, Y0 + 5, 0],
+    [0, Y0 + 13, 0],
+    [0, Y0 - 2, 0],
+  ] as [number, number, number][])
+    out.push({ x, y, z, c: css(spike) });
+  // 꼬리: 뒤로 세 마디 + 지느러미
+  for (let k = 0; k < 3; k++) {
+    const w = 2 - Math.min(1, k);
+    for (let x = -w; x < w; x++)
+      for (let y = Y0 + 5 - w + 1; y <= Y0 + 6 + w - 1; y++) {
+        out.push({ x, y, z: 6 + k * 2, c: css(base) });
+        out.push({ x, y, z: 7 + k * 2, c: css(base) });
+      }
+  }
+  for (let y = Y0 + 3; y <= Y0 + 8; y++) out.push({ x: 0, y, z: 12, c: css(fin) });
+  return out;
+}
+/**
+ * 슬라임 (늪, 2026-11-06 — 아빠가 보낸 "큰 슬라임" 그림): 8×8×8 상자. 겉은 밝고 투명한 젤리라 면마다 테두리 한 칸이 밝고,
+ * 안쪽 6×6 은 속 상자가 비쳐 조금 짙다. 앞면에 짙은 초록 눈 둘(2×2)과 작은 입. 칸마다 얼룩을 살짝
+ */
+function slimeVoxels(): Voxel[] {
+  const out: Voxel[] = [];
+  const RIM = 0x8fd27c,
+    INNER = 0x6dbb5a,
+    EYE = 0x2f6a2c,
+    MOUTH = 0x3d7a36;
+  const mottle = (c: number, x: number, y: number, z: number) => {
+    const h = ((x + 11) * 73856093) ^ ((y + 5) * 19349663) ^ ((z + 13) * 83492791);
+    const k = 0.94 + (((h >>> 0) % 100) / 100) * 0.12;
+    const ch = (v: number) => Math.min(255, Math.round(v * k));
+    return (ch(c >> 16) << 16) | (ch((c >> 8) & 255) << 8) | ch(c & 255);
+  };
+  for (let y = 0; y < 8; y++)
+    for (let z = -4; z <= 3; z++)
+      for (let x = -4; x <= 3; x++) {
+        const bx = x === -4 || x === 3,
+          by = y === 0 || y === 7,
+          bz = z === -4 || z === 3;
+        if (!bx && !by && !bz) continue;
+        const rim = (bx ? 1 : 0) + (by ? 1 : 0) + (bz ? 1 : 0) >= 2; // 면의 테두리 = 모서리
+        let c = rim ? RIM : INNER;
+        if (z === -4) {
+          // 앞 얼굴 (그림처럼): 눈은 가운데보다 조금 위 양옆 2×2, 입은 오른쪽 눈 아래 한 칸
+          if ((x === -3 || x === -2) && (y === 4 || y === 5)) c = EYE;
+          if ((x === 1 || x === 2) && (y === 4 || y === 5)) c = EYE;
+          if (x === 1 && y === 2) c = MOUTH;
+        }
+        out.push({ x, y, z, c: css(c === EYE || c === MOUTH ? c : mottle(c, x, y, z)) });
+      }
+  return out;
+}
+const SLIME_KINDS = new Set(['slime', 'giant_slime']);
+/** 번개 맞은 크리퍼처럼 (아빠 그림 2026-11-06): 크리퍼 몸을 감싼 푸른 번개 기운 — 반투명 상자 셋, MobView 가 깜빡인다 */
+function chargedAura(body: THREE.Group): void {
+  const auraMat = new THREE.MeshBasicMaterial({ color: 0x8fdcff, transparent: true, opacity: 0.28, depthWrite: false });
+  for (const [w, h, d, y] of [
+    [12, 10, 12, 21],
+    [6, 14, 6, 11],
+    [10, 8, 12, 3],
+  ] as [number, number, number, number][]) {
+    const aura = new THREE.Mesh(new THREE.BoxGeometry(w * VOXEL, h * VOXEL, d * VOXEL), auraMat);
+    aura.position.set(-0.5 * VOXEL, y * VOXEL, -0.5 * VOXEL);
+    body.add(aura);
+  }
+  body.userData.aura = auraMat;
+}
 
 const CREEPER_GREEN = 0x4caf50;
 /** 사람 모양 몹 키 (좀비 주민 연출 글자 높이, #244) */
@@ -101,13 +238,13 @@ function creeperVoxels(): Voxel[] {
   const add = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, color: (x: number, y: number, z: number) => number) => {
     for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) out.push({ x, y, z, c: css(color(x, y, z)) });
   };
+  // 크리퍼 얼룩 (아빠가 보낸 그림 2026-11-06): 여러 초록이 섞이고 군데군데 잿빛·흰 칸. 발 아래 두 줄은 거의 검다
+  const SPOTS = [0x2f8a26, 0x3fa52f, 0x55bf3d, 0x6cd04d, 0x86dc6a, 0x1f6b1a, 0x9fb59a, 0xd9e6d6];
   const mottle = (x: number, y: number, z: number) => {
-    const h = (x * 73856093) ^ (y * 19349663) ^ (z * 83492791);
-    const k = 0.85 + ((h >>> 0) % 100) / 100 * 0.3;
-    const r = Math.min(255, Math.round(0x4c * k)),
-      g = Math.min(255, Math.round(0xaf * k)),
-      b = Math.min(255, Math.round(0x50 * k));
-    return (r << 16) | (g << 8) | b;
+    const h = (((x + 9) * 73856093) ^ ((y + 3) * 19349663) ^ ((z + 9) * 83492791)) >>> 0;
+    const r = h % 100;
+    if (y <= 1) return r < 50 ? 0x14301a : 0x1f4a22; // 발바닥
+    return SPOTS[r < 22 ? 1 : r < 40 ? 2 : r < 54 ? 0 : r < 66 ? 3 : r < 76 ? 4 : r < 86 ? 5 : r < 94 ? 6 : 7]!;
   };
   // 다리 넷 (앞 두 개, 뒤 두 개)
   for (const [lx, lz] of [
@@ -122,7 +259,7 @@ function creeperVoxels(): Voxel[] {
   // 머리 8×8×8 (x -4..3, z -4..3), 앞면 z=-4 에 얼굴
   const FACE = ['        ', '        ', ' xx  xx ', ' xx  xx ', '   xx   ', '  xxxx  ', '  x  x  ', '  x  x  '];
   add(-4, 3, 18, 25, -4, 3, (x, y, z) => {
-    if (z === -4 && FACE[25 - y]![x + 4] === 'x') return 0x101410;
+    if (z === -4 && FACE[25 - y]![x + 4] === 'x') return (x + y) % 3 === 0 ? 0x1c2a1c : 0x0a0f0a; // 얼굴 (검정에 살짝 얼룩)
     return mottle(x, y, z);
   });
   return out;
@@ -346,12 +483,14 @@ const SONIC_GEOM = new THREE.TorusGeometry(0.5, 0.12, 6, 12);
 const SONIC_MAT = new THREE.MeshBasicMaterial({ color: 0x3df0ff, transparent: true, opacity: 0.85 });
 
 export class MobView {
+  /** 지금 있는 원정지 id (마을이면 null) — 사막 좀비 주민처럼 곳마다 다른 옷 (2026-11-06) */
+  place: string | null = null;
   private readonly group = new THREE.Group();
   readonly figures = new Map<number, Figure>();
   private readonly bursts: Burst[] = [];
   private readonly pops: Pop[] = [];
   /** 날아가는 화살 (M8-2): 0.25초 동안 from → to */
-  private readonly shots: { mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; born: number; ms: number; fire: boolean; splash?: number }[] = [];
+  private readonly shots: { mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; born: number; ms: number; fire: boolean; splash?: number; beam?: boolean }[] = [];
   /** 불덩이가 닿아 터질 때 (#215): Game 이 소리를 붙인다 */
   onFireHit: (() => void) | null = null;
   /** 잔류형 물약 구름 (#246): 바닥에 그 색 조각들이 천천히 돈다. radius 는 서버가 줄일 때마다 다시 오고, 그 사이엔 30초에 1칸씩 줄어든 것으로 그린다. at·until 은 update 의 시계 — at < 0 이면 다음 update 에서 맞춘다 */
@@ -406,7 +545,23 @@ export class MobView {
   }
 
   /** 화살 연출 (M8-2): 눈에서 몹까지 가느다란 막대가 날아간다 */
-  shot(from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }, fire = false, snow = false, sonic = false): void {
+  shot(from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }, fire = false, snow = false, sonic = false, laser = false, potion = false): void {
+    if (laser) {
+      // 가디언 빛줄기 (2026-11-06): 몹에서 사람까지 이어진 보랏빛 줄이 잠깐 머문다
+      const f = new THREE.Vector3(from.x, from.y, from.z),
+        t = new THREE.Vector3(to.x, to.y, to.z);
+      const len = f.distanceTo(t);
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, len), new THREE.MeshBasicMaterial({ color: 0xc58cff, transparent: true, opacity: 0.85 }));
+      beam.position.copy(f).lerp(t, 0.5);
+      beam.lookAt(t);
+      this.group.add(beam);
+      this.shots.push({ mesh: beam, from: beam.position.clone(), to: beam.position.clone(), born: -1, ms: 450, fire: false, beam: true });
+      return;
+    }
+    if (potion) {
+      this.splash(from, to, 0x4e9a2e); // 마녀 독 물약 (2026-11-06)
+      return;
+    }
     const mesh = fire ? new THREE.Mesh(FIRE_GEOM, FIRE_MAT) : snow ? new THREE.Mesh(SNOW_GEOM, SNOW_MAT) : sonic ? new THREE.Mesh(SONIC_GEOM, SONIC_MAT) : new THREE.Mesh(SHOT_GEOM, SHOT_MAT);
     const f = new THREE.Vector3(from.x, from.y, from.z),
       t = new THREE.Vector3(to.x, to.y, to.z);
@@ -477,21 +632,35 @@ export class MobView {
     let babyHead = 1;
     const kindName = MOB_KIND_OF[m.kind] ?? 'zombie';
     const pal = HUMANOID[kindName];
-    if (pal) {
-      const v = playerVoxels(pal);
+    const skel = SKELETON_KIND_OF[kindName]; // 스켈레톤 무리 (아빠 그림 2026-11-06): 가는 뼈·갈비·활/검
+    const ender = kindName === 'enderman' || kindName === 'enderman_king'; // 엔더맨 (아빠 그림): 길고 가는 팔다리
+    const zk = zombieKindOf(kindName, this.place === 'desert'); // 좀비 가족 (아빠 그림): 좀비·아기 좀비·좀비 주민(사막이면 두건)·허스크·드라운드·프로스트바이트
+    if (pal || skel || ender || zk) {
+      const sk = skel ? skeletonVoxels(skel) : null;
+      const v = sk ?? (zk ? zombieVoxels(zk) : ender ? endermanVoxels() : playerVoxels(pal!));
       const at = (mesh: THREE.Mesh, spot: readonly [number, number]) => {
         mesh.position.set(spot[0] * VOXEL, spot[1] * VOXEL, 0);
         return mesh;
       };
-      const torso = at(partMesh(v.torso, material), [0, 12]);
-      const head = at(partMesh(v.head, material), [0, 24]);
-      legL = at(partMesh(v.leg, material), [-2, 12]);
-      legR = at(partMesh(v.leg, material), [2, 12]);
-      armL = at(partMesh(v.arm, material), [-6, 24]);
-      armR = at(partMesh(v.arm, material), [6, 24]);
-      if (kindName === 'zombie' || kindName === 'husk' || kindName === 'zombified_piglin' || kindName === 'zombie_villager') armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.15; // 좀비 팔은 앞으로
+      type Spot = readonly [number, number];
+      const S: Record<'torso' | 'head' | 'legL' | 'legR' | 'armL' | 'armR', Spot> = ender ? ENDERMAN_SPOTS : { torso: [0, 12], head: [0, 24], legL: [-2, 12], legR: [2, 12], armL: sk ? [-5, 24] : [-6, 24], armR: sk ? [5, 24] : [6, 24] }; // 스켈레톤은 팔이 가늘어 어깨가 안쪽
+      const torso = at(partMesh(v.torso, material), S.torso);
+      const head = at(partMesh(v.head, material), S.head);
+      legL = at(partMesh(v.leg, material), S.legL);
+      legR = at(partMesh(v.leg, material), S.legR);
+      armL = at(partMesh(v.arm, material), S.armL);
+      armR = at(partMesh(v.arm, material), S.armR);
+      if (sk) {
+        armR.add(partMesh(sk.item, material)); // 활·돌 검
+        armR.rotation.x = -0.35; // 든 손을 살짝 앞으로
+      }
+      if (ender) body.userData.ender = true; // 보라 가루
+      if (zk || kindName === 'zombified_piglin') armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.15; // 좀비 팔은 앞으로
+      if (kindName === 'baby_zombie') head.scale.setScalar(1.6); // 아기 좀비는 머리가 크다
       else if (kindName === 'evoker') armL.rotation.x = armR.rotation.x = -Math.PI / 2 + 0.6; // 소환사는 손을 든다
       body.add(torso, head, legL, legR, armL, armR);
+      if (kindName.endsWith('_king')) head.add(partMesh(crownVoxels(8), material)); // 머리 조각 기준 윗면 y 8
+      if (kindName === 'witch') head.add(partMesh(witchHatVoxels(8), material));
     } else if (MOB_KIND_OF[m.kind] === 'spider' || MOB_KIND_OF[m.kind] === 'spider_king') {
       body.add(partMesh(spiderBodyVoxels(MOB_KIND_OF[m.kind] === 'spider_king'), material));
       const legGeom = buildVoxelGeometry(spiderLegVoxels(), VOXEL, PLAYER_SHADES);
@@ -572,6 +741,20 @@ export class MobView {
       const dm = dragonMesh('ender', 'adult');
       dm.scale.setScalar(2.5);
       body.add(dm);
+    } else if (kindName === 'guardian' || kindName === 'elder_guardian') {
+      body.add(partMesh(guardianVoxels(kindName === 'elder_guardian'), material));
+    } else if (SLIME_KINDS.has(kindName)) {
+      body.add(partMesh(slimeVoxels(), material));
+    } else if (kindName === 'creeper_king') {
+      body.add(partMesh(creeperVoxels(), material));
+      body.add(partMesh(crownVoxels(26), material));
+      chargedAura(body);
+    } else if (kindName === 'charged_creeper') {
+      body.add(partMesh(creeperVoxels(), material));
+      chargedAura(body);
+    } else if (kindName === 'endermite') {
+      body.add(partMesh(endermiteVoxels(), material));
+      body.userData.ender = true; // 보라 가루
     } else if (kindName === 'ghast') {
       body.add(partMesh(ghastVoxels(), material));
     } else if (kindName === 'blaze') {
@@ -583,16 +766,25 @@ export class MobView {
     // 체력 바: 머리 위, 몸과 따로(돌지도 커지지도 않는다)
     const maxHp = MOBS.get(kindName).hp;
     const king = MOB_KIND_OF[m.kind] === 'spider_king';
-    const big = king || kindName === 'ender_dragon' || kindName === 'ghast' || kindName === 'giant_gorilla' || kindName === 'giant_warden';
+    const big = king || kindName === 'ender_dragon' || kindName === 'ghast' || kindName === 'giant_gorilla' || kindName === 'giant_warden' || kindName === 'elder_guardian' || kindName === 'giant_slime' || kindName.endsWith('_king');
     const baseScale = king ? 2.2 : 1;
     body.scale.setScalar(baseScale);
-    if (kindName === 'enderman') body.scale.set(0.8, 1.5, 0.8); // 키 3칸, 홀쭉하게
-    else if (kindName === 'wither_skeleton') body.scale.set(1.1, 1.3, 1.1);
+    if (kindName === 'wither_skeleton') body.scale.set(1.1, 1.3, 1.1); // 위더 스켈레톤은 크다
     else if (kindName === 'iron_golem') body.scale.set(1.5, 1.45, 1.5);
     else if (kindName === 'ghast') body.scale.setScalar(4.4); // 네 칸짜리 상자
     else if (kindName === 'gorilla') body.scale.setScalar(1.4); // 정글 (#253): 사람(1.8m)보다 큰 2.2m
     else if (kindName === 'giant_gorilla') body.scale.setScalar(2.8); // 그 두 배
     else if (kindName === 'giant_warden') body.scale.setScalar(2); // 깊은 어둠 (#254): 워든(2.8m)의 두 배
+    // 2026-11-06 원정지 셋: 판정 크기(MOB_SIZES)에 맞춘다
+    else if (kindName === 'guardian') body.scale.setScalar(1.15);
+    else if (kindName === 'elder_guardian') body.scale.setScalar(2.8);
+    else if (kindName === 'slime') body.scale.setScalar(2.2);
+    else if (kindName === 'giant_slime') body.scale.setScalar(7);
+    else if (kindName === 'skeleton_king' || kindName === 'zombie_king') body.scale.setScalar(3);
+    else if (kindName === 'creeper_king') body.scale.setScalar(3.3);
+    else if (kindName === 'baby_zombie') body.scale.setScalar(0.5);
+    else if (kindName === 'endermite') body.scale.setScalar(1.8);
+    else if (kindName === 'enderman_king') body.scale.setScalar(2.5); // 엔더맨(2.8m)의 2.5배
     const bar = canvasSprite(128, 28, big ? 2.2 : 1.1, big ? 0.4 : 0.24);
     bar.sprite.position.set(0, mobSize(m.kind).h + (big ? 0.7 : 0.35), 0);
     drawHpBar(bar.ctx, bar.tex, m.hp, maxHp);
@@ -959,6 +1151,23 @@ export class MobView {
         });
         if (f.head) f.head.rotation.x = speed > 0.3 ? Math.sin(f.walk * 2) * 0.05 : 0;
       }
+      const aura = f.body.userData.aura as THREE.MeshBasicMaterial | undefined;
+      if (aura) aura.opacity = 0.18 + 0.14 * Math.abs(Math.sin(now * 0.011 + f.id)) + (Math.sin(now * 0.07 + f.id) > 0.93 ? 0.25 : 0); // 번개 기운이 일렁이고 가끔 번쩍
+      if (f.body.userData.ender && now >= (f.body.userData.dustAt ?? 0)) {
+        // 엔더맨 둘레 보라 가루 (아빠 그림)
+        f.body.userData.dustAt = now + 380 + (f.id % 5) * 60;
+        const big = MOB_KIND_OF[f.kind] === 'enderman_king' ? 2.5 : 1;
+        const a = (now * 0.0013 + f.id) % (Math.PI * 2);
+        this.burst(c.x + Math.cos(a) * 0.6 * big, c.y + (0.6 + ((now / 97) % 2)) * big, c.z + Math.sin(a) * 0.6 * big, 0xb85cf0, 2, now);
+      }
+      if (SLIME_KINDS.has(MOB_KIND_OF[f.kind] ?? '')) {
+        // 슬라임 (2026-11-06): 걸을 땐 통통 튄다 — 몸을 들었다 놓고, 닿을 때 납작해진다
+        const hop = speed > 0.3 ? Math.abs(Math.sin(f.walk * 1.2)) : 0;
+        f.body.position.y = hop * 0.2 * ((f.body.userData.slimeScale as number | undefined) ?? f.scaleV.y);
+        const k0 = (f.body.userData.slimeScale as number | undefined) ?? (f.body.userData.slimeScale = f.scaleV.x);
+        const sq = (1 - hop) * 0.12 * (speed > 0.3 ? 1 : 0);
+        f.scaleV.set(k0 * (1 + sq), k0 * (1 - sq), k0 * (1 + sq));
+      }
       // 크리퍼 부풀기: 하얘지며 커진다
       if (f.state === MOB_STATE.fuse) {
         f.fuseT += dt;
@@ -1037,10 +1246,18 @@ export class MobView {
           this.burst(s.to.x, s.to.y, s.to.z, 0x4a4a4a, 8, now);
           this.onFireHit?.();
         }
+        if (s.beam) {
+          s.mesh.geometry.dispose();
+          (s.mesh.material as THREE.Material).dispose();
+        }
         if (s.splash !== undefined) {
           (s.mesh.material as THREE.Material).dispose();
           this.burst(s.to.x, s.to.y, s.to.z, s.splash, 16, now); // 물약이 깨져 퍼진다 (#245)
         }
+        continue;
+      }
+      if (s.beam) {
+        (s.mesh.material as THREE.MeshBasicMaterial).opacity = 0.85 * (1 - k); // 빛줄기는 제자리에서 흐려진다
         continue;
       }
       s.mesh.position.lerpVectors(s.from, s.to, k);

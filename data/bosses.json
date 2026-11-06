@@ -103,6 +103,33 @@
       "_dropsNote": "아들(2026-09-13). '사치스러운 궁궐'답게 보물 창고급. 아빠 메모: 개수는 아들 것 그대로 두고, 이 보스의 등장 횟수(v1.2, 주 1회 등)로 균형",
       "xp": 150,
       "release": "v1.2"
+    },
+    {
+      "id": "elder_guardian",
+      "name": "엘더 가디언",
+      "home": { "expedition": "ocean_monument", "structure": "ocean_monument" },
+      "hp": 350,
+      "drops": [
+        { "material": "prismarine", "name": "프리즈머린", "count": 32, "chance": 1.0 },
+        { "material": "sea_lantern", "name": "바다 랜턴", "count": 8, "chance": 1.0 },
+        { "material": "gold_block", "name": "금 블록", "count": 4, "chance": 1.0 },
+        { "material": "diamond", "name": "다이아몬드", "count": 4, "chance": 1.0 }
+      ],
+      "xp": 150,
+      "_note": "아빠 2026-11-06 \"원정지 3개 더\" — 바다 신전 가운데 방의 보스. 10칸에서 빛줄기, 가디언을 부른다. 개수는 아들이 고쳐도 돼"
+    },
+    {
+      "id": "giant_slime",
+      "name": "큰 슬라임",
+      "home": { "expedition": "swamp", "structure": "slime_pit" },
+      "hp": 300,
+      "drops": [
+        { "material": "slime_ball", "name": "슬라임 볼", "count": 32, "chance": 1.0 },
+        { "material": "slime_block", "name": "슬라임 블록", "count": 8, "chance": 1.0 },
+        { "material": "emerald", "name": "에메랄드", "count": 4, "chance": 1.0 }
+      ],
+      "xp": 120,
+      "_note": "아빠 2026-11-06 — 늪 슬라임 웅덩이의 보스. 때리면 밀치고, 죽으면 슬라임 넷으로 쪼개진다"
     }
   ],
   "finalBosses": [

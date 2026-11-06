@@ -163,7 +163,7 @@ describe('generateSnow 배치', () => {
     expect(hasGenerator('snow')).toBe(true);
     expect(def.unlockedBy).toBe('portal_3');
     expect(def.nightStartsAt).toBe(300);
-    expect(spawnKinds(def.nightMobs)).toEqual(['stray', 'zombie']);
+    expect(spawnKinds(def.nightMobs)).toEqual(['stray', 'zombie', 'frostbite']); // 프로스트바이트 (얼음 좀비, 2026-11-06)
     const w = generateExpedition(def, BLOCKS, SEED);
     expect(w.den).toBeNull();
     expect(w.treasures.length).toBe(3);

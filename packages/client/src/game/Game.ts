@@ -936,7 +936,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       hud.setGuardAvailable(myEquip.shield !== null);
       bag.refresh();
     },
-    onArrow: (m) => mobView.shot(m.from, m.to, m.fire === true, m.snow === true, m.sonic === true), // 스켈레톤·약탈자 화살, 가스트·블레이즈 불덩이 (#173), 눈 골렘 눈덩이 (#223), 거대 워든 음파 (#254)
+    onArrow: (m) => mobView.shot(m.from, m.to, m.fire === true, m.snow === true, m.sonic === true, m.laser === true, m.potion === true), // 가디언 빛줄기·마녀 물약 (2026-11-06) // 스켈레톤·약탈자 화살, 가스트·블레이즈 불덩이 (#173), 눈 골렘 눈덩이 (#223), 거대 워든 음파 (#254)
     onKnock: (m) => {
       // 눈덩이에 맞았다 (#223, 아들 14차 5번 "맞아도 에너지는 안 닳고 밀쳐짐"): 하트는 그대로, 뒤로 튕긴다
       const pl = ctx.player;
@@ -1224,6 +1224,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       hud.toast(m.dropped > 0 ? `💀 쓰러졌어요… 경험치 구슬 ${m.dropped}개가 그 자리에 남았어요. 가서 되찾아요!` : '💀 쓰러졌어요… 다시 일어났어요', 6000);
     },
     onMobs: (list) => {
+      mobView.place = ctx.kind === 'expedition' ? (ctx.expedition?.id ?? null) : null; // 사막 좀비 주민 (2026-11-06)
       mobView.setState(list);
       const nv = list.filter((m) => MOB_KIND_OF[m.kind] === 'villager').length;
       if (nv !== villagerFigures) {
