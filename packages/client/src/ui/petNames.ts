@@ -5,6 +5,9 @@ export class PetNamePicker {
   private readonly sheet: HTMLElement;
   private readonly title: HTMLElement;
   private mobId: number | null = null;
+  private readonly releaseBtn: HTMLButtonElement;
+  /** 풀어주기는 두 번 눌러야 (실수 방지) */
+  private releaseArmed = false;
 
   constructor(
     root: HTMLElement,
@@ -12,6 +15,8 @@ export class PetNamePicker {
     private readonly onPick: (mobId: number, name: string) => void,
     /** 닫힐 때 (게임 입력을 다시 켜기 위해) */
     private readonly onClose: () => void = () => {},
+    /** 야생으로 풀어주기 (2026-11-06) */
+    private readonly onRelease: (mobId: number) => void = () => {},
   ) {
     this.sheet = document.createElement('div');
     this.sheet.className = 'chat-panel pet-names';
@@ -33,11 +38,24 @@ export class PetNamePicker {
       });
       list.appendChild(b);
     }
+    // 야생으로 풀어주기 (2026-11-06, 아빠 "길들인 동물들을 야생으로 풀어주기"): 한 번 누르면 묻고, 한 번 더 누르면 풀어준다
+    this.releaseBtn = document.createElement('button');
+    this.releaseBtn.className = 'plain-btn chat-close';
+    this.releaseBtn.addEventListener('click', () => {
+      if (this.mobId === null) return;
+      if (!this.releaseArmed) {
+        this.releaseArmed = true;
+        this.releaseBtn.textContent = '정말 풀어줄까요? 한 번 더 누르면 야생으로 가요';
+        return;
+      }
+      this.onRelease(this.mobId);
+      this.hide();
+    });
     const close = document.createElement('button');
     close.className = 'plain-btn chat-close';
     close.textContent = '닫기';
     close.addEventListener('click', () => this.hide());
-    card.append(this.title, list, close);
+    card.append(this.title, list, this.releaseBtn, close);
     this.sheet.appendChild(card);
     this.sheet.addEventListener('click', (e) => {
       if (e.target === this.sheet) this.hide();
@@ -52,6 +70,8 @@ export class PetNamePicker {
   show(mobId: number, current: string | null): void {
     this.mobId = mobId;
     this.title.textContent = current ? `🐾 ${current} — 다른 이름으로 바꾸기` : '🐾 이름 고르기';
+    this.releaseArmed = false;
+    this.releaseBtn.textContent = '🌿 야생으로 풀어주기';
     this.sheet.hidden = false;
   }
 

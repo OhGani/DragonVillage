@@ -904,6 +904,34 @@ export class AnimalSystem {
     return null;
   }
 
+  /**
+   * 야생으로 풀어주기 (2026-11-06, 아빠 "길들인 동물들을 야생으로 풀어주기"): 내 펫의 주인·이름·앉기를 지우고 그 자리를 새 집으로 산책한다.
+   * 안장을 씌운 말·돼지는 안장을 돌려준다. 오류: NO_MOB · NOT_MINE · RIDING(타고 있는 중) · AWAY(원정에 데려감)
+   */
+  release(p: AnimalViewer, mobId: number, now: number): string | null {
+    const a = this.find(mobId);
+    if (!a) return 'NO_MOB';
+    if (a.owner !== p.token) return 'NOT_MINE';
+    if (a.ridden !== null) return 'RIDING';
+    if (a.away) return 'AWAY';
+    const def = this.defs.get(a.kind);
+    a.owner = null;
+    a.name = null;
+    a.sitting = false;
+    a.free = false;
+    a.target = null;
+    a.tameAttempts = 0;
+    a.homeX = a.x;
+    a.homeZ = a.z;
+    a.hp = Math.min(a.hp, animalMaxHp(def.hp, a.kind, false));
+    a.pauseUntil = now + 1500;
+    a.dirty = true;
+    if (isMountKind(a.kind)) this.hooks.reward(p.idx, [{ item: SADDLE, count: 1 }], 0, { x: a.x, y: a.y + 1, z: a.z }, now); // 안장은 돌려준다
+    this.hooks.json({ t: 'mob', ev: 'wild', id: ANIMAL_ID_BASE + a.id, mob: a.kind, x: a.x, y: a.y, z: a.z, to: p.idx });
+    this.hooks.log(`${def.name}을(를) 야생으로 풀어줬어요`);
+    return null;
+  }
+
   /** 길들인 동물 목록 (이름·내 것인지) — 받는 사람 토큰 기준 */
   /**
    * 펫 원정 동행 (#145): 이 사람의 펫 중 앉아 있지 않고 maxDist 안에 있는 것을 데려간다 → 마을에서 사라지고 원정에선 클라가 주인을 따라다니게 그린다.

@@ -598,4 +598,52 @@ describe('마을 동물 (M8-1)', () => {
     room.sleep(ra.idx, null, T0 + 99 * 60_000 + 3000);
     expect(a.json.some((m) => m.t === 'mob' && m.ev === 'gift')).toBe(false);
   });
+
+  it('야생으로 풀어주기 (2026-11-06): 내 펫만, 두 사람 모두에게 펫 목록에서 빠지고, 이름·앉기가 지워지고 다시 때릴 수 있다. 말은 안장을 돌려받고 타는 중엔 못 푼다', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const b = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const rb = room.join('b'.repeat(32), '아들', 1, b.send)!;
+    const p = room.players.get(ra.idx)!;
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 66.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    const dog = [...room.animals.animals.values()].find((x) => x.kind === 'dog')!;
+    dog.owner = p.token;
+    dog.hp = 20;
+    dog.sitting = true;
+    dog.name = '초코';
+    dog.x = p.pos.x + 1.5;
+    dog.z = p.pos.z;
+    dog.y = p.pos.y;
+    const did = ANIMAL_ID_BASE + dog.id;
+    expect(room.releaseMob(rb.idx, did, T0 + 100)).toBe('NOT_MINE');
+    b.clear();
+    expect(room.releaseMob(ra.idx, did, T0 + 200)).toBeNull();
+    expect(dog.owner).toBeNull();
+    expect(dog.name).toBeNull();
+    expect(dog.sitting).toBe(false);
+    expect(dog.hp).toBe(8); // 야생 강아지 체력으로
+    expect(a.json.some((m) => m.t === 'mob' && m.ev === 'wild' && m.id === did && m.to === ra.idx)).toBe(true);
+    expect((b.json.filter((m) => m.t === 'pets').at(-1)!.list as { id: number }[]).some((x) => x.id === did)).toBe(false);
+    expect(room.releaseMob(ra.idx, did, T0 + 300)).toBe('NOT_MINE'); // 이미 야생
+    expect(room.hitMob(ra.idx, did, undefined, T0 + 1000)).toBeNull(); // 이제 때릴 수 있다
+    room.flush(T0 + 2000);
+    expect(makeRoom(storage).animals.animals.get(dog.id)!.owner).toBeNull(); // 저장된다
+    // 말: 타는 동안은 안 되고, 풀면 안장이 가방으로
+    const horse = [...room.animals.animals.values()].find((x) => x.kind === 'horse' && x.adultAt === null)!;
+    horse.x = p.pos.x - 1.5;
+    horse.z = p.pos.z;
+    horse.y = p.pos.y;
+    const hid = ANIMAL_ID_BASE + horse.id;
+    give(p.inv, 'saddle', 1);
+    expect(room.useMob(ra.idx, hid, p.inv.findIndex((s) => s?.item === 'saddle'), T0 + 3000)).toBeNull();
+    expect(countOf(p.inv, 'saddle')).toBe(0);
+    expect(room.useMob(ra.idx, hid, undefined, T0 + 3500)).toBeNull(); // 탄다
+    expect(room.releaseMob(ra.idx, hid, T0 + 4000)).toBe('RIDING');
+    expect(room.dismount(ra.idx)).toBeNull();
+    expect(room.releaseMob(ra.idx, hid, T0 + 5000)).toBeNull();
+    expect(horse.owner).toBeNull();
+    expect(countOf(p.inv, 'saddle')).toBe(1);
+  });
 });

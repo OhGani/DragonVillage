@@ -633,6 +633,12 @@ export class MobView {
       if (f.animal) {
         f.bar.sprite.visible = m.hp < f.maxHp; // 동물은 다쳤을 때만 체력 바
         const tamed = (m.state & ANIMAL_FLAG.tamed) !== 0;
+        if (!tamed && f.collar) {
+          // 야생으로 풀어줬다 (2026-11-06): 목걸이를 뗀다
+          f.body.remove(f.collar);
+          f.collar.geometry.dispose();
+          f.collar = null;
+        }
         if (tamed && !f.collar) {
           f.collar = partMesh(collarVoxels(MOB_KIND_OF[m.kind] ?? 'dog'), new THREE.MeshBasicMaterial({ vertexColors: true }));
           f.body.add(f.collar);
@@ -671,6 +677,8 @@ export class MobView {
       else if (ev === 'follow') this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '따라가요', '#ffffff', now);
     } else if (ev === 'gift') {
       this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '🎁', '#ffffff', now); // 고양이 선물 (2026-11-06)
+    } else if (ev === 'wild') {
+      this.popText(x, y + mobSize(f?.kind ?? 0).h + 0.5, z, '🌿 안녕!', '#9ccc65', now); // 야생으로 (2026-11-06)
     } else if (ev === 'hiss') {
       this.popText(x, y + 1.0, z, '하악!', '#ff8a65', now); // 크리퍼를 쫓는 고양이 (2026-11-06)
     } else if (ev === 'teleport' && f) {

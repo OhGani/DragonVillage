@@ -212,7 +212,7 @@ export interface NetEvents {
   onOrbGone(id: number, by: number): void;
   /** 원정 몹 상태 (20Hz, M7-2) */
   onMobs(list: MobEntry[]): void;
-  onMobEvent(m: { ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk' | 'stare' | 'teleport' | 'heal' | 'zombify' | 'cure' | 'cured' | 'gift' | 'hiss'; id: number; mob: string; x: number; y: number; z: number; dmg?: number; item?: string; to?: number }): void;
+  onMobEvent(m: { ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk' | 'stare' | 'teleport' | 'heal' | 'zombify' | 'cure' | 'cured' | 'gift' | 'hiss' | 'wild'; id: number; mob: string; x: number; y: number; z: number; dmg?: number; item?: string; to?: number }): void;
   onDismount(idx: number): void;
 }
 
@@ -491,6 +491,10 @@ export class NetClient {
   /** 펫 이름 짓기 (#109) */
   sendNameMob(id: number, name: string): void {
     this.sendJson({ t: 'nameMob', id, name });
+  }
+  /** 내 펫을 야생으로 풀어주기 (2026-11-06) */
+  sendReleaseMob(id: number): void {
+    this.sendJson({ t: 'releaseMob', id });
   }
   /** 내 펫 전부 부르기 (#174) */
   sendCallPets(): void {

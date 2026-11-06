@@ -61,6 +61,13 @@ const NAME_ERROR_KO: Record<string, string> = {
   NOT_MINE: '내가 길들인 동물에게만 이름을 지어 줄 수 있어요',
   BAD_NAME: '목록에 있는 이름만 고를 수 있어요',
 };
+/** 야생으로 풀어주기 오류 (2026-11-06) */
+const RELEASE_ERROR_KO: Record<string, string> = {
+  NO_MOB: '거기엔 아무것도 없어요',
+  NOT_MINE: '내가 길들인 동물만 풀어줄 수 있어요',
+  RIDING: '타고 있을 땐 못 풀어줘요 — 먼저 내려요',
+  AWAY: '마을에서만 풀어줄 수 있어요',
+};
 /** 장비 오류 (M8-2) */
 const EQUIP_ERROR_KO: Record<string, string> = {
   EMPTY: '그 칸은 비어 있어요',
@@ -634,6 +641,13 @@ export class Session {
         if (!Number.isInteger(msg.id) || typeof msg.name !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
         const err = this.room.nameMob(this.idx, msg.id, msg.name);
         if (err) return this.error(err, NAME_ERROR_KO[err] ?? '지금은 이름을 지을 수 없어요');
+        return;
+      }
+      case 'releaseMob': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.id)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.releaseMob(this.idx, msg.id);
+        if (err) return this.error(err, RELEASE_ERROR_KO[err] ?? '지금은 풀어줄 수 없어요');
         return;
       }
       case 'equip': {

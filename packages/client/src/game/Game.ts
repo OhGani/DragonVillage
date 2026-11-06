@@ -321,6 +321,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       // 시트가 닫히면 게임 입력을 다시 켠다 (채팅 시트와 같다) — 아빠 2026-09-26 "버튼이 안 눌림"
       if (started && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) resume();
     },
+    (id) => net.sendReleaseMob(id),
   );
   /** 내 장비 (M8-2): 서버가 준 것으로 시작, equip 이벤트로 바뀐다 */
   let myEquip: Equipment = sanitizeEquipment(COMBAT, welcome.spawn.equip ?? null);
@@ -1247,7 +1248,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         }
       } else if (m.ev === 'hit') hitSound();
       else if (m.ev === 'love' || m.ev === 'tame' || m.ev === 'grow' || m.ev === 'milk') ding();
-      else if (m.ev === 'gift' && m.to === myIdx && m.item) {
+      else if (m.ev === 'wild' && m.to === myIdx) {
+        ding();
+        hud.toast(`🌿 ${MOBS.get(m.mob as MobKind).name}을(를) 야생으로 풀어줬어요 — 안녕!${m.mob === 'horse' || m.mob === 'pig' ? ' (안장은 가방으로)' : ''}`, 3500);
+      } else if (m.ev === 'gift' && m.to === myIdx && m.item) {
         // 고양이 선물 (2026-11-06): 자고 일어났더니 곁의 내 고양이가
         ding();
         hud.toast(`🐱🎁 고양이가 선물을 가져왔어요 — ${nameOf(m.item)}`, 3500);

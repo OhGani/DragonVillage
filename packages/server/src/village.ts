@@ -1910,6 +1910,17 @@ export class VillageRoom {
     return null;
   }
 
+  /** 펫을 야생으로 풀어주기 (2026-11-06). 오류는 세션이 한국어로 */
+  releaseMob(idx: number, mobId: number, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    if (p.world !== 'village') return 'AWAY';
+    const err = this.animals.release({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held: p.held }, mobId, now);
+    if (err) return err;
+    this.broadcastPets();
+    return null;
+  }
+
   /** 펫 목록을 마을 사람마다 (mine 이 다르다) */
   broadcastPets(): void {
     for (const q of this.playersIn('village')) this.sendJson(q, { t: 'pets', list: this.animals.petsFor(q.token) });

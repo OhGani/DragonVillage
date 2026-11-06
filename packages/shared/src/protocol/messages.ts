@@ -529,7 +529,9 @@ export type ClientJson =
   /** 내 펫 이름 짓기 (M8-1 4차): pet-names.json 의 이름만 */
   | { t: 'nameMob'; id: number; name: string }
   /** 내 펫 전부 부르기 (#174) */
-  | { t: 'callPets' };
+  | { t: 'callPets' }
+  /** 내 펫을 야생으로 풀어주기 (2026-11-06) */
+  | { t: 'releaseMob'; id: number };
 
 export type ServerJson =
   | { t: 'hello'; token: string; protocol: number }
@@ -651,7 +653,7 @@ export type ServerJson =
   | { t: 'orbGone'; id: number; by: number }
   /** 몹 사건 (M7-2): 생김·맞음·죽음·폭발 */
   /** 몹 사건. wake·summon 은 보스(M7-4) */
-  | { t: 'mob'; ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk' | 'stare' | 'teleport' | 'heal' | 'zombify' | 'cure' | 'cured' | 'gift' | 'hiss'; id: number; mob: string; x: number; y: number; z: number; dmg?: number; item?: string; to?: number }
+  | { t: 'mob'; ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk' | 'stare' | 'teleport' | 'heal' | 'zombify' | 'cure' | 'cured' | 'gift' | 'hiss' | 'wild'; id: number; mob: string; x: number; y: number; z: number; dmg?: number; item?: string; to?: number }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }
