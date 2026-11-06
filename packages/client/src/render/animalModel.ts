@@ -813,9 +813,9 @@ export function ravagerParts(): AnimalParts {
   };
   const stoneBand: ColorFn = (x, y, z) => fur(x, y, z, (x + z) % 3 === 0 ? STONE2 : STONE, 0.06);
   const body = new Builder();
-  body.box(-7, 6, 22, 37, -10, 26, hide); // 몸통 14×16×37 (아빠 "몸통 좀더 길게" 27 → 37)
-  body.box(-6, 5, 18, 31, -13, -9, hide); // 목 (머리와 몸통 사이)
-  body.box(-3, 2, 38, 38, 5, 11, (x, y, z) => fur(x, y, z, x === -3 || x === 2 || z === 5 || z === 11 ? 0xa84a12 : SADDLE, 0.08)); // 주황 안장 (등 가운데)
+  body.box(-9, 8, 18, 38, -10, 26, hide); // 몸통 18×21×37 (아빠 "몸통 좀더 길게" 27 → 37, "더 두껍게" 14×16 → 18×21)
+  body.box(-7, 6, 16, 32, -13, -9, hide); // 목 (머리와 몸통 사이)
+  body.box(-3, 2, 39, 39, 5, 11, (x, y, z) => fur(x, y, z, x === -3 || x === 2 || z === 5 || z === 11 ? 0xa84a12 : SADDLE, 0.08)); // 주황 안장 (등 가운데)
   // 다리 넷 (10×10 굵은 기둥, 아빠 "다리 더 굵게" 8 → 10): 몸 양옆에 반쯤 걸친다. 윗부분(y 23~39)은 몸에 붙어 등 위로 솟는다
   const LEG = 10;
   const spots: [number, number][] = [
@@ -899,37 +899,54 @@ function elephant(variant: number): AnimalParts {
 }
 
 /**
- * 코뿔소 (아빠가 보낸 그림 2026-11-06, Alex's Mobs): 잿빛 갈색 두툼한 몸통, 짧고 굵은 다리 넷(흰 발톱), 낮게 내민 머리에
- * 크고 흰 앞 뿔 + 작은 뒷 뿔, 작은 귀, 짧은 꼬리. 키 28칸 ≈ 1.6m
+ * 코뿔소 (아빠가 보낸 그림 2026-11-06, Alex's Mobs — "더 입체적으로"): 잿빛 갈색 큰 몸통에 갑옷처럼 겹친 가죽판(어깨 혹·엉덩이 판, 판 사이 주름 줄),
+ * 굵은 다리 넷(넓은 발·흰 발톱), 크고 각진 머리에 앞으로 낮게 내민 주둥이, 위로 휘어 올라가는 큰 앞 뿔 + 작은 뒷 뿔,
+ * 주름진 눈·비스듬한 귀, 짧은 꼬리. 키 32칸 ≈ 1.8m
  */
 function rhino(): AnimalParts {
   const SKIN = 0x8c8480,
-    DARK = 0x726a66,
-    LIGHT = 0xa29a95,
-    HORN = 0xe8dcc0,
-    HORN2 = 0xcfc2a4;
+    DARK = 0x6e6662,
+    FOLD = 0x5c5450,
+    LIGHT = 0xa39b96,
+    HORN = 0xddd2bb,
+    HORN2 = 0xbcae94;
   const hide: ColorFn = (x, y, z) => fur(x, y, z, (x * 5 + y * 3 + z * 7) % 13 === 0 ? DARK : (x + y * 2 + z) % 17 === 0 ? LIGHT : SKIN, 0.1);
-  const body = new Builder().box(-8, 7, 10, 25, -10, 14, hide); // 몸통 16×16×25
-  body.box(-1, 0, 18, 22, 15, 15, hide).box(-1, 0, 17, 18, 16, 16, solid(DARK)); // 꼬리
+  const body = new Builder().box(-9, 8, 12, 29, -10, 18, hide); // 몸통 18×18×29
+  body.box(-10, 9, 21, 31, -11, -2, hide); // 어깨 가죽판 (혹)
+  body.box(-10, 9, 17, 28, 12, 19, hide); // 엉덩이 가죽판
+  for (const z of [-2, 11]) body.box(-10, 9, 12, 30, z, z, solid(FOLD)); // 판 사이 주름 줄
+  body.box(-10, 9, 21, 21, -11, -2, solid(FOLD)); // 어깨판 아래 끝
+  body.box(-1, 0, 20, 25, 20, 20, hide).box(-1, 0, 18, 19, 21, 21, solid(DARK)); // 꼬리
   const spots: [number, number][] = [
-    [-8, -9],
-    [2, -9],
-    [-8, 8],
-    [2, 8],
+    [-9, -9],
+    [3, -9],
+    [-9, 12],
+    [3, 12],
   ];
   const legs = spots.map(([lx, lz]) => {
-    const b = new Builder().box(lx, lx + 5, 0, 10, lz, lz + 5, (x, y, z) => (y === 0 && z === lz && (x - lx) % 2 === 0 ? HORN2 : hide(x, y, z)));
-    return part(b, [lx + 3, 10, lz + 3]);
+    const b = new Builder().box(lx, lx + 5, 2, 12, lz, lz + 5, hide);
+    b.box(lx - 1, lx + 6, 0, 1, lz - 1, lz + 6, (x, y, z) => (z === lz - 1 && y === 0 && (x - lx) % 2 === 0 ? HORN2 : fur(x, y, z, DARK, 0.08))); // 넓은 발 + 발톱
+    return part(b, [lx + 3, 12, lz + 3]);
   });
-  const h = new Builder().box(-5, 4, 8, 20, -21, -11, hide); // 머리 10×13×11 (낮게)
-  h.dot(-5, 16, -18, 0x111111).dot(4, 16, -18, 0x111111); // 눈 (양옆)
-  h.box(-5, -4, 21, 23, -14, -13, hide).box(3, 4, 21, 23, -14, -13, hide); // 귀
-  h.box(-1, 0, 16, 19, -22, -21, (x, y, z) => fur(x, y, z, HORN, 0.05)); // 앞 뿔 (크다)
-  h.box(-1, 0, 20, 23, -23, -22, (x, y, z) => fur(x, y, z, HORN, 0.05));
-  h.box(-1, 0, 24, 25, -24, -24, solid(HORN2));
-  h.box(-1, 0, 21, 22, -18, -17, solid(HORN2)); // 뒷 뿔 (작다)
-  h.box(-3, 2, 8, 10, -22, -21, solid(DARK)); // 입
-  return { body: body.out, head: part(h, [0, 16, -11]), legs, tail: null, wings: [], babyHead: 1.4 };
+  const h = new Builder().box(-6, 5, 11, 25, -24, -11, hide); // 머리 12×15×14
+  h.box(-5, 4, 9, 18, -29, -24, hide); // 앞으로 낮게 내민 주둥이
+  h.box(-5, 4, 9, 10, -29, -24, solid(FOLD)); // 입술
+  h.box(-6, 5, 19, 19, -24, -14, solid(FOLD)); // 눈 위 주름
+  for (const ex of [-6, 5]) h.dot(ex, 21, -19, 0x141414).dot(ex, 21, -18, 0xf0f0f0).dot(ex, 20, -19, FOLD).dot(ex, 22, -18, FOLD); // 눈 (양옆, 주름)
+  for (const [x0, x1] of [
+    [-7, -6],
+    [5, 6],
+  ] as [number, number][])
+    h.box(x0, x1, 25, 28, -14, -12, hide).box(x0, x1, 28, 29, -13, -12, solid(LIGHT)); // 귀 (비스듬히 위로)
+  // 큰 앞 뿔: 주둥이 위에서 위·뒤로 휘어 올라간다 (아래가 굵고 끝이 가늘다)
+  h.box(-2, 1, 19, 21, -29, -25, (x, y, z) => fur(x, y, z, HORN2, 0.05));
+  h.box(-2, 1, 22, 24, -28, -25, (x, y, z) => fur(x, y, z, HORN, 0.05));
+  h.box(-1, 0, 25, 27, -27, -25, (x, y, z) => fur(x, y, z, HORN, 0.05));
+  h.box(-1, 0, 28, 29, -26, -24, (x, y, z) => fur(x, y, z, HORN, 0.04));
+  h.box(-1, 0, 30, 30, -24, -24, solid(0xece4d2));
+  // 작은 뒷 뿔
+  h.box(-1, 0, 25, 27, -22, -21, (x, y, z) => fur(x, y, z, HORN2, 0.05));
+  return { body: body.out, head: part(h, [0, 19, -11]), legs, tail: null, wings: [], babyHead: 1.4 };
 }
 
 /**

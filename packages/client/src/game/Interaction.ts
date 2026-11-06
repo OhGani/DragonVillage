@@ -53,6 +53,8 @@ export interface InteractionEvents {
   onIgnite?(x: number, y: number, z: number): void;
   /** 상자를 탭했다 (#84) — 놓기 대신 연다 */
   onOpenChest?(x: number, y: number, z: number): void;
+  /** 식탁 탭 (2026-11-06): 음식을 들었으면 올리고, 아니면 식탁 창 */
+  onUseTable?(x: number, y: number, z: number): void;
   /** 침대를 빈손으로 탭 → 눕기 (#204) */
   onSleepBed?(x: number, y: number, z: number): void;
   /** 보트를 들고 물을 탭 → 띄우기 (#209) */
@@ -379,6 +381,12 @@ export class Interaction {
     // 상자를 탭하면 놓는 대신 연다 (빈손도 됨, #84)
     if (tdef.chest) {
       this.events.onOpenChest?.(t.x, t.y, t.z);
+      this.events.onSwing();
+      return;
+    }
+    // 식탁을 탭하면 놓는 대신 식탁 쓰기 (2026-11-06)
+    if (tdef.shape === 'table') {
+      this.events.onUseTable?.(t.x, t.y, t.z);
       this.events.onSwing();
       return;
     }

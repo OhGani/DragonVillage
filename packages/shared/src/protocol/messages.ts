@@ -531,7 +531,9 @@ export type ClientJson =
   /** 내 펫 전부 부르기 (#174) */
   | { t: 'callPets' }
   /** 내 펫을 야생으로 풀어주기 (2026-11-06) */
-  | { t: 'releaseMob'; id: number };
+  | { t: 'releaseMob'; id: number }
+  /** 식탁 (2026-11-06): put = 손에 든 음식(slot) 하나 올리기, take = i 번째를 가방에, eat = i 번째 먹기 */
+  | { t: 'table'; act: 'put' | 'take' | 'eat'; x: number; y: number; z: number; slot?: number; i?: number };
 
 export type ServerJson =
   | { t: 'hello'; token: string; protocol: number }
@@ -617,6 +619,10 @@ export type ServerJson =
   | { t: 'arrow'; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean; snow?: boolean; sonic?: boolean; laser?: boolean; potion?: boolean }
   /** 밀린다 (#223 눈 골렘 눈덩이는 피해 없이, #253 고릴라는 아프고 나서): (x, z) 방향으로 power 만큼. why = 'snow' | 'gorilla' */
   | { t: 'knock'; x: number; z: number; power: number; why?: string }
+  /** 식탁 위 음식 (2026-11-06): 바뀔 때 그 세계 모두에게, items 는 TABLE_SLOTS 칸 (빈 칸 null) */
+  | { t: 'table'; x: number; y: number; z: number; items: (string | null)[] }
+  /** 들어올 때 마을의 식탁 전부 */
+  | { t: 'tables'; list: { x: number; y: number; z: number; items: (string | null)[] }[] }
   /** 마을 방어전 상태 1Hz (M7-5). null = 끝났다/없다 */
   | { t: 'raid'; raid: RaidStateInfo | null }
   /** 누가 빔을 쐈다 (같은 세계 모두, 본인 포함) (M6-5). from 은 드래곤 입 근처, dir 은 단위 벡터 */

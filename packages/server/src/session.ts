@@ -61,6 +61,17 @@ const NAME_ERROR_KO: Record<string, string> = {
   NOT_MINE: '내가 길들인 동물에게만 이름을 지어 줄 수 있어요',
   BAD_NAME: '목록에 있는 이름만 고를 수 있어요',
 };
+/** 식탁 오류 (2026-11-06) */
+const TABLE_ERROR_KO: Record<string, string> = {
+  NO_TABLE: '여기엔 식탁이 없어요',
+  TOO_FAR: '식탁에 더 가까이 가요',
+  NOT_EDIBLE: '식탁엔 먹을 것만 올릴 수 있어요',
+  TABLE_FULL: '식탁이 꽉 찼어요 (4개까지)',
+  EMPTY: '거기엔 음식이 없어요',
+  BAG_FULL: '가방이 꽉 찼어요',
+  HP_FULL: '배불러요 — 하트가 꽉 찼어요',
+  DEAD: '쓰러져 있을 땐 못 먹어요',
+};
 /** 야생으로 풀어주기 오류 (2026-11-06) */
 const RELEASE_ERROR_KO: Record<string, string> = {
   NO_MOB: '거기엔 아무것도 없어요',
@@ -430,6 +441,13 @@ export class Session {
         }
         if (err) return this.error(err, NEST_ERROR_KO[err] ?? '지금은 부화할 수 없어요');
         this.log(`세션 ${this.remote}: '${this.nick}' 부화`);
+        return;
+      }
+      case 'table': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.x) || !Number.isInteger(msg.y) || !Number.isInteger(msg.z) || !['put', 'take', 'eat'].includes(msg.act)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.useTable(this.idx, msg.act, msg.x, msg.y, msg.z, Number.isInteger(msg.slot) ? msg.slot : undefined, Number.isInteger(msg.i) ? msg.i : undefined);
+        if (err) return this.error(err, TABLE_ERROR_KO[err] ?? '지금은 식탁을 쓸 수 없어요');
         return;
       }
       case 'openChest': {

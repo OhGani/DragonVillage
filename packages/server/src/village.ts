@@ -22,6 +22,7 @@ import {
   BOAT,
   CAT_GIFT_SLEEP_MS,
   KING_KINDS,
+  TABLE_SLOTS,
   calmFoods,
   bodyOverlapsBlock,
   BONE_MEAL,
@@ -879,6 +880,78 @@ export class VillageRoom {
     else this.storage?.saveChest(this.info.code, home.x, home.y, home.z, chest, now);
   }
 
+  // ---------------------------------------------------------------- 식탁 (아빠 2026-11-06)
+
+  /** 식탁 위 음식 (TABLE_SLOTS 칸). 상자와 같은 저장 칸(chests 표·원정 메모리)을 쓴다 — 한 자리는 상자 아니면 식탁이라 겹치지 않는다 */
+  private tableItems(p: RoomPlayer, c: { x: number; y: number; z: number }): (string | null)[] {
+    const inv = this.storedChest(p, c);
+    const out: (string | null)[] = Array.from({ length: TABLE_SLOTS }, (_, i) => inv?.[i]?.item ?? null);
+    return out;
+  }
+  private saveTable(p: RoomPlayer, c: { x: number; y: number; z: number }, items: (string | null)[], now: number): void {
+    if (items.every((i) => i === null)) this.deleteStoredChest(p, c);
+    else {
+      const inv = emptyChest(false); // 상자와 같은 모양(27칸)으로 저장한다 — 앞 TABLE_SLOTS 칸만 쓴다
+      items.forEach((item, i) => (inv[i] = item ? { item, count: 1 } : null));
+      this.writeChest(p, c, inv, now);
+    }
+    this.broadcastJson({ t: 'table', x: c.x, y: c.y, z: c.z, items }, -1, p.world);
+  }
+  /** 마을의 식탁 전부 (들어올 때 보낸다) */
+  private villageTables(): { x: number; y: number; z: number; items: (string | null)[] }[] {
+    const out: { x: number; y: number; z: number; items: (string | null)[] }[] = [];
+    for (const c of this.storage?.listChestCells(this.info.code) ?? []) {
+      if (!this.world.inBounds(c.x, c.y, c.z) || this.registry.get(this.world.getBlock(c.x, c.y, c.z)).shape !== 'table') continue;
+      const inv = this.storage!.getChest(this.info.code, c.x, c.y, c.z);
+      out.push({ ...c, items: Array.from({ length: TABLE_SLOTS }, (_, i) => inv?.[i]?.item ?? null) });
+    }
+    return out;
+  }
+
+  /**
+   * 식탁 쓰기 (2026-11-06): put = 손에 든 칸(slot)의 먹을 것 하나를 빈 자리에, take = i 번째를 가방에, eat = i 번째를 먹는다(하트가 찰 때).
+   * 오류: NO_TABLE · TOO_FAR · NOT_EDIBLE · TABLE_FULL · EMPTY · BAG_FULL · HP_FULL · DEAD
+   */
+  useTable(idx: number, act: 'put' | 'take' | 'eat', x: number, y: number, z: number, slot: number | undefined, i: number | undefined, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    const world = this.worldOf(p);
+    if (!world.inBounds(x, y, z) || this.registry.get(world.getBlock(x, y, z)).shape !== 'table') return 'NO_TABLE';
+    if (Math.hypot(p.pos.x - (x + 0.5), p.pos.y + EYE - (y + 0.5), p.pos.z - (z + 0.5)) > REACH) return 'TOO_FAR';
+    const c = { x, y, z };
+    const items = this.tableItems(p, c);
+    const changed = new Set<number>();
+    if (act === 'put') {
+      const held = slot !== undefined && slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
+      if (!held || !foodOf(FOOD, held)) return 'NOT_EDIBLE';
+      const free = items.indexOf(null);
+      if (free < 0) return 'TABLE_FULL';
+      if (!takeFromSlot(p.inv, slot!, 1, changed)) return 'NOT_EDIBLE';
+      items[free] = held;
+      this.sendInv(p, changed);
+      this.saveTable(p, c, items, now);
+      return null;
+    }
+    if (i === undefined || i < 0 || i >= TABLE_SLOTS || !items[i]) return 'EMPTY';
+    const item = items[i]!;
+    if (act === 'take') {
+      if (!fits(p.inv, [{ item, count: 1 }])) return 'BAG_FULL';
+      this.giveTo(p, item, 1, changed);
+      this.sendInv(p, changed);
+    } else {
+      const food = foodOf(FOOD, item);
+      if (!food) return 'NOT_EDIBLE';
+      if (p.hp <= 0) return 'DEAD';
+      if (p.hp >= HP_MAX) return 'HP_FULL';
+      p.hp = Math.min(HP_MAX, p.hp + food.heals);
+      p.lastRegenAt = now;
+      this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'eat' });
+    }
+    items[i] = null;
+    this.saveTable(p, c, items, now);
+    return null;
+  }
+
   /** 상자 열기: 그 자리에 상자가 있고 닿는 거리면 속을 보낸다 */
   openChest(idx: number, x: number, y: number, z: number, now = Date.now()): string | null {
     const p = this.players.get(idx);
@@ -1586,6 +1659,7 @@ export class VillageRoom {
     this.sendClouds(player, 'village', Date.now()); // 남아 있는 구름 (#246)
     if (this.raid) this.sendJson(player, { t: 'raid', raid: this.raid.state(Date.now()) });
     this.sendJson(player, { t: 'pets', list: this.animals.petsFor(token) }); // 펫 이름 (#109)
+    this.sendJson(player, { t: 'tables', list: this.villageTables() }); // 식탁 위 음식 (2026-11-06)
     this.sendDemand(player, Date.now()); // 가게 값 (#230)
     if (player.riding) this.broadcastNest(); // 둥지에서 그 드래곤이 빠진다
     this.savePlayer(player);
@@ -3102,6 +3176,12 @@ export class VillageRoom {
       if (mined > 0) this.addXp(p, mined, XP_SOURCE.mining, req.x + 0.5, req.y + 0.5, req.z + 0.5);
       // 상자를 부수면 안에 있던 것이 내 가방으로 (#84). 아직 안 연 원정 보물은 여기서 채워져 그대로 들어온다
       if (prev.chest) this.breakChest(p, req.x, req.y, req.z, prev, changed, now);
+      if (prev.shape === 'table') {
+        // 식탁을 부수면 올린 음식은 부순 사람 가방으로 (2026-11-06)
+        for (const item of this.tableItems(p, req)) if (item) this.giveTo(p, item, 1, changed);
+        this.deleteStoredChest(p, req);
+        this.broadcastJson({ t: 'table', x: req.x, y: req.y, z: req.z, items: Array.from({ length: TABLE_SLOTS }, () => null) }, -1, p.world);
+      }
       // 사탕수수 (#213, 마인크래프트): 아래 칸을 부수면 위에 쌓인 것도 같이 떨어져 가방으로. 남은 아래 칸이 다시 자란다
       if (prev.growsUp) {
         for (let yy = req.y + 1; world.inBounds(req.x, yy, req.z) && world.getBlock(req.x, yy, req.z) === prev.num; yy++) {
@@ -3471,6 +3551,7 @@ export class VillageRoom {
     p.fallPeak = null;
     this.sendJson(p, { t: 'worldEnter', kind: 'village', expedition: null, spawn: me, players: others, chunkCount: this.modifiedCount });
     this.sendJson(p, { t: 'orbs', list: this.orbsIn('village') });
+    this.sendJson(p, { t: 'tables', list: this.villageTables() }); // 식탁 위 음식 (2026-11-06)
     this.sendClouds(p, 'village', Date.now());
     this.sendModifiedChunks(p.send);
     this.sendJson(p, { t: 'ready' });

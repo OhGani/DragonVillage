@@ -18,6 +18,7 @@ const registry = parseBlocks({
     { id: 'bed', name: '침대', hardness: 0.2, shape: 'bed', textureTop: 'bed_top', textureSide: 'bed_side', textureBottom: 'dirt' },
     { id: 'sign', name: '표지판', hardness: 1, solid: false, shape: 'sign', texture: 'sign_board' },
     { id: 'far', name: '먼 그림', hardness: 1, texture: 'far' },
+    { id: 'dining_table', name: '식탁', hardness: 2, transparent: true, shape: 'table', texture: 'sign_board' },
   ],
 });
 const texIndex = new Map([
@@ -53,6 +54,7 @@ const FLOWER = registry.numOf('dandelion');
 const BED_FOOT_N = registry.bedVariant(registry.numOf('bed'), 0, false);
 const BED_HEAD_N = registry.bedVariant(registry.numOf('bed'), 0, true);
 const SIGN = registry.numOf('sign');
+const TABLE = registry.numOf('dining_table');
 
 function padded(fill: (x: number, y: number, z: number) => number): Uint16Array {
   const arr = new Uint16Array(PADDED_VOLUME);
@@ -406,6 +408,19 @@ describe('표지판 (#197)', () => {
       if (y > 5.6) zs.add(Math.round(m.positions[i * 3 + 2]! * 16) / 16); // 판 꼭짓점의 z
     }
     expect([...zs].sort()).toEqual([5 + 7 / 16, 5 + 9 / 16]); // 판 두께 2/16 (앞뒤 1/16)
+    checkWinding(m);
+  });
+});
+
+describe('식탁 (2026-11-06)', () => {
+  it('하나면 윗판 6면 + 다리 넷 × 5면 = 26면', () => {
+    const m = greedyMesh(padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? TABLE : 0)), info).opaque!;
+    expect(m.indexCount / 6).toBe(26);
+    checkWinding(m);
+  });
+  it('둘을 붙이면 긴 식탁 하나 — 맞닿은 옆면 없고 다리는 바깥 모서리 넷만 (아빠가 보낸 그림)', () => {
+    const m = greedyMesh(padded((x, y, z) => ((x === 5 || x === 6) && y === 5 && z === 5 ? TABLE : 0)), info).opaque!;
+    expect(m.indexCount / 6).toBe(2 * 5 + 4 * 5); // 윗판마다 맞닿은 면 하나 빼고 5면, 다리 넷
     checkWinding(m);
   });
 });

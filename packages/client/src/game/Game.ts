@@ -91,6 +91,7 @@ import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIO
 import * as THREE from 'three';
 import { beam as beamSound, bell, ding, explosion as explosionSound, fireworkLaunch, fireworkPop, hit as hitSound, hurt as hurtSound, levelUp, lose, roar, splash as splashSound } from '../audio/sound';
 import { FishView } from '../render/FishView';
+import { TableView } from '../render/TableView';
 import { wildFigureMesh } from '../render/MobView';
 import { GamepadInput } from '../input/gamepad';
 import { InputManager } from '../input/InputManager';
@@ -110,6 +111,7 @@ import { loadTextureAtlas } from '../render/textures';
 import { BagView, type Stations } from '../ui/bag';
 import { ChatView } from '../ui/chat';
 import { PetNamePicker } from '../ui/petNames';
+import { TableSheet } from '../ui/tableSheet';
 import { TalkSheet } from '../ui/talk';
 import { ChestView } from '../ui/chest';
 import { Hud, type HotbarSlot } from '../ui/hud';
@@ -412,6 +414,18 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     g.fillText('✨', 0, 0);
     return out;
   };
+  // 식탁 (아빠 2026-11-06): 위 음식 그림 + 먹기·가방에 창
+  const tableView = new TableView(scene, (id) => iconOf(id, 32));
+  const tableSheet = new TableSheet(
+    root,
+    (id) => iconOf(id, 32),
+    nameOf,
+    (at, i) => net.sendTable('eat', at.x, at.y, at.z, undefined, i),
+    (at, i) => net.sendTable('take', at.x, at.y, at.z, undefined, i),
+    () => {
+      if (started && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) resume();
+    },
+  );
   remote.iconOf = (id) => iconOf(id, 32); // 다른 사람 손에 든 것 (#96)
   let sentHeld: string | null | undefined; // 서버에 마지막으로 알린 손 아이템
 
@@ -686,6 +700,18 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         if (!mySleep && !myRiding) net.sendSleep({ x, y, z }); // 침대 빈손 탭 → 눕기 (#204)
       },
       onHint: (text) => hud.toast(text, 2000),
+      onUseTable: (bx, by, bz) => {
+        // 식탁 (2026-11-06): 먹을 것을 들었으면 바로 올리고, 아니면 식탁 창 (먹기·가방에)
+        if (anyPanelOpen() || !started || disconnected) return;
+        if (hud.selectedItem && foodOf(FOOD, hud.selectedItem)) {
+          net.sendTable('put', bx, by, bz, hud.selectedIndex);
+          return;
+        }
+        input.paused = true;
+        kbm.enabled = false;
+        if (kbm.locked) document.exitPointerLock();
+        tableSheet.show(bx, by, bz, tableView.itemsAt(bx, by, bz));
+      },
       onOpenChest: (bx, by, bz) => {
         if (bag.visible || nest.visible || chat.visible) return;
         net.sendOpenChest(bx, by, bz);
@@ -753,6 +779,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   let warned3 = false,
     warned1 = false;
   const enterWorld = (w: WorldEnter) => {
+    tableView.clear(); // 식탁 그림은 세계마다 (마을로 돌아오면 서버가 tables 를 다시 보낸다)
+    tableSheet.hide();
     endingPortal = null; // 세계가 바뀌면 엔딩 포탈 표시는 지운다 (#170)
     disposeWorld(ctx);
     pending.clear();
@@ -954,6 +982,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       lose();
     },
     onDemand: (counts) => talk.setDemand(counts), // 가게 값 (#230)
+    onTable: (m) => {
+      tableView.set(m.x, m.y, m.z, m.items);
+      if (tableSheet.isAt(m.x, m.y, m.z)) tableSheet.update(m.items);
+    },
+    onTables: (list) => tableView.setAll(list),
     onPets: (list) => {
       pets.clear();
       for (const p of list) pets.set(p.id, { name: p.name, mine: p.mine, mode: p.mode ?? 'follow' });
@@ -1456,7 +1489,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
   };
   /** 가방·채팅·둥지·상자 — 창이 하나라도 열려 있으면 마우스를 잠그지 않는다. 상자가 빠져 있었다 (아빠 2026-09-23) */
-  const anyPanelOpen = () => bag.visible || chat.visible || nest.visible || chest.visible || storageView.visible || petNamer.visible || talk.visible;
+  const anyPanelOpen = () => bag.visible || chat.visible || nest.visible || chest.visible || storageView.visible || petNamer.visible || talk.visible || tableSheet.visible;
   // 창고 창 (M6-6): 서버가 재고를 보내 주면 연다 (열 자격도 서버가 본다)
   let pendingStorageOpen = false;
   const openStorage = () => {
@@ -1963,7 +1996,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const heldFood = foodOf(FOOD, hud.selectedItem);
     // 당근·감자처럼 먹을 것이자 씨앗인 것은 농지를 겨눴을 땐 심기만 한다 (#212 — 전엔 심으면서 하나를 더 먹었다)
     const planting = interaction.target !== null && interaction.selectedBlock > 0 && registry.get(interaction.target.id).id === 'farmland';
-    if (heldFood && !planting && inp.secondaryTap && aimedMob === null && !guarding && !anyPanelOpen() && started && !disconnected) {
+    const aimingTable = interaction.target !== null && registry.get(interaction.target.id).shape === 'table'; // 식탁을 탭하면 먹지 않고 올린다
+    if (heldFood && !planting && !aimingTable && inp.secondaryTap && aimedMob === null && !guarding && !anyPanelOpen() && started && !disconnected) {
       net.sendEat(hud.selectedIndex);
       hand.swing();
     }

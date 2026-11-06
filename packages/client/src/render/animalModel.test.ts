@@ -138,7 +138,7 @@ describe('파괴수 모델 (아빠 그림 2026-11-06)', () => {
         b = n & 255;
       return r > 170 && r - g > 50 && g > b;
     };
-    expect(p.body.filter((v) => v.y === 38 && orange(v.c)).length).toBeGreaterThan(10); // 주황 안장
+    expect(p.body.filter((v) => v.y === 39 && orange(v.c)).length).toBeGreaterThan(10); // 주황 안장
     expect(p.body.some((v) => v.y >= 37)).toBe(true); // 다리 기둥이 등 위로 솟는다
   });
 });

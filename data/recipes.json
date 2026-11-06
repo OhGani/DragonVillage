@@ -211,6 +211,16 @@
       "_note": "들소 모피 4개 → 갈색 양털 (아빠가 보낸 설명 2026-11-06)"
     },
     {
+      "id": "dining_table",
+      "name": "식탁",
+      "station": "crafting_table",
+      "pattern": ["ppp", "s s", "s s"],
+      "key": { "p": "planks", "s": "stick" },
+      "in": { "planks": 3, "stick": 4 },
+      "out": { "dining_table": 1 },
+      "_note": "아빠 2026-11-06 — 판자 셋 윗판, 막대기 넷 다리"
+    },
+    {
       "id": "snow_block",
       "name": "눈 블록",
       "station": "crafting_table",

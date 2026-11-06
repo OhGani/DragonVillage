@@ -168,6 +168,9 @@ export interface NetEvents {
   onDragonDown(m: { id: number; dragon: string; restUntil: number }): void;
   /** 펫 목록·이름 (#109) */
   onPets(list: { id: number; name: string | null; mine: boolean; mode?: 'follow' | 'sit' | 'free' }[]): void;
+  /** 식탁 위 음식 하나 바뀜 / 들어올 때 전부 (2026-11-06) */
+  onTable(m: { x: number; y: number; z: number; items: (string | null)[] }): void;
+  onTables(list: { x: number; y: number; z: number; items: (string | null)[] }[]): void;
   /** 가게에서 산 횟수 (#230) */
   onDemand(counts: Record<string, number>): void;
   /** 원정에 따라온 펫 (#145) */
@@ -396,6 +399,10 @@ export class NetClient {
     this.sendJson({ t: 'feed', id, item });
   }
   /** 상자 열기 (#84) */
+  /** 식탁 (2026-11-06): put = 손에 든 칸(slot) 하나 올리기, take/eat = i 번째 */
+  sendTable(act: 'put' | 'take' | 'eat', x: number, y: number, z: number, slot?: number, i?: number): void {
+    this.sendJson({ t: 'table', act, x, y, z, slot, i });
+  }
   sendOpenChest(x: number, y: number, z: number): void {
     this.sendJson({ t: 'openChest', x, y, z });
   }
@@ -690,6 +697,8 @@ export class NetClient {
     else if (msg.t === 'arrow') ev.onArrow(msg);
     else if (msg.t === 'knock') ev.onKnock(msg);
     else if (msg.t === 'pets') ev.onPets(msg.list);
+    else if (msg.t === 'table') ev.onTable(msg);
+    else if (msg.t === 'tables') ev.onTables(msg.list);
     else if (msg.t === 'demand') ev.onDemand(msg.counts);
     else if (msg.t === 'companions') ev.onCompanions(msg.list);
     else if (msg.t === 'ending') ev.onEnding({ x: msg.x, y: msg.y, z: msg.z });

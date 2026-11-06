@@ -42,3 +42,6 @@ export function parseFood(raw: unknown, fileName = 'data/food.json'): FoodRules 
 export function foodOf(food: FoodRules, item: string | null | undefined): FoodDef | null {
   return item ? (food.foods.get(item) ?? null) : null;
 }
+
+/** 식탁 (아빠 2026-11-06): 위에 올릴 수 있는 음식 수. 칸마다 하나씩 */
+export const TABLE_SLOTS = 4;

@@ -910,6 +910,17 @@
       "shape": "fence"
     },
     {
+      "id": "dining_table",
+      "name": "식탁",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "transparent": true,
+      "texture": "spruce_planks",
+      "shape": "table",
+      "_note": "아빠 2026-11-06 \"식탁 만들어 주고 음식을 식탁 위에 놓을 수 있음\": 가문비 판자 윗판 + 다리 넷(붙여 놓으면 긴 식탁 하나, 다리는 바깥 모서리만). 먹을 것을 들고 탭하면 올라가고(4개까지), 다른 걸 들고 탭하면 식탁 창 — 먹기·가방에 넣기. 부수면 올린 음식은 부순 사람 가방으로"
+    },
+    {
       "id": "sign",
       "name": "표지판",
       "hardness": 1.0,

@@ -38,6 +38,7 @@ export function buildMeshBlockInfo(registry: BlockRegistry, textureIndex: Readon
       cross: d.shape === 'cross',
       bed: d.bed ? [d.bed.facing, d.bed.head ? 1 : 0] : null,
       sign: d.shape === 'sign',
+      table: d.shape === 'table',
       rail: d.rail ? RAIL_DIRS.indexOf(d.rail.dir) : null,
       layer,
       opaque,

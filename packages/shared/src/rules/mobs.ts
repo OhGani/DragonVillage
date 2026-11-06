@@ -477,7 +477,7 @@ export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = {
   sperm_whale: { w: 2.2, h: 2.2 },
   ravager: { w: 1.9, h: 2.2 },
   elephant: { w: 2.0, h: 2.6 },
-  rhino: { w: 1.6, h: 1.6 },
+  rhino: { w: 1.6, h: 1.8 },
   anaconda: { w: 0.6, h: 0.4 },
   tiger: { w: 1.2, h: 1.4 }, // 길이는 10칸쯤 (판정은 머리 둘레만) // 부풀면 그림만 커진다(0.45)
 };
