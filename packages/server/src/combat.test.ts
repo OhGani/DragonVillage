@@ -399,23 +399,23 @@ describe('원정 사냥 동물 (2026-11-05)', () => {
     expect(Math.hypot(b.x - 64.5, b.z - 64.5)).toBeGreaterThan(7);
   });
 
-  it('잡혀서 줄면 45초마다 사람에게서 28~44칸 떨어진 곳에 무리로 다시 채운다 (정한 수까지만)', () => {
+  it('잡혀서 줄면 20초마다 사람에게서 28~44칸 떨어진 곳에 무리로 다시 채운다 (정한 수까지만)', () => {
     const { sys, me } = setup({ gazelle: 6 }, { x: 64.5, y: GROUND_Y + 1, z: 64.5 });
     expect(sys.countOf('gazelle')).toBe(6);
     for (let t = T0; t < T0 + 50_000; t += 1000) sys.tick(t);
     expect(sys.countOf('gazelle')).toBe(6); // 모자라지 않으면 안 늘어난다
     for (const [id, m] of [...sys.mobs]) if (m.kind === 'gazelle') sys.mobs.delete(id); // 다 잡혔다
     const before = new Set(sys.mobs.keys());
-    for (let t = T0 + 50_000; t < T0 + 96_000; t += 1000) sys.tick(t);
+    for (let t = T0 + 50_000; t < T0 + 71_000; t += 1000) sys.tick(t); // 20초 한 번
     const back = [...sys.mobs.values()].filter((m) => m.kind === 'gazelle' && !before.has(m.id));
-    expect(back.length).toBeGreaterThanOrEqual(2);
-    expect(back.length).toBeLessThanOrEqual(3); // 한 번에 한 무리
+    expect(back.length).toBeGreaterThanOrEqual(3);
+    expect(back.length).toBeLessThanOrEqual(4); // 한 번에 한 무리
     for (const m of back) {
       const d = Math.hypot(m.home!.x - me.x, m.home!.z - me.z);
       expect(d).toBeGreaterThanOrEqual(27);
       expect(d).toBeLessThanOrEqual(46);
     }
-    for (let t = T0 + 96_000; t < T0 + 400_000; t += 1000) sys.tick(t);
+    for (let t = T0 + 71_000; t < T0 + 200_000; t += 1000) sys.tick(t);
     expect(sys.countOf('gazelle')).toBe(6); // 결국 정한 수만큼, 그 이상은 아니다
   });
 
