@@ -272,7 +272,8 @@
         "salmon": 8,
         "cod": 8,
         "tropical_fish": 8,
-        "pufferfish": 4
+        "pufferfish": 4,
+        "elephant": 4
       },
       "_wildAnimalsNote": "사냥 동물 (2026-11-05, 2026-11-06 두 번 늘림): 처음부터 3~4마리 무리로 돌아다니고, 잡혀서 줄면 20초마다 한 무리씩 이 숫자까지 다시 생긴다. 숫자를 바꾸거나 다른 원정지에 옮겨도 돼 (gazelle·raccoon·roadrunner·capuchin 은 달아나고, rattlesnake·bison·moose·grizzly 는 덤빈다)",
       "nightMobs": [
@@ -406,7 +407,8 @@
       ],
       "wildAnimals": {
         "roadrunner": 12,
-        "rattlesnake": 8
+        "rattlesnake": 8,
+        "rhino": 4
       },
       "_wildAnimalsNote": "사냥 동물 (2026-11-05, 2026-11-06 두 번 늘림): 처음부터 3~4마리 무리로 돌아다니고, 잡혀서 줄면 20초마다 한 무리씩 이 숫자까지 다시 생긴다. 숫자를 바꾸거나 다른 원정지에 옮겨도 돼 (gazelle·raccoon·roadrunner·capuchin 은 달아나고, rattlesnake·bison·moose·grizzly 는 덤빈다)",
       "nightMobs": [
@@ -760,7 +762,8 @@
       "_note": "사치스러운 정글 궁궐 — 거대 고릴라 (아들 보스 설계). 2026-11-05 앞당겨 만듦 (#253): 문 앞 고릴라 둘, 왕좌 앞 거대 고릴라(고릴라 소환, 때리면 밀친다). 죽이면 다이아·에메랄드·금·철·석영·네더라이트 각 64 + 고릴라 고기 10 (bosses.json)",
       "sonDetails": {},
       "wildAnimals": {
-        "capuchin": 20
+        "capuchin": 20,
+        "tiger": 3
       },
       "_wildAnimalsNote": "사냥 동물 (2026-11-05, 2026-11-06 두 번 늘림): 처음부터 3~4마리 무리로 돌아다니고, 잡혀서 줄면 20초마다 한 무리씩 이 숫자까지 다시 생긴다. 숫자를 바꾸거나 다른 원정지에 옮겨도 돼 (gazelle·raccoon·roadrunner·capuchin 은 달아나고, rattlesnake·bison·moose·grizzly 는 덤빈다)",
       "nightMobs": [
@@ -857,6 +860,7 @@
       "boss": { "id": "giant_slime", "structure": "slime_pit", "spawnChance": 1.0 },
       "_note": "2026-11-06 아빠 \"원정지 3개 더\": 얕은 물웅덩이·늪 참나무·버섯, 물 위 기둥 마녀 오두막(마녀 둘, 독 물약을 던진다), 슬라임 웅덩이의 큰 슬라임(아빠가 보낸 그림 — 밝은 테두리·비치는 속·2×2 눈, 때리면 밀치고 죽으면 슬라임 넷으로). 5분 뒤 밤",
       "sonDetails": {},
+      "wildAnimals": { "anaconda": 4 },
       "nightMobs": ["slime", "zombie", "witch", "bogged", "drowned"],
       "treasureBonus": {
         "_comment": "늪 상자: 슬라임 볼 2~4 는 꼭, 버섯 50%",
@@ -881,7 +885,7 @@
       "boss": { "id": "elder_guardian", "structure": "ocean_monument", "spawnChance": 1.0 },
       "_note": "2026-11-06 아빠 \"원정지 3개 더\": 온통 바다, 가운데 도착 섬에서 프리즈머린 다리로 바다 신전까지. 신전 안은 마른 바닥(숨 걱정 없음) — 복도 구석 가디언 넷, 가운데 방 엘더 가디언(10칸 빛줄기, 가디언을 부른다). 바다엔 물고기가 많다",
       "sonDetails": {},
-      "wildAnimals": { "salmon": 10, "cod": 10, "tropical_fish": 12, "pufferfish": 6 },
+      "wildAnimals": { "salmon": 10, "cod": 10, "tropical_fish": 12, "pufferfish": 6, "sperm_whale": 3 },
       "nightMobs": ["drowned", "zombie", "skeleton"],
       "treasureBonus": {
         "_comment": "신전 상자: 프리즈머린 4~8·금 1~2 는 꼭, 바다 랜턴 50%",

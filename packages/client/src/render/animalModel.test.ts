@@ -34,7 +34,7 @@ describe('원정 사냥 동물 모델 (2026-11-05)', () => {
       const all = [...p.body, ...p.head.v, ...p.legs.flatMap((l) => l.v), ...(p.tail?.v ?? []), ...p.wings.flatMap((w) => w.v)];
       expect(all.length).toBeGreaterThan(30);
       expect(Math.min(...all.map((v) => v.y))).toBe(0);
-      const top = (Math.max(...all.map((v) => v.y)) + 1) * VOXEL;
+      const top = (Math.max(...all.map((v) => v.y)) + 1) * VOXEL * (kind === 'sperm_whale' ? 2 : 1); // 고래는 MobView 가 2배로 그린다
       const h = mobSize(kind).h;
       expect(top).toBeGreaterThan(h * 0.6);
       expect(top).toBeLessThan(h * 1.45);
@@ -120,5 +120,25 @@ describe('스켈레톤·좀비 가족·엔더맨 모델 (아빠 그림 2026-11-0
     for (const k of ['zombie', 'husk', 'drowned', 'frostbite', 'zombie_king'] as const) expect(ys(zombieVoxels(k).leg)).toEqual([-12, -1]);
     expect(ys(endermanVoxels().leg)).toEqual([-30, -1]);
     expect(ys(endermiteVoxels())[1]).toBeLessThanOrEqual(2);
+  });
+});
+
+describe('파괴수 모델 (아빠 그림 2026-11-06)', () => {
+  it('다리 넷이 땅에 닿고, 키가 판정(2.2m)과 비슷하고, 등에 주황 안장·다리 위 돌 뚜껑', async () => {
+    const { ravagerParts } = await import('./animalModel');
+    const p = ravagerParts();
+    const all = [...p.body, ...p.head.v, ...p.legs.flatMap((l) => l.v)];
+    expect(p.legs).toHaveLength(4);
+    expect(Math.min(...all.map((v) => v.y))).toBe(0);
+    expect(Math.abs((Math.max(...all.map((v) => v.y)) + 1) * (1.8 / 32) - mobSize('ravager').h)).toBeLessThan(0.2);
+    const orange = (c: string) => {
+      const n = parseInt(c.slice(1), 16);
+      const r = n >> 16,
+        g = (n >> 8) & 255,
+        b = n & 255;
+      return r > 170 && r - g > 50 && g > b;
+    };
+    expect(p.body.filter((v) => v.y === 38 && orange(v.c)).length).toBeGreaterThan(10); // 주황 안장
+    expect(p.body.some((v) => v.y >= 37)).toBe(true); // 다리 기둥이 등 위로 솟는다
   });
 });

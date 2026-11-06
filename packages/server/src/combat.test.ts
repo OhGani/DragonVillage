@@ -247,6 +247,54 @@ describe('전투 장비 (M8-2): 입기·벗기·피해 줄이기·활', () => {
     expect(sys.opts.aggroRange).toBe(14);
   });
 
+  it('코끼리 (2026-11-06): 먼저 안 덤비고, 한 마리를 때리면 둘레 무리가 다 같이 쫓아와 들이받는다(밀침)', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const hurt: string[] = [];
+    const knocks: string[] = [];
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 64.5, eyeY: GROUND_Y + 1 + 1.6 };
+    const arena = { world: room.world, seed: 5, nightStartsAt: 999, nightMobs: [], den: null, ended: false, elapsedSec: () => 0 };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: (_i, _a, c) => hurt.push(c), knock: (_i, _x, _z, _n, why) => knocks.push(why ?? ''), broadcast: () => {}, json: () => {}, reward: () => {}, bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 24, goal: null, quiet: true });
+    const herd = [sys.spawnKind('elephant', 64.5, GROUND_Y + 1, 60.5), sys.spawnKind('elephant', 68.5, GROUND_Y + 1, 60.5), sys.spawnKind('elephant', 60.5, GROUND_Y + 1, 60.5)];
+    for (let t = T0; t < T0 + 4000; t += 100) sys.tick(t);
+    expect(hurt).not.toContain('elephant'); // 가만히 있으면 안 덤빈다
+    expect(sys.hit(me, herd[0]!.id, 1, T0 + 4000)).toBeNull();
+    for (const e of herd) expect(e.huntIdx).toBe(0);
+    for (let t = T0 + 4100; t < T0 + 12_000; t += 100) sys.tick(t);
+    expect(hurt.filter((c) => c === 'elephant').length).toBeGreaterThanOrEqual(2);
+    expect(knocks).toContain('elephant');
+  });
+
+  it('코뿔소·호랑이 (2026-11-06): 가까이 가면 덤비고(호랑이는 덮친다), 먹이(밀·고기)를 주면 5분 순하다 — 때리면 다시 화난다. 들소는 가위로 털을 깎는다', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const hurt: string[] = [];
+    const rewards: { item: string; count: number }[][] = [];
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 64.5, eyeY: GROUND_Y + 1 + 1.6 };
+    const arena = { world: room.world, seed: 5, nightStartsAt: 999, nightMobs: [], den: null, ended: false, elapsedSec: () => 0 };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: (_i, _a, c) => hurt.push(c), knock: () => {}, broadcast: () => {}, json: () => {}, reward: (_i, d) => rewards.push(d), bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 24, goal: null, quiet: true });
+    const rhino = sys.spawnKind('rhino', 64.5, GROUND_Y + 1, 61.5);
+    expect(sys.calm(me, rhino.id, 'wheat', T0)).toBeNull();
+    expect(sys.calm(me, rhino.id, 'beef', T0)).toBe('NOT_FOOD');
+    for (let t = T0; t < T0 + 4000; t += 100) sys.tick(t);
+    expect(hurt).not.toContain('rhino'); // 진정했다
+    sys.hit(me, rhino.id, 1, T0 + 4000); // 때리면 다시
+    for (let t = T0 + 4100; t < T0 + 9000; t += 100) sys.tick(t);
+    expect(hurt).toContain('rhino');
+    // 호랑이: 12칸 밖에서 몰래 다가와 덮친다 / 고기로 순해진다
+    const tiger = sys.spawnKind('tiger', 64.5, GROUND_Y + 1, 54.5);
+    sys.mobs.delete(rhino.id);
+    hurt.length = 0;
+    for (let t = T0 + 10_000; t < T0 + 18_000; t += 100) sys.tick(t);
+    expect(hurt).toContain('tiger');
+    expect(sys.calm(me, tiger.id, 'porkchop', T0 + 18_000)).toBeNull();
+    // 들소 털
+    const bison = sys.spawnKind('bison', 70.5, GROUND_Y + 1, 64.5);
+    me.x = 68.5;
+    expect(sys.shear(me, bison.id, T0 + 20_000)).toBeNull();
+    expect(rewards.at(-1)![0]!.item).toBe('bison_fur');
+    expect(sys.shear(me, bison.id, T0 + 21_000)).toBe('NO_WOOL'); // 5분 뒤 다시
+    expect(sys.shear(me, bison.id, T0 + 20_000 + 5 * 60_000 + 1)).toBeNull();
+  });
+
   it('고양이 (2026-11-06): 따라온 고양이 곁에선 크리퍼가 안 터지고 달아난다(하악!). 고양이는 몹을 물지 않는다', () => {
     const room = makeRoom(new Storage(':memory:'));
     const json: { t: string; [k: string]: unknown }[] = [];
@@ -494,9 +542,9 @@ describe('원정 사냥 동물 (2026-11-05)', () => {
     expect(rewards.flat().some((d) => d.item === 'mutton')).toBe(true);
   });
 
-  it('들소는 7칸 안에 오면 먼저 들이받고, 멀리 있으면 안 온다', () => {
+  it('들소는 4칸 안에 오면 먼저 들이받고(2026-11-06 아빠 설명 "가까이 접근"), 멀리 있으면 안 온다', () => {
     const near = setup();
-    near.sys.spawnKind('bison', 64.5, GROUND_Y + 1, 58.5); // 6칸
+    near.sys.spawnKind('bison', 64.5, GROUND_Y + 1, 61.5); // 3칸
     for (let t = T0; t < T0 + 5000; t += 100) near.sys.tick(t);
     expect(near.hurt).toContain('bison');
     const far = setup();

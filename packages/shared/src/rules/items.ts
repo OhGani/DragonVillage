@@ -29,6 +29,7 @@ export const ITEM_FALLBACK_KO: Readonly<Record<string, string>> = {
   rattlesnake_rattle: '방울뱀 방울',
   bison_fur: '들소 털가죽',
   moose_ribs: '사슴 갈비',
+  ambergris: '용연향', // 향유고래 (2026-11-06)
   bear_fur: '곰 털가죽',
   // 낚시 (2026-11-06, data/fishing.json)
   cod: '대구',

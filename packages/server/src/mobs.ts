@@ -35,6 +35,9 @@ import {
   SPAWN_EVERY_MS,
   type VoxelWorld,
   ANGRY_MS,
+  CALM_MS,
+  BISON_FUR_REGROW_MS,
+  calmFoods,
   beamHitsMob,
   bossMinionKinds,
   encodeMobsState,
@@ -248,7 +251,7 @@ export class MobSystem {
    * 고리에 땅이 없으면(물가) 스무 번 뒤부터 조금씩 바깥으로. around 가 없으면 세계 곳곳
    */
   private placeHerd(kind: MobKind, size: number, around: { x: number; z: number } | null, rMin: number, rMax: number): number {
-    if (this.defs.get(kind).swim) return this.placeSchool(kind, size, around, rMin, rMax);
+    if (this.defs.get(kind).swim) return this.placeSchool(kind, this.defs.get(kind).deep ? 1 : size, around, rMin, rMax); // 향유고래는 혼자
     const w = this.e.world;
     const h = this.herdNo++;
     let center: { x: number; y: number; z: number } | null = null;
@@ -293,7 +296,8 @@ export class MobSystem {
    * 떼는 가운데 칸 둘레 같은 높이의 물 칸에. 놓은 수
    */
   private placeSchool(kind: MobKind, size: number, around: { x: number; z: number } | null, rMin: number, rMax: number): number {
-    const cells = this.waterCells();
+    const deep = this.defs.get(kind).deep ?? 0;
+    const cells = deep ? this.waterCells().filter((c) => this.isWater(c.x + 0.5, c.y - deep, c.z + 0.5)) : this.waterCells(); // 고래는 깊은 물만
     if (!cells.length) return 0;
     const h = this.herdNo++;
     const near = (lo: number, hi: number) => (around ? cells.filter((c) => { const d = Math.hypot(c.x + 0.5 - around.x, c.z + 0.5 - around.z); return d >= lo && d <= hi; }) : cells);
@@ -308,8 +312,8 @@ export class MobSystem {
           r = k === 0 && t === 0 ? 0 : 0.8 + hash3(this.e.seed, h, k * 7 + t, 39) * 1.6;
         const x = c.x + 0.5 + Math.cos(ang) * r,
           z = c.z + 0.5 + Math.sin(ang) * r;
-        if (!this.isWater(x, c.y - 1, z)) continue;
-        const m = this.spawnKind(kind, x, c.y - 0.75, z); // 수면 바로 아래 칸 안에서 헤엄친다
+        if (!this.isWater(x, c.y - 1 - deep, z)) continue;
+        const m = this.spawnKind(kind, x, c.y - 0.75 - deep * 0.6, z); // 수면 바로 아래 칸 안에서 헤엄친다 (고래는 조금 더 깊이)
         m.home = { x: c.x + 0.5, z: c.z + 0.5 };
         m.yaw = ang;
         placed++;
@@ -347,7 +351,7 @@ export class MobSystem {
   }
 
   /** 헤엄 한 걸음 (연어): 목표 쪽으로, 다음 자리가 물 칸일 때만 간다. 막혔으면 false. 높이는 그대로(수면 아래 한 칸) */
-  private swimToward(m: MobState, tx: number, tz: number, speed: number, dt: number): boolean {
+  private swimToward(m: MobState, tx: number, tz: number, speed: number, dt: number, ahead = 0.35): boolean {
     const dx = tx - m.x,
       dz = tz - m.z;
     const d = Math.hypot(dx, dz);
@@ -358,7 +362,7 @@ export class MobSystem {
     m.yaw = Math.atan2(-dx, -dz);
     m.state = MOB_STATE.walk;
     // 몸 앞쪽(0.35칸)까지 물이어야 — 둑에 머리를 박지 않는다
-    if (!this.isWater(nx, m.y + 0.2, nz) || !this.isWater(nx + (dx / d) * 0.35, m.y + 0.2, nz + (dz / d) * 0.35)) return false;
+    if (!this.isWater(nx, m.y + 0.2, nz) || !this.isWater(nx + (dx / d) * ahead, m.y + 0.2, nz + (dz / d) * ahead)) return false;
     m.x = nx;
     m.z = nz;
     return true;
@@ -396,6 +400,27 @@ export class MobSystem {
         return;
       }
     }
+    const ahead = def.deep ? 5 : 0.35; // 고래는 머리가 길어 5칸 앞까지 물이어야
+    if (def.neutral && (m.angryUntil ?? 0) > now) {
+      // 화난 향유고래 (2026-11-06): 때린 사람(없으면 가까운 사람)을 쫓아 헤엄쳐 들이받는다 — 아프고 밀려난다
+      const target = players.find((p) => p.idx === m.huntIdx) ?? players.reduce<MobTarget | null>((b, p) => (!b || Math.hypot(p.x - m.x, p.z - m.z) < Math.hypot(b.x - m.x, b.z - m.z) ? p : b), null);
+      if (target && Math.hypot(target.x - m.x, target.z - m.z) < 32) {
+        m.wanderTo = null;
+        const d = Math.hypot(target.x - m.x, target.y + 0.9 - (m.y + 1), target.z - m.z);
+        if (d > def.reach) this.swimToward(m, target.x, target.z, def.speed * 1.6, dt, ahead);
+        else m.yaw = Math.atan2(-(target.x - m.x), -(target.z - m.z));
+        m.state = MOB_STATE.attack;
+        if (d <= def.reach + 0.5 && now - m.lastAttackAt >= def.attackEveryMs) {
+          m.lastAttackAt = now;
+          this.hooks.hurt(target.idx, def.damage, m.kind, now);
+          const kx = target.x - m.x,
+            kz = target.z - m.z;
+          const kd = Math.hypot(kx, kz) || 1;
+          this.hooks.knock?.(target.idx, kx / kd, kz / kd, now, m.kind);
+        }
+        return;
+      }
+    }
     m.state = MOB_STATE.walk;
     if ((m.fleeUntil ?? 0) > now && m.fleeDir) {
       if (!this.swimToward(m, m.x + m.fleeDir.x * 4, m.z + m.fleeDir.z * 4, def.speed * 1.6, dt)) {
@@ -409,12 +434,12 @@ export class MobSystem {
     const home = m.home ?? { x: m.x, z: m.z };
     if (!m.wanderTo && now >= (m.wanderAt ?? 0)) {
       const a = hash3(m.id, Math.floor(now / 500), 44, this.e.seed) * Math.PI * 2,
-        r = 2 + hash3(m.id, Math.floor(now / 500), 45, this.e.seed) * 4;
+        r = (def.deep ? 6 : 2) + hash3(m.id, Math.floor(now / 500), 45, this.e.seed) * (def.deep ? 10 : 4);
       m.wanderTo = { x: home.x + Math.cos(a) * r, y: m.y, z: home.z + Math.sin(a) * r };
       m.wanderAt = now + 1500 + hash3(m.id, Math.floor(now / 500), 46, this.e.seed) * 3000;
     }
     if (m.wanderTo) {
-      const ok = this.swimToward(m, m.wanderTo.x, m.wanderTo.z, def.speed * 0.5, dt);
+      const ok = this.swimToward(m, m.wanderTo.x, m.wanderTo.z, def.speed * 0.5, dt, ahead);
       if (!ok || Math.hypot(m.wanderTo.x - m.x, m.wanderTo.z - m.z) < 0.3) m.wanderTo = null;
     }
   }
@@ -653,7 +678,8 @@ export class MobSystem {
           }
         }
         if (target) {
-          const ev = stepMob(m, m.grudge !== undefined ? { ...def, damage: GRUDGE_DAMAGE, attackEveryMs: GRUDGE_ATTACK_MS } : def, target, dt, now, this.groundAt);
+          const chase = def.pounce && Math.hypot(target.x - m.x, target.z - m.z) <= def.pounce ? { ...def, speed: def.speed * 3 } : def; // 호랑이: 가까우면 덮친다
+          const ev = stepMob(m, m.grudge !== undefined ? { ...chase, damage: GRUDGE_DAMAGE, attackEveryMs: GRUDGE_ATTACK_MS } : chase, target, dt, now, this.groundAt);
           if (ev === 'attack') {
             // 원거리 몹은 화살이 날아가는 그림을 먼저 (피해는 바로)
             if (isRangedMob(def)) this.hooks.json({ t: 'arrow', from: { x: m.x, y: m.y + mobSize(m.kind).h * 0.8, z: m.z }, to: { x: target.x, y: target.eyeY - 0.3, z: target.z }, fire: m.kind === 'ghast' || m.kind === 'blaze', snow: m.kind === 'snow_golem', sonic: m.kind === 'giant_warden', laser: def.shot === 'laser', potion: def.shot === 'potion' }); // 가스트·블레이즈는 불덩이 (#173), 눈 골렘은 눈덩이 (#223), 거대 워든은 음파 (#254)
@@ -663,7 +689,7 @@ export class MobSystem {
               const kx = target.x - m.x,
                 kz = target.z - m.z;
               const kd = Math.hypot(kx, kz) || 1;
-              this.hooks.knock?.(target.idx, kx / kd, kz / kd, now, def.knock ? 'gorilla' : 'snow');
+              this.hooks.knock?.(target.idx, kx / kd, kz / kd, now, def.knock ? (m.kind === 'gorilla' || m.kind === 'giant_gorilla' ? 'gorilla' : m.kind) : 'snow');
             }
             if (def.poisonMs > 0) this.poisoned.set(target.idx, { until: now + def.poisonMs, nextAt: now + POISON_EVERY_MS });
           } else if (ev === 'explode') this.explode(m, def, players, now);
@@ -1041,8 +1067,8 @@ export class MobSystem {
       this.wander(m, def, dt, now);
       return null;
     }
-    const aggro = def.aggroR ?? 6;
     const angry = (m.angryUntil ?? 0) > now;
+    const aggro = (m.calmUntil ?? 0) > now && !angry ? 0 : (def.aggroR ?? 6); // 먹이로 진정했으면 먼저 안 덤빈다 (때리면 다시)
     let cur = m.huntIdx !== undefined ? players.find((p) => p.idx === m.huntIdx) : undefined;
     if (cur && Math.hypot(cur.x - m.x, cur.z - m.z) > (angry ? 24 : aggro * WILD_LEASH)) cur = undefined;
     if (!cur) {
@@ -1069,6 +1095,12 @@ export class MobSystem {
     const def = this.defs.get(m.kind);
     if (!def.flee) {
       if (byIdx >= 0) m.huntIdx = byIdx;
+      if (def.herd && byIdx >= 0)
+        for (const o of this.mobs.values())
+          if (o.kind === m.kind && o !== m && Math.hypot(o.x - m.x, o.z - m.z) <= WILD_HERD_R) {
+            o.huntIdx = byIdx; // 코끼리 무리가 다 같이 (2026-11-06)
+            o.angryUntil = now + ANGRY_MS;
+          }
       return;
     }
     let dir = push;
@@ -1141,6 +1173,34 @@ export class MobSystem {
   }
 
   /** 황금 사과 먹이기 (#244): 좀비 주민만, 가까이서. 오류: NO_MOB · NOT_ZOMBIE_VILLAGER · ALREADY_CURING · TOO_FAR. 아이템은 부른 쪽이 뺀다 */
+  /** 먹이로 진정시키기 (코뿔소 = 밀, 아나콘다 = 생 닭고기, 2026-11-06). 오류: NO_MOB · NOT_FOOD · TOO_FAR */
+  calm(p: MobTarget, mobId: number, item: string, now: number): string | null {
+    const m = this.mobs.get(mobId);
+    if (!m) return 'NO_MOB';
+    const def = this.defs.get(m.kind);
+    if (!calmFoods(def).includes(item)) return 'NOT_FOOD';
+    if (Math.hypot(m.x - p.x, m.y + mobSize(m.kind).h * 0.5 - p.eyeY, m.z - p.z) > HIT_REACH + 1.5) return 'TOO_FAR';
+    m.calmUntil = now + CALM_MS;
+    m.angryUntil = 0;
+    m.huntIdx = undefined;
+    m.state = MOB_STATE.walk;
+    this.hooks.json({ t: 'mob', ev: 'eat', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z });
+    return null;
+  }
+
+  /** 들소 털 깎기 (2026-11-06): 가위를 들고 탭 → 들소 모피 1~2, BISON_FUR_REGROW_MS 뒤 다시. 오류: NO_MOB · NO_WOOL · TOO_FAR */
+  shear(p: MobTarget, mobId: number, now: number): string | null {
+    const m = this.mobs.get(mobId);
+    if (!m || m.kind !== 'bison') return 'NO_MOB';
+    if ((m.shornUntil ?? 0) > now) return 'NO_WOOL';
+    if (Math.hypot(m.x - p.x, m.y + mobSize(m.kind).h * 0.5 - p.eyeY, m.z - p.z) > HIT_REACH + 1.5) return 'TOO_FAR';
+    m.shornUntil = now + BISON_FUR_REGROW_MS;
+    const n = 1 + Math.floor(hash3(m.id, Math.floor(now / 1000), 61, this.e.seed) * 2);
+    this.hooks.reward(p.idx, [{ item: 'bison_fur', count: n }], 0, { x: m.x, y: m.y + 1, z: m.z }, now);
+    this.hooks.json({ t: 'mob', ev: 'shear', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z });
+    return null;
+  }
+
   cure(p: MobTarget, mobId: number, now: number): string | null {
     const m = this.mobs.get(mobId);
     if (!m) return 'NO_MOB';

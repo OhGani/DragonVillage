@@ -603,23 +603,57 @@ const TEX = {
     for (const [x, y] of [[6, 7], [9, 7], [7, 9], [8, 9]]) c.set(x, y, 200, 120, 60);
   },
   // 바다 신전 (2026-11-06): 프리즈머린은 청록 얼룩, 벽돌은 칸 줄, 어두운 것은 짙은 청록 판, 바다 랜턴은 밝은 하늘빛 판 + 흰 빛
+  // 프리즈머린 3종 (아빠가 보낸 그림 2026-11-06): 얼룩진 청록 / 밝은 청록 벽돌 넷(가운데 ∧ 무늬) / 짙은 초록 4×4 칸 격자
   prismarine: (c) => {
-    c.noise([92, 160, 146], 16).blotch(0.12);
-    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (c.rnd() < 0.12) c.set(x, y, 70, 120, 140);
+    const tones = [[96, 168, 152], [118, 190, 172], [74, 140, 124], [140, 206, 188], [62, 122, 108]];
+    for (let by = 0; by < S; by += 2)
+      for (let bx = 0; bx < S; bx += 2) {
+        const t = tones[Math.floor(c.rnd() * tones.length)];
+        for (let y = by; y < by + 2; y++) for (let x = bx; x < bx + 2; x++) c.set(x, y, t[0] + (c.rnd() - 0.5) * 10, t[1] + (c.rnd() - 0.5) * 10, t[2] + (c.rnd() - 0.5) * 10);
+      }
+    c.blotch(0.1);
   },
   prismarine_bricks: (c) => {
-    c.noise([110, 176, 160], 8);
-    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (y % 4 === 3 || (x + (Math.floor(y / 4) % 2 ? 4 : 0)) % 8 === 7) c.mul(x, y, 0.72);
+    c.noise([104, 190, 172], 8);
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const lx = x % 8,
+          ly = y % 8;
+        if (lx === 7 || ly === 7) c.set(x, y, 62, 140, 122); // 벽돌 사이 줄
+        else if (lx === 0 || ly === 0) c.set(x, y, 140, 218, 200); // 벽돌 윗·왼 밝은 모
+        // 가운데 ∧ 무늬 (그림의 V 자국)
+        const mid = 3;
+        if (ly >= 2 && ly <= 5 && Math.abs(lx - mid) === ly - 2) c.set(x, y, 78, 156, 138);
+      }
   },
   dark_prismarine: (c) => {
-    c.noise([46, 84, 70], 8);
-    c.frame([30, 58, 48]);
-    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if ((x === 7 || x === 8 || y === 7 || y === 8) && x > 0 && y > 0 && x < 15 && y < 15) c.mul(x, y, 0.8);
+    c.noise([46, 96, 78], 6);
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const lx = x % 4,
+          ly = y % 4;
+        if (lx === 3 || ly === 3) c.set(x, y, 24, 52, 42); // 칸 사이 어두운 줄
+        else if (lx === 1 && ly === 1) c.set(x, y, 78, 150, 120); // 칸 가운데 밝은 점
+        else if (lx === 0 || ly === 0) c.set(x, y, 58, 116, 94);
+      }
   },
+  // 바다 랜턴 (아빠가 보낸 그림 2026-11-06): 가운데는 하얗게 빛나고 가장자리로 갈수록 청록 테두리, 은은한 동심 사각 무늬
   sea_lantern: (c) => {
-    c.noise([196, 226, 222], 10);
-    c.frame([150, 196, 196]);
-    for (let y = 3; y <= 12; y++) for (let x = 3; x <= 12; x++) if ((x + y) % 3 === 0) c.set(x, y, 240, 252, 250);
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const d = Math.min(x, y, S - 1 - x, S - 1 - y); // 가장자리에서 몇 칸
+        const ring = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));
+        let r, g, b;
+        if (d === 0) [r, g, b] = [74, 150, 138];
+        else if (d === 1) [r, g, b] = [128, 196, 184];
+        else if (d === 2) [r, g, b] = [196, 226, 220];
+        else {
+          const k = Math.round(ring) % 3 === 0 ? 0.95 : 1;
+          [r, g, b] = [232 * k, 238 * k, 234 * k];
+        }
+        const n = (c.rnd() - 0.5) * 8;
+        c.set(x, y, r + n, g + n, b + n);
+      }
   },
   // 고대성 (2026-11-06): 석재 벽돌 — 두 줄 벽돌, 이끼 낀 것·금 간 것
   stone_bricks: (c) => {

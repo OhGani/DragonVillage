@@ -7,7 +7,7 @@ import { PIT_DEPTH, PIT_R, SWAMP_BOUNDS, SWAMP_GROUND_Y, generateSwamp } from '.
 
 const SEED = 777;
 /** 생성기를 바꾸면 갱신. (chunks 수, 지문) */
-const SNAPSHOT = '1017:126baa65:3317946';
+const SNAPSHOT = '1017:bca3fcbc:3317822';
 
 const gen = generateSwamp(BLOCKS, SEED, 3);
 const { world, spawn, layout } = gen;
@@ -93,7 +93,13 @@ describe('generateSwamp 배치 (2026-11-06)', () => {
   it('마녀 오두막: 가문비 판자 집이 물 위 기둥에, 안에 상자, 앞에 마녀 둘. 슬라임 웅덩이: 이끼 조약돌 둘레, 바닥에 슬라임 블록, 가운데 큰 슬라임 자리. 걸어서 다 간다', () => {
     const h = layout.hut;
     expect(id(h.x, h.y, h.z)).toBe('spruce_planks');
-    expect(id(h.x - 3, h.y - 1, h.z - 4)).toBe('spruce_log'); // 기둥
+    for (const [dx, dz] of [[-2, -2], [2, -2], [-2, 2], [2, 2]] as [number, number][]) expect(id(h.x + dx, h.y - 1, h.z + dz)).toBe('spruce_log'); // 물속 기둥 넷
+    expect(id(h.x - 2, h.y - 3, h.z - 2)).toBe('spruce_log');
+    expect(['water', 'spruce_log']).toContain(id(h.x, h.y - 3, h.z)); // 오두막 밑은 물
+    expect(id(h.x, h.y - 3, h.z)).toBe('water');
+    expect(id(h.x - 2, h.y + 1, h.z + 4)).toBe('oak_fence'); // 툇마루 울타리
+    expect(id(h.x + 3, h.y + 4, h.z)).toBe('spruce_planks'); // 처마
+    expect(id(h.x + 2, h.y + 4 + 1, h.z)).toBe('spruce_planks'); // 지붕 둘째 겹
     expect(id(h.x, h.y + 1, h.z)).toBe('air');
     expect(layout.witches).toHaveLength(2);
     expect(layout.treasures).toHaveLength(3);

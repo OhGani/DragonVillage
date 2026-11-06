@@ -8,6 +8,7 @@ import {
   BOAT_SEAT_Y,
   BOSS_EMOJI,
   BOSS_KINDS,
+  calmFoods,
   bowOf,
   canStartExpedition,
   CARROT_ON_A_STICK,
@@ -944,7 +945,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       pl.vel.z += m.z * m.power;
       pl.vel.y = Math.max(pl.vel.y, 4);
       hitSound();
-      hud.toast(m.why === 'gorilla' ? '🦍 고릴라가 밀쳤어요!' : '☃️ 눈덩이에 맞았어요 — 밀려났어요', 1200);
+      hud.toast(m.why === 'gorilla' ? '🦍 고릴라가 밀쳤어요!' : m.why === 'snow' || !m.why ? '☃️ 눈덩이에 맞았어요 — 밀려났어요' : m.why === 'sperm_whale' ? '🐋 고래가 들이받았어요!' : m.why === 'elephant' ? '🐘 코끼리가 들이받았어요!' : '💥 세게 맞아 밀려났어요!', 1200);
     },
     onDragonHp: (m) => hud.setDragonHp(m.hp, m.max),
     onDragonDown: (m) => {
@@ -1882,6 +1883,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const aimedVillager = isVillager(aimedMob); // 원정(사막 마을) 주민도 때리지 않고 말을 건다 (#228)
     // 좀비 주민 (#244): 황금 사과를 들고 탭하면 때리기가 아니라 먹이기
     const aimedCurable = aimedMob !== null && MOB_KIND_OF[mobView.figureOf(aimedMob)?.kind ?? -1] === 'zombie_villager' && hud.selectedItem === CURE_ITEM;
+    const aimedCalmable = aimedMob !== null && ctx.kind === 'expedition' && hud.selectedItem !== null && (calmFoods(MOBS.get(MOB_KIND_OF[mobView.figureOf(aimedMob)?.kind ?? -1] ?? 'zombie')).includes(hud.selectedItem) || (hud.selectedItem === 'shears' && MOB_KIND_OF[mobView.figureOf(aimedMob)?.kind ?? -1] === 'bison')); // 들소는 가위로 털 깎기 // 코뿔소에게 밀·아나콘다에게 생 닭고기 (2026-11-06)
     let swingMob: number | null = null;
     if (inp.secondaryTap && heldTool !== null && !bow && !guarding && !anyPanelOpen()) {
       swingMob = aimedMob !== null && aimedMob < ANIMAL_ID_BASE && !aimedVillager ? aimedMob : aimedMob === null ? mobView.nearestInCone(player.eye, player.lookDir, meleeReach, SWING_CONE_COS, true) : null;
@@ -1893,7 +1895,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         hand.swing();
       }
     }
-    const tapAttack = inp.secondaryTap && !aimedVillager && !aimedCurable && heldPotion === null && ((aimedMob !== null && aimedMob < ANIMAL_ID_BASE) || swingMob !== null);
+    const tapAttack = inp.secondaryTap && !aimedVillager && !aimedCurable && !aimedCalmable && heldPotion === null && ((aimedMob !== null && aimedMob < ANIMAL_ID_BASE) || swingMob !== null);
     if (bow && !guarding) {
       // 활·쇠뇌 (#119, 아빠): 누르고 있으면 시위를 당기고, 놓으면 쏜다. 짧게 탭하면 약한 화살
       if (inp.primary) {
@@ -1965,7 +1967,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       net.sendEat(hud.selectedIndex);
       hand.swing();
     }
-    if (aimedMob !== null && inp.secondaryTap && heldPotion === null && ((aimedMob >= ANIMAL_ID_BASE && ctx.kind === 'village') || ((aimedVillager || aimedCurable) && ctx.kind === 'expedition'))) {
+    if (aimedMob !== null && inp.secondaryTap && heldPotion === null && ((aimedMob >= ANIMAL_ID_BASE && ctx.kind === 'village') || ((aimedVillager || aimedCurable || aimedCalmable) && ctx.kind === 'expedition'))) {
       const fk = mobView.figureOf(aimedMob);
       if (fk && MOB_KIND_OF[fk.kind] === 'villager' && (!hud.selectedItem || !MOBS.get('villager').food.includes(hud.selectedItem))) {
         // 주민에게 탭 = 대화 시트 (#172). 빵을 들었을 땐 바로 먹이기(서버) 대신 대화에서 "응, 먹어!" 로 준다
@@ -2018,6 +2020,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     mount.update(player, dt);
     beams.update();
     orbView.update(dt);
+    mobView.viewer = { x: ctx.player.pos.x, z: ctx.player.pos.z }; // 호랑이 몰래 다가오기 (2026-11-06)
     mobView.update(dt);
     if (stamina) refreshStamina();
 

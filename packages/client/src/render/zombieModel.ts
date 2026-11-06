@@ -130,3 +130,25 @@ export function zombieKindOf(kindName: string, desert: boolean): ZombieKind | nu
       return null;
   }
 }
+
+/**
+ * 마녀 (아빠가 보낸 그림 2026-11-06): 주민 모양 — 키 큰 머리(8×10×8)·큰 갈색 코(사마귀 하나)·잿빛 살,
+ * 무릎까지 오는 보라 로브에 가운데 초록 줄, 보라 소매에 팔짱, 짙은 갈색 다리·잿빛 신. 모자는 MobView 가 머리 위(y 10)에 씌운다
+ */
+export function witchVoxels(): ZombieVoxels {
+  const SKIN = [0xa8988a, 0x9a8a7c, 0xb4a496];
+  const ROBE = [0x4b2a6e, 0x3d2160, 0x55307a];
+  const head = box(-4, 3, 0, 9, -4, 3, (x, y, z) => {
+    if (z === -4 && y === 6 && (x === -3 || x === 2)) return 0x2e6b2a; // 초록 눈
+    if (z === -4 && y === 6 && (x === -2 || x === 1)) return 0xe8e0d8; // 흰자
+    if (z === -4 && y === 7 && x >= -3 && x <= 2) return 0x3a2e28; // 눈썹
+    if (z === -4 && y <= 1 && x >= -2 && x <= 1) return 0x6b5a4c; // 턱
+    return pick(SKIN, x, y, z, 31);
+  });
+  head.push(...box(-1, 0, 2, 5, -6, -5, (x, y, z) => pick([0x8a5a3c, 0x7a4e32], x, y, z, 32))); // 큰 코
+  head.push({ x: 0, y: 3, z: -7, c: css(0x5a7a3a) }); // 코 사마귀
+  const torso = box(-4, 3, -6, 11, -3, 2, (x, y, z) => (z === -3 && (x === -1 || x === 0) ? pick([0x2f5a2a, 0x3a6a32], x, y, z, 33) : pick(ROBE, x, y, z, 34)));
+  const arm = box(-2, 1, -12, -1, -2, 1, (x, y, z) => (y <= -10 ? pick(SKIN, x, y, z, 35) : pick(ROBE, x, y, z, 36)));
+  const leg = box(-2, 1, -12, -1, -2, 1, (x, y, z) => (y <= -11 ? pick([0x5c5c5c, 0x4e4e4e], x, y, z, 37) : pick([0x3a2e22, 0x30261c], x, y, z, 38)));
+  return { head, torso, arm, leg };
+}

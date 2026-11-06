@@ -201,6 +201,16 @@
       }
     },
     {
+      "id": "brown_wool_from_bison",
+      "name": "갈색 양털 (들소 모피)",
+      "station": "crafting_table",
+      "pattern": ["ff", "ff"],
+      "key": { "f": "bison_fur" },
+      "in": { "bison_fur": 4 },
+      "out": { "brown_wool": 1 },
+      "_note": "들소 모피 4개 → 갈색 양털 (아빠가 보낸 설명 2026-11-06)"
+    },
+    {
       "id": "snow_block",
       "name": "눈 블록",
       "station": "crafting_table",

@@ -24,7 +24,7 @@ import type { SpawnPoint } from './village';
 
 export const SWAMP_BOUNDS: WorldBounds = { sizeCX: 16, sizeCY: 6, sizeCZ: 16 };
 /** 생성기를 고치면 올린다 (클라·서버 버전 불일치 감지) */
-export const SWAMP_GEN_VERSION = 1;
+export const SWAMP_GEN_VERSION = 2; // 2: 마녀 오두막을 마인크래프트처럼 (물 위·툇마루·처마, 2026-11-06)
 export const SWAMP_GROUND_Y = 40;
 
 const SIZE = SWAMP_BOUNDS.sizeCX * CHUNK_SIZE;
@@ -83,6 +83,9 @@ export function generateSwamp(registry: BlockRegistry, seed: number, treasures =
     glowstone = B('glowstone'),
     chest = B('chest'),
     torch = B('torch'),
+    fence = B('oak_fence'),
+    craftingTable = B('crafting_table'),
+    brewingStand = B('brewing_stand'),
     coal = B('coal_ore'),
     iron = B('iron_ore');
 
@@ -196,47 +199,69 @@ export function generateSwamp(registry: BlockRegistry, seed: number, treasures =
   const hx = Math.round(CENTER + Math.cos(hAng) * hDist),
     hz = Math.round(CENTER + Math.sin(hAng) * hDist);
   const HF = G + 3; // 판자 바닥 (물 위 세 칸)
-  // 둘레 땅을 G 높이 마른 땅으로 (기둥이 서고, 앞에 마녀가 선다)
-  dryPad(hx, hz + 6, 4, G);
-  for (const [dx, dz] of [
-    [-3, -4],
-    [3, -4],
-    [-3, 4],
-    [3, 4],
-  ] as [number, number][])
-    for (let y = Math.min(hAt(hx + dx, hz + dz), G) - 2; y < HF; y++) set(hx + dx, y, hz + dz, spruceLog);
-  for (let dx = -3; dx <= 3; dx++)
-    for (let dz = -4; dz <= 4; dz++) {
+  /*
+   * 마인크래프트 마녀 오두막처럼 (아빠가 보낸 그림 2026-11-06): 물웅덩이 위 가문비 원목 기둥 넷이 지붕까지 올라가고,
+   * 집채 5×5(벽 높이 3, 옆·뒤 창)에 앞(남쪽) 툇마루 2칸 + 모서리 울타리, 지붕은 한 칸 튀어나온 처마 + 그 위 한 겹.
+   * 안에는 상자·제작대·양조기·버섯 화분. 툇마루 앞 계단 두 칸으로 마른 땅에 내려선다
+   */
+  // 오두막 밑은 물웅덩이 (깊이 2) — 앞쪽(남쪽)은 마녀가 서는 마른 땅
+  for (let dx = -5; dx <= 5; dx++)
+    for (let dz = -6; dz <= 2; dz++) {
+      if (Math.hypot(dx, dz + 2) > 5.6) continue;
       const x = hx + dx,
         z = hz + dz;
-      set(x, HF, z, sprucePlanks);
-      const edge = Math.abs(dx) === 3 || Math.abs(dz) === 4;
-      for (let y = HF + 1; y <= HF + 3; y++) {
-        const door = dz === 4 && dx === 0 && y <= HF + 2;
-        const window = (Math.abs(dx) === 3 && dz === 0 && y === HF + 2) || (dz === -4 && dx === 0 && y === HF + 2);
-        set(x, y, z, edge && !door && !window ? ((Math.abs(dx) === 3 && Math.abs(dz) === 4) ? spruceLog : sprucePlanks) : AIR_ID);
-      }
-      set(x, HF + 4, z, sprucePlanks);
+      for (let y = G - 4; y <= G - 2; y++) set(x, y, z, dirt);
+      for (let y = G - 1; y <= G; y++) set(x, y, z, water);
+      for (let y = G + 1; y <= G + 3; y++) if (world.getBlock(x, y, z) !== AIR_ID) set(x, y, z, AIR_ID);
+      heights[z * SIZE + x] = G - 2;
     }
-  // 지붕 한 겹 더 (가운데 줄)
-  for (let dz = -5; dz <= 5; dz++) for (let dx = -2; dx <= 2; dx++) set(hx + dx, HF + 5, hz + dz, sprucePlanks);
-  // 문 앞 계단 (흙 → 판자 두 칸)
-  set(hx, HF - 1, hz + 5, sprucePlanks);
-  set(hx, HF - 2, hz + 6, sprucePlanks);
-  for (let y = HF; y <= HF + 2; y++) set(hx, y, hz + 5, AIR_ID);
-  for (let y = HF - 1; y <= HF + 1; y++) set(hx, y, hz + 6, AIR_ID);
-  set(hx, HF - 2 - 1, hz + 6, dirt);
-  // 안: 상자·횃불·버섯 화분 느낌
-  set(hx - 2, HF + 1, hz - 3, chest);
-  treasureChests.push({ x: hx - 2, y: HF + 1, z: hz - 3 });
-  set(hx + 2, HF + 1, hz - 3, brownM);
-  set(hx + 2, HF + 3, hz + 3, torch);
+  dryPad(hx, hz + 7, 4, G);
+  // 기둥: 집채 네 모서리, 물 바닥에서 벽 꼭대기까지
+  for (const [dx, dz] of [
+    [-2, -3],
+    [2, -3],
+    [-2, 1],
+    [2, 1],
+  ] as [number, number][])
+    for (let y = G - 2; y <= HF + 3; y++) set(hx + dx, y, hz + dz, spruceLog);
+  // 바닥: 집채 + 툇마루 (z −3..3)
+  for (let dx = -2; dx <= 2; dx++) for (let dz = -3; dz <= 3; dz++) set(hx + dx, HF, hz + dz, sprucePlanks);
+  // 벽: 집채 x −2..2, z −3..1 (모서리는 기둥). 앞 문(가운데 2칸), 옆·뒤 창(가운데 한 칸)
+  for (let dx = -2; dx <= 2; dx++)
+    for (let dz = -3; dz <= 1; dz++) {
+      const edge = Math.abs(dx) === 2 || dz === -3 || dz === 1;
+      const corner = Math.abs(dx) === 2 && (dz === -3 || dz === 1);
+      for (let y = HF + 1; y <= HF + 3; y++) {
+        if (corner) continue;
+        const door = dz === 1 && dx === 0 && y <= HF + 2;
+        const window = y === HF + 2 && ((Math.abs(dx) === 2 && dz === -1) || (dz === -3 && dx === 0));
+        set(hx + dx, y, hz + dz, edge && !door && !window ? sprucePlanks : AIR_ID);
+      }
+    }
+  // 툇마루 모서리 울타리
+  for (const dx of [-2, 2]) for (const dz of [2, 3]) set(hx + dx, HF + 1, hz + dz, fence);
+  // 지붕: 처마 한 겹(한 칸 튀어나옴, 툇마루까지 덮는다) + 그 위 한 겹
+  for (let dx = -3; dx <= 3; dx++) for (let dz = -4; dz <= 4; dz++) set(hx + dx, HF + 4, hz + dz, sprucePlanks);
+  for (let dx = -2; dx <= 2; dx++) for (let dz = -3; dz <= 3; dz++) set(hx + dx, HF + 5, hz + dz, sprucePlanks);
+  // 툇마루 앞 계단: 판자 두 칸 → 마른 땅
+  set(hx, HF - 1, hz + 4, sprucePlanks);
+  set(hx, HF - 2, hz + 5, sprucePlanks);
+  for (let y = HF; y <= HF + 2; y++) set(hx, y, hz + 4, AIR_ID);
+  for (let y = HF - 1; y <= HF + 1; y++) set(hx, y, hz + 5, AIR_ID);
+  set(hx, HF - 3, hz + 5, dirt);
+  // 안: 상자(보물)·제작대·양조기·버섯 화분, 벽 횃불
+  set(hx - 1, HF + 1, hz - 2, chest);
+  treasureChests.push({ x: hx - 1, y: HF + 1, z: hz - 2 });
+  set(hx + 1, HF + 1, hz - 2, craftingTable);
+  set(hx + 1, HF + 1, hz, brewingStand);
+  set(hx - 1, HF + 1, hz, redM);
+  set(hx, HF + 3, hz - 2, torch);
   const witches: SwampLayout['witches'] = [
     { x: hx - 2, y: G + 1, z: hz + 7 },
     { x: hx + 2, y: G + 1, z: hz + 7 },
   ];
   keepClear.push({ x: hx, z: hz, r: 10 });
-  const hut = { x: hx, y: HF, z: hz };
+  const hut = { x: hx, y: HF, z: hz - 1 }; // 집채 안 가운데 바닥
 
   // ---- 슬라임 웅덩이: 가운데서 55~75칸, 오두막과 40칸 넘게 떨어진 쪽 ----
   let px = 0,

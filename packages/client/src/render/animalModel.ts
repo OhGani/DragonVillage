@@ -513,9 +513,9 @@ function boat(): AnimalParts {
  * 가젤·라쿤·길달리기새·꼬리감는원숭이·방울뱀·들소·말코손바닥사슴·회색곰. 마을 동물과 같은 좌표 규칙(앞 −z, 바닥 y 0, 1 복셀 = 1.8/32 m).
  * 키는 MOB_SIZES 와 맞춘다. 머리·다리·꼬리·날개는 축이 있는 부위라 MobView 가 걷기·들이받기·꼬리 흔들기를 한다.
  */
-export const WILD_MODEL_KINDS = ['gazelle', 'raccoon', 'roadrunner', 'capuchin', 'rattlesnake', 'bison', 'moose', 'grizzly', 'salmon', 'cod', 'tropical_fish', 'pufferfish'] as const;
+export const WILD_MODEL_KINDS = ['gazelle', 'raccoon', 'roadrunner', 'capuchin', 'rattlesnake', 'bison', 'moose', 'grizzly', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'sperm_whale', 'elephant', 'rhino', 'anaconda', 'tiger'] as const;
 /** 물고기 (2026-11-06): 꼬리를 좌우로 흔들며 헤엄친다, 다치지 않으면 체력 바를 숨긴다 */
-export const FISH_MODEL_KINDS: ReadonlySet<string> = new Set(['salmon', 'cod', 'tropical_fish', 'pufferfish']);
+export const FISH_MODEL_KINDS: ReadonlySet<string> = new Set(['salmon', 'cod', 'tropical_fish', 'pufferfish', 'sperm_whale']);
 
 function gazelle(): AnimalParts {
   const tan = 0xc49a5c,
@@ -755,8 +755,263 @@ export function pufferPuffedVoxels(): Voxel[] {
 }
 
 /** 원정 사냥 동물 부위 (모르는 종류면 null) */
+/**
+ * 향유고래 (아빠가 보낸 그림 2026-11-06, Alex's Mobs): 네모난 큰 머리 → 조금 더 굵은 몸통(등에 작은 혹, 옆에 비스듬한 가슴지느러미) →
+ * 가늘어지는 꼬리 두 마디 → 넓고 납작한 꼬리지느러미. 잿빛 남색에 물결무늬, 머리 옆에 작은 눈, 머리 위 앞쪽에 숨구멍.
+ * 속은 비운 껍데기만(칸 수를 줄인다). MobView 가 2배로 그려 길이 10칸쯤. 꼬리는 축이 있어 좌우로 흔든다
+ */
+function spermWhale(): AnimalParts {
+  const BASE = 0x6f7083,
+    LIGHT = 0x8a8ca2,
+    DARK = 0x55566a;
+  const skin: ColorFn = (x, y, z) => {
+    const w = Math.sin((x + z) * 0.35 + y * 0.45) + 0.6 * Math.sin(z * 0.17 - y * 0.6);
+    return fur(x, y, z, w > 0.9 ? LIGHT : w < -0.9 ? DARK : BASE, 0.08);
+  };
+  const shell = (b: Builder, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) => {
+    for (let y = y0; y <= y1; y++)
+      for (let z = z0; z <= z1; z++)
+        for (let x = x0; x <= x1; x++) if (x === x0 || x === x1 || y === y0 || y === y1 || z === z0 || z === z1) b.dot(x, y, z, skin(x, y, z));
+  };
+  const body = new Builder();
+  shell(body, -8, 7, 0, 16, -40, -15); // 머리 16×17×26
+  shell(body, -9, 8, 0, 17, -14, 15); // 몸통 18×18×30
+  body.box(-1, 0, 18, 19, -3, 1, skin); // 등 혹
+  body.box(-14, -10, 1, 2, -11, -6, skin).box(9, 13, 1, 2, -11, -6, skin); // 가슴지느러미 (옆으로 비스듬히)
+  body.box(-15, -15, 0, 0, -10, -7, skin).box(14, 14, 0, 0, -10, -7, skin);
+  body.dot(-8, 7, -21, 0xf0f0f0).dot(-8, 7, -22, 0x111111).dot(7, 7, -21, 0xf0f0f0).dot(7, 7, -22, 0x111111); // 눈 (양옆)
+  body.box(-1, 0, 16, 16, -37, -36, solid(0x3a3a48)); // 숨구멍
+  body.box(-7, 6, 0, 1, -40, -24, (x, y, z) => fur(x, y, z, 0x8f90a4, 0.05)); // 아래턱 밝게
+  const tail = new Builder();
+  shell(tail, -6, 5, 3, 14, 16, 33); // 꼬리 첫 마디 12×12×18
+  shell(tail, -4, 3, 5, 12, 34, 47); // 둘째 마디 8×8×14
+  tail.box(-11, 10, 8, 9, 48, 55, skin); // 꼬리지느러미 22×2×8
+  const head = new Builder(); // 머리는 몸통과 한 덩어리 (움직이지 않는다)
+  return { body: body.out, head: part(head, [0, 8, -15]), legs: [], tail: part(tail, [0, 9, 15]), wings: [], babyHead: 1 };
+}
+
+/**
+ * 파괴수 (아빠가 보낸 그림 2026-11-06, "좀더 입체적으로"): 길고 두툼한 몸통(밝은 얼룩무늬), 몸 양옆에 붙은 굵은 기둥 다리 넷 —
+ * 등보다 높이 솟고 끝에 서리 낀 돌 뚜껑, 다리마다 돌 띠 둘. 앞에 낮게 내민 큰 머리: 위쪽 양옆에서 비스듬히 솟은 넓은 뿔,
+ * 얼굴을 가로지르는 짙은 눈썹 띠 아래 초록 눈, 가운데 길게 늘어진 코, 이빨 무늬 아래턱. 등 가운데 작은 주황 안장.
+ * 키 40칸 ≈ 2.25m, 길이 55칸(≈3.1m). 다리는 아랫부분(y 0~22)이 움직이고(축 = 엉덩이), 등 위로 솟은 윗부분은 몸에 붙어 있다
+ */
+export function ravagerParts(): AnimalParts {
+  const BASE = 0x6b5548,
+    PATCH = 0x8f7764,
+    DARK = 0x4a3a32,
+    STONE = 0x9fc0c4,
+    STONE2 = 0x7a9aa0,
+    FROST = 0xd6e6e8,
+    HORN = 0x6f7a6a,
+    HORN2 = 0x98a690,
+    SADDLE = 0xd8661a;
+  /** 얼룩무늬: 큰 덩어리로 밝은 얼룩, 칸마다 살짝 */
+  const hide: ColorFn = (x, y, z) => {
+    const blob = Math.sin(x * 0.55 + z * 0.31) + Math.sin(y * 0.47 - z * 0.23 + x * 0.12);
+    return fur(x, y, z, blob > 1.15 ? PATCH : blob < -1.35 ? DARK : BASE, 0.1);
+  };
+  const stoneBand: ColorFn = (x, y, z) => fur(x, y, z, (x + z) % 3 === 0 ? STONE2 : STONE, 0.06);
+  const body = new Builder();
+  body.box(-7, 6, 22, 37, -10, 26, hide); // 몸통 14×16×37 (아빠 "몸통 좀더 길게" 27 → 37)
+  body.box(-6, 5, 18, 31, -13, -9, hide); // 목 (머리와 몸통 사이)
+  body.box(-3, 2, 38, 38, 5, 11, (x, y, z) => fur(x, y, z, x === -3 || x === 2 || z === 5 || z === 11 ? 0xa84a12 : SADDLE, 0.08)); // 주황 안장 (등 가운데)
+  // 다리 넷 (10×10 굵은 기둥, 아빠 "다리 더 굵게" 8 → 10): 몸 양옆에 반쯤 걸친다. 윗부분(y 23~39)은 몸에 붙어 등 위로 솟는다
+  const LEG = 10;
+  const spots: [number, number][] = [
+    [-13, -10],
+    [3, -10],
+    [-13, 17],
+    [3, 17],
+  ];
+  for (const [lx, lz] of spots)
+    body.box(lx, lx + LEG - 1, 23, 39, lz, lz + LEG - 1, (x, y, z) => (y >= 38 ? fur(x, y, z, FROST, 0.05) : y === 36 || y === 37 ? stoneBand(x, y, z) : y === 30 || y === 31 ? stoneBand(x, y, z) : hide(x, y, z)));
+  const legs = spots.map(([lx, lz]) => {
+    const b = new Builder().box(lx, lx + LEG - 1, 0, 22, lz, lz + LEG - 1, (x, y, z) => (y <= 1 ? fur(x, y, z, 0x3a2e28, 0.06) : y === 4 || y === 5 || y === 14 || y === 15 ? stoneBand(x, y, z) : hide(x, y, z)));
+    return part(b, [lx + LEG / 2, 22, lz + LEG / 2]);
+  });
+  // 머리 16×20×16: 앞으로 낮게
+  const h = new Builder().box(-8, 7, 12, 31, -26, -11, hide);
+  h.box(-8, 7, 25, 26, -26, -26, solid(0x2a2220)); // 눈썹 띠 (얼굴 가로질러)
+  h.box(-8, -7, 25, 26, -25, -12, solid(0x2a2220)).box(6, 7, 25, 26, -25, -12, solid(0x2a2220)); // 옆으로도 이어진다
+  for (const ex of [-5, 3]) h.dot(ex, 23, -26, 0x3fae4a).dot(ex + 1, 23, -26, 0x2c8a36).dot(ex + (ex < 0 ? -1 : 2), 23, -26, 0xe8e0d8); // 초록 눈 + 흰자
+  h.box(-2, 1, 9, 22, -29, -27, (x, y, z) => fur(x, y, z, 0x2e2826, 0.06)); // 길게 늘어진 코 (턱 아래까지)
+  for (let x = -8; x <= 7; x++) h.dot(x, 13, -26, (x + 8) % 2 === 0 ? 0x1e1816 : 0x6b6460); // 아래턱 이빨 무늬
+  h.box(-8, 7, 12, 12, -26, -26, solid(0x2a2220));
+  // 뿔: 머리 위 양옆에서 바깥·위·뒤로 비스듬히 넓은 판 (계단처럼 네 마디)
+  for (const side of [-1, 1])
+    for (let k = 0; k < 5; k++) {
+      const x0 = side < 0 ? -10 - k : 7 + k;
+      const y0 = 29 + k * 2;
+      const z0 = -22 + k;
+      h.box(Math.min(x0, x0 + side * 2), Math.max(x0, x0 + side * 2), y0, y0 + 2, z0, z0 + 3, (x, y, z) => fur(x, y, z, k >= 3 ? HORN2 : HORN, 0.08));
+    }
+  return { body: body.out, head: part(h, [0, 24, -11]), legs, tail: null, wings: [], babyHead: 1 };
+}
+
+/**
+ * 코끼리 (아빠가 보낸 그림 2026-11-06, Alex's Mobs): 잿빛 큰 몸통(가로 주름), 굵은 다리 넷(소용돌이 무늬·흰 발톱),
+ * 앞에 큰 머리와 양옆 넓은 귀, 땅까지 늘어진 코, 상아 둘. variant ≥ 0.5 면 무리 대장 — 상아가 땅까지 길게 휘어진다. 키 46칸 ≈ 2.6m
+ */
+function elephant(variant: number): AnimalParts {
+  const GRAY = 0x7d7b78,
+    DARK = 0x67655f,
+    LIGHT = 0x908e8a,
+    IVORY = 0xe8e0d0,
+    IVORY2 = 0xd6ccb8;
+  const hide: ColorFn = (x, y, z) => fur(x, y, z, y % 5 === 0 ? DARK : (x * 7 + z * 3 + y) % 11 === 0 ? LIGHT : GRAY, 0.08); // 가로 주름
+  const body = new Builder().box(-11, 10, 18, 41, -12, 18, hide); // 몸통 22×24×31
+  body.box(-1, 0, 28, 38, 19, 19, hide); // 꼬리 (가늘게 늘어진다)
+  body.box(-1, 0, 26, 27, 19, 20, solid(0x3a3836)); // 꼬리 끝 털
+  const legSpots: [number, number][] = [
+    [-11, -11],
+    [3, -11],
+    [-11, 11],
+    [3, 11],
+  ];
+  const legs = legSpots.map(([lx, lz]) => {
+    const b = new Builder().box(lx, lx + 7, 0, 17, lz, lz + 7, (x, y, z) => {
+      const spiral = (Math.round(Math.atan2(z - lz - 3.5, x - lx - 3.5) * 2 + y * 0.5) % 4 === 0 && y > 3 && y < 15);
+      return spiral ? fur(x, y, z, DARK, 0.06) : hide(x, y, z);
+    });
+    for (const dx of [1, 3, 5]) b.dot(lx + dx, 0, lz, IVORY).dot(lx + dx, 1, lz, IVORY2); // 앞 발톱
+    return part(b, [lx + 4, 17, lz + 4]);
+  });
+  const h = new Builder().box(-8, 7, 24, 41, -24, -12, hide); // 머리 16×18×13
+  h.box(-13, -9, 25, 42, -20, -13, (x, y, z) => fur(x, y, z, x === -9 ? DARK : GRAY, 0.06)).box(8, 12, 25, 42, -20, -13, (x, y, z) => fur(x, y, z, x === 8 ? DARK : GRAY, 0.06)); // 넓은 귀
+  h.dot(-8, 33, -22, 0x111111).dot(-8, 34, -22, 0xf0f0f0).dot(7, 33, -22, 0x111111).dot(7, 34, -22, 0xf0f0f0); // 눈 (양옆)
+  // 코: 얼굴 가운데에서 땅까지, 끝은 조금 앞으로
+  h.box(-2, 1, 8, 26, -27, -24, hide);
+  h.box(-2, 1, 4, 8, -29, -26, hide);
+  h.box(-2, 1, 4, 5, -30, -30, solid(DARK));
+  // 상아: 입 양옆에서 앞·아래로. 대장은 길게 휘어 땅 가까이
+  const long = variant >= 0.5;
+  for (const sx of [-6, 4]) {
+    const n = long ? 9 : 4;
+    for (let k = 0; k < n; k++) {
+      const y = 24 - k * (long ? 2 : 1.5),
+        z = -25 - Math.round(k * (long ? 0.8 : 1));
+      h.box(sx, sx + 1, Math.round(y) - 1, Math.round(y), z, z, (x, yy, zz) => ((x + yy + zz) % 3 === 0 ? IVORY2 : IVORY));
+    }
+    if (long) h.box(sx, sx + 1, 6, 7, -33, -31, solid(IVORY)); // 끝이 앞으로 휜다
+  }
+  return { body: body.out, head: part(h, [0, 30, -12]), legs, tail: null, wings: [], babyHead: 1.4 };
+}
+
+/**
+ * 코뿔소 (아빠가 보낸 그림 2026-11-06, Alex's Mobs): 잿빛 갈색 두툼한 몸통, 짧고 굵은 다리 넷(흰 발톱), 낮게 내민 머리에
+ * 크고 흰 앞 뿔 + 작은 뒷 뿔, 작은 귀, 짧은 꼬리. 키 28칸 ≈ 1.6m
+ */
+function rhino(): AnimalParts {
+  const SKIN = 0x8c8480,
+    DARK = 0x726a66,
+    LIGHT = 0xa29a95,
+    HORN = 0xe8dcc0,
+    HORN2 = 0xcfc2a4;
+  const hide: ColorFn = (x, y, z) => fur(x, y, z, (x * 5 + y * 3 + z * 7) % 13 === 0 ? DARK : (x + y * 2 + z) % 17 === 0 ? LIGHT : SKIN, 0.1);
+  const body = new Builder().box(-8, 7, 10, 25, -10, 14, hide); // 몸통 16×16×25
+  body.box(-1, 0, 18, 22, 15, 15, hide).box(-1, 0, 17, 18, 16, 16, solid(DARK)); // 꼬리
+  const spots: [number, number][] = [
+    [-8, -9],
+    [2, -9],
+    [-8, 8],
+    [2, 8],
+  ];
+  const legs = spots.map(([lx, lz]) => {
+    const b = new Builder().box(lx, lx + 5, 0, 10, lz, lz + 5, (x, y, z) => (y === 0 && z === lz && (x - lx) % 2 === 0 ? HORN2 : hide(x, y, z)));
+    return part(b, [lx + 3, 10, lz + 3]);
+  });
+  const h = new Builder().box(-5, 4, 8, 20, -21, -11, hide); // 머리 10×13×11 (낮게)
+  h.dot(-5, 16, -18, 0x111111).dot(4, 16, -18, 0x111111); // 눈 (양옆)
+  h.box(-5, -4, 21, 23, -14, -13, hide).box(3, 4, 21, 23, -14, -13, hide); // 귀
+  h.box(-1, 0, 16, 19, -22, -21, (x, y, z) => fur(x, y, z, HORN, 0.05)); // 앞 뿔 (크다)
+  h.box(-1, 0, 20, 23, -23, -22, (x, y, z) => fur(x, y, z, HORN, 0.05));
+  h.box(-1, 0, 24, 25, -24, -24, solid(HORN2));
+  h.box(-1, 0, 21, 22, -18, -17, solid(HORN2)); // 뒷 뿔 (작다)
+  h.box(-3, 2, 8, 10, -22, -21, solid(DARK)); // 입
+  return { body: body.out, head: part(h, [0, 16, -11]), legs, tail: null, wings: [], babyHead: 1.4 };
+}
+
+/**
+ * 아나콘다 (아빠가 보낸 그림 2026-11-06, Alex's Mobs): 아주 긴 뱀 — 머리(주황 눈)·굵은 몸 마디·가늘어지는 꼬리. 등은 얼룩, 배는 밝다.
+ * variant < 0.5 면 초록, 아니면 노랑. 길이 64칸 ≈ 3.6m. 몸 뒤 절반은 꼬리(축)라 좌우로 굽이친다
+ */
+function anaconda(variant: number): AnimalParts {
+  const yellow = variant >= 0.5;
+  const BASE = yellow ? 0xb8a040 : 0x5a6a2a,
+    SPOT = yellow ? 0x3a3010 : 0x2a2a12,
+    BELLY = yellow ? 0xd8c890 : 0x9a8a50;
+  const skin: ColorFn = (x, y, z) => (y === 0 ? fur(x, y, z, BELLY, 0.06) : ((x + 9) * 7 + (z + 40) * 3 + y * 5) % 7 < 2 ? fur(x, y, z, SPOT, 0.06) : fur(x, y, z, BASE, 0.1));
+  const body = new Builder();
+  body.box(-3, 2, 0, 4, -24, 4, skin); // 앞 몸 6×5×29
+  body.box(-2, 1, 0, 5, -10, 0, skin); // 가운데가 조금 더 높다
+  const h = new Builder().box(-3, 2, 0, 3, -32, -25, skin); // 머리 6×4×8
+  h.dot(-3, 3, -30, 0xe0782a).dot(2, 3, -30, 0xe0782a).dot(-3, 3, -29, 0xc85a1a).dot(2, 3, -29, 0xc85a1a); // 주황 눈
+  h.box(-1, 0, 0, 1, -33, -33, solid(0x3a2a1a)); // 콧등
+  const tail = new Builder();
+  tail.box(-2, 1, 0, 3, 5, 18, skin); // 꼬리 첫 마디
+  tail.box(-1, 0, 0, 2, 19, 26, skin);
+  tail.box(-1, 0, 0, 1, 27, 32, skin); // 끝으로 갈수록 가늘다
+  return { body: body.out, head: part(h, [0, 2, -25]), legs: [], tail: part(tail, [0, 2, 4]), wings: [], babyHead: 1 };
+}
+
+/**
+ * 호랑이 (아빠가 보낸 그림 2026-11-06, Alex's Mobs): 주황 털에 검은 줄무늬, 흰 배·뺨·발, 분홍빛 코, 노란 눈. variant ≥ 0.9 면 흰 호랑이(흰 털·푸른 눈).
+ * 몸통 12×14×25, 다리 넷 5×10, 머리는 앞으로, 긴 꼬리가 뒤로 늘어진다. 키 26칸 ≈ 1.46m
+ */
+function tiger(variant: number): AnimalParts {
+  const white = variant >= 0.9;
+  const FUR = white ? 0xe8e8e4 : 0xe8902a,
+    FUR2 = white ? 0xd6d6d2 : 0xd47a1c,
+    STRIPE = 0x1a1a1a,
+    BELLY = 0xf2f0ea,
+    EYE = white ? 0x5ac8e8 : 0xe8c83a;
+  const coat: ColorFn = (x, y, z) => {
+    if (y <= 11 && Math.abs(x + 0.5) <= 3) return fur(x, y, z, BELLY, 0.05); // 배
+    const band = (z + 40 + Math.floor(y / 3) + (x < 0 ? 0 : 1)) % 5;
+    return band === 0 ? fur(x, y, z, STRIPE, 0.05) : fur(x, y, z, (x + y + z) % 3 === 0 ? FUR2 : FUR, 0.08);
+  };
+  const body = new Builder().box(-6, 5, 10, 23, -10, 14, coat); // 몸통 12×14×25
+  const spots: [number, number][] = [
+    [-6, -9],
+    [1, -9],
+    [-6, 9],
+    [1, 9],
+  ];
+  const legs = spots.map(([lx, lz]) => {
+    const b = new Builder().box(lx, lx + 4, 0, 10, lz, lz + 4, (x, y, z) => (y <= 2 ? fur(x, y, z, BELLY, 0.05) : coat(x, y + 12, z)));
+    return part(b, [lx + 2.5, 10, lz + 2.5]);
+  });
+  const h = new Builder().box(-5, 4, 14, 25, -19, -9, coat); // 머리 10×12×11
+  h.box(-5, 4, 14, 18, -19, -16, (x, y, z) => fur(x, y, z, BELLY, 0.05)); // 흰 뺨·턱
+  h.box(-2, 1, 15, 19, -22, -20, (x, y, z) => (y >= 18 ? fur(x, y, z, 0xd06a5a, 0.05) : fur(x, y, z, BELLY, 0.05))); // 주둥이 + 분홍 코
+  h.dot(-4, 21, -20, EYE).dot(3, 21, -20, EYE).dot(-3, 21, -20, 0x111111).dot(2, 21, -20, 0x111111); // 눈
+  h.box(-5, -3, 26, 27, -13, -12, coat).box(2, 4, 26, 27, -13, -12, coat); // 귀
+  h.dot(-4, 26, -13, BELLY).dot(3, 26, -13, BELLY);
+  const tail = new Builder();
+  for (let k = 0; k < 14; k++) tail.box(-1, 0, 20 - Math.floor(k * 0.8), 21 - Math.floor(k * 0.8), 15 + k, 15 + k, (x, y, z) => (k % 3 === 2 ? fur(x, y, z, STRIPE, 0.05) : fur(x, y, z, FUR, 0.08)));
+  return { body: body.out, head: part(h, [0, 20, -9]), legs, tail: part(tail, [0, 21, 15]), wings: [], babyHead: 1.4 };
+}
+/** 몰래 다가오는 호랑이의 붉은 눈 (머리 조각 좌표) — 몸이 투명해져도 이것만 빛난다 */
+export function tigerGlowEyes(): Voxel[] {
+  return [
+    { x: -4, y: 21, z: -21, c: '#ff3020' },
+    { x: 3, y: 21, z: -21, c: '#ff3020' },
+  ];
+}
+
 export function wildParts(kind: string, variant = 0): AnimalParts | null {
   switch (kind) {
+    case 'tiger':
+      return tiger(variant);
+    case 'rhino':
+      return rhino();
+    case 'anaconda':
+      return anaconda(variant);
+    case 'elephant':
+      return elephant(variant);
+    case 'sperm_whale':
+      return spermWhale();
     case 'gazelle':
       return gazelle();
     case 'raccoon':

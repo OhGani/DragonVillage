@@ -18,10 +18,10 @@ import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
 import { hash3 } from '../math/prng';
 
-export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat' | 'snow_golem' | 'minecart' | 'zombie_villager' | 'gorilla' | 'giant_gorilla' | 'warden' | 'giant_warden' | 'gazelle' | 'raccoon' | 'roadrunner' | 'rattlesnake' | 'bison' | 'moose' | 'grizzly' | 'capuchin' | 'salmon' | 'cod' | 'tropical_fish' | 'pufferfish' | 'cat' | 'guardian' | 'elder_guardian' | 'slime' | 'giant_slime' | 'witch' | 'skeleton_king' | 'creeper_king' | 'enderman_king' | 'zombie_king' | 'bogged' | 'parched' | 'charged_creeper' | 'endermite' | 'baby_zombie' | 'drowned' | 'frostbite';
-export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'cat', 'guardian', 'elder_guardian', 'slime', 'giant_slime', 'witch', 'skeleton_king', 'creeper_king', 'enderman_king', 'zombie_king', 'bogged', 'parched', 'charged_creeper', 'endermite', 'baby_zombie', 'drowned', 'frostbite'];
-export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24, snow_golem: 25, minecart: 26, zombie_villager: 27, gorilla: 28, giant_gorilla: 29, warden: 30, giant_warden: 31, gazelle: 32, raccoon: 33, roadrunner: 34, rattlesnake: 35, bison: 36, moose: 37, grizzly: 38, capuchin: 39, salmon: 40, cod: 41, tropical_fish: 42, pufferfish: 43, cat: 44, guardian: 45, elder_guardian: 46, slime: 47, giant_slime: 48, witch: 49, skeleton_king: 50, creeper_king: 51, enderman_king: 52, zombie_king: 53, bogged: 54, parched: 55, charged_creeper: 56, endermite: 57, baby_zombie: 58, drowned: 59, frostbite: 60 };
-export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'cat', 'guardian', 'elder_guardian', 'slime', 'giant_slime', 'witch', 'skeleton_king', 'creeper_king', 'enderman_king', 'zombie_king', 'bogged', 'parched', 'charged_creeper', 'endermite', 'baby_zombie', 'drowned', 'frostbite'];
+export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat' | 'snow_golem' | 'minecart' | 'zombie_villager' | 'gorilla' | 'giant_gorilla' | 'warden' | 'giant_warden' | 'gazelle' | 'raccoon' | 'roadrunner' | 'rattlesnake' | 'bison' | 'moose' | 'grizzly' | 'capuchin' | 'salmon' | 'cod' | 'tropical_fish' | 'pufferfish' | 'cat' | 'guardian' | 'elder_guardian' | 'slime' | 'giant_slime' | 'witch' | 'skeleton_king' | 'creeper_king' | 'enderman_king' | 'zombie_king' | 'bogged' | 'parched' | 'charged_creeper' | 'endermite' | 'baby_zombie' | 'drowned' | 'frostbite' | 'sperm_whale' | 'ravager' | 'elephant' | 'rhino' | 'anaconda' | 'tiger';
+export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'cat', 'guardian', 'elder_guardian', 'slime', 'giant_slime', 'witch', 'skeleton_king', 'creeper_king', 'enderman_king', 'zombie_king', 'bogged', 'parched', 'charged_creeper', 'endermite', 'baby_zombie', 'drowned', 'frostbite', 'sperm_whale', 'ravager', 'elephant', 'rhino', 'anaconda', 'tiger'];
+export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24, snow_golem: 25, minecart: 26, zombie_villager: 27, gorilla: 28, giant_gorilla: 29, warden: 30, giant_warden: 31, gazelle: 32, raccoon: 33, roadrunner: 34, rattlesnake: 35, bison: 36, moose: 37, grizzly: 38, capuchin: 39, salmon: 40, cod: 41, tropical_fish: 42, pufferfish: 43, cat: 44, guardian: 45, elder_guardian: 46, slime: 47, giant_slime: 48, witch: 49, skeleton_king: 50, creeper_king: 51, enderman_king: 52, zombie_king: 53, bogged: 54, parched: 55, charged_creeper: 56, endermite: 57, baby_zombie: 58, drowned: 59, frostbite: 60, sperm_whale: 61, ravager: 62, elephant: 63, rhino: 64, anaconda: 65, tiger: 66 };
+export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'cat', 'guardian', 'elder_guardian', 'slime', 'giant_slime', 'witch', 'skeleton_king', 'creeper_king', 'enderman_king', 'zombie_king', 'bogged', 'parched', 'charged_creeper', 'endermite', 'baby_zombie', 'drowned', 'frostbite', 'sperm_whale', 'ravager', 'elephant', 'rhino', 'anaconda', 'tiger'];
 /** 순한 동물 (마을, M8-1). 규칙은 animals.ts */
 const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'cat']; // 보트도 passive 목록에서 드롭을 읽는다 (#209)
 
@@ -31,10 +31,18 @@ const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'do
  * flee(가젤·라쿤·길달리기새·원숭이): 맞으면 근처 같은 종류까지 다 같이 달아난다. aggroR(들소·사슴·곰·방울뱀): 그 거리 안에 사람이 오면 먼저 덤빈다.
  * 이름·체력·드롭·경험치는 mobs.json `wild` (아들 편집)
  */
-export const WILD_KINDS: readonly MobKind[] = ['gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish']; // 물고기 넷 (2026-11-06): 물속에서 헤엄친다 (swim)
+export const WILD_KINDS: readonly MobKind[] = ['gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'sperm_whale', 'elephant', 'rhino', 'anaconda', 'tiger']; // 물고기 넷 (2026-11-06): 물속에서 헤엄친다 (swim). 향유고래 (아빠 그림, Alex's Mobs)
 export function isWild(kind: MobKind): boolean {
   return WILD_KINDS.includes(kind);
 }
+/** 이 몹을 순하게 하는 먹이들 (없으면 빈 목록) */
+export function calmFoods(def: { calmWith?: string | readonly string[] }): readonly string[] {
+  return def.calmWith === undefined ? [] : typeof def.calmWith === 'string' ? [def.calmWith] : def.calmWith;
+}
+/** 먹이로 진정한 사냥 동물이 순한 시간 (코뿔소·아나콘다, 2026-11-06) */
+export const CALM_MS = 5 * 60_000;
+/** 들소 털 (2026-11-06): 가위로 깎으면 들소 모피 1~2, 이만큼 뒤 다시 자란다 */
+export const BISON_FUR_REGROW_MS = 5 * 60_000;
 /** 맞은 사냥 동물이 달아나는 시간 · 같이 달아나는 무리 거리 · 덤비는 동물이 쫓다 포기하는 거리(aggroR 의 배수) */
 export const WILD_FLEE_MS = 5000;
 export const WILD_HERD_R = 10;
@@ -76,7 +84,7 @@ export function bossMinionKinds(kind: MobKind): readonly MobKind[] {
   return by[kind] ?? ['spider'];
 }
 /** 우민 (마을 방어전 M7-5) */
-export const RAIDER_KINDS: readonly MobKind[] = ['vindicator', 'pillager', 'evoker'];
+export const RAIDER_KINDS: readonly MobKind[] = ['vindicator', 'pillager', 'evoker', 'ravager']; // 파괴수 (아빠 그림 2026-11-06)
 /** 보스가 깨어나는 거리(칸) · 소환 주기 · 소환 수 · 살아 있는 부하 최대 */
 export const BOSS_AGGRO_RANGE = 24;
 export const BOSS_SUMMON_EVERY_MS = 8000;
@@ -127,6 +135,14 @@ export interface MobDef {
   readonly swim?: boolean;
   /** 복어 (2026-11-06): 사람이 PUFF_R 칸 안에 오면 부풀고(state = attack), 부푼 채 닿으면 따끔 + 독 */
   readonly puff?: boolean;
+  /** 이 아이템을 들고 탭하면 CALM_MS 동안 먼저 덤비지 않는다 (코뿔소 = 밀, 아나콘다 = 생 닭고기, 2026-11-06). 때리면 다시 화난다 */
+  readonly calmWith?: string | readonly string[];
+  /** 호랑이 (2026-11-06): 몰래 천천히 다가오다 이 거리(칸) 안이면 덮친다(3배 빠르게) */
+  readonly pounce?: number;
+  /** 코끼리 (2026-11-06): 한 마리를 때리면 둘레(WILD_HERD_R)의 같은 종류가 다 같이 그 사람에게 덤빈다 */
+  readonly herd?: boolean;
+  /** 향유고래 (2026-11-06): 혼자 다니고(무리 1), 이만큼 깊은 물(칸)에서 수면 아래 이만큼 내려가 헤엄친다 */
+  readonly deep?: number;
   /** 슬라임 (2026-11-06): 죽으면 이 몹 n 마리로 쪼개진다 */
   readonly split?: { kind: MobKind; n: number };
   /** 쏘는 것의 생김새 (2026-11-06): laser(가디언 빛줄기)·potion(마녀 물약). 없으면 화살/불덩이 규칙대로 */
@@ -218,12 +234,24 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   roadrunner: { id: 'roadrunner', hp: 6, damage: 0, speed: 4.2, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0, flee: true }, // 아주 빠르다 (문서: 모드에서 가장 빠른 축)
   capuchin: { id: 'capuchin', hp: 8, damage: 0, speed: 3.0, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0, flee: true },
   rattlesnake: { id: 'rattlesnake', hp: 8, damage: 2, speed: 2.2, reach: 1.4, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 4000, aggroR: 5 }, // 물면 독 (문서: 독 III)
-  bison: { id: 'bison', hp: 30, damage: 5, speed: 2.4, reach: 2.0, attackEveryMs: 2200, fuseMs: 0, explodeRadius: 0, poisonMs: 0, knock: true, aggroR: 7 }, // 들이받아 밀친다
+  bison: { id: 'bison', hp: 40, damage: 7, speed: 2.4, reach: 2.0, attackEveryMs: 2200, fuseMs: 0, explodeRadius: 0, poisonMs: 0, knock: true, aggroR: 4 }, // 가까이(4칸) 가면 들이받아 세게 밀친다 (아빠가 보낸 설명 2026-11-06: hp 40·피해 7). 가위로 털을 깎는다
   moose: { id: 'moose', hp: 30, damage: 5, speed: 2.4, reach: 2.0, attackEveryMs: 2200, fuseMs: 0, explodeRadius: 0, poisonMs: 0, aggroR: 6 },
   grizzly: { id: 'grizzly', hp: 36, damage: 6, speed: 2.5, reach: 2.0, attackEveryMs: 2000, fuseMs: 0, explodeRadius: 0, poisonMs: 0, aggroR: 8 }, // 가장 세다
   salmon: { id: 'salmon', hp: 3, damage: 0, speed: 2.2, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0, flee: true, swim: true }, // 연어 (2026-11-06): 물속에서 헤엄치고, 맞으면 달아난다
   cod: { id: 'cod', hp: 3, damage: 0, speed: 2.0, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0, flee: true, swim: true },
   tropical_fish: { id: 'tropical_fish', hp: 3, damage: 0, speed: 2.4, reach: 0, attackEveryMs: 0, fuseMs: 0, explodeRadius: 0, poisonMs: 0, flee: true, swim: true },
+  // 파괴수 (아빠가 보낸 그림 2026-11-06): 우민의 짐승 — 크고 단단하고, 들이받으면 아프고 밀려난다
+  ravager: { id: 'ravager', hp: 100, damage: 9, speed: 2.4, reach: 2.6, attackEveryMs: 2200, fuseMs: 0, explodeRadius: 0, poisonMs: 0, knock: true },
+  // 호랑이 (아빠가 보낸 그림·설명 2026-11-06, Alex's Mobs): 12칸 안의 사람에게 몰래(거의 투명하게) 천천히 다가오다 6칸 안이면 덮친다. 고기를 주면 순해진다
+  tiger: { id: 'tiger', hp: 50, damage: 5, speed: 1.4, reach: 1.8, attackEveryMs: 1400, fuseMs: 0, explodeRadius: 0, poisonMs: 0, aggroR: 12, pounce: 6, calmWith: ['beef', 'porkchop', 'chicken', 'mutton'] },
+  // 코뿔소 (아빠가 보낸 그림·설명 2026-11-06, Alex's Mobs): 가까이(5칸) 가면 덤비고 아주 세다(밀침). 밀을 주면 진정
+  rhino: { id: 'rhino', hp: 60, damage: 10, speed: 2.4, reach: 2.2, attackEveryMs: 2000, fuseMs: 0, explodeRadius: 0, poisonMs: 0, aggroR: 5, knock: true, calmWith: 'wheat' },
+  // 아나콘다 (아빠가 보낸 그림·설명 2026-11-06, Alex's Mobs): 늪 물웅덩이를 기어 다니다 가까이(5칸) 가면 칭칭 감아 조인다. 생 닭고기를 주면 순해진다
+  anaconda: { id: 'anaconda', hp: 40, damage: 5, speed: 2.0, reach: 1.8, attackEveryMs: 1600, fuseMs: 0, explodeRadius: 0, poisonMs: 0, aggroR: 5, calmWith: 'chicken' },
+  // 코끼리 (아빠가 보낸 그림 2026-11-06, Alex's Mobs): 크고 순하다 — 먼저 안 덤비지만(aggroR 0) 한 마리를 때리면 무리가 다 같이 들이받는다(밀침)
+  elephant: { id: 'elephant', hp: 65, damage: 8, speed: 1.9, reach: 3.0, attackEveryMs: 2200, fuseMs: 0, explodeRadius: 0, poisonMs: 0, aggroR: 0, knock: true, herd: true },
+  // 향유고래 (아빠가 보낸 그림 2026-11-06, Alex's Mobs Cachalot Whale): 아주 크고 순하다(중립) — 때리면 화나서 쫓아와 들이받는다(밀침)
+  sperm_whale: { id: 'sperm_whale', hp: 120, damage: 8, speed: 1.6, reach: 4.5, attackEveryMs: 2600, fuseMs: 0, explodeRadius: 0, poisonMs: 0, swim: true, neutral: true, knock: true, deep: 4 },
   pufferfish: { id: 'pufferfish', hp: 3, damage: 1, speed: 1.2, reach: 1.3, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 3000, swim: true, puff: true }, // 안 달아나고 부푼다
 };
 
@@ -445,7 +473,13 @@ export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = {
   salmon: { w: 0.5, h: 0.45 },
   cod: { w: 0.45, h: 0.35 },
   tropical_fish: { w: 0.4, h: 0.4 },
-  pufferfish: { w: 0.5, h: 0.3 }, // 부풀면 그림만 커진다(0.45)
+  pufferfish: { w: 0.5, h: 0.3 },
+  sperm_whale: { w: 2.2, h: 2.2 },
+  ravager: { w: 1.9, h: 2.2 },
+  elephant: { w: 2.0, h: 2.6 },
+  rhino: { w: 1.6, h: 1.6 },
+  anaconda: { w: 0.6, h: 0.4 },
+  tiger: { w: 1.2, h: 1.4 }, // 길이는 10칸쯤 (판정은 머리 둘레만) // 부풀면 그림만 커진다(0.45)
 };
 /** 복어가 부푸는 거리 (칸) */
 export const PUFF_R = 3;
@@ -517,6 +551,10 @@ export interface MobState {
   summonAt?: number;
   /** 보스가 부하를 부른 횟수 — 부하 종류를 돌아가며 고른다 */
   summonN?: number;
+  /** 이때까지 먼저 덤비지 않는다 (먹이로 진정, MobDef.calmWith) */
+  calmUntil?: number;
+  /** 들소 털을 깎은 뒤 다시 자라는 시각 (2026-11-06) */
+  shornUntil?: number;
   /** 철 골렘 (#221): 이 사람만 쫓는다(주민을 때린 사람). despawnAt 이 지나면 사라진다 */
   grudge?: number;
   despawnAt?: number;
