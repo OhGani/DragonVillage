@@ -23,6 +23,12 @@
     { "id": "banana", "name": "바나나", "heals": 4, "_note": "정글 궁궐·사당 상자 (#253, 아들 정글 재료 '바나나')" },
     { "id": "raw_gorilla_meat", "name": "안 익힌 고릴라 고기", "heals": 3, "_note": "고릴라 드롭·거대 고릴라 전리품 (#253). 굽는 건 아직" },
     { "id": "moose_ribs", "name": "사슴 갈비", "heals": 3, "_note": "설원 말코손바닥사슴 사냥 (2026-11-05). 화로에 구우면 구운 사슴 갈비" },
-    { "id": "cooked_moose_ribs", "name": "구운 사슴 갈비", "heals": 8 }
+    { "id": "cooked_moose_ribs", "name": "구운 사슴 갈비", "heals": 8 },
+    { "id": "cod", "name": "대구", "heals": 2, "_note": "낚시 (2026-11-06). 화로에 구우면 익힌 대구" },
+    { "id": "cooked_cod", "name": "익힌 대구", "heals": 5 },
+    { "id": "salmon", "name": "연어", "heals": 2 },
+    { "id": "cooked_salmon", "name": "익힌 연어", "heals": 6 },
+    { "id": "tropical_fish", "name": "열대어", "heals": 1 },
+    { "id": "pufferfish", "name": "복어", "heals": 1, "_note": "마인크래프트에선 먹으면 독. 여기선 조금만 찬다 (물약 재료로 쓰는 게 좋아)" }
   ]
 }

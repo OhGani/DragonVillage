@@ -203,6 +203,8 @@ export interface NetEvents {
   /** 잔류형 물약 구름 (#246) */
   onCloud(m: { id: number; potion: string; x: number; y: number; z: number; radius: number; leftMs: number }): void;
   onCloudGone(m: { id: number }): void;
+  /** 낚시 (2026-11-06) */
+  onFish(m: { ev: 'cast' | 'bite' | 'miss' | 'catch' | 'reel' | 'gone'; x?: number; y?: number; z?: number; item?: string; count?: number }): void;
   /** 죽어서 다시 일어남 — 이 자리로 (M7-1) */
   onRespawn(m: { x: number; y: number; z: number; yaw: number; dropped: number }): void;
   /** 이 세계의 경험치 구슬 전부 */
@@ -426,6 +428,10 @@ export class NetClient {
   /** 뼛가루 (#193) */
   sendBoneMeal(x: number, y: number, z: number, slot: number): void {
     this.sendJson({ t: 'boneMeal', x, y, z, slot });
+  }
+  /** 낚시 (2026-11-06): cast = 물(x,y,z)에 찌 던지기, reel = 건지기 */
+  sendFish(act: 'cast' | 'reel', slot: number, at?: { x: number; y: number; z: number }): void {
+    this.sendJson({ t: 'fish', act, slot, ...(at ?? {}) });
   }
   /** 유리병에 물 담기 (#226) */
   sendFillBottle(x: number, y: number, z: number, slot: number): void {
@@ -665,6 +671,7 @@ export class NetClient {
     else if (msg.t === 'air') ev.onAir(msg);
     else if (msg.t === 'cloud') ev.onCloud(msg);
     else if (msg.t === 'cloudGone') ev.onCloudGone(msg);
+    else if (msg.t === 'fish') ev.onFish(msg);
     else if (msg.t === 'respawn') ev.onRespawn(msg);
     else if (msg.t === 'orbs') ev.onOrbs(msg.list);
     else if (msg.t === 'orbGone') ev.onOrbGone(msg.id, msg.by);

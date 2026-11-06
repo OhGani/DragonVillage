@@ -30,6 +30,9 @@ export const ITEM_FALLBACK_KO: Readonly<Record<string, string>> = {
   bison_fur: '들소 털가죽',
   moose_ribs: '사슴 갈비',
   bear_fur: '곰 털가죽',
+  // 낚시 (2026-11-06, data/fishing.json)
+  cod: '대구',
+  tropical_fish: '열대어',
   redstone: '레드스톤 가루',
   // 레시피 재료 (recipes.json in)
   leather: '가죽',

@@ -20,6 +20,7 @@ import giftsJson from '../../../../data/gifts.json';
 import starterKitJson from '../../../../data/starter-kit.json';
 import toolsJson from '../../../../data/tools.json';
 import foodJson from '../../../../data/food.json';
+import fishingJson from '../../../../data/fishing.json';
 import tradesJson from '../../../../data/trades.json';
 import enchantsJson from '../../../../data/enchants.json';
 import xpJson from '../../../../data/xp.json';
@@ -44,6 +45,7 @@ import { parseGifts } from './gifts';
 import { parseStarterKit } from './starterKit';
 import { parseTools } from './tools';
 import { parseFood } from './food';
+import { parseFishing } from './fishing';
 import { parseTrades } from './trades';
 import { parseEnchants } from './enchants';
 import { parseXp } from './xp';
@@ -74,6 +76,8 @@ export const FAMILY_RULES = parseFamilyRules(familyRulesJson);
 export const TOOLS = parseTools(toolsJson);
 /** 먹을 것 (#186) */
 export const FOOD = parseFood(foodJson);
+/** 낚시 (2026-11-06) */
+export const FISHING = parseFishing(fishingJson);
 /** 주민 거래 (#225) */
 export const TRADES = parseTrades(tradesJson);
 /** 인챈트 (#231) */

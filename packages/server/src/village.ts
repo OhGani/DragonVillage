@@ -207,9 +207,13 @@ import {
   XP_SOURCE,
   xpAfterDeath, CRYSTAL_SHOT_RANGE,
   GLASS_BOTTLE,
+  FISHING_ROD,
+  fishWaitMs,
+  fishXp,
+  rollCatch,
   WATER_BOTTLE,
   effectiveBuys, enchantLevelOf, meleeBonus, knockbackFactor, canEnchant, countBookshelves, encodeEnchanted, hash3, anvilCombine, MINECART, CART_SEAT_Y, railShapeFor, CURE_ITEM } from '@dragon-village/shared';
-import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS, TRADES, ENCHANTS } from '@dragon-village/shared/data';
+import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS, TRADES, ENCHANTS, FISHING } from '@dragon-village/shared/data';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import { RAID_GOAL, RaidSystem } from './raid';
@@ -340,7 +344,28 @@ export interface RoomPlayer {
   lastRegenAt: number;
   /** 죽은 직후 이 시각까지는 위치 보고를 무시한다 — 클라가 아직 옛 자리를 보내는 사이 방금 떨어뜨린 구슬을 도로 집지 않게 */
   moveLockUntil: number;
+  /** 낚시 (2026-11-06): 물에 떠 있는 찌. 접속 동안만 */
+  fishing?: FishLine | null;
+  /** 낚시 횟수 (기다림·잡히는 것을 고르는 차례) */
+  fishN?: number;
 }
+
+/** 낚시 찌 (2026-11-06): 물 칸 x,y,z · 세계 · 낚는 곳 이름(village/원정지 id) · 이번 차례 n · 입질 시각과 끝 · 입질을 알렸나 */
+interface FishLine {
+  x: number;
+  y: number;
+  z: number;
+  world: WorldKind;
+  place: string;
+  n: number;
+  seed: number;
+  biteAt: number;
+  biteUntil: number;
+  told: boolean;
+}
+/** 입질 끝을 조금 넘겨도(폰 지연) 잡힌 것으로 본다 · 찌에서 이만큼 멀어지면 찌가 사라진다 */
+const FISH_GRACE_MS = 400;
+const FISH_LEASH = 6;
 
 export interface JoinResult {
   idx: number;
@@ -2084,6 +2109,79 @@ export class VillageRoom {
     return null;
   }
 
+  /**
+   * 낚시 (2026-11-06, 아빠 "낚시 할 수 있게"): 낚싯대를 들고 FISHING.range 칸 안의 물을 탭 → 찌. 마을·원정 어디서나.
+   * 오류: NO_ROD · TOO_FAR · NOT_WATER
+   */
+  castLine(idx: number, slot: number, x: number, y: number, z: number, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    const held = slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
+    if (held !== FISHING_ROD) return 'NO_ROD';
+    if (Math.hypot(x + 0.5 - p.pos.x, z + 0.5 - p.pos.z) > FISHING.range + 1 || Math.abs(y + 0.5 - (p.pos.y + EYE)) > FISHING.range) return 'TOO_FAR';
+    const world = this.worldOf(p);
+    if (!world.inBounds(x, y, z) || this.registry.get(world.getBlock(x, y, z)).fluid !== 'water') return 'NOT_WATER';
+    const n = (p.fishN = (p.fishN ?? 0) + 1);
+    const seed = (Math.floor(now / 1000) * 31 + p.idx * 7919) | 0;
+    const biteAt = now + fishWaitMs(FISHING, seed, n);
+    p.fishing = { x, y, z, world: p.world, place: p.world === 'village' ? 'village' : (this.expedition?.def.id ?? 'village'), n, seed, biteAt, biteUntil: biteAt + FISHING.biteMs, told: false };
+    this.sendJson(p, { t: 'fish', ev: 'cast', x, y, z });
+    return null;
+  }
+
+  /** 낚싯줄 건지기 (2026-11-06): 입질 중이면 하나 낚고 경험치, 아니면 빈 줄. 오류: NO_LINE · BAG_FULL(입질 중인데 가방이 가득) */
+  reelLine(idx: number, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    const f = p.fishing;
+    if (!f) return 'NO_LINE';
+    p.fishing = null;
+    const biting = now >= f.biteAt && now <= f.biteUntil + FISH_GRACE_MS;
+    const c = biting ? rollCatch(FISHING, f.place, f.seed, f.n) : null;
+    if (!c) {
+      this.sendJson(p, { t: 'fish', ev: 'reel' });
+      return null;
+    }
+    if (!fits(p.inv, [c])) {
+      this.sendJson(p, { t: 'fish', ev: 'reel' });
+      return 'BAG_FULL';
+    }
+    const changed = new Set<number>();
+    this.giveTo(p, c.item, c.count, changed);
+    this.sendInv(p, changed);
+    this.noteCodex(p, c.item, now);
+    this.addXp(p, fishXp(FISHING, f.seed, f.n), XP_SOURCE.fishing, f.x + 0.5, f.y + 1, f.z + 0.5, now);
+    this.sendJson(p, { t: 'fish', ev: 'catch', item: c.item, count: c.count, x: f.x, y: f.y, z: f.z });
+    this.log(`마을 ${this.info.code}: ${p.nick} 낚시 ${c.item}×${c.count} (${f.place})`);
+    return null;
+  }
+
+  /** 찌 돌보기 (2026-11-06): 입질 때 알리고, 놓치면 다시 기다린다. 세계가 바뀌거나 멀어지거나 물이 없어지면 찌가 사라진다 */
+  private tickFishing(now: number): void {
+    for (const p of this.players.values()) {
+      const f = p.fishing;
+      if (!f) continue;
+      const world = this.worldOf(p);
+      const gone = p.world !== f.world || Math.hypot(f.x + 0.5 - p.pos.x, f.z + 0.5 - p.pos.z) > FISHING.range + FISH_LEASH || !world.inBounds(f.x, f.y, f.z) || this.registry.get(world.getBlock(f.x, f.y, f.z)).fluid !== 'water';
+      if (gone) {
+        p.fishing = null;
+        this.sendJson(p, { t: 'fish', ev: 'gone' });
+        continue;
+      }
+      if (!f.told && now >= f.biteAt) {
+        f.told = true;
+        this.sendJson(p, { t: 'fish', ev: 'bite' });
+      } else if (now > f.biteUntil + FISH_GRACE_MS) {
+        // 놓쳤다 — 다음 입질을 기다린다
+        f.n = p.fishN = (p.fishN ?? 0) + 1;
+        f.biteAt = now + fishWaitMs(FISHING, f.seed, f.n);
+        f.biteUntil = f.biteAt + FISHING.biteMs;
+        f.told = false;
+        this.sendJson(p, { t: 'fish', ev: 'miss' });
+      }
+    }
+  }
+
   /** 이 사람이 이 물건을 (지금 기준으로) 몇 번 샀나 (#230) — 저장소 없으면 0 */
   private demandBuys(p: RoomPlayer, item: string, now: number): number {
     const row = this.storage?.tradeDemand(p.token, this.info.code).find((r) => r.item === item);
@@ -3422,6 +3520,7 @@ export class VillageRoom {
     this.tickHealth(now);
     this.tickPotionEffects(now);
     this.tickBreath(now);
+    this.tickFishing(now);
     this.tickClouds(now);
     if (this.lastFlush === 0) this.lastFlush = now;
     if (now - this.lastFlush >= FLUSH_MS) this.flush(now);

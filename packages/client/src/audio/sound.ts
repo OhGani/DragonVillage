@@ -178,3 +178,22 @@ export function fireworkPop(): void {
   tone(1800 + rnd() * 600, t + 0.05, 0.3, 0.03, 'triangle');
   tone(2400 + rnd() * 600, t + 0.12, 0.3, 0.025, 'triangle');
 }
+
+/** 낚시 입질 (2026-11-06): 물이 퐁! 하고 튀는 소리 — 높은 음이 빠르게 떨어진다 */
+export function splash(): void {
+  const c = audio();
+  if (!c) return;
+  const t = c.currentTime;
+  const o = c.createOscillator();
+  const g = c.createGain();
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(900, t);
+  o.frequency.exponentialRampToValueAtTime(180, t + 0.18);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.16, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0005, t + 0.22);
+  o.connect(g).connect(c.destination);
+  o.start(t);
+  o.stop(t + 0.25);
+  tone(1500 + rnd() * 300, t + 0.03, 0.06, 0.04);
+}

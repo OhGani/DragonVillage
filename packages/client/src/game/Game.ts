@@ -85,10 +85,11 @@ import {
   xpProgress,
   raycastVoxels,
   CRYSTAL_SHOT_RANGE,
-  countOf, parseEnchanted, countBookshelves, CART_SEAT_Y, CURE_ITEM, MOB_STATE, type SepBody } from '@dragon-village/shared';
-import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP, TRADES, ENCHANTS } from '@dragon-village/shared/data';
+  countOf, parseEnchanted, countBookshelves, CART_SEAT_Y, CURE_ITEM, MOB_STATE, type SepBody, FISHING_ROD } from '@dragon-village/shared';
+import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP, TRADES, ENCHANTS, FISHING } from '@dragon-village/shared/data';
 import * as THREE from 'three';
-import { beam as beamSound, bell, ding, explosion as explosionSound, fireworkLaunch, fireworkPop, hit as hitSound, hurt as hurtSound, levelUp, lose, roar } from '../audio/sound';
+import { beam as beamSound, bell, ding, explosion as explosionSound, fireworkLaunch, fireworkPop, hit as hitSound, hurt as hurtSound, levelUp, lose, roar, splash as splashSound } from '../audio/sound';
+import { FishView } from '../render/FishView';
 import { GamepadInput } from '../input/gamepad';
 import { InputManager } from '../input/InputManager';
 import { KeyboardMouse, isTyping } from '../input/keyboard';
@@ -136,6 +137,13 @@ function toward(name: string): string {
   if (code < 0 || code > 11171) return '로';
   const tail = code % 28;
   return tail === 0 || tail === 8 ? '로' : '으로';
+}
+
+/** 한국어 조사 을/를: 받침 있으면 '을', 없으면(한글 아님 포함) '를' (대구를 · 연어를 · 안장을) */
+function objectJosa(name: string): string {
+  const code = name.charCodeAt(name.length - 1) - 0xac00;
+  if (code < 0 || code > 11171) return '를';
+  return code % 28 === 0 ? '를' : '을';
 }
 
 export interface GameOptions {
@@ -341,6 +349,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const orbView = new OrbView(scene);
   /** 블록 부스러기 (캐는 중 톡톡, 부서지면 와르르) */
   const particles = new Particles(scene);
+  // 낚시 (2026-11-06): 찌·줄. handSpot = 화면 오른쪽 아래 손 자리(세계 좌표) — 줄이 여기서 나간다
+  const fishView = new FishView(scene);
+  const handSpot = new THREE.Vector3();
+  const updateHandSpot = () => handSpot.set(0.32, -0.3, -0.6).applyMatrix4(camera.matrixWorld);
   const fireworks = new FireworkView(scene); // 폭죽 (#211)
   fireworks.onPop = () => fireworkPop();
   const blockColorCache = new Map<number, number>();
@@ -742,6 +754,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     disposeWorld(ctx);
     pending.clear();
     companions.clear(); // 세계가 바뀌면 따라온 펫 목록은 서버가 다시 준다 (#145)
+    fishView.clear(); // 찌는 그 세계에 두고 온다 (서버도 지운다)
     ctx = buildWorld(w.kind, w.expedition, { ...w.spawn }, w.chunks);
     // 그 세계에 있는 사람들만 보인다
     for (const idx of remote.indices()) remote.remove(idx);
@@ -1127,6 +1140,36 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     onAir: (m) => hud.setAir(m.air, m.max), // 숨 방울 (#246)
     onCloud: (m) => mobView.cloud(m.id, m, potionColor(m.potion), m.radius, m.leftMs),
     onCloudGone: (m) => mobView.cloudGone(m.id),
+    onFish: (m) => {
+      // 낚시 (2026-11-06)
+      if (m.ev === 'cast' && m.x !== undefined && m.y !== undefined && m.z !== undefined) {
+        updateHandSpot();
+        fishView.cast(m.x, m.y, m.z, handSpot);
+      } else if (m.ev === 'bite') {
+        fishView.bite();
+        splashSound();
+        const s = fishView.spot;
+        if (s) particles.burst(s.x - 0.5, s.y - 0.9, s.z - 0.5, 0xbfe6ff, 10);
+        hud.toast('❗ 입질이에요! 지금 탭!', Math.round(FISHING.biteMs));
+        try {
+          navigator.vibrate?.(150);
+        } catch {
+          /* 진동 없는 기기 */
+        }
+      } else if (m.ev === 'miss') {
+        fishView.unbite();
+        hud.toast('앗, 놓쳤어요… 찌를 보며 다시 기다려요', 1800);
+      } else if (m.ev === 'catch') {
+        fishView.clear();
+        ding(0);
+        const nm = nameOf(m.item ?? '');
+        hud.toast((m.count ?? 1) > 1 ? `🎣 ${nm} ${m.count}개를 낚았어요!` : `🎣 ${nm}${objectJosa(nm)} 낚았어요!`, 2600);
+      } else if (m.ev === 'reel') fishView.clear();
+      else if (m.ev === 'gone') {
+        fishView.clear();
+        hud.toast('찌가 사라졌어요 — 다시 던져요', 1600);
+      }
+    },
     onHealth: (m) => {
       if (m.hp < hp) {
         hud.hurtFlash();
@@ -1867,6 +1910,24 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       else net.sendThrowPotion(hud.selectedIndex, player.lookDir);
       hand.swing();
     }
+    // 낚시 (2026-11-06): 낚싯대를 들고 탭 → 찌가 없으면 겨눈 물(12칸 안)에 던지고, 있으면 건진다(입질 때면 잡힌다). 다른 걸 들면 거둔다
+    const holdingRod = hud.selectedItem === FISHING_ROD;
+    if (holdingRod && inp.secondaryTap && aimedMob === null && !guarding && !anyPanelOpen() && started && !disconnected) {
+      if (fishView.active) net.sendFish('reel', hud.selectedIndex);
+      else {
+        const eye = player.eye,
+          dir = player.lookDir;
+        const w = ctx.world;
+        const hit = raycastVoxels((x, y, z) => w.getBlock(x, y, z), (id) => id !== AIR_ID, eye.x, eye.y, eye.z, dir.x, dir.y, dir.z, FISHING.range);
+        if (hit && registry.get(hit.id).fluid === 'water') net.sendFish('cast', hud.selectedIndex, { x: hit.x, y: hit.y, z: hit.z });
+        else hud.toast('🎣 낚싯대를 들고 물(강·연못·바다)을 탭해요', 1800);
+      }
+      hand.swing();
+    }
+    if (fishView.active && !holdingRod) {
+      net.sendFish('reel', hud.selectedIndex); // 낚싯대를 내려놓으면 줄을 거둔다
+      fishView.clear();
+    }
     // 먹기 (#186): 먹을 것을 들고 (몹을 안 보며) 탭 → 서버가 하나 빼고 하트를 채운다
     const heldFood = foodOf(FOOD, hud.selectedItem);
     // 당근·감자처럼 먹을 것이자 씨앗인 것은 농지를 겨눴을 땐 심기만 한다 (#212 — 전엔 심으면서 하나를 더 먹었다)
@@ -1911,6 +1972,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
     interaction.update(inp, dt);
     player.applyToCamera(camera, bobStrength);
+    if (fishView.active) {
+      camera.updateMatrixWorld();
+      updateHandSpot();
+      fishView.update(dt, now, handSpot);
+    }
 
     // 위치는 20Hz 로 서버에
     moveAcc += dt * 1000;

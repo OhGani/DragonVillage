@@ -484,6 +484,19 @@ export class Session {
         if (err) return this.error(err, err === 'NO_BOTTLE' ? '유리병을 들고 탭해요' : err === 'NOT_WATER' ? '물을 탭해야 물병이 돼요' : err === 'TOO_FAR' ? '너무 멀어요 — 가까이 가요' : err === 'BAG_FULL' ? '가방이 가득 찼어요' : '지금은 할 수 없어요');
         return;
       }
+      case 'fish': {
+        // 낚시 (2026-11-06)
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (msg.act === 'reel') {
+          const err = this.room.reelLine(this.idx);
+          if (err === 'BAG_FULL') return this.error(err, '가방이 가득 차서 놓쳤어요');
+          return;
+        }
+        if (msg.act !== 'cast' || !Number.isInteger(msg.x) || !Number.isInteger(msg.y) || !Number.isInteger(msg.z) || !Number.isInteger(msg.slot)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.castLine(this.idx, msg.slot, msg.x as number, msg.y as number, msg.z as number);
+        if (err) return this.error(err, err === 'NO_ROD' ? '낚싯대를 들고 물을 탭해요' : err === 'NOT_WATER' ? '물에 던져야 해요' : err === 'TOO_FAR' ? '너무 멀어요 — 물 가까이 가요' : '지금은 할 수 없어요');
+        return;
+      }
       case 'boneMeal': {
         // 뼛가루 (#193)
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');

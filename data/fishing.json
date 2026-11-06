@@ -1,0 +1,21 @@
+{
+  "_comment": "낚시 (2026-11-06, 아빠 '낚시 할 수 있게'). 낚싯대를 들고 물을 탭하면 찌가 뜨고, waitMinSec~waitMaxSec 초 뒤 입질(찌가 쑥 들어감) — 그때 biteSec 초 안에 다시 탭하면 catches 에서 하나를 낚는다. weight 가 클수록 잘 잡힌다. places 를 적으면 그곳에서만 잡힌다(village = 우리 마을, 나머지는 원정지 id). 값은 마음대로 바꿔도 돼",
+  "range": 12,
+  "waitMinSec": 5,
+  "waitMaxSec": 15,
+  "biteSec": 2,
+  "xp": [1, 6],
+  "catches": [
+    { "item": "cod", "name": "대구", "weight": 50 },
+    { "item": "salmon", "name": "연어", "weight": 22, "_note": "아들: 연어는 마을 강에서" },
+    { "item": "pufferfish", "name": "복어", "weight": 10, "places": ["grass_island", "jungle"], "_note": "아들: 바다 낚시(초원 섬). 물약 재료" },
+    { "item": "tropical_fish", "name": "열대어", "weight": 6, "places": ["grass_island", "jungle", "desert"] },
+    { "item": "stick", "name": "막대기", "weight": 3 },
+    { "item": "string", "name": "실", "weight": 3 },
+    { "item": "bone", "name": "뼈", "weight": 3 },
+    { "item": "leather", "name": "가죽", "weight": 2 },
+    { "item": "ink_sac", "name": "먹물", "weight": 2 },
+    { "item": "saddle", "name": "안장", "weight": 1, "_note": "보물" },
+    { "item": "name_tag_blank", "name": "빈 이름표", "weight": 1, "_note": "보물" }
+  ]
+}

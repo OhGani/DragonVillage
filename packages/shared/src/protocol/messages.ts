@@ -497,6 +497,8 @@ export type ClientJson =
   | { t: 'boneMeal'; x: number; y: number; z: number; slot: number }
   /** 유리병에 물 담기 (#226): slot 의 유리병 하나 → 물병 */
   | { t: 'fillBottle'; x: number; y: number; z: number; slot: number }
+  /** 낚시 (2026-11-06): cast = 낚싯대를 들고 물(x,y,z)에 찌 던지기, reel = 건지기(입질 때면 잡힌다) */
+  | { t: 'fish'; act: 'cast' | 'reel'; slot: number; x?: number; y?: number; z?: number }
   /** TNT 에 불 붙이기 (#195): 라이터를 든 칸, 그 자리 TNT → 4초 뒤 폭발 */
   | { t: 'ignite'; x: number; y: number; z: number; slot: number }
   /** 타고 있는 드래곤의 스킬 (M6-5). 지금은 'beam' 만 */
@@ -639,6 +641,8 @@ export type ServerJson =
   | { t: 'cloud'; id: number; potion: string; x: number; y: number; z: number; radius: number; leftMs: number }
   /** 구름이 사라졌다 */
   | { t: 'cloudGone'; id: number }
+  /** 낚시 (2026-11-06, 던진 사람에게만): cast 찌가 떴다(x,y,z 물 칸) · bite 입질(지금 탭!) · miss 놓침(다시 기다림) · catch 잡음(item·count) · reel 빈 낚싯줄 · gone 찌가 사라짐(멀어짐·물 없어짐·세계 바뀜) */
+  | { t: 'fish'; ev: 'cast' | 'bite' | 'miss' | 'catch' | 'reel' | 'gone'; x?: number; y?: number; z?: number; item?: string; count?: number }
   /** 죽어서 다시 일어났다 — 이 자리로 옮겨라 (M7-1) */
   | { t: 'respawn'; x: number; y: number; z: number; yaw: number; dropped: number }
   /** 이 세계에 떨어져 있는 경험치 구슬 전부 (세계 들어갈 때·떨어질 때) */
