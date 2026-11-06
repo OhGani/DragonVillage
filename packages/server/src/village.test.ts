@@ -2497,21 +2497,22 @@ describe('원정 밤의 몹 (M7-2)', () => {
 
   it('낮에는 안 생기고, 밤이 되면 4초마다 하나씩 최대 8마리, 모두에게 MobsState 가 간다', () => {
     const { room, a, e } = goOut();
+    const night = () => [...(room.mobSys?.mobs.values() ?? [])].filter((m) => !isWild(m.kind)); // 사냥 동물은 45초마다 다시 채워지니 빼고 센다 (#262)
     for (let t = T0; t < T0 + 30_000; t += 1000) room.tick(t);
-    expect(room.mobSys?.mobs.size ?? 0).toBe(0); // 낮
+    expect(night().length).toBe(0); // 낮
     a.clear();
     for (let t = NIGHT; t < NIGHT + 9_000; t += 500) room.tick(t); // 9초: 0·4·8초에 셋
-    const n = room.mobSys!.mobs.size;
+    const n = night().length;
     expect(n).toBe(3);
     expect(a.bin.some((m) => m.type === MSG.MobsState)).toBe(true);
-    const spawns = a.json.filter((m) => m.t === 'mob' && m.ev === 'spawn');
+    const spawns = a.json.filter((m) => m.t === 'mob' && m.ev === 'spawn' && !isWild(m.mob as never));
     expect(spawns.length).toBe(n);
     // 오래 두면 최대 8마리를 넘지 않는다 (사람에게 닿은 크리퍼는 터져 빠지고 그 자리는 다시 채워진다)
     for (let t = NIGHT + 9_000; t < NIGHT + 60_000; t += 500) {
       room.tick(t);
-      expect(room.mobSys!.mobs.size).toBeLessThanOrEqual(8);
+      expect(night().length).toBeLessThanOrEqual(8);
     }
-    for (const m of room.mobSys!.mobs.values()) {
+    for (const m of night()) {
       const d = Math.hypot(m.x - e.spawn.x, m.z - e.spawn.z);
       expect(d).toBeLessThan(40); // 사람(포탈 앞)에서 12~24칸에 생겨 다가온다
       expect(BLOCKS.get(e.world.getBlock(Math.floor(m.x), Math.floor(m.y) - 1, Math.floor(m.z))).solid).toBe(true); // 땅 위에 서 있다

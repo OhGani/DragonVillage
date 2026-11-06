@@ -161,11 +161,20 @@ const GRUDGE_DAMAGE = 3;
  */
 const WILD_SAFE_R = 16;
 const WILD_NEAR_R = 44;
+/** 다시 채우는 주기 · 다시 채울 땐 사람에게서 이 거리 밖 (눈앞에서 갑자기 생기지 않게) */
+const WILD_REFILL_MS = 45_000;
+const WILD_REFILL_MIN = 28;
 const WILD_EDGE = 6;
 const GRUDGE_ATTACK_MS = 2000;
 
 export class MobSystem {
   readonly mobs = new Map<number, MobState>();
+  /** 사냥 동물 (2026-11-05): 종류별 정한 수(expeditions.json wildAnimals) · 무리 번호 · 첫 방향 · 다시 채우기 시각·차례 */
+  private readonly wildTargets: [MobKind, number][] = [];
+  private herdNo = 0;
+  private turn0 = 0;
+  private lastWildRefill = 0;
+  private wildTurn = 0;
   private nextId = 1;
   private lastSpawnAt = 0;
   private lastStepAt = 0;
@@ -219,45 +228,72 @@ export class MobSystem {
    * 그 고리에 땅이 없으면(물가) 조금씩 바깥으로 찾는다. 시작 자리를 모르면 세계 곳곳. 시드·무리 번호로 결정론
    */
   private spawnWild(animals: Readonly<Record<string, number>>, safe: { x: number; z: number } | null): void {
-    const w = this.e.world;
-    let herd = 0;
-    const turn0 = hash3(this.e.seed, 0, 0, 35) * Math.PI * 2; // 첫 무리 방향 (원정마다 다르게)
+    this.turn0 = hash3(this.e.seed, 0, 0, 35) * Math.PI * 2; // 첫 무리 방향 (원정마다 다르게)
     for (const [id, n] of Object.entries(animals)) {
-      if (!isMobKind(id) || !isWild(id)) continue;
+      if (!isMobKind(id) || !isWild(id) || n <= 0) continue;
+      this.wildTargets.push([id, n]);
       let left = n;
-      for (let tries = 0; left > 0 && tries < 40; tries++) {
-        const h = herd++;
-        const size = Math.min(left, hash3(this.e.seed, h, 31, 7) < 0.5 ? 2 : 3);
-        let center: { x: number; y: number; z: number } | null = null;
-        for (let a = 0; a < 40 && !center; a++) {
-          let x: number, z: number;
-          if (safe) {
-            const ang = turn0 + h * 2.399963 + a * 0.9;
-            const r = WILD_SAFE_R + 2 + hash3(this.e.seed, h, a, 36) * (WILD_NEAR_R - WILD_SAFE_R - 4) + Math.max(0, a - 20) * 1.5; // 스무 번 못 찾으면 조금씩 바깥으로
-            x = Math.floor(safe.x + Math.cos(ang) * r) + 0.5;
-            z = Math.floor(safe.z + Math.sin(ang) * r) + 0.5;
-            if (x < WILD_EDGE || z < WILD_EDGE || x > w.sizeX - WILD_EDGE || z > w.sizeZ - WILD_EDGE) continue;
-          } else {
-            x = WILD_EDGE + Math.floor(hash3(this.e.seed, h, a, 32) * (w.sizeX - WILD_EDGE * 2)) + 0.5;
-            z = WILD_EDGE + Math.floor(hash3(this.e.seed, h, a, 33) * (w.sizeZ - WILD_EDGE * 2)) + 0.5;
-          }
-          const y = this.wildGround(x, z);
-          if (y !== null) center = { x, y, z };
-        }
-        if (!center) continue;
-        for (let k = 0; k < size; k++) {
-          const ang = hash3(this.e.seed, h, k, 34) * Math.PI * 2,
-            r = k === 0 ? 0 : 1.2 + k * 0.6;
-          const x = center.x + Math.cos(ang) * r,
-            z = center.z + Math.sin(ang) * r;
-          const y = k === 0 ? center.y : this.wildGround(x, z);
-          if (y === null || Math.abs(y - center.y) > 2) continue;
-          const m = this.spawnKind(id, x, y, z);
-          m.home = { x: center.x, z: center.z };
-          m.yaw = ang;
-          left--;
-        }
+      for (let tries = 0; left > 0 && tries < 40; tries++) left -= this.placeHerd(id, Math.min(left, hash3(this.e.seed, this.herdNo, 31, 7) < 0.5 ? 2 : 3), safe, WILD_SAFE_R + 2, WILD_NEAR_R - 2);
+    }
+  }
+
+  /**
+   * 무리 하나 놓기: around 둘레 rMin~rMax 칸 고리(무리 번호마다 황금각으로 돌린 방향)에서 설 땅을 찾아 size 마리. 놓은 수.
+   * 고리에 땅이 없으면(물가) 스무 번 뒤부터 조금씩 바깥으로. around 가 없으면 세계 곳곳
+   */
+  private placeHerd(kind: MobKind, size: number, around: { x: number; z: number } | null, rMin: number, rMax: number): number {
+    const w = this.e.world;
+    const h = this.herdNo++;
+    let center: { x: number; y: number; z: number } | null = null;
+    for (let a = 0; a < 40 && !center; a++) {
+      let x: number, z: number;
+      if (around) {
+        const ang = this.turn0 + h * 2.399963 + a * 0.9;
+        const r = rMin + hash3(this.e.seed, h, a, 36) * (rMax - rMin) + Math.max(0, a - 20) * 1.5;
+        x = Math.floor(around.x + Math.cos(ang) * r) + 0.5;
+        z = Math.floor(around.z + Math.sin(ang) * r) + 0.5;
+        if (x < WILD_EDGE || z < WILD_EDGE || x > w.sizeX - WILD_EDGE || z > w.sizeZ - WILD_EDGE) continue;
+      } else {
+        x = WILD_EDGE + Math.floor(hash3(this.e.seed, h, a, 32) * (w.sizeX - WILD_EDGE * 2)) + 0.5;
+        z = WILD_EDGE + Math.floor(hash3(this.e.seed, h, a, 33) * (w.sizeZ - WILD_EDGE * 2)) + 0.5;
       }
+      const y = this.wildGround(x, z);
+      if (y !== null) center = { x, y, z };
+    }
+    if (!center) return 0;
+    let placed = 0;
+    for (let k = 0; k < size; k++) {
+      const ang = hash3(this.e.seed, h, k, 34) * Math.PI * 2,
+        r = k === 0 ? 0 : 1.2 + k * 0.6;
+      const x = center.x + Math.cos(ang) * r,
+        z = center.z + Math.sin(ang) * r;
+      const y = k === 0 ? center.y : this.wildGround(x, z);
+      if (y === null || Math.abs(y - center.y) > 2) continue;
+      const m = this.spawnKind(kind, x, y, z);
+      m.home = { x: center.x, z: center.z };
+      m.yaw = ang;
+      placed++;
+    }
+    return placed;
+  }
+
+  /**
+   * 사냥 동물 다시 채우기 (아빠 2026-11-06 "라쿤 2마리만 — 너무 적다"): WILD_REFILL_MS 마다, 정한 수보다 적은 종류 하나에
+   * 무리 하나(2~3마리)를 사람 한 명(차례로) 둘레 WILD_REFILL_MIN~WILD_NEAR_R 칸에 — 눈앞에서 갑자기 생기지 않게 조금 멀리
+   */
+  private refillWild(players: MobTarget[], now: number): void {
+    if (!this.wildTargets.length || !players.length || this.e.ended) return;
+    if (this.lastWildRefill === 0 || this.lastWildRefill > now) this.lastWildRefill = now;
+    if (now - this.lastWildRefill < WILD_REFILL_MS) return;
+    this.lastWildRefill = now;
+    for (let i = 0; i < this.wildTargets.length; i++) {
+      const [kind, target] = this.wildTargets[(this.wildTurn + i) % this.wildTargets.length]!;
+      const need = target - this.countOf(kind);
+      if (need <= 0) continue;
+      this.wildTurn = (this.wildTurn + i + 1) % this.wildTargets.length; // 다음엔 다른 종류부터
+      const p = players[this.herdNo % players.length]!;
+      this.placeHerd(kind, Math.min(need, hash3(this.e.seed, this.herdNo, 31, 7) < 0.5 ? 2 : 3), p, WILD_REFILL_MIN, WILD_NEAR_R);
+      return;
     }
   }
 
@@ -362,6 +398,7 @@ export class MobSystem {
       }
     }
     this.tickBoss(players, now);
+    this.refillWild(players, now);
     this.tickPoison(players, now);
     this.tickMobPotions(now);
     if (this.mobs.size === 0 && this.companions.size === 0) return;
