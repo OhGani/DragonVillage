@@ -140,7 +140,7 @@ describe('마을 동물 (M8-1)', () => {
     expect(moved.length).toBeGreaterThan(0);
     const states = a.bin.filter((m) => m.type === MSG.MobsState);
     expect(states.length).toBeGreaterThan(0);
-    const last = states.at(-1)!.msg as { id: number; kind: number }[];
+    const last = (states.at(-1)!.msg as { id: number; kind: number }[]).filter((e) => !room.fishMobs?.mobs.has(e.id)); // 마을 강 연어(2026-11-06)는 빼고
     expect(last.length).toBe(room.animals.animals.size);
     expect(Math.min(...last.map((e) => e.id))).toBeGreaterThanOrEqual(ANIMAL_ID_BASE);
   });

@@ -241,6 +241,11 @@ export const GOLEM_MAX = 2;
 export const GOLEM_ID_BASE = 60_000;
 /** 주민이 부른 철 골렘 몹 번호 시작 (#221): 방어전 우민(1부터)·동물(40000부터)과 안 겹치게 */
 export const GUARD_ID_BASE = 30_000;
+/** 마을 강 연어 (2026-11-06): 번호 35000~39999 (동물 40000~ 와 안 겹치게) · 늘 이만큼 헤엄친다(잡히면 사람 둘레에 다시) */
+export const FISH_ID_BASE = 35_000;
+export const VILLAGE_SALMON = 10;
+/** 마을 강 대구 (2026-11-06, 아빠가 보낸 그림) */
+export const VILLAGE_COD = 6;
 /** 인챈트에 쓰는 청금석 아이템 (#231) */
 const LAPIS = 'lapis';
 /** 철 골렘이 쫓는 시간 */
@@ -1765,6 +1770,8 @@ export class VillageRoom {
   raid: RaidSystem | null = null;
   /** 주민이 부른 철 골렘 (#221, 아들 14차 11번 "주민을 때리면 철 골렘이 소환됨"): 때린 사람만 30초 쫓는다. 없으면 null */
   guardMobs: MobSystem | null = null;
+  /** 마을 강의 연어 (2026-11-06): 마을에 사람이 처음 들어올 때 생긴다. 저장하지 않는다(다시 켜면 새로 헤엄친다) */
+  fishMobs: MobSystem | null = null;
   private readonly golemCalledAt = new Map<number, number>();
   /** 마을 동물 (M8-1) */
   animals!: AnimalSystem;
@@ -1870,7 +1877,12 @@ export class VillageRoom {
       this.guardMobs.tick(now); // 주민이 부른 철 골렘 (#221)
       if (this.guardMobs.mobs.size === 0) this.guardMobs = null;
     }
-    const list = [...(this.raid?.mobs.entries() ?? []), ...(this.guardMobs?.entries() ?? []), ...this.animals.entries(now)];
+    if (!this.fishMobs) {
+      const arena: MobArena = { world: this.world, seed: this.info.seed, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0, wildAnimals: { salmon: VILLAGE_SALMON, cod: VILLAGE_COD }, safe: null };
+      this.fishMobs = new MobSystem(arena, this.registry, MOBS, this.mobHooks('village'), { autoSpawn: false, aggroRange: 0, goal: null, quiet: true, firstId: FISH_ID_BASE, lastId: ANIMAL_ID_BASE - 1 });
+    }
+    this.fishMobs.tick(now); // 마을 강 연어 (2026-11-06)
+    const list = [...(this.raid?.mobs.entries() ?? []), ...(this.guardMobs?.entries() ?? []), ...this.fishMobs.entries(), ...this.animals.entries(now)];
     if (list.length === 0 && this.lastCreatureCount === 0) return;
     this.lastCreatureCount = list.length;
     this.broadcast(encodeMobsState(list), -1, 'village');
@@ -1997,6 +2009,7 @@ export class VillageRoom {
   private villageMobSys(mobId: number): MobSystem | null {
     if (this.raid?.mobs.mobs.has(mobId)) return this.raid.mobs;
     if (this.guardMobs?.mobs.has(mobId)) return this.guardMobs;
+    if (this.fishMobs?.mobs.has(mobId)) return this.fishMobs; // 마을 강 연어 (2026-11-06)
     return this.raid?.mobs ?? this.guardMobs;
   }
 

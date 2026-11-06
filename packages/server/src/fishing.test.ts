@@ -1,8 +1,8 @@
 import { BLOCKS, FISHING } from '@dragon-village/shared/data';
-import { DEFAULT_VILLAGE_SEED, FLAG_GROUND, MSG, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, give, type ServerBinary } from '@dragon-village/shared';
+import { DEFAULT_VILLAGE_SEED, FLAG_GROUND, MOB_STATE, MSG, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, give, type ServerBinary } from '@dragon-village/shared';
 import { describe, expect, it } from 'vitest';
 import { Storage } from './storage';
-import { VillageRoom } from './village';
+import { FISH_ID_BASE, VILLAGE_COD, VILLAGE_SALMON, VillageRoom } from './village';
 
 const INFO = { code: '123456', name: '테스트 마을', seed: DEFAULT_VILLAGE_SEED, genVersion: VILLAGE_GEN_VERSION };
 const T0 = 90_000_000;
@@ -92,5 +92,80 @@ describe('낚시 (2026-11-06)', () => {
     expect(room.castLine(ra.idx, rod, water.x, water.y + 1, water.z, T0 + 400)).toBe('NOT_WATER');
     room.onMove(ra.idx, { x: water.x + FISHING.range + 6, y: water.y + 1, z: water.z + 0.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0 + 500);
     expect(room.castLine(ra.idx, rod, water.x, water.y, water.z, T0 + 600)).toBe('TOO_FAR');
+  });
+});
+
+describe('헤엄치는 연어 (2026-11-06)', () => {
+  it('마을 강에 연어가 늘 몇 마리 헤엄치고, 1분이 지나도 물 밖으로 안 나온다', () => {
+    const { room } = setup();
+    for (let t = T0; t < T0 + 60_000; t += 100) room.tick(t);
+    const fish = [...room.fishMobs!.mobs.values()].filter((m) => m.kind === 'salmon');
+    expect(fish.length).toBe(VILLAGE_SALMON);
+    for (const m of fish) {
+      expect(m.id).toBeGreaterThanOrEqual(FISH_ID_BASE);
+      expect(BLOCKS.get(room.world.getBlock(Math.floor(m.x), Math.floor(m.y + 0.2), Math.floor(m.z))).fluid).toBe('water');
+    }
+    expect(new Set(fish.map((m) => `${m.x.toFixed(1)},${m.z.toFixed(1)}`)).size).toBeGreaterThan(1);
+  });
+
+  it('칼로 치면 달아나고(물 안에서), 잡으면 연어가 가방에. 잡힌 만큼 다시 채워진다', () => {
+    const { room, ra, p } = setup();
+    room.tick(T0);
+    const sys = room.fishMobs!;
+    const m = [...sys.mobs.values()][0]!;
+    // 연어 바로 옆 물가에 선다 (2칸, 눈높이는 수면 위)
+    room.onMove(ra.idx, { x: m.x + 1.6, y: m.y + 0.6, z: m.z, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0 + 10);
+    give(p.inv, 'iron_sword', 1);
+    const sword = p.inv.findIndex((s) => s?.item === 'iron_sword');
+    // 맨손(피해 1)으로 한 대 → 살아서 달아난다, 물 밖으로는 안 나간다
+    const x0 = m.x,
+      z0 = m.z;
+    expect(room.hitMob(ra.idx, m.id, undefined, T0 + 100)).toBeNull();
+    expect(sys.mobs.has(m.id)).toBe(true);
+    expect(m.fleeUntil).toBeGreaterThan(T0);
+    for (let t = T0 + 200; t < T0 + 2500; t += 100) room.tick(t);
+    expect(Math.hypot(m.x - x0, m.z - z0)).toBeGreaterThan(0.5);
+    expect(BLOCKS.get(room.world.getBlock(Math.floor(m.x), Math.floor(m.y + 0.2), Math.floor(m.z))).fluid).toBe('water');
+    const before = countOf(p.inv, 'salmon');
+    for (let i = 0; i < 6 && sys.mobs.has(m.id); i++) {
+      room.onMove(ra.idx, { x: m.x + 1.6, y: m.y + 0.6, z: m.z, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0 + 3000 + i * 1000);
+      room.hitMob(ra.idx, m.id, sword, T0 + 3000 + i * 1000 + 10);
+    }
+    expect(sys.mobs.has(m.id)).toBe(false);
+    expect(countOf(p.inv, 'salmon')).toBe(before + 1);
+    for (let t = T0 + 9000; t < T0 + 40_000; t += 500) room.tick(t);
+    expect([...sys.mobs.values()].filter((f) => f.kind === 'salmon').length).toBe(VILLAGE_SALMON);
+  });
+});
+
+describe('대구·열대어·복어 (2026-11-06)', () => {
+  it('마을 강엔 연어와 함께 대구도 헤엄친다', () => {
+    const { room } = setup();
+    for (let t = T0; t < T0 + 5000; t += 100) room.tick(t);
+    expect([...room.fishMobs!.mobs.values()].filter((m) => m.kind === 'cod').length).toBe(VILLAGE_COD);
+  });
+
+  it('복어는 3칸 안에 오면 부풀고(attack), 부푼 채 닿으면 따끔 + 독. 멀면 안 부푼다', () => {
+    const { room, ra, p } = setup();
+    room.tick(T0);
+    const sys = room.fishMobs!;
+    const anchor = [...sys.mobs.values()][0]!;
+    const puff = sys.spawnKind('pufferfish', anchor.x, anchor.y, anchor.z);
+    // 멀리(10칸): 안 부푼다
+    room.onMove(ra.idx, { x: puff.x + 10, y: puff.y + 0.6, z: puff.z, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0 + 10);
+    for (let t = T0 + 100; t < T0 + 1000; t += 100) room.tick(t);
+    expect(puff.state).not.toBe(MOB_STATE.attack);
+    // 2칸: 부푼다, 아직 안 아프다
+    const hp0 = p.hp;
+    puff.x = anchor.x;
+    puff.z = anchor.z;
+    room.onMove(ra.idx, { x: puff.x + 2, y: puff.y - 0.4, z: puff.z, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0 + 1000);
+    room.tick(T0 + 1100);
+    expect(puff.state).toBe(MOB_STATE.attack);
+    expect(p.hp).toBe(hp0);
+    // 닿는다(1칸): 따끔 + 독
+    room.onMove(ra.idx, { x: puff.x + 0.8, y: puff.y - 0.4, z: puff.z, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0 + 1200);
+    for (let t = T0 + 1300; t < T0 + 4500; t += 100) room.tick(t);
+    expect(p.hp).toBeLessThan(hp0);
   });
 });

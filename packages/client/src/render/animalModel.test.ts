@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mobSize } from '@dragon-village/shared';
-import { HORSE_COATS, WILD_MODEL_KINDS, animalParts, animalVariant, horseCoat, horseVoxels, wildParts } from './animalModel';
+import { HORSE_COATS, TROPICAL_VARIANTS, WILD_MODEL_KINDS, animalParts, animalVariant, horseCoat, horseVoxels, pufferPuffedVoxels, wildParts } from './animalModel';
 
 describe('말 털색 (#177)', () => {
   it('검정·갈색·흰색·회색·얼룩말 다섯 가지가 번호로 고르게 나온다', () => {
@@ -40,5 +40,31 @@ describe('원정 사냥 동물 모델 (2026-11-05)', () => {
   }
   it('모르는 종류는 null', () => {
     expect(wildParts('cow')).toBeNull();
+  });
+});
+
+describe('물고기 모델 (2026-11-06)', () => {
+  it('열대어 12가지가 모두 만들어지고 색이 서로 다르다, 높은 몸(B)이 작은 몸(A)보다 크다', () => {
+    const sig = new Set<string>();
+    let maxA = 0,
+      maxB = 0;
+    TROPICAL_VARIANTS.forEach((v, i) => {
+      const p = wildParts('tropical_fish', (i + 0.5) / TROPICAL_VARIANTS.length)!;
+      const all = [...p.body, ...p.head.v, ...(p.tail?.v ?? [])];
+      expect(Math.min(...all.map((c) => c.y))).toBe(0);
+      sig.add([...new Set(all.map((c) => c.c))].sort().join());
+      const top = Math.max(...all.map((c) => c.y));
+      if (v.tall) maxB = Math.max(maxB, top);
+      else maxA = Math.max(maxA, top);
+    });
+    expect(sig.size).toBe(TROPICAL_VARIANTS.length);
+    expect(maxB).toBeGreaterThan(maxA);
+  });
+
+  it('부푼 복어는 작은 복어보다 훨씬 크다', () => {
+    const small = wildParts('pufferfish')!.body;
+    const big = pufferPuffedVoxels();
+    const h = (vs: { y: number }[]) => Math.max(...vs.map((v) => v.y)) - Math.min(...vs.map((v) => v.y)) + 1;
+    expect(h(big)).toBeGreaterThanOrEqual(h(small) * 2);
   });
 });

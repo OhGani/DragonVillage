@@ -268,7 +268,11 @@
       ],
       "wildAnimals": {
         "gazelle": 20,
-        "raccoon": 12
+        "raccoon": 12,
+        "salmon": 8,
+        "cod": 8,
+        "tropical_fish": 8,
+        "pufferfish": 4
       },
       "_wildAnimalsNote": "사냥 동물 (2026-11-05, 2026-11-06 두 번 늘림): 처음부터 3~4마리 무리로 돌아다니고, 잡혀서 줄면 20초마다 한 무리씩 이 숫자까지 다시 생긴다. 숫자를 바꾸거나 다른 원정지에 옮겨도 돼 (gazelle·raccoon·roadrunner·capuchin 은 달아나고, rattlesnake·bison·moose·grizzly 는 덤빈다)",
       "nightMobs": [

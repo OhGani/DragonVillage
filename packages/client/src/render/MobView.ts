@@ -11,7 +11,7 @@ import { ANIMAL_FLAG, MOB_KIND_OF, MOB_STATE, type MobEntry, mobSize, ANIMAL_ID_
 import { MOBS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { PLAYER_SHADES, type SkinPalette, VOXEL, playerVoxels } from './playerModel';
-import { type Part, WILD_MODEL_KINDS, animalParts, animalVariant, collarVoxels, gorillaParts, wardenParts, wildParts } from './animalModel';
+import { type Part, FISH_MODEL_KINDS, WILD_MODEL_KINDS, animalParts, animalVariant, collarVoxels, gorillaParts, pufferPuffedVoxels, wardenParts, wildParts } from './animalModel';
 import { type Voxel, buildVoxelGeometry } from './voxelGeometry';
 import { nameSprite } from '../net/RemotePlayers';
 import { dragonMesh } from './DragonMesh';
@@ -246,6 +246,21 @@ function partMesh(voxels: readonly Voxel[], material: THREE.Material): THREE.Mes
   const geom = buildVoxelGeometry(voxels, VOXEL, PLAYER_SHADES);
   geom.translate(VOXEL / 2, 0, VOXEL / 2);
   return new THREE.Mesh(geom, material);
+}
+/** 사냥 동물 모델 한 덩어리 (낚아 올리는 연어 연출 등, 2026-11-06): 몸 + 머리 + 꼬리. 꼬리는 userData.tail */
+export function wildFigureMesh(kind: string): THREE.Group | null {
+  const parts = wildParts(kind);
+  if (!parts) return null;
+  const material = new THREE.MeshBasicMaterial({ vertexColors: true });
+  const g = new THREE.Group();
+  g.add(partMesh(parts.body, material));
+  g.add(pivotMesh(parts.head, material));
+  if (parts.tail) {
+    const t = pivotMesh(parts.tail, material);
+    g.add(t);
+    g.userData.tail = t;
+  }
+  return g;
 }
 /** 회전 축이 있는 부위 (동물 머리·다리·꼬리·날개): 축이 메시 원점, 메시는 축 자리에 놓인다 */
 function pivotMesh(p: Part, material: THREE.Material): THREE.Mesh {
@@ -495,8 +510,16 @@ export class MobView {
     } else if (kindName === 'snow_golem') {
       body.add(partMesh(snowGolemVoxels(), material)); // 눈 골렘 (#223)
     } else if (WILD_NAMES.has(kindName)) {
-      const parts = wildParts(kindName)!;
-      body.add(partMesh(parts.body, material));
+      const parts = wildParts(kindName, animalVariant(m.id))!; // 열대어는 번호마다 모양·색이 다르다
+      const small = partMesh(parts.body, material);
+      body.add(small);
+      if (kindName === 'pufferfish') {
+        // 복어 (2026-11-06): 부푼 가시 공은 따로 만들어 두고, 서버가 attack 이면 바꿔 보인다
+        const big = partMesh(pufferPuffedVoxels(), material);
+        big.visible = false;
+        body.add(big);
+        body.userData.puff = { big, small };
+      }
       head = pivotMesh(parts.head, material);
       body.add(head);
       for (const l of parts.legs) {
@@ -606,6 +629,7 @@ export class MobView {
         f.shownHp = m.hp;
         drawHpBar(f.bar.ctx, f.bar.tex, m.hp, f.maxHp);
       }
+      if (FISH_MODEL_KINDS.has(MOB_KIND_OF[m.kind] ?? '')) f.bar.sprite.visible = m.hp < f.maxHp; // 물고기도 다쳤을 때만 (물 위에 바가 둥둥 뜨지 않게)
       if (f.animal) {
         f.bar.sprite.visible = m.hp < f.maxHp; // 동물은 다쳤을 때만 체력 바
         const tamed = (m.state & ANIMAL_FLAG.tamed) !== 0;
@@ -724,7 +748,15 @@ export class MobView {
       const ph = t % 6;
       f.head.rotation.x = attack ? -0.5 * Math.max(0, Math.sin(now * 0.012)) : moving ? Math.sin(f.walk * 2) * 0.06 : ph < 1.5 ? -0.5 * Math.sin((ph / 1.5) * Math.PI) : 0;
     }
-    if (f.tail) f.tail.rotation.z = Math.sin(t * (attack ? 30 : moving ? 8 : 2.2)) * (attack ? 0.35 : 0.25);
+    const puff = f.body.userData.puff as { big: THREE.Mesh; small: THREE.Mesh } | undefined;
+    if (puff) {
+      const on = attack;
+      puff.big.visible = on;
+      puff.small.visible = !on;
+      if (f.head) f.head.visible = !on;
+    }
+    if (f.tail && FISH_MODEL_KINDS.has(MOB_KIND_OF[f.kind] ?? '')) f.tail.rotation.y = Math.sin(t * (moving ? 16 : 6)) * (moving ? 0.55 : 0.3); // 물고기는 꼬리를 좌우로
+    else if (f.tail) f.tail.rotation.z = Math.sin(t * (attack ? 30 : moving ? 8 : 2.2)) * (attack ? 0.35 : 0.25);
     f.wings.forEach((w, i) => {
       w.rotation.z = (i === 0 ? -1 : 1) * (moving ? Math.abs(Math.sin(f.walk * 3)) * 0.6 : 0);
     });

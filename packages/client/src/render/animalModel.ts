@@ -418,7 +418,9 @@ function boat(): AnimalParts {
  * 가젤·라쿤·길달리기새·꼬리감는원숭이·방울뱀·들소·말코손바닥사슴·회색곰. 마을 동물과 같은 좌표 규칙(앞 −z, 바닥 y 0, 1 복셀 = 1.8/32 m).
  * 키는 MOB_SIZES 와 맞춘다. 머리·다리·꼬리·날개는 축이 있는 부위라 MobView 가 걷기·들이받기·꼬리 흔들기를 한다.
  */
-export const WILD_MODEL_KINDS = ['gazelle', 'raccoon', 'roadrunner', 'capuchin', 'rattlesnake', 'bison', 'moose', 'grizzly'] as const;
+export const WILD_MODEL_KINDS = ['gazelle', 'raccoon', 'roadrunner', 'capuchin', 'rattlesnake', 'bison', 'moose', 'grizzly', 'salmon', 'cod', 'tropical_fish', 'pufferfish'] as const;
+/** 물고기 (2026-11-06): 꼬리를 좌우로 흔들며 헤엄친다, 다치지 않으면 체력 바를 숨긴다 */
+export const FISH_MODEL_KINDS: ReadonlySet<string> = new Set(['salmon', 'cod', 'tropical_fish', 'pufferfish']);
 
 function gazelle(): AnimalParts {
   const tan = 0xc49a5c,
@@ -550,8 +552,115 @@ function grizzly(): AnimalParts {
   return { body: body.out, head: part(h, [0, 17, -10]), legs, tail: part(tail, [0, 19, 11]), wings: [], babyHead: 1.4 };
 }
 
+/**
+ * 연어 (2026-11-06, 아빠가 보낸 참고 그림 1·2번 느낌): 초록빛 머리·검은 눈, 빨간 몸에 짙은 체크 무늬, 밝은 배,
+ * 갈색 등·배·가슴 지느러미, 몸 뒤 꼬리 자루 + 위아래로 벌어진 꼬리 지느러미. 키 8칸(0.45m)·길이 16칸. 꼬리는 MobView 가 좌우로 흔든다
+ */
+function salmon(): AnimalParts {
+  const RED = 0xb5352d,
+    RED2 = 0x8e2622,
+    BELLY = 0xd8c7b4,
+    FIN = 0xa8705c,
+    FIN2 = 0x7d4c3e;
+  const skin: ColorFn = (x, y, z) => (y === 1 ? fur(x, y, z, BELLY, 0.06) : y === 5 ? fur(x, y, z, RED2, 0.06) : (x + y + z) % 2 === 0 ? fur(x, y, z, RED, 0.06) : fur(x, y, z, RED2, 0.06));
+  const body = new Builder().box(-1, 1, 1, 5, -3, 4, skin); // 몸 3×5×8
+  body.box(0, 0, 6, 7, -1, 1, soft(FIN, 0.08)); // 등지느러미
+  body.box(-2, -2, 1, 2, -3, -2, soft(FIN2, 0.06)).box(2, 2, 1, 2, -3, -2, soft(FIN2, 0.06)); // 가슴지느러미
+  body.box(0, 0, 0, 0, 2, 3, soft(FIN, 0.06)); // 뒷지느러미
+  const h = new Builder().box(-1, 1, 1, 4, -6, -4, (x, y, z) => (y === 1 ? fur(x, y, z, 0xa9b8a0, 0.05) : (x + y + z) % 3 === 0 ? fur(x, y, z, 0x4d7358, 0.05) : fur(x, y, z, 0x6f9a74, 0.06))); // 초록 머리
+  h.dot(-1, 3, -5, 0x161616).dot(1, 3, -5, 0x161616); // 눈 (양옆)
+  h.box(-1, 1, 1, 1, -6, -6, solid(0xc9a48c)); // 입
+  const tail = new Builder().box(0, 0, 2, 4, 5, 7, (_x, y, z) => ((y + z) % 2 === 0 ? RED : RED2)); // 꼬리 자루
+  tail.box(0, 0, 0, 6, 8, 9, (_x, y, z) => (y >= 2 && y <= 4 && z === 8 ? FIN2 : (y + z) % 2 === 0 ? FIN : FIN2)); // 꼬리 지느러미 (위아래로 벌어짐)
+  return { body: body.out, head: part(h, [0, 3, -4]), legs: [], tail: part(tail, [0.5, 3, 5]), wings: [], babyHead: 1 };
+}
+
+/** 대구 (2026-11-06, 아빠가 보낸 그림): 모래빛 갈색에 짙은 얼룩, 밝은 배, 밝은 머리·검은 눈, 등지느러미 둘, 갈라진 꼬리. 키 6칸 */
+function cod(): AnimalParts {
+  const BROWN = 0xa88a68,
+    DARK = 0x84694e,
+    BELLY = 0xe2cfae,
+    FIN = 0xb39572,
+    HEAD = 0xc2a682;
+  const skin: ColorFn = (x, y, z) => (y === 1 ? fur(x, y, z, BELLY, 0.05) : ((x * 3 + y * 5 + z * 7) >>> 0) % 5 === 0 ? fur(x, y, z, DARK, 0.06) : fur(x, y, z, BROWN, 0.08));
+  const body = new Builder().box(-1, 0, 1, 4, -3, 3, skin); // 몸 2×4×7
+  body.box(-1, 0, 5, 5, -2, -1, soft(FIN, 0.06)).box(-1, 0, 5, 5, 1, 2, soft(FIN, 0.06)); // 등지느러미 둘
+  body.box(-2, -2, 1, 2, -3, -2, soft(FIN, 0.06)).box(1, 1, 1, 2, -3, -2, soft(FIN, 0.06)); // 가슴지느러미
+  body.box(-1, 0, 0, 0, 1, 2, soft(FIN, 0.06)); // 배지느러미
+  const h = new Builder().box(-1, 0, 1, 4, -6, -4, (x, y, z) => (y === 1 ? fur(x, y, z, BELLY, 0.04) : fur(x, y, z, HEAD, 0.06)));
+  h.dot(-1, 3, -5, 0x161616).dot(0, 3, -5, 0x161616); // 눈 (양옆)
+  h.dot(-1, 2, -6, 0x6e5640).dot(0, 2, -6, 0x6e5640); // 입
+  const tail = new Builder().box(-1, 0, 2, 3, 4, 5, soft(BROWN, 0.08));
+  tail.box(-1, 0, 1, 4, 6, 6, soft(FIN, 0.06)).box(-1, 0, 0, 1, 7, 7, soft(FIN, 0.06)).box(-1, 0, 4, 5, 7, 7, soft(FIN, 0.06)); // 갈라진 꼬리
+  return { body: body.out, head: part(h, [0, 3, -4]), legs: [], tail: part(tail, [0, 3, 4]), wings: [], babyHead: 1 };
+}
+
+/**
+ * 열대어 (2026-11-06, 아빠가 보낸 그림표): 작은 몸 A(2×3×6) · 높은 몸 B(2×6×6) 두 모양 × 바탕색·무늬색·무늬(띠·위·점·없음) 12가지.
+ * 마리마다 번호(variant)로 정한다 — 모두에게 같은 물고기가 보인다. 0 = 흰동가리
+ */
+export const TROPICAL_VARIANTS: readonly { name: string; tall: boolean; base: number; pat: number; style: 'stripes' | 'top' | 'spots' | 'none' }[] = [
+  { name: '흰동가리', tall: false, base: 0xe8761f, pat: 0xf6efe6, style: 'stripes' },
+  { name: '토마토 흰동가리', tall: false, base: 0xb02a20, pat: 0xf6efe6, style: 'stripes' },
+  { name: '노랑촉수', tall: false, base: 0xf0c43a, pat: 0xf6efe6, style: 'top' },
+  { name: '솜사탕 베타', tall: true, base: 0x7ec8e6, pat: 0xf2a0c0, style: 'spots' },
+  { name: '파랑비늘돔', tall: false, base: 0x2a9d8f, pat: 0xf2a0c0, style: 'stripes' },
+  { name: '노랑꼬리 비늘돔', tall: false, base: 0x2a9d8f, pat: 0xf0c43a, style: 'top' },
+  { name: '쥐치', tall: false, base: 0x3a3a40, pat: 0xe8e8e8, style: 'stripes' },
+  { name: '시클리드', tall: false, base: 0x3550c0, pat: 0x1a1a2a, style: 'top' },
+  { name: '깃대돔', tall: true, base: 0xd8d8d8, pat: 0x2a2a30, style: 'stripes' },
+  { name: '붉은 도미', tall: true, base: 0xb02a20, pat: 0xf6efe6, style: 'spots' },
+  { name: '노랑쥐치', tall: true, base: 0xf0c43a, pat: 0xd8a020, style: 'none' },
+  { name: '블루탱', tall: true, base: 0x2a40b0, pat: 0x161a40, style: 'top' },
+];
+function tropicalFish(variant: number): AnimalParts {
+  const v = TROPICAL_VARIANTS[Math.floor(variant * TROPICAL_VARIANTS.length) % TROPICAL_VARIANTS.length]!;
+  const top = v.tall ? 6 : 3; // 몸 위 칸
+  const paint: ColorFn = (x, y, z) => {
+    const p = v.style === 'stripes' ? z === -1 || z === 2 : v.style === 'top' ? y >= top - (v.tall ? 1 : 0) : v.style === 'spots' ? ((x + y * 3 + z * 5) >>> 0) % 4 === 0 : false;
+    return fur(x, y, z, p ? v.pat : v.base, 0.05);
+  };
+  const body = new Builder().box(-1, 0, 1, top, -3, 2, paint);
+  body.dot(-1, top - 1, -2, 0x161616).dot(0, top - 1, -2, 0x161616); // 눈 (양옆, 앞쪽 위)
+  body.box(-1, 0, top + 1, top + (v.tall ? 2 : 1), v.tall ? -2 : -1, v.tall ? 0 : 1, soft(v.pat, 0.05)); // 등지느러미
+  body.box(-1, 0, 0, 0, -1, 0, soft(v.pat, 0.05)); // 배지느러미
+  if (v.tall) body.box(-2, -2, 2, 3, -2, -1, soft(v.pat, 0.05)).box(1, 1, 2, 3, -2, -1, soft(v.pat, 0.05)); // 가슴지느러미
+  const h = new Builder().box(-1, 0, 1, top - 1, -4, -4, paint); // 주둥이 한 칸
+  const mid = v.tall ? 3 : 2;
+  const tail = new Builder().box(-1, 0, mid, mid + (v.tall ? 1 : 0), 3, 3, paint);
+  tail.box(-1, 0, mid - (v.tall ? 2 : 1), mid + (v.tall ? 3 : 1), 4, 4, soft(v.pat, 0.05)).box(-1, 0, mid - (v.tall ? 2 : 1), mid - (v.tall ? 2 : 1), 5, 5, soft(v.pat, 0.05)).box(-1, 0, mid + (v.tall ? 3 : 1), mid + (v.tall ? 3 : 1), 5, 5, soft(v.pat, 0.05)); // 갈라진 꼬리
+  return { body: body.out, head: part(h, [0, mid, -3]), legs: [], tail: part(tail, [0, mid, 3]), wings: [], babyHead: 1 };
+}
+
+/** 복어 작은 몸 (2026-11-06): 위 주황·가운데 노랑·아래 모래빛 4×3×4, 머리 위 앞쪽 짙은 눈 둘, 옆 하늘색 지느러미, 꼬리 */
+function pufferfish(): AnimalParts {
+  const body = new Builder().box(-2, 1, 0, 2, -2, 1, (x, y, z) => (y === 2 ? fur(x, y, z, 0xeaa21a, 0.06) : y === 1 ? fur(x, y, z, 0xd8b060, 0.06) : fur(x, y, z, 0xe8d0a0, 0.05)));
+  body.box(-3, -3, 1, 1, -1, -1, solid(0x7aaec8)).box(2, 2, 1, 1, -1, -1, solid(0x7aaec8)); // 옆 지느러미
+  body.box(-1, 0, 1, 1, 2, 3, soft(0xd8c090, 0.05)); // 꼬리
+  const h = new Builder().box(-2, -2, 3, 3, -2, -2, solid(0x1e2a24)).box(1, 1, 3, 3, -2, -2, solid(0x1e2a24)); // 눈 (위로 튀어나옴)
+  return { body: body.out, head: part(h, [0, 3, -2]), legs: [], tail: null, wings: [], babyHead: 1 };
+}
+
+/** 복어 부푼 몸 (2026-11-06): 8×8×8 가시 공 — 위 주황(짙은 얼룩), 아래 모래빛, 앞에 눈·입, 사방에 가시, 옆 하늘색 지느러미 */
+export function pufferPuffedVoxels(): Voxel[] {
+  const b = new Builder().box(-4, 3, 0, 7, -4, 3, (x, y, z) => (y >= 4 ? fur(x, y, z, ((x * 5 + z * 3 + y) >>> 0) % 6 === 0 ? 0xd58a10 : 0xeaa21a, 0.06) : y === 3 ? fur(x, y, z, 0xe0bc70, 0.05) : fur(x, y, z, 0xeedcb4, 0.05)));
+  b.dot(-3, 5, -4, 0x1e2a24).dot(-2, 5, -4, 0x1e2a24).dot(1, 5, -4, 0x1e2a24).dot(2, 5, -4, 0x1e2a24); // 눈
+  b.dot(-3, 4, -4, 0xf6f6f6).dot(2, 4, -4, 0xf6f6f6);
+  b.dot(-1, 2, -4, 0x6e4a24).dot(0, 2, -4, 0x6e4a24); // 입
+  const spike = (x: number, y: number, z: number) => b.dot(x, y, z, y >= 4 ? 0xc8b040 : 0xe8dcc0);
+  for (const [x, z] of [[-3, -3], [2, -3], [-1, 0], [3, 2], [-4, 2], [1, 1]] as const) spike(x, 8, z); // 위 가시
+  for (const [y, z] of [[6, -2], [2, 1], [5, 2]] as const) {
+    spike(-5, y, z);
+    spike(4, y, z);
+  }
+  for (const [x, y] of [[-2, 7], [2, 6], [-3, 1], [1, 3]] as const) spike(x, y, -5); // 앞 가시
+  b.box(-5, -5, 3, 4, -1, 0, solid(0x7aaec8)).box(4, 4, 3, 4, -1, 0, solid(0x7aaec8)); // 옆 지느러미
+  b.box(-1, 0, 3, 4, 4, 5, soft(0xd8c090, 0.05)); // 꼬리
+  return b.out;
+}
+
 /** 원정 사냥 동물 부위 (모르는 종류면 null) */
-export function wildParts(kind: string): AnimalParts | null {
+export function wildParts(kind: string, variant = 0): AnimalParts | null {
   switch (kind) {
     case 'gazelle':
       return gazelle();
@@ -569,6 +678,14 @@ export function wildParts(kind: string): AnimalParts | null {
       return moose();
     case 'grizzly':
       return grizzly();
+    case 'salmon':
+      return salmon();
+    case 'cod':
+      return cod();
+    case 'tropical_fish':
+      return tropicalFish(variant);
+    case 'pufferfish':
+      return pufferfish();
     default:
       return null;
   }

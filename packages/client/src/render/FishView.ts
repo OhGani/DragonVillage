@@ -5,6 +5,8 @@
 import * as THREE from 'three';
 
 const FLY_SEC = 0.35;
+/** 낚아 올린 것이 손까지 날아오는 시간 (2026-11-06, 아빠 "찌에 매달려 파닥거리며 날아오는 연출") */
+const LAND_SEC = 0.8;
 
 export class FishView {
   private readonly bobber = new THREE.Group();
@@ -15,6 +17,8 @@ export class FishView {
   private flyT = 0;
   private biting = false;
   private biteT = 0;
+  /** 낚아 올리는 중인 것들: 찌 자리에서 손으로 포물선, 파닥파닥 */
+  private readonly landing: { obj: THREE.Object3D; from: THREE.Vector3; t: number; tail: THREE.Object3D | null }[] = [];
 
   constructor(private readonly scene: THREE.Scene) {
     const red = new THREE.MeshBasicMaterial({ color: 0xd8342c });
@@ -37,6 +41,18 @@ export class FishView {
 
   get active(): boolean {
     return this.at !== null;
+  }
+
+  /** 찌가 떠 있거나 낚아 올리는 중 — 이때만 update 를 부른다 */
+  get busy(): boolean {
+    return this.at !== null || this.landing.length > 0;
+  }
+
+  /** 낚았다: obj(연어 입체 또는 아이템 그림)가 from(찌 자리)에서 손으로 파닥거리며 날아온다 */
+  landCatch(obj: THREE.Object3D, from: THREE.Vector3): void {
+    obj.position.copy(from);
+    this.scene.add(obj);
+    this.landing.push({ obj, from: from.clone(), t: 0, tail: (obj.userData.tail as THREE.Object3D | undefined) ?? null });
   }
 
   /** 찌 던지기: 물 칸 (x,y,z) 의 수면으로. hand = 지금 손 자리 */
@@ -71,6 +87,21 @@ export class FishView {
   }
 
   update(dt: number, now: number, hand: THREE.Vector3): void {
+    for (let i = this.landing.length - 1; i >= 0; i--) {
+      const l = this.landing[i]!;
+      l.t += dt / LAND_SEC;
+      const k = Math.min(1, l.t);
+      const e = 1 - (1 - k) * (1 - k); // 처음엔 빠르게 튀어 오르고 손 앞에서 느려진다
+      l.obj.position.lerpVectors(l.from, hand, e);
+      l.obj.position.y += Math.sin(k * Math.PI) * 1.4;
+      l.obj.rotation.set(0, now * 0.004, Math.sin(now * 0.04) * 0.7); // 파닥파닥 (몸을 뒤틀며 돈다)
+      if (l.tail) l.tail.rotation.y = Math.sin(now * 0.05) * 0.9;
+      l.obj.scale.setScalar(k > 0.85 ? Math.max(0.05, (1 - k) / 0.15) : 1); // 손에 닿으면 쏙
+      if (l.t >= 1) {
+        this.scene.remove(l.obj);
+        this.landing.splice(i, 1);
+      }
+    }
     if (!this.at) return;
     this.flyT = Math.min(FLY_SEC, this.flyT + dt);
     const k = this.flyT / FLY_SEC;

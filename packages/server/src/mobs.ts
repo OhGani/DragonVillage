@@ -46,7 +46,7 @@ import {
   pickSpawn,
   rollDrops,
   spawnKinds,
-  stepMob, isLookingAt, hash3, separationPushes, type SepBody, isMobKind, isWild, WILD_FLEE_MS, WILD_HERD_R, WILD_LEASH, isZombieKind, zombieVillagerRoll, CURE_MS, CURE_REWARD, MOB_POISON_EVERY_MS, MOB_SLOW_MUL, MOB_WEAK_MUL, SPLASH_RADIUS, type PotionOutcome } from '@dragon-village/shared';
+  stepMob, isLookingAt, hash3, separationPushes, type SepBody, isMobKind, isWild, WILD_FLEE_MS, WILD_HERD_R, WILD_LEASH, PUFF_R, isZombieKind, zombieVillagerRoll, CURE_MS, CURE_REWARD, MOB_POISON_EVERY_MS, MOB_SLOW_MUL, MOB_WEAK_MUL, SPLASH_RADIUS, type PotionOutcome } from '@dragon-village/shared';
 
 /** 몹이 도는 무대 — 원정지(Expedition) 또는 마을(방어전) */
 export interface MobArena {
@@ -82,6 +82,8 @@ export interface MobSystemOptions {
   quiet: boolean;
   /** 첫 몹 번호 (#221): 마을에 방어전 우민과 주민이 부른 철 골렘이 같이 있을 때 번호가 안 겹치게 */
   firstId: number;
+  /** 마지막 몹 번호 (마을 연어, 2026-11-06): 넘으면 firstId 부터 빈 번호를 다시 쓴다 — 오래 도는 체계가 동물 번호(40000~)를 넘보지 않게 */
+  lastId?: number;
 }
 
 export interface MobTarget {
@@ -242,6 +244,7 @@ export class MobSystem {
    * 고리에 땅이 없으면(물가) 스무 번 뒤부터 조금씩 바깥으로. around 가 없으면 세계 곳곳
    */
   private placeHerd(kind: MobKind, size: number, around: { x: number; z: number } | null, rMin: number, rMax: number): number {
+    if (this.defs.get(kind).swim) return this.placeSchool(kind, size, around, rMin, rMax);
     const w = this.e.world;
     const h = this.herdNo++;
     let center: { x: number; y: number; z: number } | null = null;
@@ -279,6 +282,137 @@ export class MobSystem {
       }
     }
     return placed;
+  }
+
+  /**
+   * 물고기 떼 놓기 (연어, 2026-11-06): 깊이 2칸 이상인 물 칸(waterCells) 중 around 둘레 rMin~rMax 칸 → 없으면 80칸 안 → 어디든.
+   * 떼는 가운데 칸 둘레 같은 높이의 물 칸에. 놓은 수
+   */
+  private placeSchool(kind: MobKind, size: number, around: { x: number; z: number } | null, rMin: number, rMax: number): number {
+    const cells = this.waterCells();
+    if (!cells.length) return 0;
+    const h = this.herdNo++;
+    const near = (lo: number, hi: number) => (around ? cells.filter((c) => { const d = Math.hypot(c.x + 0.5 - around.x, c.z + 0.5 - around.z); return d >= lo && d <= hi; }) : cells);
+    let pool = near(rMin, rMax);
+    if (!pool.length) pool = near(rMin, 80);
+    if (!pool.length) pool = cells;
+    const c = pool[Math.floor(hash3(this.e.seed, h, 0, 37) * pool.length)]!;
+    let placed = 0;
+    for (let k = 0; k < size; k++) {
+      for (let t = 0; t < 6; t++) {
+        const ang = hash3(this.e.seed, h, k * 7 + t, 38) * Math.PI * 2,
+          r = k === 0 && t === 0 ? 0 : 0.8 + hash3(this.e.seed, h, k * 7 + t, 39) * 1.6;
+        const x = c.x + 0.5 + Math.cos(ang) * r,
+          z = c.z + 0.5 + Math.sin(ang) * r;
+        if (!this.isWater(x, c.y - 1, z)) continue;
+        const m = this.spawnKind(kind, x, c.y - 0.75, z); // 수면 바로 아래 칸 안에서 헤엄친다
+        m.home = { x: c.x + 0.5, z: c.z + 0.5 };
+        m.yaw = ang;
+        placed++;
+        break;
+      }
+    }
+    return placed;
+  }
+
+  private waterCache: { x: number; y: number; z: number }[] | null = null;
+  /** 물고기가 살 물 칸: 위에서 처음 만나는 게 물(수면 y)이고 그 아래도 물인 기둥. 한 번만 훑는다 (물이 바뀌어도 헤엄칠 때 다시 본다) */
+  private waterCells(): { x: number; y: number; z: number }[] {
+    if (this.waterCache) return this.waterCache;
+    const w = this.e.world;
+    const out: { x: number; y: number; z: number }[] = [];
+    for (let x = WILD_EDGE; x < w.sizeX - WILD_EDGE; x++)
+      for (let z = WILD_EDGE; z < w.sizeZ - WILD_EDGE; z++)
+        for (let y = Math.min(w.sizeY - 2, 90); y >= 2; y--) {
+          const id = w.getBlock(x, y, z);
+          if (id === 0) continue;
+          const b = this.registry.get(id);
+          if (b.fluid === 'water' && this.registry.get(w.getBlock(x, y - 1, z)).fluid === 'water') out.push({ x, y, z });
+          break;
+        }
+    this.waterCache = out;
+    return out;
+  }
+
+  private isWater(x: number, y: number, z: number): boolean {
+    const w = this.e.world;
+    const bx = Math.floor(x),
+      by = Math.floor(y),
+      bz = Math.floor(z);
+    return w.inBounds(bx, by, bz) && this.registry.get(w.getBlock(bx, by, bz)).fluid === 'water';
+  }
+
+  /** 헤엄 한 걸음 (연어): 목표 쪽으로, 다음 자리가 물 칸일 때만 간다. 막혔으면 false. 높이는 그대로(수면 아래 한 칸) */
+  private swimToward(m: MobState, tx: number, tz: number, speed: number, dt: number): boolean {
+    const dx = tx - m.x,
+      dz = tz - m.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 0.05) return true;
+    const step = Math.min(d, speed * dt);
+    const nx = m.x + (dx / d) * step,
+      nz = m.z + (dz / d) * step;
+    m.yaw = Math.atan2(-dx, -dz);
+    m.state = MOB_STATE.walk;
+    // 몸 앞쪽(0.35칸)까지 물이어야 — 둑에 머리를 박지 않는다
+    if (!this.isWater(nx, m.y + 0.2, nz) || !this.isWater(nx + (dx / d) * 0.35, m.y + 0.2, nz + (dz / d) * 0.35)) return false;
+    m.x = nx;
+    m.z = nz;
+    return true;
+  }
+
+  /**
+   * 물고기 한 걸음 (2026-11-06): 맞았으면 fleeDir 로 1.6배 빠르게(막히면 꺾는다), 아니면 집 둘레 2~6칸 물 칸을 천천히 돈다.
+   * 복어(puff)는 사람이 PUFF_R 칸 안에 오면 그 자리에서 부풀고(state attack), 부푼 채 reach 안이면 따끔 + 독
+   */
+  private stepSwim(m: MobState, def: ReturnType<MobRegistry['get']>, dt: number, now: number, players: MobTarget[]): void {
+    if (!this.isWater(m.x, m.y + 0.2, m.z)) {
+      // 물이 없어졌다(퍼낸 곳) — 그 자리에서 끝 (땅 위 물고기는 없다)
+      this.vanish(m);
+      return;
+    }
+    if (def.puff) {
+      let near: MobTarget | null = null,
+        nd = Infinity;
+      for (const p of players) {
+        const d = Math.hypot(p.x - m.x, p.y + 0.9 - m.y, p.z - m.z);
+        if (d < nd) {
+          nd = d;
+          near = p;
+        }
+      }
+      if (near && nd <= PUFF_R) {
+        m.state = MOB_STATE.attack; // 부풀었다
+        m.wanderTo = null;
+        m.yaw = Math.atan2(-(near.x - m.x), -(near.z - m.z));
+        if (nd <= def.reach + 0.4 && now - m.lastAttackAt >= def.attackEveryMs) {
+          m.lastAttackAt = now;
+          if (def.damage > 0) this.hooks.hurt(near.idx, def.damage, m.kind, now);
+          if (def.poisonMs > 0) this.poisoned.set(near.idx, { until: now + def.poisonMs, nextAt: now + POISON_EVERY_MS });
+        }
+        return;
+      }
+    }
+    m.state = MOB_STATE.walk;
+    if ((m.fleeUntil ?? 0) > now && m.fleeDir) {
+      if (!this.swimToward(m, m.x + m.fleeDir.x * 4, m.z + m.fleeDir.z * 4, def.speed * 1.6, dt)) {
+        const a = Math.atan2(m.fleeDir.z, m.fleeDir.x) + (hash3(m.id, Math.floor(now / 300), 43, this.e.seed) < 0.5 ? 1.3 : -1.3);
+        m.fleeDir = { x: Math.cos(a), z: Math.sin(a) };
+      }
+      m.home = { x: m.x, z: m.z };
+      m.wanderTo = null;
+      return;
+    }
+    const home = m.home ?? { x: m.x, z: m.z };
+    if (!m.wanderTo && now >= (m.wanderAt ?? 0)) {
+      const a = hash3(m.id, Math.floor(now / 500), 44, this.e.seed) * Math.PI * 2,
+        r = 2 + hash3(m.id, Math.floor(now / 500), 45, this.e.seed) * 4;
+      m.wanderTo = { x: home.x + Math.cos(a) * r, y: m.y, z: home.z + Math.sin(a) * r };
+      m.wanderAt = now + 1500 + hash3(m.id, Math.floor(now / 500), 46, this.e.seed) * 3000;
+    }
+    if (m.wanderTo) {
+      const ok = this.swimToward(m, m.wanderTo.x, m.wanderTo.z, def.speed * 0.5, dt);
+      if (!ok || Math.hypot(m.wanderTo.x - m.x, m.wanderTo.z - m.z) < 0.3) m.wanderTo = null;
+    }
   }
 
   /**
@@ -362,6 +496,8 @@ export class MobSystem {
 
   /** 몹 하나 넣기 (방어전 파도·소환). 모두에게 spawn 알림 */
   spawnKind(kind: MobKind, x: number, y: number, z: number): MobState {
+    if (this.opts.lastId !== undefined && this.nextId > this.opts.lastId) this.nextId = this.opts.firstId;
+    while (this.mobs.has(this.nextId)) this.nextId++;
     const id = this.nextId++;
     const m: MobState = { id, kind, x, y, z, yaw: 0, hp: this.defs.get(kind).hp, state: 0, fuseAt: 0, lastAttackAt: 0 };
     this.mobs.set(id, m);
@@ -519,7 +655,7 @@ export class MobSystem {
     const ents: { x: number; y: number; z: number }[] = [];
     const bodies: SepBody[] = [];
     const add = (e: { x: number; y: number; z: number }, kind: MobKind, fixed: boolean): void => {
-      if (this.defs.get(kind).hover) return;
+      if (this.defs.get(kind).hover || this.defs.get(kind).swim) return; // 떠 있는 몹·물고기는 땅 높이로 옮기면 안 된다
       const s = mobSize(kind);
       ents.push(e);
       bodies.push({ x: e.x, y: e.y, z: e.z, r: s.w / 2, h: s.h, mass: s.w * s.w * s.h, fixed });
@@ -794,7 +930,7 @@ export class MobSystem {
     if (isWild(m.kind) && m.hp > 0) this.wildHurt(m, byIdx, push, now);
     if (m === this.boss && !this.bossAwake) this.wake(m, now);
     if (m.hp > 0) {
-      if (push && !isBoss(m.kind)) {
+      if (push && !isBoss(m.kind) && !this.defs.get(m.kind).swim) { // 물고기는 안 밀린다 — 둑 위로 밀려 나가면 안 된다
         const nx = m.x + push.x * KNOCKBACK * knock,
           nz = m.z + push.z * KNOCKBACK * knock;
         const gy = this.groundAt(nx, nz, m.y);
@@ -826,6 +962,10 @@ export class MobSystem {
    */
   private stepWild(m: MobState, def: ReturnType<MobRegistry['get']>, players: MobTarget[], dt: number, now: number): MobTarget | null {
     if (!m.home) m.home = { x: m.x, z: m.z };
+    if (def.swim) {
+      this.stepSwim(m, def, dt, now, players);
+      return null;
+    }
     if (def.flee) {
       if ((m.fleeUntil ?? 0) > now && m.fleeDir) {
         const bx = m.x,

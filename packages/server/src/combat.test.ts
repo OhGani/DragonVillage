@@ -440,7 +440,7 @@ describe('원정지마다 사냥 동물이 실제 지형에 다 풀린다 (2026-
       for (const m of sys.mobs.values()) {
         const d = Math.hypot(m.x - exp.spawn.x, m.z - exp.spawn.z);
         expect(d).toBeGreaterThanOrEqual(14);
-        expect(d).toBeLessThanOrEqual(60);
+        expect(d).toBeLessThanOrEqual(MOBS.get(m.kind).swim ? 90 : 60); // 물고기(연어)는 섬 둘레 바다에
       }
     });
     }

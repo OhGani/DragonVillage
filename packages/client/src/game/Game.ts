@@ -90,6 +90,7 @@ import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIO
 import * as THREE from 'three';
 import { beam as beamSound, bell, ding, explosion as explosionSound, fireworkLaunch, fireworkPop, hit as hitSound, hurt as hurtSound, levelUp, lose, roar, splash as splashSound } from '../audio/sound';
 import { FishView } from '../render/FishView';
+import { wildFigureMesh } from '../render/MobView';
 import { GamepadInput } from '../input/gamepad';
 import { InputManager } from '../input/InputManager';
 import { KeyboardMouse, isTyping } from '../input/keyboard';
@@ -1160,7 +1161,25 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         fishView.unbite();
         hud.toast('앗, 놓쳤어요… 찌를 보며 다시 기다려요', 1800);
       } else if (m.ev === 'catch') {
+        // 낚아 올리기 (2026-11-06): 연어는 입체 연어가, 다른 건 아이템 그림이 찌 자리에서 손으로 파닥거리며 날아온다
+        const from = fishView.spot?.clone() ?? (m.x !== undefined ? new THREE.Vector3(m.x + 0.5, (m.y ?? 0) + 0.9, (m.z ?? 0) + 0.5) : null);
         fishView.clear();
+        if (from && m.item) {
+          let obj: THREE.Object3D | null = wildFigureMesh(m.item);
+          if (!obj) {
+            const icon = iconOf(m.item, 32);
+            if (icon) {
+              const tex = new THREE.CanvasTexture(icon);
+              tex.magFilter = THREE.NearestFilter;
+              obj = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+              obj.scale.setScalar(0.45);
+            }
+          }
+          if (obj) {
+            updateHandSpot();
+            fishView.landCatch(obj, from);
+          }
+        }
         ding(0);
         const nm = nameOf(m.item ?? '');
         hud.toast((m.count ?? 1) > 1 ? `🎣 ${nm} ${m.count}개를 낚았어요!` : `🎣 ${nm}${objectJosa(nm)} 낚았어요!`, 2600);
@@ -1972,7 +1991,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
     interaction.update(inp, dt);
     player.applyToCamera(camera, bobStrength);
-    if (fishView.active) {
+    if (fishView.busy) {
       camera.updateMatrixWorld();
       updateHandSpot();
       fishView.update(dt, now, handSpot);
