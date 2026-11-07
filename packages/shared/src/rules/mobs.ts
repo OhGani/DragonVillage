@@ -596,6 +596,60 @@ export interface MobEntry {
 /** 발 높이 찾기: (x, z) 에서, nearY 가 있으면 그 근처(동굴처럼 층이 여럿일 때). 못 서면 null */
 export type GroundAt = (x: number, z: number, nearY?: number) => number | null;
 
+/** 그 칸이 단단한 블록인가 (벽 검사 — 몸이 벽에 박히지 않게, 벽 너머를 못 때리게. 아빠 2026-11-07) */
+export type SolidAt = (x: number, y: number, z: number) => boolean;
+
+/** 벽 검사에 쓰는 몸 반지름 상한: 이보다 큰 몹(보스·코끼리 …)도 이만큼만 본다 — 두 칸 문은 지나가게 */
+export const BODY_R_MAX = 0.95;
+/** 벽 검사용 몸 반지름 (몸 폭의 반, 상한 BODY_R_MAX) */
+export function bodyR(kind: MobKind): number {
+  return Math.min(mobSize(kind).w / 2, BODY_R_MAX);
+}
+
+/**
+ * 몸이 벽에 박히나 (아빠 2026-11-07 "몹들이 건물 벽을 통과는 못하는데 밖으로 얼굴이나 몸의 일부가 나옴"):
+ * 몸 네 모서리(가운데 ± r) 칸에서 발보다 한 칸 위가 단단하면 벽이다. 발 높이 한 칸짜리(계단 턱)는 올라설 수 있으니 안 막는다
+ */
+export function bodyInWall(solidAt: SolidAt, x: number, z: number, footY: number, r: number): boolean {
+  if (r <= 0) return false;
+  const y = Math.floor(footY + 0.01) + 1;
+  const x0 = Math.floor(x - r),
+    x1 = Math.floor(x + r),
+    z0 = Math.floor(z - r),
+    z1 = Math.floor(z + r);
+  return solidAt(x0, y, z0) || solidAt(x1, y, z0) || solidAt(x0, y, z1) || solidAt(x1, y, z1);
+}
+
+/**
+ * 두 점 사이에 벽이 없나 (아빠 2026-11-07 "건물 안에 있는 몹들이 공격을 함"): 0.2칸마다 칸을 보며 단단한 블록이 하나라도 있으면 false.
+ * 몹 눈 → 사람 눈. 끝점 두 칸은 안 본다(몸이 반쯤 걸친 칸)
+ */
+export function clearSight(solidAt: SolidAt, ax: number, ay: number, az: number, bx: number, by: number, bz: number): boolean {
+  const d = Math.hypot(bx - ax, by - ay, bz - az);
+  const n = Math.ceil(d / 0.2);
+  const ca = `${Math.floor(ax)},${Math.floor(ay)},${Math.floor(az)}`,
+    cb = `${Math.floor(bx)},${Math.floor(by)},${Math.floor(bz)}`;
+  let last = '';
+  for (let i = 1; i < n; i++) {
+    const t = i / n;
+    const x = Math.floor(ax + (bx - ax) * t),
+      y = Math.floor(ay + (by - ay) * t),
+      z = Math.floor(az + (bz - az) * t);
+    const key = `${x},${y},${z}`;
+    if (key === last || key === ca || key === cb) continue;
+    last = key;
+    if (solidAt(x, y, z)) return false;
+  }
+  return true;
+}
+
+/** 몹이 사람을 보고 있나 (벽 너머면 false). 몹 눈은 키의 0.8, 사람 눈은 발 + 1.5 */
+export function mobSees(solidAt: SolidAt | undefined, m: { x: number; y: number; z: number; kind: MobKind }, target: { x: number; y: number; z: number }): boolean {
+  if (!solidAt) return true;
+  const h = mobSize(m.kind).h;
+  return clearSight(solidAt, m.x, m.y + Math.min(h * 0.8, h - 0.1), m.z, target.x, target.y + 1.5, target.z);
+}
+
 /** 한 차례에 자리를 몇 번 뽑아 보나 (동굴은 대부분 돌이라 넉넉히) */
 export const SPAWN_TRIES = 12;
 
@@ -613,10 +667,27 @@ export function pickSpawn(seed: number, turn: number, around: { x: number; y?: n
 }
 
 /**
+ * 몹을 (nx, nz) 로 옮겨 본다: 한 칸까지 오르고, 세 칸까지만 내려간다(깊은 구멍·용암엔 안 뛰어든다).
+ * solidAt 을 주면 몸이 벽에 박히는 자리로는 안 간다(이미 박혀 있으면 빠져나오는 건 된다). 옮겼으면 true
+ */
+export function moveMob(m: { x: number; y: number; z: number; kind: MobKind }, nx: number, nz: number, groundAt: GroundAt, solidAt?: SolidAt, maxUp = 1.05, maxDown = 3): boolean {
+  const gy = groundAt(nx, nz, m.y);
+  if (gy === null || gy - m.y > maxUp || m.y - gy > maxDown) return false;
+  if (solidAt) {
+    const r = bodyR(m.kind);
+    if (bodyInWall(solidAt, nx, nz, gy, r) && !bodyInWall(solidAt, m.x, m.z, m.y, r)) return false;
+  }
+  m.x = nx;
+  m.z = nz;
+  m.y = gy;
+  return true;
+}
+
+/**
  * 몹 한 걸음 (dt 초). target 은 가장 가까운 사람의 발 위치. groundAt 으로 땅을 따라간다(한 칸 오르기까지).
  * 돌려주는 event: 'attack'(좀비가 물었다) · 'explode'(크리퍼가 터졌다) · null
  */
-export function stepMob(m: MobState, def: MobDef, target: { x: number; y: number; z: number } | null, dt: number, now: number, groundAt: GroundAt): 'attack' | 'explode' | null {
+export function stepMob(m: MobState, def: MobDef, target: { x: number; y: number; z: number } | null, dt: number, now: number, groundAt: GroundAt, solidAt?: SolidAt): 'attack' | 'explode' | null {
   if (!target) {
     m.state = MOB_STATE.walk;
     m.fuseAt = 0;
@@ -633,7 +704,7 @@ export function stepMob(m: MobState, def: MobDef, target: { x: number; y: number
     const wantY = target.y + hover;
     const rate = def.swoop ? 4 : 2;
     m.y += Math.max(-rate * dt, Math.min(rate * dt, wantY - m.y));
-    if (Math.hypot(dx, target.y - m.y, dz) <= def.reach) {
+    if (Math.hypot(dx, target.y - m.y, dz) <= def.reach && mobSees(solidAt, m, target)) {
       m.state = MOB_STATE.attack;
       if (now - m.lastAttackAt >= def.attackEveryMs) {
         m.lastAttackAt = now;
@@ -651,7 +722,7 @@ export function stepMob(m: MobState, def: MobDef, target: { x: number; y: number
   }
   if (def.fuseMs > 0) {
     // 크리퍼
-    if (dist <= def.reach && Math.abs(target.y - m.y) < 3) {
+    if (dist <= def.reach && Math.abs(target.y - m.y) < 3 && mobSees(solidAt, m, target)) {
       if (m.fuseAt === 0) m.fuseAt = now;
       m.state = MOB_STATE.fuse;
       if (now - m.fuseAt >= def.fuseMs) return 'explode';
@@ -659,7 +730,8 @@ export function stepMob(m: MobState, def: MobDef, target: { x: number; y: number
     }
     m.fuseAt = 0;
     m.state = MOB_STATE.walk;
-  } else if (dist <= def.reach && Math.abs(target.y - m.y) < 2) {
+  } else if (dist <= def.reach && Math.abs(target.y - m.y) < 2 && mobSees(solidAt, m, target)) {
+    // 벽 너머의 사람은 못 때린다 (2026-11-07) — 보일 때까지 계속 다가간다
     m.state = MOB_STATE.attack;
     if (now - m.lastAttackAt >= def.attackEveryMs) {
       m.lastAttackAt = now;
@@ -672,12 +744,9 @@ export function stepMob(m: MobState, def: MobDef, target: { x: number; y: number
     const step = Math.min(dist, def.speed * dt);
     const nx = m.x + (dx / dist) * step,
       nz = m.z + (dz / dist) * step;
-    const gy = groundAt(nx, nz, m.y);
-    if (gy !== null && gy - m.y <= 1.05 && m.y - gy <= 3) {
-      // 한 칸까지 오르고, 세 칸까지만 내려간다 (깊은 구멍·용암엔 안 뛰어든다)
-      m.x = nx;
-      m.z = nz;
-      m.y = gy;
+    // 벽에 막히면 벽을 따라 미끄러진다 (x 만, z 만)
+    if (!moveMob(m, nx, nz, groundAt, solidAt) && solidAt) {
+      if (!moveMob(m, nx, m.z, groundAt, solidAt)) moveMob(m, m.x, nz, groundAt, solidAt);
     }
   }
   return null;

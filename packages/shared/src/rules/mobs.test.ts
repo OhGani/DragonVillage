@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import bossesJson from '../../../../data/bosses.json';
 import { MOBS } from './data';
-import { BOSS_KIND, MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, isBoss, isLookingAt, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob, bossMinionKind, bossMinionKinds, KING_KINDS, MOB_KINDS, MOB_KIND_OF, MOB_KIND_NUM, isZombieKind, zombieVillagerRoll, CURE_MS } from './mobs';
+import { BOSS_KIND, MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, isBoss, isLookingAt, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob, bossMinionKind, bossMinionKinds, KING_KINDS, MOB_KINDS, MOB_KIND_OF, MOB_KIND_NUM, isZombieKind, zombieVillagerRoll, CURE_MS, bodyInWall, bodyR, clearSight, type SolidAt } from './mobs';
 
 const flat = () => 41; // 어디나 발 높이 41
 
@@ -297,5 +297,63 @@ describe('네 왕의 부하 (아들 설계 + 아빠 그림 변종, 2026-11-06)',
     expect(MOBS.get('bogged').poisonMs).toBeGreaterThan(0); // 독 화살
     expect(mobSize('baby_zombie').h).toBeLessThan(mobSize('zombie').h);
     for (const z of ['baby_zombie', 'drowned', 'frostbite'] as const) expect(isZombieKind(z)).toBe(true);
+  });
+});
+
+describe('벽 (아빠 2026-11-07 "건물 안 몹이 공격함 · 벽 밖으로 얼굴이 나옴")', () => {
+  // x = 105 칸에 높이 41~43 벽이 남북으로 길게 서 있다. 바닥은 어디나 41
+  const wall: SolidAt = (x, y, z) => y < 41 || (x === 105 && y >= 41 && y <= 43 && z > 80 && z < 120);
+  // 벽 칸 위에는 설 수 없다(groundAt 이 null) — 서버 groundAt 과 같은 규칙
+  const ground: (x: number, z: number) => number | null = (x) => (Math.floor(x) === 105 ? null : 41);
+
+  it('벽 너머 사람은 붙어 있어도 못 때린다 (안 막혔으면 때린다)', () => {
+    const def = MOBS.get('zombie');
+    const m = mob('zombie', 104.7, 100);
+    const target = { x: 106.25, y: 41, z: 100 }; // 1.55칸 — 손이 닿는 거리지만 벽 너머
+    for (let t = 0; t < 20; t++) expect(stepMob(m, def, target, 0.1, 10_000 + t * 100, ground, wall)).toBeNull();
+    const open = mob('zombie', 104.7, 130); // 벽이 없는 곳
+    expect(stepMob(open, def, { x: 106.25, y: 41, z: 130 }, 0.1, 10_000, flat, wall)).toBe('attack');
+  });
+
+  it('스켈레톤도 벽 너머로는 안 쏜다, 크리퍼도 심지를 안 켠다', () => {
+    const sk = mob('skeleton', 100, 100);
+    expect(stepMob(sk, MOBS.get('skeleton'), { x: 110, y: 41, z: 100 }, 0.1, 10_000, ground, wall)).toBeNull();
+    const cr = mob('creeper', 104.5, 100);
+    stepMob(cr, MOBS.get('creeper'), { x: 106.5, y: 41, z: 100 }, 0.1, 10_000, ground, wall);
+    expect(cr.fuseAt).toBe(0);
+  });
+
+  it('벽 쪽으로 걸어가도 몸 모서리가 벽 앞에서 멈춘다 — 몸이 넓은 거미도', () => {
+    for (const kind of ['zombie', 'spider', 'gorilla'] as const) {
+      const def = { ...MOBS.get(kind), reach: 0, fuseMs: 0 };
+      const m = mob(kind, 100.5, 100.5);
+      for (let t = 0; t < 100; t++) stepMob(m, def, { x: 110, y: 41, z: 100.5 }, 0.1, 10_000 + t * 100, ground, wall);
+      expect(m.x + bodyR(kind)).toBeLessThanOrEqual(105);
+      expect(m.x + bodyR(kind)).toBeGreaterThan(104.5); // 벽 앞까지는 온다
+      expect(bodyInWall(wall, m.x, m.z, m.y, bodyR(kind))).toBe(false);
+    }
+  });
+
+  it('벽에 막히면 벽을 따라 미끄러진다', () => {
+    const def = { ...MOBS.get('zombie'), reach: 0 };
+    const m = mob('zombie', 104.5, 100);
+    for (let t = 0; t < 30; t++) stepMob(m, def, { x: 110, y: 41, z: 125 }, 0.1, 10_000 + t * 100, ground, wall);
+    expect(m.z).toBeGreaterThan(105); // 비스듬히 막혀도 z 쪽으로는 간다
+  });
+
+  it('한 칸 턱은 그대로 올라선다 (벽 검사는 발보다 한 칸 위만)', () => {
+    const step: SolidAt = (x, y) => y < 41 || (x >= 103 && y === 41);
+    const stepGround = (x: number) => (Math.floor(x) >= 103 ? 42 : 41);
+    const m = mob('zombie', 101.5, 100.5);
+    const def = { ...MOBS.get('zombie'), reach: 0 };
+    for (let t = 0; t < 40; t++) stepMob(m, def, { x: 106, y: 42, z: 100.5 }, 0.1, 10_000 + t * 100, stepGround, step);
+    expect(m.y).toBe(42);
+    expect(m.x).toBeGreaterThan(104);
+  });
+
+  it('clearSight: 벽이 끼면 false, 트인 곳은 true', () => {
+    expect(clearSight(wall, 104.5, 42.5, 100, 106.5, 42.5, 100)).toBe(false);
+    expect(clearSight(wall, 104.5, 42.5, 130, 106.5, 42.5, 130)).toBe(true);
+    expect(clearSight(wall, 100, 42.5, 100, 104.5, 42.5, 100)).toBe(true);
   });
 });

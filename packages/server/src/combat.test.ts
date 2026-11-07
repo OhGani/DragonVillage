@@ -1,4 +1,4 @@
-import { ANIMAL_ID_BASE, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, HP_MAX, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, give, type ServerBinary, GUARD_MAX_MS, meleeBonus, knockbackFactor, rollDrops, HIT_REACH, MOB_STATE } from '@dragon-village/shared';
+import { ANIMAL_ID_BASE, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, HP_MAX, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, give, type ServerBinary, GUARD_MAX_MS, meleeBonus, knockbackFactor, rollDrops, HIT_REACH, MOB_STATE, bodyInWall, bodyR } from '@dragon-village/shared';
 import { BLOCKS, EXPEDITIONS, MOBS } from '@dragon-village/shared/data';
 import { Expedition } from './expedition';
 import { describe, expect, it } from 'vitest';
@@ -599,4 +599,35 @@ describe('원정지마다 사냥 동물이 실제 지형에 다 풀린다 (2026-
       }
     });
     }
+});
+
+describe('벽 (아빠 2026-11-07 "원정 갔을 때 건물 안에 있는 몹들이 공격함 · 벽 밖으로 얼굴이나 몸의 일부가 나옴")', () => {
+  it('집 안 몹들은 벽 바로 밖의 사람을 못 때리고, 몸도 벽 밖으로 안 나온다', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const w = room.world;
+    const stone = BLOCKS.numOf('cobblestone');
+    // 60~68 × 56~66 돌집 (벽 높이 3, 지붕 없음)
+    for (let x = 60; x <= 68; x++)
+      for (let z = 56; z <= 66; z++)
+        for (let y = GROUND_Y + 1; y <= GROUND_Y + 3; y++) w.setBlock(x, y, z, x === 60 || x === 68 || z === 56 || z === 66 ? stone : 0);
+    const hurt: string[] = [];
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 67.4, eyeY: GROUND_Y + 1 + 1.6 }; // 남쪽 벽 바로 밖
+    const arena = { world: w, seed: 5, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0 };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: (_i, _a, c) => hurt.push(c), knock: () => {}, broadcast: () => {}, json: () => {}, reward: () => {}, bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 24, goal: null, quiet: true });
+    for (const [kind, x] of [['zombie', 62.5], ['vindicator', 63.5], ['spider', 64.5], ['skeleton', 65.5], ['gorilla', 66.5], ['creeper', 64]] as const) sys.spawnKind(kind, x, GROUND_Y + 1, 60.5);
+    const solid = (x: number, y: number, z: number) => BLOCKS.get(w.getBlock(x, y, z)).solid;
+    for (let t = T0; t < T0 + 15_000; t += 100) {
+      sys.tick(t);
+      for (const m of sys.mobs.values()) {
+        const r = bodyR(m.kind);
+        expect(bodyInWall(solid, m.x, m.z, m.y, r), `${m.kind} ${m.x.toFixed(2)},${m.z.toFixed(2)}`).toBe(false);
+        expect(m.z + r).toBeLessThanOrEqual(66); // 남쪽 벽 안쪽 면
+      }
+    }
+    expect(hurt).toEqual([]);
+    // 벽을 허물면 바로 덤빈다
+    for (let x = 61; x <= 67; x++) for (let y = GROUND_Y + 1; y <= GROUND_Y + 3; y++) w.setBlock(x, y, 66, 0);
+    for (let t = T0 + 15_000; t < T0 + 25_000; t += 100) sys.tick(t);
+    expect(hurt.length).toBeGreaterThan(0);
+  });
 });

@@ -36,6 +36,9 @@ import {
   type VoxelWorld,
   ANGRY_MS,
   CALM_MS,
+  bodyInWall,
+  bodyR,
+  moveMob,
   BISON_FUR_REGROW_MS,
   calmFoods,
   beamHitsMob,
@@ -523,6 +526,14 @@ export class MobSystem {
     return null;
   };
 
+  /** 단단한 칸인가 (몸이 벽에 박히지 않게·벽 너머를 못 때리게, 2026-11-07). 세계 밖은 벽 */
+  solidAt = (x: number, y: number, z: number): boolean => {
+    const w = this.e.world;
+    if (!w.inBounds(x, y, z)) return y >= 0 && y < w.sizeY;
+    const b = this.registry.get(w.getBlock(x, y, z));
+    return b.solid && !b.fluid;
+  };
+
   /** 몹 하나 넣기 (방어전 파도·소환). 모두에게 spawn 알림 */
   spawnKind(kind: MobKind, x: number, y: number, z: number): MobState {
     if (this.opts.lastId !== undefined && this.nextId > this.opts.lastId) this.nextId = this.opts.firstId;
@@ -650,7 +661,7 @@ export class MobSystem {
             }
           }
           if (victim) {
-            if (stepMob(m, def, victim, dt, now, this.groundAt) === 'attack') this.biteVillager(victim, def.damage, now);
+            if (stepMob(m, def, victim, dt, now, this.groundAt, this.solidAt) === 'attack') this.biteVillager(victim, def.damage, now);
             continue;
           }
         }
@@ -669,7 +680,7 @@ export class MobSystem {
           if (cat) {
             const d = cd || 1;
             m.fuseAt = 0;
-            stepMob(m, { ...def, speed: def.speed * 1.2, reach: 0, fuseMs: 0 }, { x: m.x + ((m.x - cat.x) / d) * 4, y: m.y, z: m.z + ((m.z - cat.z) / d) * 4 }, dt, now, this.groundAt);
+            stepMob(m, { ...def, speed: def.speed * 1.2, reach: 0, fuseMs: 0 }, { x: m.x + ((m.x - cat.x) / d) * 4, y: m.y, z: m.z + ((m.z - cat.z) / d) * 4 }, dt, now, this.groundAt, this.solidAt);
             if (now - (m.hissAt ?? 0) > 3000) {
               m.hissAt = now;
               this.hooks.json({ t: 'mob', ev: 'hiss', id: m.id, mob: m.kind, x: cat.x, y: m.y, z: cat.z });
@@ -679,7 +690,7 @@ export class MobSystem {
         }
         if (target) {
           const chase = def.pounce && Math.hypot(target.x - m.x, target.z - m.z) <= def.pounce ? { ...def, speed: def.speed * 3 } : def; // 호랑이: 가까우면 덮친다
-          const ev = stepMob(m, m.grudge !== undefined ? { ...chase, damage: GRUDGE_DAMAGE, attackEveryMs: GRUDGE_ATTACK_MS } : chase, target, dt, now, this.groundAt);
+          const ev = stepMob(m, m.grudge !== undefined ? { ...chase, damage: GRUDGE_DAMAGE, attackEveryMs: GRUDGE_ATTACK_MS } : chase, target, dt, now, this.groundAt, this.solidAt);
           if (ev === 'attack') {
             // 원거리 몹은 화살이 날아가는 그림을 먼저 (피해는 바로)
             if (isRangedMob(def)) this.hooks.json({ t: 'arrow', from: { x: m.x, y: m.y + mobSize(m.kind).h * 0.8, z: m.z }, to: { x: target.x, y: target.eyeY - 0.3, z: target.z }, fire: m.kind === 'ghast' || m.kind === 'blaze', snow: m.kind === 'snow_golem', sonic: m.kind === 'giant_warden', laser: def.shot === 'laser', potion: def.shot === 'potion' }); // 가스트·블레이즈는 불덩이 (#173), 눈 골렘은 눈덩이 (#223), 거대 워든은 음파 (#254)
@@ -696,9 +707,9 @@ export class MobSystem {
         } else if (this.opts.goal) {
           // 깃대로 걸어간다 — 닿아도 '공격' 은 없다 (블록은 안 부순다)
           const g = this.opts.goal;
-          if (Math.hypot(g.x - m.x, g.z - m.z) > 1.2) stepMob(m, { ...def, reach: 0, fuseMs: 0 }, g, dt, now, this.groundAt);
+          if (Math.hypot(g.x - m.x, g.z - m.z) > 1.2) stepMob(m, { ...def, reach: 0, fuseMs: 0 }, g, dt, now, this.groundAt, this.solidAt);
           else m.state = MOB_STATE.walk;
-        } else stepMob(m, def, null, dt, now, this.groundAt);
+        } else stepMob(m, def, null, dt, now, this.groundAt, this.solidAt);
       }
       this.separate(now);
     }
@@ -711,9 +722,9 @@ export class MobSystem {
    * 떠 있는 몹(가스트·엔더 드래곤)은 빼고, 밀린 자리에 설 땅이 없거나 한 칸 넘게 높낮이가 다르면 그대로 (절벽·용암으로 안 밀린다)
    */
   private separate(now: number): void {
-    const ents: { x: number; y: number; z: number }[] = [];
+    const ents: { x: number; y: number; z: number; kind: MobKind }[] = [];
     const bodies: SepBody[] = [];
-    const add = (e: { x: number; y: number; z: number }, kind: MobKind, fixed: boolean): void => {
+    const add = (e: { x: number; y: number; z: number; kind: MobKind }, kind: MobKind, fixed: boolean): void => {
       if (this.defs.get(kind).hover || this.defs.get(kind).swim) return; // 떠 있는 몹·물고기는 땅 높이로 옮기면 안 된다
       const s = mobSize(kind);
       ents.push(e);
@@ -725,14 +736,7 @@ export class MobSystem {
     separationPushes(bodies).forEach((p, i) => {
       if (p.dx === 0 && p.dz === 0) return;
       const e = ents[i]!;
-      const nx = e.x + p.dx,
-        nz = e.z + p.dz;
-      const gy = this.groundAt(nx, nz, e.y);
-      if (gy !== null && Math.abs(gy - e.y) <= 1) {
-        e.x = nx;
-        e.z = nz;
-        e.y = gy;
-      }
+      moveMob(e, e.x + p.dx, e.z + p.dz, this.groundAt, this.solidAt, 1, 1); // 서로 밀어도 벽 속으론 안 들어간다
     });
   }
 
@@ -954,12 +958,7 @@ export class MobSystem {
         const step = Math.min(d - goal.stop, PET_SPEED * dt);
         const nx = c.x + (dx / d) * step,
           nz = c.z + (dz / d) * step;
-        const gy = this.groundAt(nx, nz, c.y);
-        if (gy !== null && Math.abs(gy - c.y) <= 1.2) {
-          c.x = nx;
-          c.z = nz;
-          c.y = gy;
-        }
+        if (!moveMob(c, nx, nz, this.groundAt, this.solidAt, 1.2, 1.2) && !moveMob(c, nx, c.z, this.groundAt, this.solidAt, 1.2, 1.2)) moveMob(c, c.x, nz, this.groundAt, this.solidAt, 1.2, 1.2);
         c.yaw = Math.atan2(-dx, -dz);
       }
       if (prey && Math.hypot(prey.x - c.x, prey.z - c.z) <= reach + 0.4 && now >= c.nextBiteAt) {
@@ -1010,14 +1009,7 @@ export class MobSystem {
     if (this.sleepingBoss(m)) this.wake(m, now);
     if (m.hp > 0) {
       if (push && !isBoss(m.kind) && !this.defs.get(m.kind).swim) { // 물고기는 안 밀린다 — 둑 위로 밀려 나가면 안 된다
-        const nx = m.x + push.x * KNOCKBACK * knock,
-          nz = m.z + push.z * KNOCKBACK * knock;
-        const gy = this.groundAt(nx, nz, m.y);
-        if (gy !== null && Math.abs(gy - m.y) <= 1) {
-          m.x = nx;
-          m.z = nz;
-          m.y = gy;
-        }
+        moveMob(m, m.x + push.x * KNOCKBACK * knock, m.z + push.z * KNOCKBACK * knock, this.groundAt, this.solidAt, 1, 1); // 맞아 밀려도 벽 속으론 안 들어간다
       }
       this.hooks.json({ t: 'mob', ev: 'hit', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z, dmg: dealt });
       if (m.kind === 'enderman' && push && hash3(m.id, m.hp, 9, this.e.seed) < 0.5) this.teleportTo(m, m.x + push.x * ENDER_AWAY, m.z + push.z * ENDER_AWAY, m.y, now); // 맞으면 반은 멀리 달아난다 (#222)
@@ -1055,7 +1047,7 @@ export class MobSystem {
       if ((m.fleeUntil ?? 0) > now && m.fleeDir) {
         const bx = m.x,
           bz = m.z;
-        stepMob(m, { ...def, speed: def.speed * 1.5, reach: 0, fuseMs: 0 }, { x: m.x + m.fleeDir.x * 4, y: m.y, z: m.z + m.fleeDir.z * 4 }, dt, now, this.groundAt);
+        stepMob(m, { ...def, speed: def.speed * 1.5, reach: 0, fuseMs: 0 }, { x: m.x + m.fleeDir.x * 4, y: m.y, z: m.z + m.fleeDir.z * 4 }, dt, now, this.groundAt, this.solidAt);
         if (m.x === bx && m.z === bz) {
           const a = Math.atan2(m.fleeDir.z, m.fleeDir.x) + (hash3(m.id, Math.floor(now / 300), 41, this.e.seed) < 0.5 ? 1.2 : -1.2);
           m.fleeDir = { x: Math.cos(a), z: Math.sin(a) };
@@ -1150,8 +1142,10 @@ export class MobSystem {
       m.wanderAt = now + 2000 + r * 4000;
     }
     if (m.wanderTo) {
-      stepMob(m, { ...def, speed: def.speed * 0.6, reach: 0, fuseMs: 0 }, m.wanderTo, dt, now, this.groundAt);
-      if (Math.hypot(m.wanderTo.x - m.x, m.wanderTo.z - m.z) < 0.6) m.wanderTo = null;
+      const wx = m.x,
+        wz = m.z;
+      stepMob(m, { ...def, speed: def.speed * 0.6, reach: 0, fuseMs: 0 }, m.wanderTo, dt, now, this.groundAt, this.solidAt);
+      if (Math.hypot(m.wanderTo.x - m.x, m.wanderTo.z - m.z) < 0.6 || (m.x === wx && m.z === wz)) m.wanderTo = null; // 닿았거나 벽에 막혔으면 다른 곳으로
     } else m.state = MOB_STATE.walk;
   }
 
@@ -1244,7 +1238,7 @@ export class MobSystem {
     const tx = Math.floor(x) + 0.5,
       tz = Math.floor(z) + 0.5;
     const y = this.groundAt(tx, tz, nearY);
-    if (y === null) return false;
+    if (y === null || bodyInWall(this.solidAt, tx, tz, y, bodyR(m.kind))) return false;
     m.x = tx;
     m.y = y;
     m.z = tz;
