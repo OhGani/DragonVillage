@@ -26,7 +26,7 @@ import type { SpawnPoint } from './village';
 
 export const CAVE_BOUNDS: WorldBounds = { sizeCX: 12, sizeCY: 4, sizeCZ: 12 };
 /** 생성기를 고치면 올린다 (클라·서버 버전 불일치 감지) */
-export const CAVE_GEN_VERSION = 2; // 2: 바닥 버섯 (#207)
+export const CAVE_GEN_VERSION = 3; // 2: 바닥 버섯 (#207), 3: 벌레 먹은 돌 (2026-11-07)
 /** 이 높이 아래의 굴은 용암 */
 export const LAVA_Y = 9;
 /** 도착 방 바닥(단) 높이 */
@@ -287,6 +287,16 @@ export function generateCave(registry: BlockRegistry, seed: number, treasures = 
     set(portal.x - 1, y, portal.z, AIR_ID);
     set(portal.x, y, portal.z, AIR_ID);
   }
+
+  // 벌레 먹은 돌 (아빠가 보낸 나무위키 '공격적 몹' 2026-11-07): 굴 벽(공기와 맞닿은 돌) 중 2.5% — 시작 자리 16칸 안은 빼고. 부수면 좀벌레
+  const infested = B('infested_stone');
+  for (let y = 2; y < HEIGHT - 2; y++)
+    for (let z = 1; z < SIZE - 1; z++)
+      for (let x = 1; x < SIZE - 1; x++) {
+        if (hash3(x, y, z, seed ^ 0x51f7) >= 0.025 || world.getBlock(x, y, z) !== stone) continue;
+        if (Math.hypot(x - CENTER, z - CENTER) < 16) continue;
+        if (world.getBlock(x + 1, y, z) === AIR_ID || world.getBlock(x - 1, y, z) === AIR_ID || world.getBlock(x, y + 1, z) === AIR_ID || world.getBlock(x, y - 1, z) === AIR_ID || world.getBlock(x, y, z + 1) === AIR_ID || world.getBlock(x, y, z - 1) === AIR_ID) set(x, y, z, infested);
+      }
 
   const spawn: SpawnPoint = { x: CENTER + 0.5, y: PY + 1, z: CENTER + 3.5, yaw: 0 };
   const layout: CaveLayout = { center: { x: CENTER, z: CENTER }, portal, treasures: treasureChests, den };

@@ -921,6 +921,28 @@
       "_note": "아빠 2026-11-06 \"식탁 만들어 주고 음식을 식탁 위에 놓을 수 있음\": 가문비 판자 윗판 + 다리 넷(붙여 놓으면 긴 식탁 하나, 다리는 바깥 모서리만). 먹을 것을 들고 탭하면 올라가고(4개까지), 다른 걸 들고 탭하면 식탁 창 — 먹기·가방에 넣기. 부수면 올린 음식은 부순 사람 가방으로"
     },
     {
+      "id": "infested_stone",
+      "name": "벌레 먹은 돌",
+      "hardness": 0.75,
+      "tool": "pickaxe",
+      "drops": null,
+      "lightEmit": 0,
+      "texture": "stone",
+      "_note": "아빠가 보낸 나무위키 '공격적 몹' (2026-11-07): 동굴 벽에 섞여 있다. 돌과 똑같이 생겼지만 반만 단단하고, 부수면 아무것도 안 나오고 좀벌레가 튀어나온다"
+    },
+    {
+      "id": "creaking_heart",
+      "name": "삐걱이 심장",
+      "hardness": 2.0,
+      "tool": "axe",
+      "drops": "resin_clump",
+      "lightEmit": 0,
+      "textureTop": "creaking_heart_top",
+      "textureSide": "creaking_heart_side",
+      "textureBottom": "creaking_heart_top",
+      "_note": "아빠가 보낸 나무위키 '공격적 몹' (2026-11-07): 어두운 숲 나무 줄기 속. 밤이면 곁에 크리킹이 나오고, 이걸 부수면 그 크리킹이 사라진다. 송진 덩어리"
+    },
+    {
       "id": "sign",
       "name": "표지판",
       "hardness": 1.0,

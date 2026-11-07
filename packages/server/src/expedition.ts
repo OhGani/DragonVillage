@@ -56,6 +56,8 @@ export class Expedition {
   /** 함께 싸우는 보스 여럿 (고대성 네 왕, 2026-11-06) */
   readonly kings: readonly { kind: MobKind; x: number; y: number; z: number }[];
   readonly crystals: readonly { x: number; y: number; z: number }[];
+  /** 삐걱이 심장 (어두운 숲, 2026-11-07) */
+  readonly hearts: readonly { x: number; y: number; z: number }[];
   /** 보스 종류 — 자리가 있고 expeditions.json boss.id 가 아는 몹이면 (#162) */
   readonly bossKind: MobKind | null;
   /** 엔딩 포탈 (#170): 엔더 드래곤을 잡으면 열린다. 서 있는 칸 가운데(바닥 발광석 3×3 위). 없으면 null */
@@ -76,6 +78,7 @@ export class Expedition {
     this.spawns = gen.spawns;
     this.kings = gen.kings ?? [];
     this.crystals = gen.crystals;
+    this.hearts = gen.hearts ?? [];
     this.bossKind = gen.den && def.bossId && isMobKind(def.bossId) ? def.bossId : null;
     this.treasureKeys = new Set(gen.treasures.map((t) => `${t.x},${t.y},${t.z}`));
     this.genVersion = gen.genVersion;

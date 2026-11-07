@@ -32,6 +32,7 @@ import {
   INITIAL_ANIMALS,
   isAnimalSpot,
   isMountKind,
+  CAMEL_CACTUS_HEAL,
   LOVE_MS,
   MOB_KIND_NUM,
   MOB_STATE,
@@ -179,7 +180,11 @@ export class AnimalSystem {
     let i = rows.length;
     for (const [kind, n] of Object.entries(INITIAL_ANIMALS) as [MobKind, number][]) {
       const need = n - (kind === 'villager' ? this.houseVillagerCount() + (this.hooks.kidnapped?.() ?? 0) : this.wildCountOf(kind)); // 잡혀간 주민은 안 채운다 (#169), 대장장이는 안 센다 (#173)
-      if (need > 0) added += this.spawnHerd(kind, need, i++, now);
+      if (need <= 0) continue;
+      // 자리 뽑기 번호를 바꿔 가며 몇 번 더 (새 종류가 처음 들어올 때 첫 번호의 자리가 다 막혀 0마리가 되던 일 — 낙타 2026-11-07)
+      let made = 0;
+      for (let tries = 0; made < need && tries < 6; tries++) made += this.spawnHerd(kind, need - made, i++ + tries * 101, now);
+      added += made;
     }
     if (added > 0) this.hooks.log(rows.length === 0 ? `동물 ${added}마리를 숲에 풀었어요` : `숲에 동물 ${added}마리를 채웠어요 (${this.animals.size}마리)`);
     this.lastRespawnAt = now;
@@ -703,6 +708,14 @@ export class AnimalSystem {
     if (held && a.owner === null && def.tameWith.includes(held) && def.food.includes(held)) return this.tryTame(a, p, held); // 고양이 (2026-11-06): 길들이지 않은 고양이에게 생선 = 길들이기 (사랑은 길들인 뒤)
     if (held && def.food.includes(held)) {
       if (!this.hooks.consume(p.idx, held)) return 'NOT_FOOD';
+      const maxHp = animalMaxHp(def.hp, a.kind, a.owner !== null);
+      if (a.kind === 'camel' && a.hp < maxHp) {
+        // 낙타 (2026-11-07): 다쳤으면 선인장이 먼저 치료한다
+        a.hp = Math.min(maxHp, a.hp + CAMEL_CACTUS_HEAL);
+        a.dirty = true;
+        this.hooks.json({ t: 'mob', ev: 'eat', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
+        return null;
+      }
       if (this.isBaby(a, now)) {
         a.adultAt = Math.max(now, (a.adultAt ?? now) - FEED_GROW_MS);
         a.dirty = true;

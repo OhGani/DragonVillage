@@ -477,6 +477,8 @@ export type ClientJson =
   | { t: 'ride'; id: number }
   /** 내리기 (M6-4) */
   | { t: 'dismount' }
+  /** 낙타 뒷자리 (2026-11-07): idx 번 사람이 모는 낙타 뒤에 탄다 */
+  | { t: 'rideBehind'; idx: number }
   /** 손에 든 것이 바뀌었다 (#96) — 핫바 선택·가방 변화 때 */
   | { t: 'held'; item: string | null }
   /** 마을 방어전 시작 (M7-5) — 깃대 옆에서 */
@@ -616,7 +618,7 @@ export type ServerJson =
   /** 원정에 따라온 펫 (#145): 원정 세계 사람들에게. 클라가 주인을 따라다니게 그린다 (서버 목록엔 없다) */
   | { t: 'companions'; list: { id: number; kind: number; name: string | null; owner: number }[] }
   /** 몹(스켈레톤·약탈자)이 쏜 화살: from(몹) → to(사람 가슴) (M8-2 3차) */
-  | { t: 'arrow'; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean; snow?: boolean; sonic?: boolean; laser?: boolean; potion?: boolean }
+  | { t: 'arrow'; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean; snow?: boolean; sonic?: boolean; laser?: boolean; potion?: boolean; bullet?: boolean; wind?: boolean }
   /** 밀린다 (#223 눈 골렘 눈덩이는 피해 없이, #253 고릴라는 아프고 나서): (x, z) 방향으로 power 만큼. why = 'snow' | 'gorilla' */
   | { t: 'knock'; x: number; z: number; power: number; why?: string }
   /** 식탁 위 음식 (2026-11-06): 바뀔 때 그 세계 모두에게, items 는 TABLE_SLOTS 칸 (빈 칸 null) */
@@ -659,7 +661,7 @@ export type ServerJson =
   | { t: 'orbGone'; id: number; by: number }
   /** 몹 사건 (M7-2): 생김·맞음·죽음·폭발 */
   /** 몹 사건. wake·summon 은 보스(M7-4) */
-  | { t: 'mob'; ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk' | 'stare' | 'teleport' | 'heal' | 'zombify' | 'cure' | 'cured' | 'gift' | 'hiss' | 'wild'; id: number; mob: string; x: number; y: number; z: number; dmg?: number; item?: string; to?: number }
+  | { t: 'mob'; ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk' | 'stare' | 'teleport' | 'heal' | 'zombify' | 'cure' | 'cured' | 'gift' | 'hiss' | 'screech' | 'wild'; id: number; mob: string; x: number; y: number; z: number; dmg?: number; item?: string; to?: number }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }

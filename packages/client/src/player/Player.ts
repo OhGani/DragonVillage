@@ -1,6 +1,13 @@
 import {
   type BlockRegistry,
   BOAT_LAND_SPEED,
+  CAMEL_DASH_COOLDOWN_MS,
+  CAMEL_DASH_MS,
+  CAMEL_DASH_SPEED,
+  CAMEL_SEAT_Y,
+  CAMEL_SPEED,
+  CAMEL_STEP,
+  CAMEL_WALK,
   BOAT_SEAT_Y,
   BOAT_SPEED,
   type BodySize,
@@ -102,6 +109,11 @@ export class Player {
   mountKind: MountKind | null = null;
   /** 당근 낚싯대를 들었나 (#185): 돼지가 빨라진다 */
   carrotStick = false;
+  /** 낙타 돌진 (2026-11-07): 남은 돌진 시간·다시 돌진할 때까지 (초) */
+  camelDashLeft = 0;
+  camelCooldown = 0;
+  /** 낙타 뒷자리 (2026-11-07): 주면 내 몸은 이 자리를 따라간다(둘러보기만) */
+  carriedBy: (() => { x: number; y: number; z: number } | null) | null = null;
   eyeHeight = EYE_STAND;
   /** 걷기 주기 (라디안) — 손·카메라 흔들림용 */
   walkCycle = 0;
@@ -195,7 +207,7 @@ export class Player {
 
   /** 탈것에 앉은 높이 (#178): 타고 있으면 몸 상자가 이만큼 아래로 길어져 탈것이 땅속에 안 들어간다 */
   get seatY(): number {
-    return this.riding ? (this.mountKind === 'horse' ? HORSE_SEAT_Y : this.mountKind === 'pig' ? PIG_SEAT_Y : this.mountKind === 'boat' ? BOAT_SEAT_Y : this.mountKind === 'minecart' ? CART_SEAT_Y : RIDE_SEAT_Y) : 0;
+    return this.riding ? (this.mountKind === 'camel' ? CAMEL_SEAT_Y : this.mountKind === 'horse' ? HORSE_SEAT_Y : this.mountKind === 'pig' ? PIG_SEAT_Y : this.mountKind === 'boat' ? BOAT_SEAT_Y : this.mountKind === 'minecart' ? CART_SEAT_Y : RIDE_SEAT_Y) : 0;
   }
 
   /** 발 아래 seat 만큼 중 땅에 안 박힌 길이 — 탈것 자리가 땅에 걸쳐 있으면(낮은 천장 아래서 탔을 때 등) 그만큼만 상자를 늘려 안 끼인다 */
@@ -270,6 +282,20 @@ export class Player {
       return;
     }
     this.applyLook(input.lookDX, input.lookDY);
+    if (this.carriedBy) {
+      // 낙타 뒷자리: 앞 사람의 낙타를 따라간다
+      const at = this.carriedBy();
+      if (at) {
+        this.pos.x = at.x;
+        this.pos.y = at.y;
+        this.pos.z = at.z;
+      }
+      this.vel.x = this.vel.y = this.vel.z = 0;
+      this.onGround = true;
+      this.horizontalSpeed = 0;
+      this.accumulator = 0;
+      return;
+    }
     this.accumulator = Math.min(this.accumulator + dt, STEP * 8);
     while (this.accumulator >= STEP) {
       this.step(input, STEP);
@@ -300,10 +326,20 @@ export class Player {
       wz /= wl;
     }
     const flying = this.riding && this.mountKind === null;
+    // 낙타 (2026-11-07): 돌진 중이면 보는 쪽으로 곧장, 돌진 뒤 쉬는 동안은 걷기만
+    const camel = this.mountKind === 'camel';
+    if (camel) {
+      if (this.camelDashLeft > 0) {
+        this.camelDashLeft = Math.max(0, this.camelDashLeft - h);
+        wx = -sy;
+        wz = -cy;
+      }
+      if (this.camelCooldown > 0) this.camelCooldown = Math.max(0, this.camelCooldown - h);
+    }
     const boatSurface = this.mountKind === 'boat' ? this.waterSurface(pos) : null;
-    const speed = (this.mountKind === 'boat' ? (boatSurface !== null ? BOAT_SPEED : BOAT_LAND_SPEED) : this.mountKind === 'horse' ? this.horseSpeed : this.mountKind === 'pig' ? (this.carrotStick ? PIG_SPEED : PIG_SLOW) : this.riding ? RIDE_SPEED : (this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK) * this.speedMul) * (this.guarding ? this.guardSlow : 1) * (this.slowLeft > 0 ? SLOW_MUL : 1); // 물약 배율은 걸을 때만 (#245)
+    const speed = (camel ? (this.camelDashLeft > 0 ? CAMEL_DASH_SPEED : this.camelCooldown > 0 ? CAMEL_WALK : CAMEL_SPEED) : this.mountKind === 'boat' ? (boatSurface !== null ? BOAT_SPEED : BOAT_LAND_SPEED) : this.mountKind === 'horse' ? this.horseSpeed : this.mountKind === 'pig' ? (this.carrotStick ? PIG_SPEED : PIG_SLOW) : this.riding ? RIDE_SPEED : (this.inWater ? SWIM : this.sneaking ? SNEAK : this.sprinting ? SPRINT : WALK) * this.speedMul) * (this.guarding ? this.guardSlow : 1) * (this.slowLeft > 0 ? SLOW_MUL : 1); // 물약 배율은 걸을 때만 (#245)
     const accel = flying ? 8 : this.mountKind === 'boat' ? 4 : this.inWater ? 6 : this.onGround ? (this.mountKind !== null ? 10 : 18) : 3.5;
-    const k = Math.min(1, accel * h);
+    const k = camel && this.camelDashLeft > 0 ? 1 : Math.min(1, accel * h);
     // 날 때 앞·뒤로 밀면 보는 쪽(위아래)으로 난다 (#97). 살짝 내려보는 건 수평으로 치고, 많이 기울일수록 가파르게
     let pitchT = 0;
     if (flying && input.moveZ !== 0) {
@@ -351,7 +387,15 @@ export class Player {
       vel.y -= GRAVITY * h;
       if (vel.y < -TERMINAL) vel.y = -TERMINAL;
       if (this.slowFalling && !this.mountKind && vel.y < -SLOW_FALL_V) vel.y = -SLOW_FALL_V; // 느린 낙하 물약 (#245): 깃털처럼
-      if (input.jump && this.onGround && this.mountKind !== 'pig') {
+      if (camel) {
+        // 낙타는 점프 대신 앞으로 돌진 (약 10칸, 살짝 뛰어오르며). 그 뒤 쉬는 동안은 못 한다
+        if (input.jump && this.onGround && this.camelCooldown <= 0) {
+          this.camelDashLeft = CAMEL_DASH_MS / 1000;
+          this.camelCooldown = (CAMEL_DASH_MS + CAMEL_DASH_COOLDOWN_MS) / 1000;
+          vel.y = 3.5;
+          this.onGround = false;
+        }
+      } else if (input.jump && this.onGround && this.mountKind !== 'pig') {
         // 말은 조금 높게 (#166), 돼지는 못 뛴다 (#185)
         vel.y = this.mountKind === 'horse' ? JUMP_V * this.horseJump : this.mountKind ? JUMP_V : JUMP_V * this.jumpMul; // 말마다 다르다 (#219), 도약 물약 (#245)
         this.onGround = false;
@@ -375,7 +419,7 @@ export class Player {
 
     // 한 칸 턱 자동 오르기 (앞으로 걷다 막혔을 때). 물속에서는 바닥을 딛지 않아도(헤엄) 둑을 밀면 올라선다
     if (!flying && !this.sneaking && (wasGround || this.inWater) && (this.moveOut.hitX || this.moveOut.hitZ)) {
-      const r = tryStepUp(this.isSolid, { x: px, y: py, z: pz }, pos, size, vx0, vz0, h, this.inWater ? WATER_STEP : AUTO_STEP);
+      const r = tryStepUp(this.isSolid, { x: px, y: py, z: pz }, pos, size, vx0, vz0, h, this.inWater ? WATER_STEP : camel ? CAMEL_STEP : AUTO_STEP); // 낙타는 1.5칸 턱도 넘는다
       if (r) {
         vel.x = r.vx;
         vel.z = r.vz;

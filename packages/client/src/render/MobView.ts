@@ -41,6 +41,8 @@ const HUMANOID: Partial<Record<string, SkinPalette>> = {
   // 철 골렘 (#169): 잿빛 쇠, 덩굴 자국. 몸을 1.4배로
   iron_golem: { shirt: 0xc9cfcf, skin: 0xd6dcdc, hair: 0xb8c4b8, pants: 0xc9cfcf, shoes: 0x9aa39a, eyes: 0xb03030 },
   // 늪 마녀 (2026-11-06): 보랏빛 로브, 푸르스름한 살, 초록 눈 — 뾰족 모자는 따로
+  // 난폭한 피글린 (2026-11-07): 분홍 살에 검은 옷·금빛 허리띠
+  piglin_brute: { shirt: 0x2a2624, skin: 0xe9a196, hair: 0x5a3a2a, pants: 0x3b2f2a, shoes: 0x1e1a18, eyes: 0x2a1a10 },
   witch: { shirt: 0x4a2a5e, skin: 0xb5b08e, hair: 0x2a1d24, pants: 0x3a2048, shoes: 0x241a20, eyes: 0x3fae4a },
   // 네 왕 (아들 보스 설계, 2026-11-06): 자기 종족과 같은 몸을 크게 + 금 왕관
   skeleton_king: { shirt: 0xdcdcdc, skin: 0xd8d8d8, hair: 0xbdbdbd, pants: 0xcfcfcf, shoes: 0x9e9e9e, eyes: 0xff4040 },
@@ -170,7 +172,24 @@ function slimeVoxels(): Voxel[] {
       }
   return out;
 }
-const SLIME_KINDS = new Set(['slime', 'giant_slime']);
+const SLIME_KINDS = new Set(['slime', 'giant_slime', 'magma_cube', 'small_magma_cube']);
+/**
+ * 마그마 큐브 (2026-11-07, 마인크래프트 모습): 슬라임처럼 8×8×8 이지만 겉은 검붉은 껍데기에 주황빛 금이 가로로 두 줄,
+ * 앞면에 주황 눈 둘(노란 눈동자). 슬라임처럼 통통 뛴다
+ */
+function magmaVoxels(): Voxel[] {
+  const out: Voxel[] = [];
+  for (let y = 0; y < 8; y++)
+    for (let z = -4; z <= 3; z++)
+      for (let x = -4; x <= 3; x++) {
+        const shell = x === -4 || x === 3 || y === 0 || y === 7 || z === -4 || z === 3;
+        let c = shell ? ((x * 7 + y * 3 + z * 5) % 5 === 0 ? 0x5a2016 : 0x3e1610) : 0xff8a1e; // 속은 이글이글
+        if (shell && (y === 2 || y === 5) && (x * 3 + z) % 4 !== 0) c = y === 2 ? 0xe0661a : 0xff9a2a; // 주황 금
+        if (z === -4 && (y === 4 || y === 5) && (x === -3 || x === -2 || x === 1 || x === 2)) c = y === 4 && (x === -2 || x === 1) ? 0xffe14a : 0xff6a1a; // 눈
+        out.push({ x, y, z, c: `#${c.toString(16).padStart(6, '0')}` });
+      }
+  return out;
+}
 /** 번개 맞은 크리퍼처럼 (아빠 그림 2026-11-06): 크리퍼 몸을 감싼 푸른 번개 기운 — 반투명 상자 셋, MobView 가 깜빡인다 */
 function chargedAura(body: THREE.Group): void {
   const auraMat = new THREE.MeshBasicMaterial({ color: 0x8fdcff, transparent: true, opacity: 0.28, depthWrite: false });
@@ -190,7 +209,7 @@ const CREEPER_GREEN = 0x4caf50;
 /** 사람 모양 몹 키 (좀비 주민 연출 글자 높이, #244) */
 const MOB_SIZE_H = 1.9;
 const SPIDER_DARK = 0x2a2320;
-const ANIMAL_NAMES = new Set(['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'boat', 'minecart', 'cat']); // 보트·수레도 동물 체계로 그린다 (#209·#237)
+const ANIMAL_NAMES = new Set(['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'boat', 'minecart', 'cat', 'camel']); // 보트·수레도 동물 체계로 그린다 (#209·#237)
 /** 원정 사냥 동물 (2026-11-05): 동물처럼 부위로 그리지만 상태는 몹 규칙(MOB_STATE)이라 따로 움직인다 */
 const WILD_NAMES = new Set<string>(WILD_MODEL_KINDS);
 const KING_DARK = 0x3a2344;
@@ -490,6 +509,10 @@ const SNOW_MAT = new THREE.MeshBasicMaterial({ color: 0xf4f9ff });
 /** 거대 워든 음파 (#254): 크고 푸른 고리 */
 const SONIC_GEOM = new THREE.TorusGeometry(0.5, 0.12, 6, 12);
 const SONIC_MAT = new THREE.MeshBasicMaterial({ color: 0x3df0ff, transparent: true, opacity: 0.85 });
+/** 셜커 탄 (2026-11-07): 하얗게 빛나는 작은 공 */
+const BULLET_MAT = new THREE.MeshBasicMaterial({ color: 0xf2e6ff });
+/** 브리즈 돌풍 (2026-11-07): 하얀 바람 고리 */
+const WIND_MAT = new THREE.MeshBasicMaterial({ color: 0xe6f2ff, transparent: true, opacity: 0.7 });
 
 export class MobView {
   /** 내 자리 (호랑이가 몰래 다가오는지 보려고, 2026-11-06) */
@@ -556,7 +579,7 @@ export class MobView {
   }
 
   /** 화살 연출 (M8-2): 눈에서 몹까지 가느다란 막대가 날아간다 */
-  shot(from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }, fire = false, snow = false, sonic = false, laser = false, potion = false): void {
+  shot(from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }, fire = false, snow = false, sonic = false, laser = false, potion = false, bullet = false, wind = false): void {
     if (laser) {
       // 가디언 빛줄기 (2026-11-06): 몹에서 사람까지 이어진 보랏빛 줄이 잠깐 머문다
       const f = new THREE.Vector3(from.x, from.y, from.z),
@@ -573,13 +596,13 @@ export class MobView {
       this.splash(from, to, 0x4e9a2e); // 마녀 독 물약 (2026-11-06)
       return;
     }
-    const mesh = fire ? new THREE.Mesh(FIRE_GEOM, FIRE_MAT) : snow ? new THREE.Mesh(SNOW_GEOM, SNOW_MAT) : sonic ? new THREE.Mesh(SONIC_GEOM, SONIC_MAT) : new THREE.Mesh(SHOT_GEOM, SHOT_MAT);
+    const mesh = bullet ? new THREE.Mesh(SNOW_GEOM, BULLET_MAT) : wind ? new THREE.Mesh(SONIC_GEOM, WIND_MAT) : fire ? new THREE.Mesh(FIRE_GEOM, FIRE_MAT) : snow ? new THREE.Mesh(SNOW_GEOM, SNOW_MAT) : sonic ? new THREE.Mesh(SONIC_GEOM, SONIC_MAT) : new THREE.Mesh(SHOT_GEOM, SHOT_MAT);
     const f = new THREE.Vector3(from.x, from.y, from.z),
       t = new THREE.Vector3(to.x, to.y, to.z);
     mesh.position.copy(f);
     mesh.lookAt(t);
     this.group.add(mesh);
-    this.shots.push({ mesh, from: f, to: t, born: -1, ms: fire ? 450 : sonic ? 400 : 250, fire });
+    this.shots.push({ mesh, from: f, to: t, born: -1, ms: bullet ? 800 : fire ? 450 : sonic || wind ? 400 : 250, fire }); // 셜커 탄은 천천히 따라온다
   }
 
   /** 던진 물약 (#245): 병이 포물선 없이 날아가 떨어진 자리에서 그 색으로 흩어진다 */
@@ -774,7 +797,7 @@ export class MobView {
       body.add(long, short);
       body.userData.spikes = { long, short }; // 공격할 땐 가시를 움츠린다 (아빠 그림)
     } else if (SLIME_KINDS.has(kindName)) {
-      body.add(partMesh(slimeVoxels(), material));
+      body.add(partMesh(kindName.includes('magma') ? magmaVoxels() : slimeVoxels(), material));
     } else if (kindName === 'creeper_king') {
       body.add(partMesh(creeperVoxels(), material));
       body.add(partMesh(crownVoxels(26), material));
@@ -808,11 +831,13 @@ export class MobView {
     // 2026-11-06 원정지 셋: 판정 크기(MOB_SIZES)에 맞춘다
     else if (kindName === 'guardian') body.scale.setScalar(1.15);
     else if (kindName === 'elder_guardian') body.scale.setScalar(2.8);
-    else if (kindName === 'slime') body.scale.setScalar(2.2);
+    else if (kindName === 'slime' || kindName === 'magma_cube') body.scale.setScalar(2.2);
+    else if (kindName === 'small_magma_cube') body.scale.setScalar(1.1);
     else if (kindName === 'giant_slime') body.scale.setScalar(7);
     else if (kindName === 'skeleton_king' || kindName === 'zombie_king') body.scale.setScalar(3);
     else if (kindName === 'creeper_king') body.scale.setScalar(3.3);
     else if (kindName === 'baby_zombie') body.scale.setScalar(0.5);
+    else if (kindName === 'polar_bear_cub') body.scale.setScalar(0.5); // 아기 북극곰 (2026-11-07)
     else if (kindName === 'endermite') body.scale.setScalar(1.8);
     else if (kindName === 'sperm_whale') body.scale.setScalar(2); // 길이 10칸쯤
     else if (kindName === 'enderman_king') body.scale.setScalar(2.5); // 엔더맨(2.8m)의 2.5배
@@ -853,6 +878,7 @@ export class MobView {
         drawHpBar(f.bar.ctx, f.bar.tex, m.hp, f.maxHp);
       }
       if (FISH_MODEL_KINDS.has(MOB_KIND_OF[m.kind] ?? '')) f.bar.sprite.visible = m.hp < f.maxHp; // 물고기도 다쳤을 때만 (물 위에 바가 둥둥 뜨지 않게)
+      if (MOB_KIND_OF[m.kind] === 'creaking') f.bar.sprite.visible = false; // 크리킹은 안 다친다 — 심장을 부숴야 (2026-11-07)
       if (f.animal) {
         f.bar.sprite.visible = m.hp < f.maxHp; // 동물은 다쳤을 때만 체력 바
         const tamed = (m.state & ANIMAL_FLAG.tamed) !== 0;
@@ -875,6 +901,12 @@ export class MobView {
   event(ev: string, id: number, x: number, y: number, z: number, now = performance.now(), dmg?: number): void {
     const f = this.figures.get(id);
     if (ev === 'hit') {
+      const kn = f ? MOB_KIND_OF[f.kind] : undefined;
+      if (f && (kn === 'squid' || kn === 'glow_squid')) {
+        // 오징어 먹물 (2026-11-07): 맞으면 먹물을 뿜는다. 발광 오징어는 청록 먹물에 5초 동안 빛이 꺼진다
+        this.burst(f.cur.x, f.cur.y + 0.35, f.cur.z, kn === 'glow_squid' ? 0x2fe0c8 : 0x0d0d14, 26, now);
+        if (kn === 'glow_squid') f.body.userData.dimUntil = now + 5000;
+      }
       if (f) {
         f.flashUntil = now + 160;
         // 서버 자리로 바로 당긴다 (밀려난 게 보이게)
@@ -983,9 +1015,20 @@ export class MobView {
     f.legs.forEach((leg, i) => {
       leg.rotation.x = i === 0 || i === 3 ? swing : -swing;
     });
+    const kn = MOB_KIND_OF[f.kind];
+    if (kn === 'shulker' && f.head) {
+      f.head.rotation.x = attack ? 0.55 + 0.08 * Math.sin(now * 0.01) : 0; // 쏠 때 뚜껑을 연다 (닫으면 단단하다)
+      return;
+    }
     if (f.head) {
       const ph = t % 6;
       f.head.rotation.x = attack ? -0.5 * Math.max(0, Math.sin(now * 0.012)) : moving ? Math.sin(f.walk * 2) * 0.06 : ph < 1.5 ? -0.5 * Math.sin((ph / 1.5) * Math.PI) : 0;
+    }
+    if (f.wings.length === 2) {
+      // 팬텀 (2026-11-07): 날개를 천천히 퍼덕인다 (내려꽂힐 땐 빠르게)
+      const flap = Math.sin(t * (attack ? 7 : 2.4)) * 0.45;
+      f.wings[0]!.rotation.z = -flap;
+      f.wings[1]!.rotation.z = flap;
     }
     const puff = f.body.userData.puff as { big: THREE.Mesh; small: THREE.Mesh } | undefined;
     if (puff) {
@@ -1240,6 +1283,11 @@ export class MobView {
         }
         f.body.scale.copy(f.scaleV).multiplyScalar(s);
         f.material.color.setRGB(1, 1, 1);
+        if (MOB_KIND_OF[f.kind] === 'glow_squid') {
+          // 발광 오징어: 늘 밝게 빛나고, 맞은 뒤 5초는 꺼진다
+          const k = now < ((f.body.userData.dimUntil as number | undefined) ?? 0) ? 0.45 : 1.35;
+          f.material.color.setRGB(k, k, k);
+        }
         if (f.state === MOB_STATE.cure) {
           // 황금 사과를 먹은 좀비 주민 (#244): 부르르 떨며 1초마다 ✨
           f.body.position.x = Math.sin(now * 0.05) * 0.04;

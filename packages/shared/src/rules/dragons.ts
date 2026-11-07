@@ -311,6 +311,8 @@ export interface RidingInfo {
   id: number;
   /** 드래곤 종류 (모델) */
   dragon: string;
+  /** 낙타 뒷자리 (2026-11-07): 앞 사람이 모는 낙타 뒤에 탔다 — 낙타는 앞 사람 것, 나는 따라간다 */
+  back?: boolean;
 }
 
 /** 둥지에 있는 드래곤 하나 (모두에게). 위치·단계는 서버가 정한다 */

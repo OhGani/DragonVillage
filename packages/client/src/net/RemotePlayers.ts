@@ -3,7 +3,7 @@
  * 서버 위치(20Hz)를 받아 부드럽게 따라간다 (지수 보간, 약 100ms 지연).
  * 인형 생김새는 `render/playerModel.ts` — 얼굴·머리카락·손·신발이 있고 색 16가지마다 다른 사람이다 (#86).
  */
-import { blockOf, DOOR_DIR, FLAG_RIDING, FLAG_SNEAK, type PlayerInfo, type PlayerStateEntry, type RidingInfo, type SepBody, skyOf, type SleepInfo } from '@dragon-village/shared';
+import { blockOf, CAMEL_BACK, CAMEL_SEAT_Y, DOOR_DIR, FLAG_RIDING, FLAG_SNEAK, type PlayerInfo, type PlayerStateEntry, type RidingInfo, type SepBody, skyOf, type SleepInfo } from '@dragon-village/shared';
 import { mountMesh, mountSeat } from '../render/DragonMesh';
 import { sanitizeEquipment } from '@dragon-village/shared';
 import { COMBAT } from '@dragon-village/shared/data';
@@ -38,6 +38,8 @@ interface Figure {
   bubble: { sprite: THREE.Sprite; until: number } | null;
   /** 타고 있는 드래곤 (M6-4) */
   mount: THREE.Mesh | null;
+  /** 탄 것 (낙타 뒷자리 찾기용, 2026-11-07) */
+  riding: RidingInfo | null;
   /** 여섯 부위가 같이 쓰는 재질. 주변 빛을 여기 색으로 준다 (#86) */
   material: THREE.MeshBasicMaterial;
   /** 지금 밝기 (빛이 뚝뚝 끊기지 않게 부드럽게 따라간다) */
@@ -158,6 +160,7 @@ export class RemotePlayers {
       lastMove: 0,
       bubble: null,
       mount: null,
+      riding: null,
       material,
       lum: 1,
     });
@@ -181,6 +184,50 @@ export class RemotePlayers {
       if (Math.abs(f.cur.x - x) > range || Math.abs(f.cur.z - z) > range) continue;
       out.push({ x: f.cur.x, y: f.cur.y, z: f.cur.z, r: 0.3, h: 1.8 });
     }
+  }
+
+  // ---------------------------------------------------------------- 낙타 뒷자리 (2026-11-07)
+
+  /** 내가 모는 낙타 (Game 이 프레임마다): 뒤에 탄 친구를 내 낙타 뒷자리에 바로 붙여 그린다 */
+  myCamel: { id: number; x: number; y: number; z: number; yaw: number } | null = null;
+
+  /** 앞자리 위치에서 뒷자리 (낙타는 앞이 −z, 뒤는 +z 쪽) */
+  private static behind(b: { x: number; y: number; z: number; yaw: number }): { x: number; y: number; z: number } {
+    return { x: b.x + Math.sin(b.yaw) * CAMEL_BACK, y: b.y, z: b.z + Math.cos(b.yaw) * CAMEL_BACK };
+  }
+
+  /** 그 낙타를 모는 사람 (앞자리) */
+  private driverOf(camelId: number): { x: number; y: number; z: number; yaw: number } | null {
+    if (this.myCamel?.id === camelId) return this.myCamel;
+    for (const f of this.figures.values()) if (f.riding?.dragon === 'camel' && !f.riding.back && f.riding.id === camelId) return f.cur;
+    return null;
+  }
+
+  /** 내가 뒷자리에 탔을 때 내 발 자리 (앞 사람이 안 보이면 null) */
+  passengerSeat(camelId: number): { x: number; y: number; z: number } | null {
+    const d = this.driverOf(camelId);
+    return d ? RemotePlayers.behind(d) : null;
+  }
+
+  /** 보고 있는 낙타를 모는 사람 번호 (뒤에 타기) — 낙타 몸통(앞자리 뒤 0.5, 높이 가운데)을 공 하나로 본다 */
+  camelDriverAimed(eye: { x: number; y: number; z: number }, dir: { x: number; y: number; z: number }, reach: number): number | null {
+    let best: number | null = null,
+      bestT = Infinity;
+    for (const f of this.figures.values()) {
+      if (f.riding?.dragon !== 'camel' || f.riding.back) continue;
+      const c = f.cur;
+      const cx = c.x + Math.sin(c.yaw) * 0.5 - eye.x,
+        cy = c.y - CAMEL_SEAT_Y * 0.5 - eye.y,
+        cz = c.z + Math.cos(c.yaw) * 0.5 - eye.z;
+      const t = cx * dir.x + cy * dir.y + cz * dir.z;
+      if (t < 0 || t > reach + 1.3) continue;
+      const d2 = cx * cx + cy * cy + cz * cz - t * t;
+      if (d2 <= 1.3 * 1.3 && t < bestT) {
+        bestT = t;
+        best = f.info.idx;
+      }
+    }
+    return best;
   }
 
   /** 침대에 눕기·일어나기 (#204) */
@@ -263,7 +310,8 @@ export class RemotePlayers {
       f.body.remove(f.mount);
       f.mount = null;
     }
-    if (riding) {
+    f.riding = riding;
+    if (riding && !riding.back) {
       const m = mountMesh(riding.dragon, riding.id); // 드래곤 또는 말 — 말은 제 털색 (#166·#177)
       const seat = mountSeat(riding.dragon);
       m.material = f.material; // 탄 드래곤도 같은 빛을 받는다
@@ -354,6 +402,17 @@ export class RemotePlayers {
       let dyaw = t.yaw - c.yaw;
       dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
       c.yaw += dyaw * k;
+      if (f.riding?.back) {
+        // 낙타 뒷자리 (2026-11-07): 앞 사람(나면 내 자리) 바로 뒤에 붙인다 — 따로 따라오면 달릴 때 벌어진다
+        const d = this.driverOf(f.riding.id);
+        if (d) {
+          const b = RemotePlayers.behind(d);
+          c.x = b.x;
+          c.y = b.y;
+          c.z = b.z;
+          c.yaw = d.yaw;
+        }
+      }
       f.group.position.set(c.x, c.y, c.z);
       f.body.rotation.y = c.yaw;
       f.head.rotation.x = -t.pitch * 0.6;
@@ -369,7 +428,7 @@ export class RemotePlayers {
       f.armR.rotation.x = swing;
       // 타면 앉는다 (#192, 아들 2026-10-19 "탈 때 서 있지 말고 앉게"): 다리를 앞으로 접고 팔은 고삐 잡듯 조금 앞으로,
       // 엉덩이가 탈것 등(발 높이)에 오도록 몸 부위를 다리 길이만큼 내린다. 탈것 메시는 body 의 자식이라 그대로 둔다
-      const sit = riding && f.mount !== null;
+      const sit = riding && (f.mount !== null || f.riding?.back === true); // 낙타 뒷자리도 앉는다
       if (sit) {
         f.legL.rotation.x = f.legR.rotation.x = SIT_LEG;
         f.armR.rotation.x = SIT_ARM;

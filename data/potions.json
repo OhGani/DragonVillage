@@ -248,7 +248,7 @@
     "pufferfish": { "name": "복어", "source": "바다 낚시 (초원 섬)" },
     "golden_carrot": { "name": "황금 당근", "source": "당근 + 금 8 (recipes.json)" },
     "turtle_shell": { "name": "거북 등딱지", "source": "인갑 5 (제작대, 투구 모양). 인갑은 초원 섬 보물 상자 (#214)" },
-    "phantom_membrane": { "name": "팬텀 막대", "source": "팬텀 — 아직 없음" },
+    "phantom_membrane": { "name": "팬텀 막", "source": "팬텀 (2026-11-07) — 마을 침대에서 오래 안 잔 사람에게 원정 밤하늘에서 온다" },
     "breeze_rod": { "name": "브리즈 막대기", "source": "시련의 방 브리즈 — 아직 없음" },
     "cobweb": { "name": "거미줄", "source": "폐광·거미 왕 굴 (칼로 캔다)" },
     "slime_block": { "name": "슬라임 블록", "source": "슬라임 볼 9 — 슬라임 아직 없음" },

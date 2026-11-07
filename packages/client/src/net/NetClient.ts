@@ -178,7 +178,7 @@ export interface NetEvents {
   /** 엔딩 포탈이 열렸다 (#170) */
   onEnding(at: { x: number; y: number; z: number }): void;
   /** 몹이 쏜 화살 (M8-2 3차) */
-  onArrow(m: { from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean; snow?: boolean; sonic?: boolean; laser?: boolean; potion?: boolean }): void; // 거대 워든 음파 (#254)
+  onArrow(m: { from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean; snow?: boolean; sonic?: boolean; laser?: boolean; potion?: boolean; bullet?: boolean; wind?: boolean }): void; // 거대 워든 음파 (#254), 셜커 탄·브리즈 돌풍 (2026-11-07)
   /** 피해 없이 밀린다 (#223) */
   onKnock(m: { x: number; z: number; power: number; why?: string }): void; // why: snow(눈덩이) · gorilla(#253)
   /** 마을 방어전 상태 (M7-5). null = 끝/없음 */
@@ -215,7 +215,7 @@ export interface NetEvents {
   onOrbGone(id: number, by: number): void;
   /** 원정 몹 상태 (20Hz, M7-2) */
   onMobs(list: MobEntry[]): void;
-  onMobEvent(m: { ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk' | 'stare' | 'teleport' | 'heal' | 'zombify' | 'cure' | 'cured' | 'gift' | 'hiss' | 'wild'; id: number; mob: string; x: number; y: number; z: number; dmg?: number; item?: string; to?: number }): void;
+  onMobEvent(m: { ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk' | 'stare' | 'teleport' | 'heal' | 'zombify' | 'cure' | 'cured' | 'gift' | 'hiss' | 'screech' | 'wild'; id: number; mob: string; x: number; y: number; z: number; dmg?: number; item?: string; to?: number }): void;
   onDismount(idx: number): void;
 }
 
@@ -527,6 +527,10 @@ export class NetClient {
   /** 타고 있는 드래곤의 스킬 (M6-5) */
   sendSkill(id: string): void {
     this.sendJson({ t: 'skill', id });
+  }
+  /** 낙타 뒷자리 (2026-11-07): idx 번 사람이 모는 낙타 뒤에 탄다 */
+  sendRideBehind(idx: number): void {
+    this.sendJson({ t: 'rideBehind', idx });
   }
   sendDismount(): void {
     this.sendJson({ t: 'dismount' });

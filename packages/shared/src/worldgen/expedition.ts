@@ -36,6 +36,8 @@ export interface ExpeditionWorld {
   kings?: { kind: MobKind; x: number; y: number; z: number }[];
   /** 엔드 수정 자리 (#224): 남아 있는 만큼 엔더 드래곤이 회복한다 */
   crystals: { x: number; y: number; z: number }[];
+  /** 삐걱이 심장 (어두운 숲, 2026-11-07): 밤이면 곁에 크리킹 */
+  hearts?: { x: number; y: number; z: number }[];
   genVersion: number;
   ms: number;
 }
@@ -68,7 +70,7 @@ const GENERATORS: Record<string, (registry: BlockRegistry, seed: number, treasur
   // 어두운 숲 (#252): 대저택 2층의 소환사가 보스, 1층은 변명자 셋이 지킨다
   dark_forest: (registry, seed, treasures) => {
     const g = generateDarkForest(registry, seed, treasures);
-    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: g.layout.den, spawns: g.layout.guards.map((p) => ({ kind: 'vindicator' as const, x: p.x + 0.5, y: p.y, z: p.z + 0.5 })), crystals: [], genVersion: DARK_FOREST_GEN_VERSION, ms: g.ms };
+    return { world: g.world, spawn: g.spawn, portal: g.layout.portal, treasures: g.layout.treasures, den: g.layout.den, spawns: g.layout.guards.map((p) => ({ kind: 'vindicator' as const, x: p.x + 0.5, y: p.y, z: p.z + 0.5 })), crystals: [], hearts: g.layout.hearts, genVersion: DARK_FOREST_GEN_VERSION, ms: g.ms };
   },
   // 정글 (#253): 궁궐 왕좌 앞의 거대 고릴라가 보스, 문 앞에 고릴라 둘
   jungle: (registry, seed, treasures) => {

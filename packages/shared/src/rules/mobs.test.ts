@@ -117,7 +117,7 @@ describe('거미와 원정지별 몹 (M7-3)', () => {
     expect(spawnKinds(['stray', 'zombie'])).toEqual(['stray', 'zombie']); // 설원 (v1.1-2)
     expect(spawnKinds(['zombified_piglin', 'wither_skeleton', 'blaze', 'ghast'])).toEqual(['zombified_piglin', 'wither_skeleton', 'blaze', 'ghast']); // 네더 (v1.1-3)
     expect(spawnKinds(['witch'])).toEqual(['witch']); // 마녀는 늪 (2026-11-06) 부터 진짜 몹
-    expect(spawnKinds(['phantom'])).toEqual(['zombie', 'creeper']); // 아직 없는 몹만 적혀 있으면 기본
+    expect(spawnKinds(['illusioner'])).toEqual(['zombie', 'creeper']); // 아직 없는 몹만 적혀 있으면 기본
     expect(spawnKinds(undefined)).toEqual(['zombie', 'creeper']);
     const picks = Array.from({ length: 9 }, (_, i) => pickKind(['spider', 'zombie'], i + 1));
     expect(picks.filter((k) => k === 'spider').length).toBe(6);

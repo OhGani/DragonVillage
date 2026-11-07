@@ -675,6 +675,23 @@ const TEX = {
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (y % 8 === 7 || (x + (y < 8 ? 0 : 8)) % 16 === 15) c.set(x, y, 84, 84, 84);
     for (const [x, y] of [[3, 1], [4, 2], [4, 3], [5, 4], [5, 5], [11, 9], [10, 10], [10, 11], [9, 12], [9, 13]]) c.set(x, y, 60, 60, 60);
   },
+  // 삐걱이 심장 (2026-11-07): 짙은 나무껍질에 가운데 세로로 갈라진 틈, 틈 속에 주황빛 눈 같은 불빛
+  creaking_heart_side: (c) => {
+    c.noise([74, 60, 52], 10);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if ((x + (y >> 2)) % 5 === 0) c.mul(x, y, 0.75); // 세로 결
+    for (let y = 3; y <= 12; y++) for (let x = 6; x <= 9; x++) c.set(x, y, 30, 24, 22); // 갈라진 틈
+    for (const [x, y] of [[7, 6], [8, 6], [7, 9], [8, 9]]) c.set(x, y, 255, 150, 40); // 주황 불빛
+    for (const [x, y] of [[7, 7], [8, 7], [7, 8], [8, 8]]) c.set(x, y, 255, 200, 90);
+  },
+  creaking_heart_top: (c) => {
+    c.noise([92, 76, 64], 8);
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const r = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));
+        if (Math.round(r) % 3 === 0) c.mul(x, y, 0.8); // 나이테
+      }
+    for (const [x, y] of [[7, 7], [8, 7], [7, 8], [8, 8]]) c.set(x, y, 255, 160, 50);
+  },
   dried_ghast: (c) => {
     c.noise([206, 202, 196], 8).blotch(0.06);
     // 감은 눈 두 개와 입

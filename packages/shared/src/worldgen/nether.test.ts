@@ -164,7 +164,7 @@ describe('generateNether 배치', () => {
     expect(hasGenerator('nether')).toBe(true);
     expect(def.unlockedBy).toBe('portal_4');
     expect(def.nightStartsAt).toBe(0);
-    expect(spawnKinds(def.nightMobs)).toEqual(['zombified_piglin', 'wither_skeleton', 'blaze', 'ghast']);
+    expect(spawnKinds(def.nightMobs)).toEqual(['zombified_piglin', 'wither_skeleton', 'blaze', 'ghast', 'magma_cube', 'hoglin', 'piglin_brute', 'zoglin']);
     const w = generateExpedition(def, BLOCKS, SEED);
     expect(w.den).toBeNull();
     expect(w.treasures.length).toBe(3);

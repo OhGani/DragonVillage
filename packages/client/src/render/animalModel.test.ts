@@ -34,7 +34,7 @@ describe('원정 사냥 동물 모델 (2026-11-05)', () => {
       const all = [...p.body, ...p.head.v, ...p.legs.flatMap((l) => l.v), ...(p.tail?.v ?? []), ...p.wings.flatMap((w) => w.v)];
       expect(all.length).toBeGreaterThan(30);
       expect(Math.min(...all.map((v) => v.y))).toBe(0);
-      const top = (Math.max(...all.map((v) => v.y)) + 1) * VOXEL * (kind === 'sperm_whale' ? 2 : 1); // 고래는 MobView 가 2배로 그린다
+      const top = (Math.max(...all.map((v) => v.y)) + 1) * VOXEL * (kind === 'sperm_whale' ? 2 : kind === 'polar_bear_cub' ? 0.5 : 1); // 고래는 MobView 가 2배로, 아기 북극곰은 반으로 그린다
       const h = mobSize(kind).h;
       expect(top).toBeGreaterThan(h * 0.6);
       expect(top).toBeLessThan(h * 1.45);

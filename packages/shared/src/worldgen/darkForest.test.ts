@@ -8,7 +8,7 @@ import { DARK_FOREST_BOUNDS, DARK_GROUND_Y, MANSION_FLOOR_H, MANSION_HALF_X, MAN
 
 const SEED = 777;
 /** 생성기를 바꾸면 갱신. (chunks 수, 지문) */
-const SNAPSHOT = '1184:67dafb31:3692209';
+const SNAPSHOT = '1184:3d20b291:3692209'; // 2: 삐걱이 심장 (2026-11-07)
 
 const gen = generateDarkForest(BLOCKS, SEED, 3);
 const { world, spawn, layout } = gen;

@@ -13,7 +13,7 @@ import { hash3 } from '../math/prng';
 import type { MobKind } from './mobs';
 
 /** 동물 종류 (mobs.json passive id). dog = 강아지(늑대) */
-export const ANIMAL_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'boat', 'minecart', 'cat'];
+export const ANIMAL_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'boat', 'minecart', 'cat', 'camel'];
 export function isAnimal(kind: MobKind): boolean {
   return ANIMAL_KINDS.includes(kind);
 }
@@ -28,7 +28,7 @@ export const HORSE_SEAT_Y = 1.25;
 /** 말을 타면 이 속도로 달린다 (칸/초, 사람 달리기 5.6) */
 export const HORSE_SPEED = 9.5;
 /** 탈 수 있는 동물 (#166 말, #185 돼지) — 안장을 씌우면 내 것, 빈손 탭으로 탄다 */
-export const MOUNT_KINDS = ['horse', 'pig', 'boat', 'minecart'] as const; // 보트 (#209)·수레 (#237): 주인 없이 누구나 탄다
+export const MOUNT_KINDS = ['horse', 'pig', 'boat', 'minecart', 'camel'] as const; // 낙타 (2026-11-07) // 보트 (#209)·수레 (#237): 주인 없이 누구나 탄다
 export type MountKind = (typeof MOUNT_KINDS)[number];
 export function isMountKind(kind: string): kind is MountKind {
   return (MOUNT_KINDS as readonly string[]).includes(kind);
@@ -48,6 +48,25 @@ export const BOAT_LAND_SPEED = 1.2;
 /** 수레 (#237): 수레 아이템을 들고 철도를 탭하면 놓인다. 빈손 탭으로 타고, 보는 쪽으로 밀면 철도를 따라 달린다 (shared/rules/rails.ts) */
 export const MINECART = 'minecart';
 export const CART_SEAT_Y = 0.3;
+/**
+ * 낙타 (아빠가 보낸 그림·나무위키 2026-11-07): 안장을 씌우면 내 낙타(길들이기 없음). 등이 높고(앉은 발 높이 CAMEL_SEAT_Y),
+ * 말보다 느리다(CAMEL_SPEED). 점프 대신 앞으로 돌진(CAMEL_DASH_SPEED × CAMEL_DASH_MS ≈ 10칸) — 그 뒤 CAMEL_DASH_COOLDOWN_MS 동안은 걷기만(CAMEL_WALK).
+ * 1.5칸 턱도 그냥 넘는다(CAMEL_STEP). 친구가 뒤에 탈 수 있다(두 번째 자리, 앞 사람 뒤 CAMEL_BACK). 타고 있으면 좀비 같은 근접 공격이 안 닿는다.
+ * 선인장: 다친 낙타를 치료하고, 어른 둘에게 주면 아기 낙타, 아기는 빨리 자란다
+ */
+export const CAMEL_SEAT_Y = 1.9;
+export const CAMEL_SPEED = 5.2;
+export const CAMEL_WALK = 2.6;
+export const CAMEL_DASH_SPEED = 18;
+export const CAMEL_DASH_MS = 550;
+export const CAMEL_DASH_COOLDOWN_MS = 2750;
+export const CAMEL_STEP = 1.5;
+/** 뒤에 탄 사람은 앞 사람보다 이만큼 뒤 (낙타 혹 뒤) */
+export const CAMEL_BACK = 1.05;
+/** 뒤에 타려면 앞 사람과 이 안에 있어야 */
+export const CAMEL_BACK_REACH = 4.5;
+/** 선인장으로 치료하는 양 */
+export const CAMEL_CACTUS_HEAL = 4;
 /** 안장 아이템 */
 export const SADDLE = 'saddle';
 /** 대장장이 (#173): 대장간이 지어지면 그 앞에 서는 주민의 이름. 잡혀가지 않는다 */
@@ -81,8 +100,8 @@ export const HOME_RANGE = 24;
 export const TAME_CHANCE = 0.34;
 /** 종류별 야생 목표 수 (처음 뿌리는 수 = 모자라면 채우는 기준. 길들인 것은 세지 않는다). 아빠 2026-09-24: 19 → "너무 많다" 11 → "안 보인다" 무리 16 */
 /** 종류별 야생 목표 — 아들 13차 답(2026-10-07, #129) "25마리로 늘려줘" (전엔 3·3·3·4·3 = 16) */
-export const INITIAL_ANIMALS: Readonly<Partial<Record<MobKind, number>>> = { cow: 5, pig: 5, sheep: 5, chicken: 6, dog: 4, horse: 3, villager: 6, cat: 5 }; // 고양이 5 (2026-11-06, 마인크래프트 마을 고양이 최대 5) // 주민 3 → 6 (집마다 둘, #229 아빠 "주민 수 좀 늘려 줘")
-export const ANIMALS_MAX = 45; // 고양이 5 더함 (2026-11-06)
+export const INITIAL_ANIMALS: Readonly<Partial<Record<MobKind, number>>> = { cow: 5, pig: 5, sheep: 5, chicken: 6, dog: 4, horse: 3, villager: 6, cat: 5, camel: 2 }; // 낙타 2 (2026-11-07, 마을엔 사막이 없어 숲에 — 원정 사막엔 탈 수 없으니 안 둔다) // 고양이 5 (2026-11-06, 마인크래프트 마을 고양이 최대 5) // 주민 3 → 6 (집마다 둘, #229 아빠 "주민 수 좀 늘려 줘")
+export const ANIMALS_MAX = 47; // 낙타 2 더함 (2026-11-07) // 고양이 5 더함 (2026-11-06)
 /** 모자란 종류를 채우는 간격 · 한 번에 생기는 수 */
 export const RESPAWN_EVERY_MS = 10 * 60_000;
 export const RESPAWN_BATCH = 2;

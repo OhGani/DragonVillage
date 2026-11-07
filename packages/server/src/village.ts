@@ -112,6 +112,11 @@ import {
   type InvMoveMsg,
   isBuildingBuiltAt,
   isMountKind,
+  PHANTOM_INSOMNIA_MS,
+  CAMEL_BACK_REACH,
+  MOB_KINDS,
+  isRangedMob,
+  type MobKind,
   isNestBuiltAt,
   isPotionItem,
   itemForPlacing,
@@ -250,6 +255,8 @@ export const FISH_ID_BASE = 35_000;
 export const VILLAGE_SALMON = 10;
 /** 마을 강 대구 (2026-11-06, 아빠가 보낸 그림) */
 export const VILLAGE_COD = 6;
+/** 마을 강 오징어 (2026-11-07, 아빠가 보낸 그림) */
+export const VILLAGE_SQUID = 4;
 /** 인챈트에 쓰는 청금석 아이템 (#231) */
 const LAPIS = 'lapis';
 /** 철 골렘이 쫓는 시간 */
@@ -343,6 +350,8 @@ export interface RoomPlayer {
   sleeping: SleepInfo | null;
   /** 누운 시각 (고양이 선물, 2026-11-06) */
   sleptAt?: number;
+  /** 들어온 시각 (팬텀 — 아직 한 번도 안 잤으면 여기부터 센다, 2026-11-07) */
+  joinedAt: number;
   /** 탄 드래곤의 기력 (M6-5). 탈 때 가득 찬다. 사이는 회복 공식으로 채운다 */
   stamina: Stamina;
   /** 다음에 빔을 쏠 수 있는 시각 */
@@ -1195,10 +1204,43 @@ export class VillageRoom {
     if (!p.riding) return 'NOT_RIDING';
     const horse = isMountKind(p.riding.dragon);
     const wasCart = p.riding.dragon === MINECART;
+    const back = p.riding.back === true;
+    const camelId = p.riding.dragon === 'camel' ? p.riding.id : null;
     p.riding = null;
     this.broadcastJson({ t: 'dismount', idx }, -1, p.world);
+    if (back) return null; // 뒷자리: 낙타는 앞 사람 것 (2026-11-07)
+    if (camelId !== null) this.dropCamelPassengers(camelId);
     if (horse) this.animals.releaseRider(idx, wasCart ? { x: p.pos.x, y: p.pos.y - CART_SEAT_Y, z: p.pos.z } : p.pos); // 말은 내린 자리에 선다 (#166), 수레는 철도 위에 (#237)
     else this.broadcastNest();
+    return null;
+  }
+
+  /** 낙타 앞 사람이 내리거나 나가면 뒤에 탄 사람도 내린다 (2026-11-07) */
+  private dropCamelPassengers(camelId: number): void {
+    for (const q of this.players.values()) {
+      if (q.riding?.back !== true || q.riding.id !== camelId) continue;
+      q.riding = null;
+      this.broadcastJson({ t: 'dismount', idx: q.idx }, -1, q.world);
+    }
+  }
+
+  /**
+   * 낙타 뒷자리 (아빠가 보낸 나무위키 2026-11-07 "낙타에는 두 명까지 탈 수 있다"): driverIdx 가 모는 낙타 뒤에 탄다.
+   * 오류: NOT_IN_VILLAGE · ALREADY_RIDING · NO_CAMEL · OCCUPIED · TOO_FAR
+   */
+  rideBehind(idx: number, driverIdx: number): string | null {
+    const p = this.players.get(idx);
+    if (!p || p.world !== 'village') return 'NOT_IN_VILLAGE';
+    if (p.riding) return 'ALREADY_RIDING';
+    const d = this.players.get(driverIdx);
+    if (!d || d.idx === p.idx || d.world !== p.world || d.riding?.dragon !== 'camel' || d.riding.back) return 'NO_CAMEL';
+    const camelId = d.riding.id;
+    for (const q of this.players.values()) if (q.riding?.back && q.riding.id === camelId) return 'OCCUPIED';
+    if (Math.hypot(d.pos.x - p.pos.x, d.pos.z - p.pos.z) > CAMEL_BACK_REACH) return 'TOO_FAR';
+    p.riding = { id: camelId, dragon: 'camel', back: true };
+    p.dragonHp = 0;
+    this.broadcastJson({ t: 'mount', idx, riding: p.riding }, -1, p.world);
+    this.log(`마을 ${this.info.code}: ${p.nick} ${d.nick}의 낙타 뒤에 탑승`);
     return null;
   }
 
@@ -1640,7 +1682,7 @@ export class VillageRoom {
         gifts.push({ id: g.id, name: g.name, message: g.message });
       }
     }
-    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0, equip: parseEquipment(saved?.equipment ?? null), bowReadyAt: 0, dragonHp: 0, guardUntil: 0, guardShown: false, sleeping: null, effects: [], air: AIR_MAX_SEC, airAt: 0, airSent: -1, drownNextAt: 0 };
+    const player: RoomPlayer = { idx, token, nick, color, pos, send, kick, recent: [], world: 'village', joinedAt: Date.now(), inv, gained: new Map(), brewFuel: 0, lastEmote: 0, xp: saved?.xpTotal ?? 0, riding: null, held: null, stamina: { value: 0, at: 0 }, beamReadyAt: 0, hp: HP_MAX, fallPeak: null, lastHurtAt: 0, lastRegenAt: 0, moveLockUntil: 0, equip: parseEquipment(saved?.equipment ?? null), bowReadyAt: 0, dragonHp: 0, guardUntil: 0, guardShown: false, sleeping: null, effects: [], air: AIR_MAX_SEC, airAt: 0, airSent: -1, drownNextAt: 0 };
     const others = this.playersIn('village').map((p) => this.toInfo(p));
     this.players.set(idx, player);
     // 타고 있다가 나갔으면 다시 탄다 (#103, 아빠 요청). 드래곤이 없어졌거나 남이 타고 있으면 광장에서 (공중에 남지 않게)
@@ -1718,7 +1760,8 @@ export class VillageRoom {
     this.storage?.saveInventory(p.token, this.info.code, p.inv);
     this.broadcastJson({ t: 'playerLeft', idx }, -1, p.world);
     if (p.riding) {
-      if (isMountKind(p.riding.dragon)) this.animals.releaseRider(idx, p.pos); // 말·돼지는 그 자리에 (#166)
+      if (isMountKind(p.riding.dragon) && !p.riding.back) this.animals.releaseRider(idx, p.pos); // 말·돼지는 그 자리에 (#166)
+      if (p.riding.dragon === 'camel' && !p.riding.back) this.dropCamelPassengers(p.riding.id); // 낙타 뒤에 탄 사람도 내린다
       p.riding = null; // 타고 있던 드래곤은 둥지로 (M6-4)
       this.broadcastNest();
     }
@@ -1767,10 +1810,14 @@ export class VillageRoom {
   /** 몹 시스템 훅 — 그 세계(원정/마을) 사람들과 잇는다 */
   private mobHooks(world: WorldKind): MobHooks {
     return {
-      players: (now = Date.now()) => this.playersIn(world).filter((p) => p.hp > 0 && !hasEffect(p.effects, 'invisibility', now)).map((p) => ({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, yaw: p.pos.yaw, pitch: p.pos.pitch })), // 투명화 (#245): 몹이 못 찾는다
+      players: (now = Date.now()) => this.playersIn(world).filter((p) => p.hp > 0 && !hasEffect(p.effects, 'invisibility', now)).map((p) => ({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, yaw: p.pos.yaw, pitch: p.pos.pitch, insomnia: now - (p.sleptAt ?? p.joinedAt) >= PHANTOM_INSOMNIA_MS })), // 투명화 (#245): 몹이 못 찾는다. 팬텀 (2026-11-07): 침대에 누운 지(또는 들어온 지) 오래
       hurt: (idx, amount, cause, now) => {
         const p = this.players.get(idx);
         if (p && p.world === world) this.hurt(p, amount, cause, now);
+      },
+      setBlock: (x, y, z, id) => {
+        // 좀벌레가 벌레 먹은 돌에서 나왔다 (2026-11-07): 블록은 MobSystem 이 바꿨고, 그 세계 모두에게 알린다
+        this.broadcast(encodeBlockChanged({ x, y, z, id, by: -1 }), -1, world);
       },
       knock: (idx, x, z, _now, why) => {
         const p = this.players.get(idx);
@@ -1837,12 +1884,14 @@ export class VillageRoom {
       seed: e.seed,
       nightStartsAt: e.def.nightStartsAt,
       nightMobs: e.def.nightMobs,
+      phantoms: e.def.phantoms, // 팬텀 (2026-11-07)
       den: e.den,
       boss: e.bossKind,
       // 고대성 (2026-11-06): 방 몹은 rank 가 사람 수 비율보다 작은 것만 (6명이면 다, 1명이면 1/4 — 아빠 임시 규칙, bosses.json _dadNote)
       spawns: e.spawns.filter((s) => s.rank === undefined || s.rank < Math.max(0.25, Math.min(1, this.players.size / 6))),
       kings: e.kings,
       crystals: e.crystals,
+      hearts: e.hearts, // 크리킹 (2026-11-07)
       wildAnimals: e.def.wildAnimals,
       safe: e.spawn,
       get ended() {
@@ -1967,7 +2016,7 @@ export class VillageRoom {
       if (this.guardMobs.mobs.size === 0) this.guardMobs = null;
     }
     if (!this.fishMobs) {
-      const arena: MobArena = { world: this.world, seed: this.info.seed, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0, wildAnimals: { salmon: VILLAGE_SALMON, cod: VILLAGE_COD }, safe: null };
+      const arena: MobArena = { world: this.world, seed: this.info.seed, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0, wildAnimals: { salmon: VILLAGE_SALMON, cod: VILLAGE_COD, squid: VILLAGE_SQUID }, safe: null };
       this.fishMobs = new MobSystem(arena, this.registry, MOBS, this.mobHooks('village'), { autoSpawn: false, aggroRange: 0, goal: null, quiet: true, firstId: FISH_ID_BASE, lastId: ANIMAL_ID_BASE - 1 });
     }
     this.fishMobs.tick(now); // 마을 강 연어 (2026-11-06)
@@ -2058,7 +2107,7 @@ export class VillageRoom {
       p.riding = { id: mobId, dragon: kind };
       p.dragonHp = 0;
       this.broadcastJson({ t: 'mount', idx, riding: p.riding }, -1, p.world);
-      this.log(`마을 ${this.info.code}: ${p.nick} ${kind === 'pig' ? '돼지' : kind === 'boat' ? '보트' : '말'} 탑승`);
+      this.log(`마을 ${this.info.code}: ${p.nick} ${MOBS.get(kind).name} 탑승`);
       return null;
     }
     const err = this.animals.use({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held }, mobId, held, now);
@@ -2598,6 +2647,11 @@ export class VillageRoom {
     }
     amount *= damageMultiplier(p.effects, this.potions, now);
     if (amount <= 0) return;
+    // 낙타 (2026-11-07, 나무위키 "큰 덩치와 키 덕분에 좀비 등의 사거리가 짧은 근접 공격은 닿지도 않는다"): 타고 있으면 몹의 근접 공격은 안 닿는다. 화살·불덩이·폭발은 맞는다
+    if (p.riding?.dragon === 'camel' && (MOB_KINDS as readonly string[]).includes(cause) && cause !== 'creeper' && cause !== 'charged_creeper' && !isRangedMob(MOBS.get(cause as MobKind))) {
+      this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'blocked' });
+      return;
+    }
     // 타고 있으면 몹 피해는 드래곤이 대신 맞는다 (#113). 낙하·독은 사람 몫
     if (p.riding && !isMountKind(p.riding.dragon) && armorApplies(cause)) {
       this.hurtDragon(p, Math.floor(amount), cause, now);
@@ -3176,6 +3230,11 @@ export class VillageRoom {
       if (mined > 0) this.addXp(p, mined, XP_SOURCE.mining, req.x + 0.5, req.y + 0.5, req.z + 0.5);
       // 상자를 부수면 안에 있던 것이 내 가방으로 (#84). 아직 안 연 원정 보물은 여기서 채워져 그대로 들어온다
       if (prev.chest) this.breakChest(p, req.x, req.y, req.z, prev, changed, now);
+      if (p.world === 'expedition' && this.mobSys) {
+        // 공격적 몹 (2026-11-07): 벌레 먹은 돌에서 좀벌레, 삐걱이 심장을 부수면 그 크리킹이 사라진다
+        if (prev.id === 'infested_stone') this.mobSys.silverfishFrom(req.x, req.y, req.z);
+        if (prev.id === 'creaking_heart') this.mobSys.heartBroken(req.x, req.y, req.z);
+      }
       if (prev.shape === 'table') {
         // 식탁을 부수면 올린 음식은 부순 사람 가방으로 (2026-11-06)
         for (const item of this.tableItems(p, req)) if (item) this.giveTo(p, item, 1, changed);

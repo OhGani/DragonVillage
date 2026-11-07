@@ -61,6 +61,13 @@ const NAME_ERROR_KO: Record<string, string> = {
   NOT_MINE: '내가 길들인 동물에게만 이름을 지어 줄 수 있어요',
   BAD_NAME: '목록에 있는 이름만 고를 수 있어요',
 };
+/** 낙타 뒷자리 오류 (2026-11-07) */
+const CAMEL_ERROR_KO: Record<string, string> = {
+  ALREADY_RIDING: '벌써 타고 있어요',
+  NO_CAMEL: '그 사람은 낙타를 타고 있지 않아요',
+  OCCUPIED: '뒷자리에 벌써 누가 탔어요',
+  TOO_FAR: '낙타에 더 가까이 가요',
+};
 /** 식탁 오류 (2026-11-06) */
 const TABLE_ERROR_KO: Record<string, string> = {
   NO_TABLE: '여기엔 식탁이 없어요',
@@ -592,6 +599,13 @@ export class Session {
         if (!this.room) return;
         if (msg.item !== null && typeof msg.item !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
         this.room.setHeld(this.idx, msg.item);
+        return;
+      }
+      case 'rideBehind': {
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.idx)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.rideBehind(this.idx, msg.idx);
+        if (err) return this.error(err, CAMEL_ERROR_KO[err] ?? '지금은 뒤에 탈 수 없어요');
         return;
       }
       case 'dismount': {

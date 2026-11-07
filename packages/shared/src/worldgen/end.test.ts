@@ -145,7 +145,7 @@ describe('generateEnd 배치', () => {
     expect(def.unlockedBy).toBe('portal_5');
     expect(def.nightStartsAt).toBe(0);
     expect(def.durationSec).toBe(900);
-    expect(spawnKinds(def.nightMobs)).toEqual(['enderman']);
+    expect(spawnKinds(def.nightMobs)).toEqual(['enderman', 'shulker']);
     expect(def.bossId).toBe('ender_dragon');
     const w = generateExpedition(def, BLOCKS, SEED);
     expect(w.den).toEqual(layout.den);

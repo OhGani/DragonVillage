@@ -6,6 +6,7 @@ import {
   beamOf,
   type BlockChangedMsg,
   BOAT_SEAT_Y,
+  CAMEL_BACK_REACH,
   BOSS_EMOJI,
   BOSS_KINDS,
   calmFoods,
@@ -965,14 +966,25 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       hud.setGuardAvailable(myEquip.shield !== null);
       bag.refresh();
     },
-    onArrow: (m) => mobView.shot(m.from, m.to, m.fire === true, m.snow === true, m.sonic === true, m.laser === true, m.potion === true), // 가디언 빛줄기·마녀 물약 (2026-11-06) // 스켈레톤·약탈자 화살, 가스트·블레이즈 불덩이 (#173), 눈 골렘 눈덩이 (#223), 거대 워든 음파 (#254)
+    onArrow: (m) => mobView.shot(m.from, m.to, m.fire === true, m.snow === true, m.sonic === true, m.laser === true, m.potion === true, m.bullet === true, m.wind === true), // 가디언 빛줄기·마녀 물약 (2026-11-06) // 스켈레톤·약탈자 화살, 가스트·블레이즈 불덩이 (#173), 눈 골렘 눈덩이 (#223), 거대 워든 음파 (#254)
     onKnock: (m) => {
       // 눈덩이에 맞았다 (#223, 아들 14차 5번 "맞아도 에너지는 안 닳고 밀쳐짐"): 하트는 그대로, 뒤로 튕긴다
       const pl = ctx.player;
       pl.vel.x += m.x * m.power;
       pl.vel.z += m.z * m.power;
       pl.vel.y = Math.max(pl.vel.y, 4);
+      // 공격적 몹 (2026-11-07): 셜커 탄은 붕 띄우고(떨어지면 아프다), 브리즈 돌풍은 멀리 날리고, 호글린은 들이받아 띄운다
+      if (m.why === 'shulker') pl.vel.y = Math.max(pl.vel.y, 15);
+      else if (m.why === 'breeze') {
+        pl.vel.x += m.x * m.power;
+        pl.vel.z += m.z * m.power;
+        pl.vel.y = Math.max(pl.vel.y, 9);
+      } else if (m.why === 'hoglin' || m.why === 'zoglin') pl.vel.y = Math.max(pl.vel.y, 8);
       hitSound();
+      if (m.why === 'shulker' || m.why === 'breeze' || m.why === 'hoglin' || m.why === 'zoglin') {
+        hud.toast(m.why === 'shulker' ? '🟪 셜커 탄에 맞아 붕 떠올랐어요! 떨어질 때 조심' : m.why === 'breeze' ? '🌪️ 브리즈 돌풍에 날아갔어요!' : '🐗 호글린이 들이받아 띄웠어요!', 1500);
+        return;
+      }
       hud.toast(m.why === 'gorilla' ? '🦍 고릴라가 밀쳤어요!' : m.why === 'snow' || !m.why ? '☃️ 눈덩이에 맞았어요 — 밀려났어요' : m.why === 'sperm_whale' ? '🐋 고래가 들이받았어요!' : m.why === 'elephant' ? '🐘 코끼리가 들이받았어요!' : '💥 세게 맞아 밀려났어요!', 1200);
     },
     onDragonHp: (m) => hud.setDragonHp(m.hp, m.max),
@@ -1070,10 +1082,30 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       }
       myRiding = riding;
       ctx.player.riding = true;
+      if (riding.back) {
+        // 낙타 뒷자리 (2026-11-07): 낙타는 앞 사람 것 — 내 몸은 그 뒤를 따라가고 둘러보기만
+        ctx.player.mountKind = null;
+        ctx.player.carriedBy = () => remote.passengerSeat(riding.id);
+        mount.set(null);
+        hud.hideAction();
+        hud.setRiding(true, '빔', false);
+        stamina = null;
+        hud.toast('🐪 친구 낙타 뒤에 탔어요! 둘러보며 싸울 수 있어요 · 내리기는 🐉 버튼', 5000);
+        return;
+      }
       ctx.player.mountKind = isMountKind(riding.dragon) ? riding.dragon : null;
       ctx.player.liftForMount(); // 탈것 등 높이만큼 올라앉는다 (#178)
       mount.set(riding);
       hud.hideAction();
+      if (riding.dragon === 'camel') {
+        // 낙타 (2026-11-07): 말보다 느리고, 점프 대신 앞으로 돌진. 친구가 뒤에 탈 수 있다
+        ctx.player.camelDashLeft = 0;
+        ctx.player.camelCooldown = 0;
+        hud.setRiding(true, '빔', false);
+        stamina = null;
+        hud.toast(`🐪 낙타를 탔어요! 앞으로 밀면 걸어요 · ${isTouch ? '▲' : 'Space'} 앞으로 돌진(쉬는 동안은 걷기만) · 친구는 빈손으로 낙타를 탭하면 뒤에 타요 · 내리기는 🐉 버튼`, 7000);
+        return;
+      }
       if (riding.dragon === 'horse') {
         // 말 (#166): 날지 않고 달린다. 빔·기력 없음. 말마다 속도·점프가 다르다 (#219)
         const st = horseStats(riding.id);
@@ -1121,6 +1153,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       myRiding = null;
       ctx.player.riding = false;
       ctx.player.mountKind = null;
+      ctx.player.carriedBy = null; // 낙타 뒷자리에서 내림
       mount.set(null);
       hud.setRiding(false);
       stamina = null;
@@ -1285,7 +1318,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       else if (m.ev === 'love' || m.ev === 'tame' || m.ev === 'grow' || m.ev === 'milk') ding();
       else if (m.ev === 'wild' && m.to === myIdx) {
         ding();
-        hud.toast(`🌿 ${MOBS.get(m.mob as MobKind).name}을(를) 야생으로 풀어줬어요 — 안녕!${m.mob === 'horse' || m.mob === 'pig' ? ' (안장은 가방으로)' : ''}`, 3500);
+        hud.toast(`🌿 ${MOBS.get(m.mob as MobKind).name}을(를) 야생으로 풀어줬어요 — 안녕!${m.mob === 'horse' || m.mob === 'pig' || m.mob === 'camel' ? ' (안장은 가방으로)' : ''}`, 3500);
       } else if (m.ev === 'gift' && m.to === myIdx && m.item) {
         // 고양이 선물 (2026-11-06): 자고 일어났더니 곁의 내 고양이가
         ding();
@@ -1299,6 +1332,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         roar();
         hud.hurtFlash();
       } else if (m.ev === 'summon') roar();
+      else if (m.ev === 'screech') {
+        // 팬텀 (2026-11-07): 침대에서 오래 안 잤더니
+        roar();
+        hud.toast('🦇 끼이익! 밤하늘에서 팬텀이 내려와요 — 마을 침대에서 자면 안 와요 · 🐱 고양이를 데려오면 피해요', 4500);
+      }
       else if (m.ev === 'stare') {
         // 엔더맨과 눈이 마주쳤다 (#222)
         roar();
@@ -1965,7 +2003,9 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     // 동물에게 손에 든 것 쓰기 (M8-1): 먹이·뼈·빈손(앉기). 원정에 따라온 펫은 못 만진다
     // 드래곤 타기 (#189): 말처럼 내 드래곤을 빈손으로 탭해도 탄다 (카드 버튼을 안 눌러도)
     if (inp.secondaryTap && !myRiding && ctx.kind === 'village' && !hud.selectedItem && aimedMob === null && !anyPanelOpen()) {
-      const d = lookedDragon();
+      const drv = remote.camelDriverAimed(player.eye, player.lookDir, CAMEL_BACK_REACH); // 친구가 모는 낙타를 빈손으로 탭 → 뒤에 타기 (2026-11-07)
+      if (drv !== null) net.sendRideBehind(drv);
+      const d = drv === null ? lookedDragon() : null;
       if (d && d.stage === 'adult' && hasSaddle() && !(d.restingUntil && d.restingUntil > Date.now() + serverClockOffset)) net.sendRide(d.id);
     }
     // 물약 (#245): 마시는 물약은 (몹을 안 보며) 탭 → 마시기, 투척용·잔류형은 탭 → 보는 방향으로 던지기
@@ -2028,7 +2068,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const baby = (f.state & ANIMAL_FLAG.baby) !== 0;
         const tamed = (f.state & ANIMAL_FLAG.tamed) !== 0;
         const foods = def.food.map((i) => nameOf(i)).join('·');
-        const tip = def.id === 'boat' ? '🛶 빈손 탭 → 타기 · 때리면 보트가 가방으로' : def.id === 'minecart' ? '🛒 빈손 탭 → 타기 · 때리면 수레가 가방으로' : def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (isMountKind(def.id) ? (pets.get(aimedMob)?.mine ? `빈손 탭 → ${def.id === 'pig' ? '🐷' : '🐴'} 타기${def.id === 'pig' ? ' · 🥕 당근 낚싯대를 들면 빨라요' : ''} · 보면서 🐾 버튼 → 이름 짓기` : `남의 ${def.name}이에요`) : pets.get(aimedMob)?.mine ? `${{ follow: '🐾 따라오는 중 · 빈손 탭 → 앉기', sit: '🐾 앉아 있음 · 빈손 탭 → 풀어놓기', free: '🐾 자유 · 빈손 탭 → 따라오기' }[pets.get(aimedMob)!.mode]} · 보면서 🐾 버튼 → 이름 짓기` : `남이 길들인 ${def.name}예요`) : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.id === 'pig' && !baby ? `🏇 안장을 들고 탭 → 내 돼지로 · ${foods}을(를) 들고 탭 → 먹이기` : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
+        const tip = def.id === 'boat' ? '🛶 빈손 탭 → 타기 · 때리면 보트가 가방으로' : def.id === 'minecart' ? '🛒 빈손 탭 → 타기 · 때리면 수레가 가방으로' : def.id === 'iron_golem' ? '🗿 마을을 지키는 철 골렘 — 우민을 때려요' : tamed ? (isMountKind(def.id) ? (pets.get(aimedMob)?.mine ? `빈손 탭 → ${def.id === 'pig' ? '🐷' : def.id === 'camel' ? '🐪' : '🐴'} 타기${def.id === 'pig' ? ' · 🥕 당근 낚싯대를 들면 빨라요' : def.id === 'camel' ? ' · 🌵 선인장 → 치료·사랑' : ''} · 보면서 🐾 버튼 → 이름 짓기` : `남의 ${def.name}이에요`) : pets.get(aimedMob)?.mine ? `${{ follow: '🐾 따라오는 중 · 빈손 탭 → 앉기', sit: '🐾 앉아 있음 · 빈손 탭 → 풀어놓기', free: '🐾 자유 · 빈손 탭 → 따라오기' }[pets.get(aimedMob)!.mode]} · 보면서 🐾 버튼 → 이름 짓기` : `남이 길들인 ${def.name}예요`) : def.id === 'horse' ? '🏇 안장을 들고 탭 → 내 말로' : def.id === 'camel' && !baby ? '🐪 안장을 들고 탭 → 내 낙타로 (둘이 탈 수 있어요) · 🌵 선인장 들고 탭 → 먹이기' : def.id === 'pig' && !baby ? `🏇 안장을 들고 탭 → 내 돼지로 · ${foods}을(를) 들고 탭 → 먹이기` : def.tameWith.length ? `${def.tameWith.map((i) => nameOf(i)).join('·')}을(를) 들고 탭 → 길들이기` : `${foods}을(를) 들고 탭 → 먹이기`;
         const extra = def.id === 'sheep' ? ' · ✂️ 가위 들고 탭 → 양털' : def.id === 'chicken' ? ' · 빈손 탭 → 🥚 달걀' : def.id === 'cow' && !baby ? ' · 🪣 빈 양동이 들고 탭 → 우유' : def.id === 'villager' ? ' · 탭 → 💬 대화' : def.id === 'cat' ? (tamed ? ` · 🐟 ${foods} 들고 탭 → 사랑 · 같이 자면 🎁 선물` : ' · 사람을 피해요 — 생선을 들면 다가와요') : '';
         hud.toast(`${def.name}${baby ? ' (아기)' : ''}${tamed ? ' 🐾' : ''} · ${tip}${extra}`, 3000);
       } else if (f && MOB_KIND_OF[f.kind] === 'zombie_villager') {
@@ -2049,6 +2089,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       moveAcc = 0;
       sendMove();
     }
+    remote.myCamel = myRiding && myRiding.dragon === 'camel' && !myRiding.back ? { id: myRiding.id, x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw } : null; // 뒤에 탄 친구를 내 낙타에 붙여 그린다
     remote.update(dt, ctx.light, skyLevel); // 다른 사람도 주변 빛을 받는다 (#86)
     nestDragons.update(dt, Date.now() + serverClockOffset);
     mount.update(player, dt);

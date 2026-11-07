@@ -23,7 +23,7 @@ import type { SpawnPoint } from './village';
 
 export const DARK_FOREST_BOUNDS: WorldBounds = { sizeCX: 16, sizeCY: 6, sizeCZ: 16 };
 /** 생성기를 고치면 올린다 (클라·서버 버전 불일치 감지) */
-export const DARK_FOREST_GEN_VERSION = 1;
+export const DARK_FOREST_GEN_VERSION = 2; // 2: 삐걱이 심장 (2026-11-07)
 export const DARK_GROUND_Y = 40;
 
 const SIZE = DARK_FOREST_BOUNDS.sizeCX * CHUNK_SIZE; // 256
@@ -46,6 +46,8 @@ export interface DarkForestLayout extends IslandLayout {
   guards: { x: number; y: number; z: number }[];
   /** 거대 버섯 줄기 밑 */
   mushrooms: { x: number; y: number; z: number }[];
+  /** 삐걱이 심장 (2026-11-07): 나무 줄기 속. 밤이면 곁에 크리킹이 나온다 */
+  hearts: { x: number; y: number; z: number }[];
 }
 
 export interface DarkForestResult {
@@ -334,6 +336,8 @@ export function generateDarkForest(registry: BlockRegistry, seed: number, treasu
     set(x, top + 2, z, leaves);
   };
   const trunks = new Set<number>();
+  const heart = B('creaking_heart');
+  const hearts: { x: number; y: number; z: number }[] = [];
   const nearTrunk = (x: number, z: number) => {
     for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) if (trunks.has((x + dx) * SIZE + z + dz)) return true;
     return false;
@@ -348,11 +352,17 @@ export function generateDarkForest(registry: BlockRegistry, seed: number, treasu
       if (hash3(x, 1, z, seed) < p && !nearTrunk(x, z)) {
         trunks.add(x * SIZE + z);
         treeAt(x, z);
+        // 삐걱이 심장 (2026-11-07): 대저택·시작 자리에서 먼 나무 몇 그루의 줄기 속 (최대 6)
+        if (hearts.length < 6 && hash3(x, 9, z, seed) < 0.06 && Math.hypot(x - CENTER, z - CENTER) > 24) {
+          const hy = hAt(x, z) + 2;
+          set(x, hy, z, heart);
+          hearts.push({ x, y: hy, z });
+        }
       }
     }
 
   const spawn: SpawnPoint = { x: CENTER + 0.5, y: PY + 1, z: CENTER + 3.5, yaw: 0 };
-  const layout: DarkForestLayout = { center: { x: CENTER, z: CENTER }, portal, treasures: treasureChests, mansion, den, guards, mushrooms };
+  const layout: DarkForestLayout = { center: { x: CENTER, z: CENTER }, portal, treasures: treasureChests, mansion, den, guards, mushrooms, hearts };
   const ms = typeof performance !== 'undefined' ? performance.now() - t0 : 0;
   return { world, spawn, layout, ms };
 }

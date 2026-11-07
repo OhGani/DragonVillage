@@ -36,6 +36,15 @@ import {
   type VoxelWorld,
   ANGRY_MS,
   CALM_MS,
+  CREAKING_SPAWN_R,
+  SHELL_MUL,
+  SILVERFISH_CALL,
+  SILVERFISH_CALL_R,
+  clearSight,
+  PHANTOM_CAT_R,
+  PHANTOM_EVERY_MS,
+  PHANTOM_MAX,
+  POLAR_CUB_R,
   bodyInWall,
   bodyR,
   moveMob,
@@ -61,6 +70,10 @@ export interface MobArena {
   /** 밤 시작 초 (0 = 항상 어두움). 방어전은 0 */
   readonly nightStartsAt: number;
   readonly nightMobs: readonly string[];
+  /** 팬텀이 오는 곳 (2026-11-07, expeditions.json phantoms) */
+  readonly phantoms?: boolean;
+  /** 삐걱이 심장 (어두운 숲, 2026-11-07): 밤이면 곁에 크리킹 하나씩 */
+  readonly hearts?: readonly { x: number; y: number; z: number }[];
   /** 보스 자리 (있으면 시작 때 보스를 세운다 — 거미 왕은 잠들어서, 엔더 드래곤은 깨어서 떠 있다) */
   readonly den: { x: number; y: number; z: number } | null;
   /** 보스 종류 (expeditions.json boss.id). 없으면 거미 왕 */
@@ -104,6 +117,8 @@ export interface MobTarget {
   /** 시선 (#222 엔더맨 쳐다보기). 없으면 안 본다 */
   yaw?: number;
   pitch?: number;
+  /** 마을 침대에서 오래 안 잤다 → 원정 밤에 팬텀이 온다 (2026-11-07) */
+  insomnia?: boolean;
 }
 
 export interface MobHooks {
@@ -112,6 +127,8 @@ export interface MobHooks {
   hurt(idx: number, amount: number, cause: string, now: number): void;
   /** 피해 없이 밀기 (#223 눈 골렘 눈덩이): (x, z) 는 밀리는 방향 단위 벡터 */
   knock?(idx: number, x: number, z: number, now: number, why?: string): void;
+  /** 몹이 블록을 바꾼다 (좀벌레가 벌레 먹은 돌에서 나온다, 2026-11-07): 그 세계 모두에게 */
+  setBlock?(x: number, y: number, z: number, id: string): void;
   /** 이 무대 사람 모두에게 */
   broadcast(bytes: Uint8Array): void;
   json(obj: unknown): void;
@@ -187,6 +204,10 @@ export class MobSystem {
   private wildTurn = 0;
   private nextId = 1;
   private lastSpawnAt = 0;
+  /** 다음에 팬텀을 보낼 수 있는 때 (2026-11-07) */
+  private nextPhantomAt = 0;
+  /** 다음에 크리킹을 살펴볼 때 (2026-11-07) */
+  private nextCreakingAt = 0;
   private lastStepAt = 0;
   private turn = 0;
   private readonly lastHitAt = new Map<number, number>();
@@ -254,6 +275,7 @@ export class MobSystem {
    * 고리에 땅이 없으면(물가) 스무 번 뒤부터 조금씩 바깥으로. around 가 없으면 세계 곳곳
    */
   private placeHerd(kind: MobKind, size: number, around: { x: number; z: number } | null, rMin: number, rMax: number): number {
+    if (kind === 'polar_bear') size = 2; // 북극곰 (2026-11-07): 엄마 + 아기 한 쌍 — 아기는 수에 안 든다
     if (this.defs.get(kind).swim) return this.placeSchool(kind, this.defs.get(kind).deep ? 1 : size, around, rMin, rMax); // 향유고래는 혼자
     const w = this.e.world;
     const h = this.herdNo++;
@@ -284,10 +306,11 @@ export class MobSystem {
           z = center.z + Math.sin(ang) * r;
         const y = r === 0 ? center.y : this.wildGround(x, z);
         if (y === null || Math.abs(y - center.y) > 2) continue;
-        const m = this.spawnKind(kind, x, y, z);
+        const cub = kind === 'polar_bear' && k === 1;
+        const m = this.spawnKind(cub ? 'polar_bear_cub' : kind, x, y, z);
         m.home = { x: center.x, z: center.z };
         m.yaw = ang;
-        placed++;
+        if (!cub) placed++;
         break;
       }
     }
@@ -561,6 +584,100 @@ export class MobSystem {
     return m;
   }
 
+  /** 머리 위가 트였나 (팬텀): 눈 위로 하늘까지 단단한 블록이 없다 */
+  skyOpen(x: number, y: number, z: number): boolean {
+    const w = this.e.world;
+    const bx = Math.floor(x),
+      bz = Math.floor(z);
+    for (let by = Math.floor(y) + 2; by < w.sizeY; by++) if (this.solidAt(bx, by, bz)) return false;
+    return true;
+  }
+
+  /**
+   * 팬텀 (2026-11-07): 팬텀이 오는 원정지의 밤, PHANTOM_EVERY_MS(1~2분)마다 — 침대에서 오래 안 잤고 머리 위가 트인 사람 하나를 골라
+   * 20~34칸 위 하늘에 1~3마리 (원정 전체 PHANTOM_MAX 까지). 결정론: 시드·차례로
+   */
+  private tickPhantoms(players: MobTarget[], now: number): void {
+    if (!this.e.phantoms || !this.opts.autoSpawn || this.e.ended || !this.isNight(now) || now < this.nextPhantomAt) return;
+    const turn = Math.floor(now / PHANTOM_EVERY_MS);
+    this.nextPhantomAt = now + PHANTOM_EVERY_MS * (1 + hash3(turn, 1, 91, this.e.seed));
+    const can = players.filter((p) => p.insomnia && this.skyOpen(p.x, p.eyeY, p.z));
+    if (!can.length) return;
+    const target = can[Math.floor(hash3(turn, 2, 91, this.e.seed) * can.length)]!;
+    const n = Math.min(PHANTOM_MAX - this.countOf('phantom'), 1 + Math.floor(hash3(turn, 3, 91, this.e.seed) * 3));
+    for (let k = 0; k < n; k++) {
+      const a = hash3(turn, 10 + k, 91, this.e.seed) * Math.PI * 2;
+      const y = Math.min(this.e.world.sizeY - 2, target.y + 20 + Math.floor(hash3(turn, 20 + k, 91, this.e.seed) * 15));
+      this.spawnKind('phantom', target.x + Math.cos(a) * 6, y, target.z + Math.sin(a) * 6);
+    }
+    if (n > 0) this.hooks.json({ t: 'mob', ev: 'screech', id: 0, mob: 'phantom', x: target.x, y: target.y, z: target.z });
+  }
+
+  /**
+   * 좀벌레가 맞았다 (2026-11-07): 둘레(SILVERFISH_CALL_R) 벌레 먹은 돌에서 친구가 튀어나온다 (한 번에 SILVERFISH_CALL 까지)
+   */
+  private callSilverfish(m: MobState): void {
+    const w = this.e.world;
+    const infested = this.registry.numOf('infested_stone');
+    const R = SILVERFISH_CALL_R;
+    let n = 0;
+    for (let dy = -2; dy <= 2 && n < SILVERFISH_CALL; dy++)
+      for (let dz = -R; dz <= R && n < SILVERFISH_CALL; dz++)
+        for (let dx = -R; dx <= R && n < SILVERFISH_CALL; dx++) {
+          const x = Math.floor(m.x) + dx,
+            y = Math.floor(m.y) + dy,
+            z = Math.floor(m.z) + dz;
+          if (!w.inBounds(x, y, z) || w.getBlock(x, y, z) !== infested) continue;
+          w.setBlock(x, y, z, 0);
+          this.hooks.setBlock?.(x, y, z, 'air');
+          this.spawnKind('silverfish', x + 0.5, y, z + 0.5);
+          n++;
+        }
+  }
+
+  /** 벌레 먹은 돌을 사람이 부쉈다 → 그 자리에서 좀벌레 (village 가 부른다) */
+  silverfishFrom(x: number, y: number, z: number): void {
+    this.spawnKind('silverfish', x + 0.5, y, z + 0.5);
+  }
+
+  /**
+   * 크리킹 (2026-11-07): 밤이면 남아 있는 삐걱이 심장마다 크리킹 하나 — 심장 곁(CREAKING_SPAWN_R) 설 자리에.
+   * 심장이 없어졌으면 그 크리킹도 사라진다
+   */
+  private tickCreakings(now: number): void {
+    const hearts = this.e.hearts;
+    if (!hearts?.length || this.e.ended) return;
+    const heartId = this.registry.numOf('creaking_heart');
+    const w = this.e.world;
+    for (const m of [...this.mobs.values()]) if (m.heart && w.getBlock(m.heart.x, m.heart.y, m.heart.z) !== heartId) this.heartBroken(m.heart.x, m.heart.y, m.heart.z);
+    if (!this.isNight(now) || now < this.nextCreakingAt) return;
+    this.nextCreakingAt = now + 5000;
+    for (const h of hearts) {
+      if (w.getBlock(h.x, h.y, h.z) !== heartId) continue;
+      if ([...this.mobs.values()].some((m) => m.heart && m.heart.x === h.x && m.heart.y === h.y && m.heart.z === h.z)) continue;
+      for (let t = 0; t < 8; t++) {
+        const a = hash3(h.x, h.z, t, this.e.seed ^ 0x3c1) * Math.PI * 2;
+        const r = 2 + hash3(h.z, h.x, t, this.e.seed ^ 0x3c2) * (CREAKING_SPAWN_R - 2);
+        const x = Math.floor(h.x + Math.cos(a) * r) + 0.5,
+          z = Math.floor(h.z + Math.sin(a) * r) + 0.5;
+        const y = this.groundAt(x, z, h.y);
+        if (y === null) continue;
+        const m = this.spawnKind('creaking', x, y, z);
+        m.heart = { x: h.x, y: h.y, z: h.z };
+        break;
+      }
+    }
+  }
+
+  /** 삐걱이 심장이 부서졌다 → 그 크리킹이 바스러져 사라진다 */
+  heartBroken(x: number, y: number, z: number): void {
+    for (const m of [...this.mobs.values()]) {
+      if (!m.heart || m.heart.x !== x || m.heart.y !== y || m.heart.z !== z) continue;
+      this.mobs.delete(m.id);
+      this.hooks.json({ t: 'mob', ev: 'die', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z });
+    }
+  }
+
   /** 살아 있는 몹 수 (종류별) */
   countOf(kind: MobKind): number {
     let n = 0;
@@ -583,6 +700,8 @@ export class MobSystem {
         this.spawnKind(kind, spot.x, spot.y, spot.z);
       }
     }
+    this.tickPhantoms(players, now);
+    this.tickCreakings(now);
     this.tickBoss(players, now);
     this.refillWild(players, now);
     this.tickPoison(players, now);
@@ -594,6 +713,19 @@ export class MobSystem {
       this.stepCompanions(players, dt, now);
       for (const m of [...this.mobs.values()]) {
         if (this.sleepingBoss(m)) continue; // 잠든 보스는 안 움직인다
+        const life = this.defs.get(m.kind).lifeMs;
+        if (life) {
+          // 벡스 (2026-11-07): 1분 뒤 저절로 사라진다
+          m.bornAt ??= now;
+          if (now - m.bornAt >= life) {
+            this.vanish(m);
+            continue;
+          }
+        }
+        if (this.defs.get(m.kind).frozenWhenSeen && players.some((p) => p.yaw !== undefined && isLookingAt({ x: p.x, z: p.z, eyeY: p.eyeY, yaw: p.yaw, pitch: p.pitch ?? 0 }, m, 32, 0.8) && clearSight(this.solidAt, p.x, p.eyeY, p.z, m.x, m.y + 2, m.z))) {
+          m.state = MOB_STATE.walk; // 크리킹 (2026-11-07): 누가 쳐다보면 꼼짝 못 한다
+          continue;
+        }
         if (m.cureAt !== undefined) {
           // 좀비 주민이 황금 사과를 먹었다 (#244): 돌아올 때까지 서서 떤다
           if (now >= m.cureAt) this.cureDone(m, now);
@@ -665,10 +797,11 @@ export class MobSystem {
             continue;
           }
         }
-        if (m.kind === 'creeper') {
+        if (m.kind === 'creeper' || m.kind === 'phantom') {
           // 크리퍼는 고양이를 무서워한다 (2026-11-06): 따라온 고양이가 CREEPER_CAT_R 안이면 심지를 끄고 반대쪽으로 달아난다
+          // 팬텀은 더 멀리(PHANTOM_CAT_R) 피한다 (2026-11-07) — 날아서 위로·멀리
           let cat: { x: number; z: number } | null = null,
-            cd: number = CREEPER_CAT_R;
+            cd: number = m.kind === 'phantom' ? PHANTOM_CAT_R : CREEPER_CAT_R;
           for (const c of this.companions.values()) {
             if (c.kind !== 'cat') continue;
             const d = Math.hypot(c.x - m.x, c.z - m.z);
@@ -693,9 +826,15 @@ export class MobSystem {
           const ev = stepMob(m, m.grudge !== undefined ? { ...chase, damage: GRUDGE_DAMAGE, attackEveryMs: GRUDGE_ATTACK_MS } : chase, target, dt, now, this.groundAt, this.solidAt);
           if (ev === 'attack') {
             // 원거리 몹은 화살이 날아가는 그림을 먼저 (피해는 바로)
-            if (isRangedMob(def)) this.hooks.json({ t: 'arrow', from: { x: m.x, y: m.y + mobSize(m.kind).h * 0.8, z: m.z }, to: { x: target.x, y: target.eyeY - 0.3, z: target.z }, fire: m.kind === 'ghast' || m.kind === 'blaze', snow: m.kind === 'snow_golem', sonic: m.kind === 'giant_warden', laser: def.shot === 'laser', potion: def.shot === 'potion' }); // 가스트·블레이즈는 불덩이 (#173), 눈 골렘은 눈덩이 (#223), 거대 워든은 음파 (#254)
+            if (isRangedMob(def)) this.hooks.json({ t: 'arrow', from: { x: m.x, y: m.y + mobSize(m.kind).h * 0.8, z: m.z }, to: { x: target.x, y: target.eyeY - 0.3, z: target.z }, fire: m.kind === 'ghast' || m.kind === 'blaze', snow: m.kind === 'snow_golem', sonic: m.kind === 'giant_warden', laser: def.shot === 'laser', potion: def.shot === 'potion', bullet: def.shot === 'bullet', wind: def.shot === 'wind' }); // 가스트·블레이즈는 불덩이 (#173), 눈 골렘은 눈덩이 (#223), 거대 워든은 음파 (#254)
             if (def.damage > 0) this.hooks.hurt(target.idx, m.grudge !== undefined ? GRUDGE_DAMAGE : (m.weakUntil ?? 0) > now ? Math.max(1, Math.floor(def.damage * MOB_WEAK_MUL)) : def.damage, m.kind, now); // 나약함 물약 (#245)
-            if (def.damage <= 0 || def.knock) {
+            if (def.shot === 'bullet' || def.shot === 'wind') {
+              // 셜커 탄은 붕 띄우고, 브리즈 돌풍은 세게 밀쳐 띄운다 (2026-11-07)
+              const kx = target.x - m.x,
+                kz = target.z - m.z;
+              const kd = Math.hypot(kx, kz) || 1;
+              this.hooks.knock?.(target.idx, kx / kd, kz / kd, now, def.shot === 'bullet' ? 'shulker' : 'breeze');
+            } else if (def.damage <= 0 || def.knock) {
               // 눈 골렘 눈덩이 (#223): 안 아프고 밀려나기만. 고릴라 (#253): 아프고 나서 밀려난다
               const kx = target.x - m.x,
                 kz = target.z - m.z;
@@ -1002,17 +1141,30 @@ export class MobSystem {
 
   /** push = 밀려나는 방향(가로 단위 벡터). 보스는 밀리지 않고, 자다가 맞으면 깬다 */
   private damage(m: MobState, amount: number, byIdx: number, now: number, push?: { x: number; z: number }, knock = 1, looting = 0): void {
+    const mdef = this.defs.get(m.kind);
+    if (mdef.invulnerable) {
+      // 크리킹 (2026-11-07): 아무리 때려도 안 죽는다 — 삐걱이 심장을 부숴야
+      this.hooks.json({ t: 'mob', ev: 'hit', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z, dmg: 0 });
+      return;
+    }
+    if (mdef.shell && m.state !== MOB_STATE.attack) amount = Math.max(1, amount * SHELL_MUL); // 셜커: 껍데기를 닫고 있으면 단단하다
     const dealt = Math.floor(amount);
     m.hp = Math.max(0, m.hp - dealt);
     m.angryUntil = now + ANGRY_MS; // 중립 몹은 맞으면 화난다 (#161)
     if (isWild(m.kind) && m.hp > 0) this.wildHurt(m, byIdx, push, now);
     if (this.sleepingBoss(m)) this.wake(m, now);
     if (m.hp > 0) {
-      if (push && !isBoss(m.kind) && !this.defs.get(m.kind).swim) { // 물고기는 안 밀린다 — 둑 위로 밀려 나가면 안 된다
+      if (push && !isBoss(m.kind) && !mdef.swim && mdef.speed > 0) { // 물고기는 안 밀린다 — 둑 위로 밀려 나가면 안 된다. 제자리 몹(셜커)도
         moveMob(m, m.x + push.x * KNOCKBACK * knock, m.z + push.z * KNOCKBACK * knock, this.groundAt, this.solidAt, 1, 1); // 맞아 밀려도 벽 속으론 안 들어간다
       }
       this.hooks.json({ t: 'mob', ev: 'hit', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z, dmg: dealt });
       if (m.kind === 'enderman' && push && hash3(m.id, m.hp, 9, this.e.seed) < 0.5) this.teleportTo(m, m.x + push.x * ENDER_AWAY, m.z + push.z * ENDER_AWAY, m.y, now); // 맞으면 반은 멀리 달아난다 (#222)
+      if (m.kind === 'shulker' && m.hp <= mdef.hp / 2 && now >= (m.nextTeleportAt ?? 0)) {
+        // 셜커 (2026-11-07): 반 넘게 다치면 둘레 다른 자리로 순간이동
+        const a = hash3(m.id, m.hp, 11, this.e.seed) * Math.PI * 2;
+        this.teleportTo(m, m.x + Math.cos(a) * 6, m.z + Math.sin(a) * 6, m.y, now);
+      }
+      if (m.kind === 'silverfish') this.callSilverfish(m);
       return;
     }
     const def = this.defs.get(m.kind);
@@ -1073,6 +1225,17 @@ export class MobSystem {
         }
       }
     }
+    if (!cur && m.kind === 'polar_bear') {
+      // 북극곰 (2026-11-07): 곁의 아기 곰에게 사람이 다가가면 덤빈다
+      for (const c of this.mobs.values()) {
+        if (c.kind !== 'polar_bear_cub' || Math.hypot(c.x - m.x, c.z - m.z) > WILD_HERD_R) continue;
+        cur = players.find((q) => Math.hypot(q.x - c.x, q.z - c.z) <= POLAR_CUB_R && Math.abs(q.y - c.y) < 4);
+        if (cur) {
+          m.angryUntil = now + ANGRY_MS;
+          break;
+        }
+      }
+    }
     m.huntIdx = cur?.idx;
     if (cur) {
       m.wanderTo = null;
@@ -1095,6 +1258,12 @@ export class MobSystem {
           }
       return;
     }
+    if (m.kind === 'polar_bear_cub' && byIdx >= 0)
+      for (const o of this.mobs.values())
+        if (o.kind === 'polar_bear' && Math.hypot(o.x - m.x, o.z - m.z) <= WILD_HERD_R * 2) {
+          o.huntIdx = byIdx; // 아기 곰을 때리면 둘레 엄마 곰들이 다 덤빈다
+          o.angryUntil = now + ANGRY_MS;
+        }
     let dir = push;
     if (!dir || (dir.x === 0 && dir.z === 0)) {
       const a = hash3(m.id, m.hp, 42, this.e.seed) * Math.PI * 2;
