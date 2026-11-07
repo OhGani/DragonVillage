@@ -188,3 +188,41 @@ describe('공격적 몹 (아빠가 보낸 나무위키 목록 2026-11-07)', () =
     expect(t.sys.countOf('small_magma_cube')).toBe(3);
   });
 });
+
+describe('아빠 2026-11-07: 놓은 블록은 그대로 돌려받기 · 원정 곳곳의 몹', () => {
+  it('내가 놓은 돌은 부수면 돌 그대로, 처음부터 있던 돌은 조약돌 (마인크래프트)', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const a = inbox();
+    const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
+    const p = room.players.get(ia)!;
+    room.giveItems(ia, 'stone', 4);
+    room.onMove(ia, { x: 64.5, y: GROUND_Y + 1, z: 64.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    const count = (id: string) => p.inv.reduce((n, s) => n + (s?.item === id ? s.count : 0), 0);
+    room.onBlockChange(ia, { seq: 1, x: 66, y: GROUND_Y + 1, z: 64, id: 'stone' }, T0 + 100);
+    expect(count('stone')).toBe(3);
+    room.onBlockChange(ia, { seq: 2, x: 66, y: GROUND_Y + 1, z: 64, id: 'air' }, T0 + 1000);
+    expect(count('stone')).toBe(4); // 돌 그대로
+    expect(count('cobblestone')).toBe(0);
+    // 처음부터 있던 돌 (땅속)
+    room.world.setBlock(65, GROUND_Y, 64, BLOCKS.numOf('stone'));
+    room.onBlockChange(ia, { seq: 3, x: 65, y: GROUND_Y, z: 64, id: 'air' }, T0 + 2000);
+    expect(count('cobblestone')).toBe(1);
+  });
+
+  it('원정을 시작하면 그곳 밤 몹이 곳곳에 (시작 자리 28칸 밖) 처음부터 서 있다 — 밤 몹 수엔 안 센다', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const a = inbox();
+    const ia = room.join('a'.repeat(32), '아빠', 0, a.send)!.idx;
+    expect(room.startExpedition(ia, 'grass_island', T0)).toBeNull();
+    room.tick(T0 + 100);
+    const sys = room.mobSys!;
+    const sp = room.expedition!.spawn;
+    const roam = [...sys.mobs.values()].filter((m) => m.roam);
+    expect(roam.length).toBe(10);
+    for (const m of roam) {
+      expect(['zombie', 'creeper', 'enderman', 'baby_zombie', 'charged_creeper']).toContain(m.kind);
+      expect(Math.hypot(m.x - sp.x, m.z - sp.z)).toBeGreaterThanOrEqual(28);
+    }
+    expect(sys.regularCount).toBe(0);
+  });
+});

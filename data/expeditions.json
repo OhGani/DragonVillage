@@ -774,34 +774,7 @@
         "zombie",
         "creeper"
       ],
-      "treasureBonus": {
-        "_comment": "궁궐·사당 상자 (#253, '사치스러운'): 공용 3가지에 1가지 더, 금 1~2·바나나 2~4 는 꼭, 에메랄드·정글 묘목 50%",
-        "extraPicks": 1,
-        "always": [
-          {
-            "item": "gold_ingot",
-            "min": 1,
-            "max": 2
-          },
-          {
-            "item": "banana",
-            "min": 2,
-            "max": 4
-          },
-          {
-            "item": "emerald",
-            "min": 1,
-            "max": 1,
-            "chance": 0.5
-          },
-          {
-            "item": "jungle_sapling",
-            "min": 1,
-            "max": 2,
-            "chance": 0.5
-          }
-        ]
-      }
+      "treasureBonus": {"_comment": "궁궐·사당 상자 (#253, '사치스러운'): 공용 3가지에 1가지 더. 2026-11-07 아빠 \"정글 보상이 금 말고 다른 것들도\" — 에메랄드·철·바나나는 꼭, 금은 30%로 줄이고 화살·청금석·황금 사과·안장·다이아몬드(10%)·정글 묘목을 섞었다", "extraPicks": 2, "always": [{"item": "emerald", "min": 1, "max": 3}, {"item": "iron_ingot", "min": 2, "max": 4}, {"item": "banana", "min": 2, "max": 4}, {"item": "gold_ingot", "min": 1, "max": 2, "chance": 0.3}, {"item": "arrow", "min": 4, "max": 8, "chance": 0.5}, {"item": "lapis", "min": 2, "max": 5, "chance": 0.5}, {"item": "golden_apple", "min": 1, "max": 1, "chance": 0.25}, {"item": "saddle", "min": 1, "max": 1, "chance": 0.2}, {"item": "diamond", "min": 1, "max": 1, "chance": 0.1}, {"item": "jungle_sapling", "min": 1, "max": 2, "chance": 0.5}]}
     },
     {
       "id": "deep_dark",
@@ -908,6 +881,7 @@
       "generator": "ancient_castle",
       "durationSec": 900,
       "nightStartsAt": 0,
+      "roamers": 0,
       "treasures": 3,
       "unlockedBy": "portal_6",
       "danger": 6,

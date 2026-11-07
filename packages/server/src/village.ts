@@ -1885,6 +1885,7 @@ export class VillageRoom {
       nightStartsAt: e.def.nightStartsAt,
       nightMobs: e.def.nightMobs,
       phantoms: e.def.phantoms, // 팬텀 (2026-11-07)
+      roamers: e.def.roamers, // 곳곳의 몹 (2026-11-07)
       den: e.den,
       boss: e.bossKind,
       // 고대성 (2026-11-06): 방 몹은 rank 가 사람 수 비율보다 작은 것만 (6명이면 다, 1명이면 1/4 — 아빠 임시 규칙, bosses.json _dadNote)
@@ -1917,6 +1918,8 @@ export class VillageRoom {
   /** 사람이 놓은 블록의 주인 (M9-3 남의 집 보호, #151): 놓은 사람만 부순다. 자연 블록·액체는 누구나. 마을에서만 */
   /** 누가 놓은 블록인지 (#151 기록, #241 부터 막는 데는 안 쓴다) */
   readonly placed = new Map<string, { token: string; nick: string }>();
+  /** 원정에서 사람이 놓은 블록 자리 (부수면 그 블록 그대로 돌려준다, 2026-11-07). 원정이 끝나면 비운다 */
+  private expPlaced = new Set<string>();
   /** 자라는 작물 (#165): "x,y,z" → 심은 시각. 마을만 */
   readonly crops = new Map<string, number>();
   private lastCropCheck = 0;
@@ -3192,6 +3195,13 @@ export class VillageRoom {
         this.storage?.setCrop(this.info.code, req.x, req.y, req.z, now);
       } else if (this.crops.delete(ckey)) this.storage?.delCrop(this.info.code, req.x, req.y, req.z);
     }
+    // 내가 놓은 블록인가 (2026-11-07 아빠 "블럭을 깨서 원래 재료 돌려줘"): 놓은 돌·잔디·광석은 부수면 그 블록 그대로 돌아온다
+    const pkey = `${req.x},${req.y},${req.z}`;
+    const wasPlaced = p.world === 'village' ? this.placed.has(pkey) : this.expPlaced.has(pkey);
+    if (p.world === 'expedition' && !isToggle) {
+      if (num === AIR_ID || def.fluid) this.expPlaced.delete(pkey);
+      else this.expPlaced.add(pkey);
+    }
     // 남의 집 보호 (#151): 마을에서 놓은 블록은 내 것으로 적고, 부수면 지운다 (액체는 흐르니 안 적는다). 문은 두 칸 다
     if (p.world === 'village' && !isToggle) {
       const cells: number[] = [req.y];
@@ -3216,7 +3226,9 @@ export class VillageRoom {
     } else if (num === AIR_ID) {
       const seed = p.world === 'expedition' && this.expedition ? this.expedition.seed : this.info.seed;
       // 문·침대는 어느 칸을 부숴도 원래 아이템 하나 (#71·#204 — 전엔 침대 머리 칸을 부수면 아무것도 안 나왔다)
-      const drop = dropOf(prev.door ? this.registry.get(prev.door.base) : prev.bed ? this.registry.get(prev.bed.base) : prev, req.x, req.y, req.z, seed);
+      let drop = dropOf(prev.door ? this.registry.get(prev.door.base) : prev.bed ? this.registry.get(prev.bed.base) : prev, req.x, req.y, req.z, seed);
+      // 내가 놓았던 블록이면 원래 블록 그대로 (돌 → 조약돌, 잔디 → 흙, 광석 → 보석으로 바뀌지 않게). 작물·문·침대는 원래 규칙대로
+      if (wasPlaced && !prev.fluid && prev.tool && prev.drops !== prev.id && itemForPlacing(prev.id, this.registry) === prev.id) drop = { item: prev.id, count: 1, needsBucket: false };
       if (drop) {
         if (drop.needsBucket) take(p.inv, BUCKET, 1, changed);
         // 행운 인챈트 (#231): 곡괭이로 캐는 광석(드롭이 블록과 다른 것)이 0~단계 개 더 — 자리·시드로 결정론
@@ -3468,6 +3480,7 @@ export class VillageRoom {
       if (!hasGenerator(def.generator)) return 'NOT_YET';
       if (!expeditionUnlocked(def.unlockedBy, this.builtIds())) return 'LOCKED'; // 포탈 단계를 먼저 지어야 (M7-3)
       e = new Expedition(def, this.seedFn(), this.registry, now);
+      this.expPlaced.clear(); // 새 원정: 놓은 블록 기록도 새로
       this.expedition = e;
       this.stats.expeditions++;
       this.lastTimerAt = 0;
@@ -3640,6 +3653,7 @@ export class VillageRoom {
     for (const [id, o] of this.orbs) if (o.world === 'expedition') this.orbs.delete(id); // 원정 구슬은 섬과 함께 사라진다
     this.log(`마을 ${this.info.code}: 원정 "${this.expedition.def.name}" 폐기`);
     this.expedition = null;
+    this.expPlaced.clear();
     this.expeditionDisposeAt = 0;
   }
 

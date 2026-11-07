@@ -625,6 +625,8 @@ export interface MobState {
   shornUntil?: number;
   /** 처음 본 시각 (벡스가 사라질 때를 센다, 2026-11-07) */
   bornAt?: number;
+  /** 원정 곳곳에 처음부터 서 있던 몹 (2026-11-07) — 밤 몹 수(MOB_MAX)엔 안 센다 */
+  roam?: boolean;
   /** 크리킹의 삐걱이 심장 자리 (2026-11-07) */
   heart?: { x: number; y: number; z: number };
   /** 철 골렘 (#221): 이 사람만 쫓는다(주민을 때린 사람). despawnAt 이 지나면 사라진다 */

@@ -24,6 +24,8 @@ const RawExpedition = z
     wildAnimals: z.record(z.string(), z.number().int().min(0, '0 이상이어야 해요').max(20, '한 종류는 20마리까지예요')).optional(),
     /** 팬텀이 오는 곳 (2026-11-07): 하늘이 트인 오버월드 원정지. 침대에서 오래 안 잔 사람에게 밤에 */
     phantoms: z.boolean().optional(),
+    /** 처음부터 곳곳에 서 있는 몹 수 (2026-11-07 아빠 "원정에 중간중간 몹들을 넣어줘") — 없으면 ROAMERS_DEFAULT, 0 이면 없음 */
+    roamers: z.number().int().min(0, '0 이상이어야 해요').max(30, '30마리까지예요').optional(),
     danger: z.number().int().min(0, '0 이상이어야 해요').max(10, '0~10 사이여야 해요'),
     materials: z.array(z.string()),
     release: z.string().optional(),
@@ -72,6 +74,9 @@ const FIELD_KO: Record<string, string> = {
   release: 'release(버전)',
 };
 
+/** 원정 곳곳에 처음부터 서 있는 몹 (2026-11-07 아빠 "원정에 중간중간 몹들을 넣어줘"): expeditions.json roamers 가 없으면 이만큼 */
+export const ROAMERS_DEFAULT = 10;
+
 export interface ExpeditionDef {
   readonly id: string;
   readonly name: string;
@@ -87,6 +92,8 @@ export interface ExpeditionDef {
   readonly wildAnimals: Readonly<Record<string, number>>;
   /** 팬텀이 오는 곳 (2026-11-07) */
   readonly phantoms: boolean;
+  /** 처음부터 곳곳에 서 있는 몹 수 (2026-11-07) */
+  readonly roamers: number;
   /** 상자 보너스 (#159, 사막) — 없으면 공용 규칙만 */
   readonly treasureBonus: TreasureBonus | null;
   /** 보스 몹 id (expeditions.json boss.id). 없으면 null */
@@ -273,6 +280,7 @@ export function parseExpeditions(raw: unknown, fileName = 'data/expeditions.json
       nightMobs: e.nightMobs ?? [],
       wildAnimals: e.wildAnimals ?? {},
       phantoms: e.phantoms === true,
+      roamers: e.roamers ?? ROAMERS_DEFAULT,
       danger: e.danger,
       materials: e.materials,
       release: e.release ?? 'v1',

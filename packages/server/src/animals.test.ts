@@ -114,8 +114,7 @@ describe('마을 동물 (M8-1)', () => {
     const sys = room.mobSys!;
     expect(sys.companions.size).toBe(1);
     expect(sys.entries().some((m) => m.id === ANIMAL_ID_BASE + near.id)).toBe(true);
-    sys.spawnKind('zombie', p.pos.x + 2.5, p.pos.y, p.pos.z);
-    const zombie = [...sys.mobs.values()].find((m) => m.kind === 'zombie')!;
+    const zombie = sys.spawnKind('zombie', p.pos.x + 2.5, p.pos.y, p.pos.z); // (곳곳의 몹 중 좀비와 헷갈리지 않게 바로 받는다, 2026-11-07)
     for (let t = T0 + 100; t <= T0 + 4000; t += 100) room.tick(t);
     expect(zombie.hp).toBeLessThan(20); // 펫이 물었다
     const pet = sys.companions.get(ANIMAL_ID_BASE + near.id)!;

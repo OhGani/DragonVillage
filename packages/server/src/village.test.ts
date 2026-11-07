@@ -2497,7 +2497,7 @@ describe('원정 밤의 몹 (M7-2)', () => {
 
   it('낮에는 안 생기고, 밤이 되면 4초마다 하나씩 최대 8마리, 모두에게 MobsState 가 간다', () => {
     const { room, a, e } = goOut();
-    const night = () => [...(room.mobSys?.mobs.values() ?? [])].filter((m) => !isWild(m.kind)); // 사냥 동물은 45초마다 다시 채워지니 빼고 센다 (#262)
+    const night = () => [...(room.mobSys?.mobs.values() ?? [])].filter((m) => !isWild(m.kind) && !m.roam); // 사냥 동물은 45초마다 다시 채워지니 빼고 센다 (#262), 곳곳의 몹도 (2026-11-07)
     for (let t = T0; t < T0 + 30_000; t += 1000) room.tick(t);
     expect(night().length).toBe(0); // 낮
     a.clear();

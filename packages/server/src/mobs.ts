@@ -72,6 +72,8 @@ export interface MobArena {
   readonly nightMobs: readonly string[];
   /** 팬텀이 오는 곳 (2026-11-07, expeditions.json phantoms) */
   readonly phantoms?: boolean;
+  /** 처음부터 곳곳에 서 있는 몹 수 (2026-11-07 아빠 "원정에 중간중간 몹들을 넣어줘"). 없으면 0 */
+  readonly roamers?: number;
   /** 삐걱이 심장 (어두운 숲, 2026-11-07): 밤이면 곁에 크리킹 하나씩 */
   readonly hearts?: readonly { x: number; y: number; z: number }[];
   /** 보스 자리 (있으면 시작 때 보스를 세운다 — 거미 왕은 잠들어서, 엔더 드래곤은 깨어서 떠 있다) */
@@ -141,6 +143,8 @@ export interface MobHooks {
 }
 
 const STEP_MS = 100;
+/** 곳곳의 몹은 시작 자리에서 이만큼 밖에 (2026-11-07) */
+const ROAM_SAFE_R = 28;
 /** 맞으면 밀려나는 거리 */
 const KNOCKBACK = 0.7;
 
@@ -253,6 +257,7 @@ export class MobSystem {
       }
     }
     this.spawnWild(e.wildAnimals ?? {}, e.safe ?? null);
+    this.spawnRoamers(e.roamers ?? 0, e.safe ?? null);
   }
 
   /**
@@ -516,7 +521,7 @@ export class MobSystem {
   /** 보스·주민(순한 것)을 빼고 몇 마리 — 밤 스폰 상한(MOB_MAX)에 세는 수. 사막 마을 주민 8이 상한을 다 차지해 밤 몹이 하나도 안 나오던 것 (#244 에서 고침) */
   get regularCount(): number {
     let n = 0;
-    for (const m of this.mobs.values()) if (!this.isBossMob(m) && !this.defs.get(m.kind).passive && !isWild(m.kind)) n++; // 사냥 동물도 안 센다 (2026-11-05)
+    for (const m of this.mobs.values()) if (!this.isBossMob(m) && !this.defs.get(m.kind).passive && !isWild(m.kind) && !m.roam) n++; // 사냥 동물도 안 센다 (2026-11-05), 곳곳의 몹도 (2026-11-07)
     return n;
   }
 
@@ -675,6 +680,29 @@ export class MobSystem {
       if (!m.heart || m.heart.x !== x || m.heart.y !== y || m.heart.z !== z) continue;
       this.mobs.delete(m.id);
       this.hooks.json({ t: 'mob', ev: 'die', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z });
+    }
+  }
+
+  /**
+   * 원정 곳곳의 몹 (2026-11-07 아빠 "원정에 중간중간 몹들을 넣어줘"): 시작부터 그 원정지 밤 몹(nightMobs) 중에서 n 마리를
+   * 세계 곳곳(시작 자리에서 ROAM_SAFE_R 밖)에 하나씩 세운다. 사람이 다가가면 덤비고, 아니면 제자리 둘레를 어슬렁. 시드로 결정론
+   */
+  private spawnRoamers(n: number, safe: { x: number; y: number; z: number } | null): void {
+    if (n <= 0) return;
+    const w = this.e.world;
+    const closed = this.e.nightStartsAt <= 0; // 동굴·네더처럼 늘 어두운 곳은 천장이 있으니 시작 높이 근처에서 땅을 찾는다
+    let placed = 0;
+    for (let t = 0; placed < n && t < n * 30; t++) {
+      const x = WILD_EDGE + Math.floor(hash3(this.e.seed, t, 51, 0x70a) * (w.sizeX - WILD_EDGE * 2)) + 0.5;
+      const z = WILD_EDGE + Math.floor(hash3(this.e.seed, t, 52, 0x70a) * (w.sizeZ - WILD_EDGE * 2)) + 0.5;
+      if (safe && Math.hypot(x - safe.x, z - safe.z) < ROAM_SAFE_R) continue;
+      const y = closed ? this.groundAt(x, z, safe?.y ?? w.sizeY / 2) : this.wildGround(x, z);
+      if (y === null) continue;
+      const m = this.spawnKind(pickKind(this.kinds, placed + 1), x, y, z);
+      m.roam = true;
+      m.home = { x, z };
+      m.yaw = hash3(this.e.seed, t, 53, 0x70a) * Math.PI * 2;
+      placed++;
     }
   }
 
@@ -848,7 +876,8 @@ export class MobSystem {
           const g = this.opts.goal;
           if (Math.hypot(g.x - m.x, g.z - m.z) > 1.2) stepMob(m, { ...def, reach: 0, fuseMs: 0 }, g, dt, now, this.groundAt, this.solidAt);
           else m.state = MOB_STATE.walk;
-        } else stepMob(m, def, null, dt, now, this.groundAt, this.solidAt);
+        } else if (m.roam && m.home) this.wander(m, def, dt, now); // 곳곳의 몹은 제자리 둘레를 어슬렁 (2026-11-07)
+        else stepMob(m, def, null, dt, now, this.groundAt, this.solidAt);
       }
       this.separate(now);
     }

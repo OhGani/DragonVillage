@@ -407,6 +407,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const out = document.createElement('canvas');
     out.width = base.width;
     out.height = base.height;
+    out.style.width = base.style.width; // 화면 배율만큼 크게 그린 그림을 원래 크기로 보이게 (2026-11-07 아빠 "인챈트 하면 아이콘이 커진다")
+    out.style.height = base.style.height;
     const g = out.getContext('2d');
     if (!g) return base;
     g.drawImage(base, 0, 0);
