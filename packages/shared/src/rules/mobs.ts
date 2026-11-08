@@ -675,9 +675,15 @@ export type SolidAt = (x: number, y: number, z: number) => boolean;
 
 /** 벽 검사에 쓰는 몸 반지름 상한: 이보다 큰 몹(보스·코끼리 …)도 이만큼만 본다 — 두 칸 문은 지나가게 */
 export const BODY_R_MAX = 0.95;
-/** 벽 검사용 몸 반지름 (몸 폭의 반, 상한 BODY_R_MAX) */
+/**
+ * 그림이 아주 큰 몹은 상한 대신 그림 크기 그대로 본다 (아빠 2026-11-08 "거대고릴라는 아직도 벽 밖으로 보임"):
+ * 거대 고릴라 그림은 3.6×5.5칸(네발로 길다)이라 0.95 로는 벽 밖으로 두 칸 넘게 삐져나왔다. 방향이 바뀌어도 안 삐져나오게 긴 쪽 반을 쓴다.
+ * 이런 몹은 좁은 문을 못 지나간다 — 거대 고릴라는 궁궐 홀(안 17칸, 문 3칸)에, 거대 워든은 고대 도시 홀에 머문다
+ */
+export const WALL_R: Partial<Record<MobKind, number>> = { giant_gorilla: 2.8, giant_warden: 1.9, gorilla: 1.4 };
+/** 벽 검사용 몸 반지름 (몸 폭의 반, 상한 BODY_R_MAX — WALL_R 에 있으면 그 값) */
 export function bodyR(kind: MobKind): number {
-  return Math.min(mobSize(kind).w / 2, BODY_R_MAX);
+  return WALL_R[kind] ?? Math.min(mobSize(kind).w / 2, BODY_R_MAX);
 }
 
 /**
@@ -691,7 +697,10 @@ export function bodyInWall(solidAt: SolidAt, x: number, z: number, footY: number
     x1 = Math.floor(x + r),
     z0 = Math.floor(z - r),
     z1 = Math.floor(z + r);
-  return solidAt(x0, y, z0) || solidAt(x1, y, z0) || solidAt(x0, y, z1) || solidAt(x1, y, z1);
+  if (r < 1) return solidAt(x0, y, z0) || solidAt(x1, y, z0) || solidAt(x0, y, z1) || solidAt(x1, y, z1);
+  // 큰 몸(WALL_R): 네 모서리 사이에 기둥·왕좌가 끼어도 막히게 몸 밑 칸을 전부 본다
+  for (let cx = x0; cx <= x1; cx++) for (let cz = z0; cz <= z1; cz++) if (solidAt(cx, y, cz)) return true;
+  return false;
 }
 
 /**

@@ -334,6 +334,20 @@ describe('벽 (아빠 2026-11-07 "건물 안 몹이 공격함 · 벽 밖으로 �
     }
   });
 
+  it('거대 고릴라 (아빠 2026-11-08 "아직도 벽 밖으로 보임"): 그림 크기(긴 쪽 반 2.8)만큼 벽 앞에서 멈추고, 몸 가운데 앞의 기둥 하나에도 막힌다', () => {
+    expect(bodyR('giant_gorilla')).toBeGreaterThanOrEqual(2.8);
+    const def = { ...MOBS.get('giant_gorilla'), reach: 0 };
+    const m = mob('giant_gorilla', 96.5, 100.5);
+    for (let t = 0; t < 100; t++) stepMob(m, def, { x: 110, y: 41, z: 100.5 }, 0.1, 10_000 + t * 100, ground, wall);
+    expect(m.x + 2.8).toBeLessThanOrEqual(105); // 그림 앞끝이 벽 안쪽 면을 안 넘는다
+    expect(m.x + 2.8).toBeGreaterThan(104); // 벽 앞까지는 온다
+    // 기둥 한 칸 (x 105, z 100): 네 모서리(z 97·103)는 비어 있지만 몸 한가운데 앞이라 막힌다
+    const pillar: SolidAt = (x, y, z) => y < 41 || (x === 105 && z === 100 && y >= 41 && y <= 43);
+    const g = mob('giant_gorilla', 96.5, 100.5);
+    for (let t = 0; t < 100; t++) stepMob(g, def, { x: 110, y: 41, z: 100.5 }, 0.1, 10_000 + t * 100, (x) => (Math.floor(x) === 105 ? null : 41), pillar);
+    expect(g.x + 2.8).toBeLessThanOrEqual(105);
+  });
+
   it('벽에 막히면 벽을 따라 미끄러진다', () => {
     const def = { ...MOBS.get('zombie'), reach: 0 };
     const m = mob('zombie', 104.5, 100);

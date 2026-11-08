@@ -1,4 +1,4 @@
-import { ANIMAL_ID_BASE, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, HP_MAX, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, give, type ServerBinary, GUARD_MAX_MS, meleeBonus, knockbackFactor, rollDrops, HIT_REACH, MOB_STATE, bodyInWall, bodyR } from '@dragon-village/shared';
+import { ANIMAL_ID_BASE, DEFAULT_VILLAGE_SEED, FLAG_GROUND, GROUND_Y, HP_MAX, VILLAGE_GEN_VERSION, countOf, decodeServerBinary, give, type ServerBinary, GUARD_MAX_MS, meleeBonus, knockbackFactor, rollDrops, HIT_REACH, MOB_STATE, bodyInWall, bodyR, generateExpedition } from '@dragon-village/shared';
 import { BLOCKS, EXPEDITIONS, MOBS } from '@dragon-village/shared/data';
 import { Expedition } from './expedition';
 import { describe, expect, it } from 'vitest';
@@ -629,5 +629,45 @@ describe('벽 (아빠 2026-11-07 "원정 갔을 때 건물 안에 있는 몹들�
     for (let x = 61; x <= 67; x++) for (let y = GROUND_Y + 1; y <= GROUND_Y + 3; y++) w.setBlock(x, y, 66, 0);
     for (let t = T0 + 15_000; t < T0 + 25_000; t += 100) sys.tick(t);
     expect(hurt.length).toBeGreaterThan(0);
+  });
+});
+
+describe('거대 고릴라 궁궐 (아빠 2026-11-08 "거대고릴라는 아직도 벽 밖으로 보임")', () => {
+  it('깨어난 거대 고릴라가 홀 구석·벽 밖 사람을 쫓아도 그림(긴 쪽 반 2.8)이 홀 벽 밖으로 안 나온다', () => {
+    const { world, den: d } = generateExpedition({ generator: 'jungle', treasures: 4 }, BLOCKS, 7);
+    const den = d!;
+    const HALL_HALF = 9; // jungle.ts: 홀 19×19, den 은 북쪽 벽에서 4칸 안
+    const palace = { x: den.x, z: den.z + HALL_HALF - 4 };
+    const inX0 = palace.x - HALL_HALF + 1,
+      inX1 = palace.x + HALL_HALF, // 안쪽 칸 끝 + 1 (좌표)
+      inZ0 = palace.z - HALL_HALF + 1,
+      inZ1 = palace.z + HALL_HALF;
+    const y = den.y;
+    const spots = [
+      { x: inX0 + 0.5, z: inZ0 + 0.5 }, // 북서 구석
+      { x: inX1 - 0.5, z: inZ0 + 0.5 }, // 북동 구석
+      { x: inX1 - 0.5, z: inZ1 - 1.5 }, // 남동 구석
+      { x: inX0 - 2.5, z: palace.z + 0.5 }, // 서쪽 벽 바깥
+      { x: palace.x + 0.5, z: inZ1 + 3.5 }, // 문 밖
+    ];
+    const me = { idx: 0, x: 0, y, z: 0, eyeY: y + 1.6 };
+    const arena = { world, seed: 7, nightStartsAt: 0, nightMobs: [], den, boss: 'giant_gorilla' as const, ended: false, elapsedSec: () => 0 };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, { players: () => [me], hurt: () => {}, knock: () => {}, broadcast: () => {}, json: () => {}, reward: () => {}, bossWake: () => {}, bossDefeated: () => {} }, { autoSpawn: false, aggroRange: 40, goal: null, quiet: true });
+    const g = sys.spawnBoss('giant_gorilla', den.x + 0.5, den.y, den.z + 0.5, true);
+    g.hp = 1e9;
+    const r = 2.8;
+    let t = T0;
+    for (const s of spots) {
+      me.x = s.x;
+      me.z = s.z;
+      for (let end = t + 12_000; t < end; t += 100) {
+        sys.tick(t);
+        if (t - T0 < 3000) continue; // 처음엔 왕좌에 걸친 채 나온다 — 빠져나올 시간
+        expect(g.x - r, `${g.x.toFixed(2)},${g.z.toFixed(2)}`).toBeGreaterThanOrEqual(inX0);
+        expect(g.x + r).toBeLessThanOrEqual(inX1);
+        expect(g.z - r).toBeGreaterThanOrEqual(inZ0);
+        expect(g.z + r).toBeLessThanOrEqual(inZ1);
+      }
+    }
   });
 });
