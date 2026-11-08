@@ -114,6 +114,8 @@ export interface AnimalHooks {
   reward(idx: number, drops: { item: string; count: number }[], xp: number, at: { x: number; y: number; z: number }, now: number): void;
   /** 손에 든 것 하나를 쓴다 (먹이·뼈). 못 쓰면 false */
   consume(idx: number, item: string): boolean;
+  /** 이 물건들이 지금 가방에 다 들어가나 (안장 돌려주기 전에 묻는다) */
+  fits?(idx: number, items: { item: string; count: number }[]): boolean;
   log(msg: string): void;
   /** 우민에게 잡혀간 주민 수 (#169): 돌아올 때까지 다시 안 채운다 */
   kidnapped?(): number;
@@ -919,7 +921,8 @@ export class AnimalSystem {
 
   /**
    * 야생으로 풀어주기 (2026-11-06, 아빠 "길들인 동물들을 야생으로 풀어주기"): 내 펫의 주인·이름·앉기를 지우고 그 자리를 새 집으로 산책한다.
-   * 안장을 씌운 말·돼지는 안장을 돌려준다. 오류: NO_MOB · NOT_MINE · RIDING(타고 있는 중) · AWAY(원정에 데려감)
+   * 안장을 씌운 말·돼지·낙타는 안장을 돌려준다 — 가방에 자리가 없으면 안장이 사라지지 않게 아예 안 풀어준다.
+   * 오류: NO_MOB · NOT_MINE · RIDING(타고 있는 중) · AWAY(원정에 데려감) · BAG_FULL(안장 자리 없음)
    */
   release(p: AnimalViewer, mobId: number, now: number): string | null {
     const a = this.find(mobId);
@@ -927,6 +930,7 @@ export class AnimalSystem {
     if (a.owner !== p.token) return 'NOT_MINE';
     if (a.ridden !== null) return 'RIDING';
     if (a.away) return 'AWAY';
+    if (isMountKind(a.kind) && this.hooks.fits && !this.hooks.fits(p.idx, [{ item: SADDLE, count: 1 }])) return 'BAG_FULL';
     const def = this.defs.get(a.kind);
     a.owner = null;
     a.name = null;

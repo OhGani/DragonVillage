@@ -85,6 +85,7 @@ const RELEASE_ERROR_KO: Record<string, string> = {
   NOT_MINE: '내가 길들인 동물만 풀어줄 수 있어요',
   RIDING: '타고 있을 땐 못 풀어줘요 — 먼저 내려요',
   AWAY: '마을에서만 풀어줄 수 있어요',
+  BAG_FULL: '가방이 가득 차서 안장을 돌려받을 수 없어요 — 한 칸 비우고 풀어줘요',
 };
 /** 장비 오류 (M8-2) */
 const EQUIP_ERROR_KO: Record<string, string> = {

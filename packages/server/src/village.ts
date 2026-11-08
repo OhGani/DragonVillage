@@ -502,6 +502,10 @@ export class VillageRoom {
         this.sendInv(p, changed);
         return true;
       },
+      fits: (idx, items) => {
+        const p = this.players.get(idx);
+        return !!p && fits(p.inv, items);
+      },
       log: (msg) => this.log(`마을 ${this.info.code}: ${msg}`),
     });
     this.animals.load(Date.now());

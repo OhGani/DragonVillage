@@ -641,6 +641,12 @@ describe('마을 동물 (M8-1)', () => {
     expect(room.useMob(ra.idx, hid, undefined, T0 + 3500)).toBeNull(); // 탄다
     expect(room.releaseMob(ra.idx, hid, T0 + 4000)).toBe('RIDING');
     expect(room.dismount(ra.idx)).toBeNull();
+    // 가방이 가득하면 안장이 사라지지 않게 안 풀어준다
+    const empty = p.inv.flatMap((s, i) => (s ? [] : [i]));
+    for (const i of empty) p.inv[i] = { item: 'diamond_sword', count: 1 };
+    expect(room.releaseMob(ra.idx, hid, T0 + 4500)).toBe('BAG_FULL');
+    expect(horse.owner).toBe(p.token);
+    for (const i of empty) p.inv[i] = null;
     expect(room.releaseMob(ra.idx, hid, T0 + 5000)).toBeNull();
     expect(horse.owner).toBeNull();
     expect(countOf(p.inv, 'saddle')).toBe(1);
