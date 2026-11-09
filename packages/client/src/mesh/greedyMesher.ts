@@ -75,6 +75,17 @@ const FACE_V: readonly (readonly [number, number, number])[] = [
   [0, 1, 0],
   [0, 1, 0],
 ];
+/** 이어지는 그림 비트 순서(connected.ts): u−, u+, v−, v+, (u−,v−), (u+,v−), (u+,v+), (u−,v+) */
+const CONNECT_DIRS: readonly (readonly [number, number])[] = [
+  [-1, 0],
+  [1, 0],
+  [0, -1],
+  [0, 1],
+  [-1, -1],
+  [1, -1],
+  [1, 1],
+  [-1, 1],
+];
 const FACE_NORMAL: readonly (readonly [number, number, number])[] = [
   [1, 0, 0],
   [-1, 0, 0],
@@ -632,10 +643,10 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
             if (mask[m] !== k || maskL[m] !== kl) break outer;
           }
 
-        const id = k >>> 8;
+        const id = (k >>> 8) & 0xffff;
         const ao = k & 0xff;
         const bi = info[id];
-        const layer = bi.tex[face];
+        const layer = bi.connect ? bi.connect[k >>> 24]! : bi.tex[face]; // 이어지는 유리 (2026-11-09): 위 8비트가 이웃
 
         // 네 꼭짓점: c0 (-,-) c1 (+u,-) c2 (+u,+v) c3 (-,+v)
         const corners: number[][] = [];
@@ -663,6 +674,24 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
         b += w;
       }
     }
+  };
+
+  /**
+   * 이어지는 그림 (2026-11-09): 면 둘레 여덟 칸이 같은 블록이면 비트를 켠다 (connected.ts 비트 순서, 그 면의 U·V 축 기준).
+   * 위 8비트에 넣어 greedy 병합 키의 일부가 된다 — 테두리가 다른 면끼리는 합치지 않는다
+   */
+  const connectBits = (id: number, face: number): number => {
+    const U = FACE_U[face]!,
+      V = FACE_V[face]!;
+    let m = 0;
+    for (let bit = 0; bit < 8; bit++) {
+      const [su, sv] = CONNECT_DIRS[bit]!;
+      q[0] = p[0] + su * U[0] + sv * V[0];
+      q[1] = p[1] + su * U[1] + sv * V[1];
+      q[2] = p[2] + su * U[2] + sv * V[2];
+      if (padded[paddedIndex(q[0], q[1], q[2])] === id) m |= 1 << bit;
+    }
+    return m << 24;
   };
 
   for (let d = 0; d < 3; d++) {
@@ -698,6 +727,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
               const a3 = cornerAt(d, 1, u, -1, v, 1),
                 l3 = cornerLight;
               kf = (id << 8) | a0 | (a1 << 2) | (a2 << 4) | (a3 << 6);
+              if (bi.connect) kf |= connectBits(id, faceF);
               kfl = l0 | (l1 << 8) | (l2 << 16) | (l3 << 24);
             }
             p[d] = i - 1;
@@ -713,6 +743,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
               const a3 = cornerAt(d, -1, u, -1, v, 1),
                 l3 = cornerLight;
               kb = (id << 8) | a0 | (a1 << 2) | (a2 << 4) | (a3 << 6);
+              if (bi.connect) kb |= connectBits(id, faceB);
               kbl = l0 | (l1 << 8) | (l2 << 16) | (l3 << 24);
             }
           }

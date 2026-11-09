@@ -35,6 +35,8 @@ export interface MeshBlockInfo {
   table?: boolean;
   /** 철도(#237): 바닥에 누운 판 한 장. RAIL_DIRS 번호(0 ns 1 ew 2 ne 3 nw 4 se 5 sw), 철도가 아니면 null */
   rail: number | null;
+  /** 이어지는 그림(유리, 2026-11-09): 면 둘레 이웃 8비트 → 레이어 표 (connected.ts). 아니면 null */
+  connect?: readonly number[] | null;
 }
 
 export interface MeshBuffers {

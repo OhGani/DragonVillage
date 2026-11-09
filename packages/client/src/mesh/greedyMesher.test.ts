@@ -1,6 +1,7 @@
 import { PADDED_VOLUME, paddedIndex, parseBlocks } from '@dragon-village/shared';
 import { describe, expect, it } from 'vitest';
 import { buildMeshBlockInfo } from './blockInfo';
+import { connectedKeys, connectedName } from './connected';
 import { greedyMesh } from './greedyMesher';
 import type { MeshBuffers } from './meshTypes';
 
@@ -40,6 +41,7 @@ const texIndex = new Map([
   ['sign_board', 15],
   ['far', 300], // 텍스처가 256장을 넘는다 (#202)
 ]);
+for (const k of connectedKeys()) if (k !== 0) texIndex.set(connectedName('glass', k), 100 + k); // 이어지는 유리 (2026-11-09): glass@k → 100+k
 const info = buildMeshBlockInfo(registry, texIndex);
 const STONE = registry.numOf('stone');
 const GRASS = registry.numOf('grass');
@@ -193,7 +195,7 @@ describe('greedyMesh', () => {
       padded((x, y, z) => (y === 3 && z === 3 && (x === 3 || x === 4) ? GLASS : x === 8 && y === 8 && z === 8 ? WATER : 0)),
       info,
     );
-    expect(quadCount(r.opaque)).toBe(6); // 유리 2개가 한 덩어리처럼 6면 (greedy 로 옆면 병합)
+    expect(quadCount(r.opaque)).toBe(10); // 사이 면 둘은 없다. 이어지는 그림(2026-11-09) 때문에 두 블록의 면은 그림이 달라 병합되지 않는다: 6 + 6 − 2
     expect(quadCount(r.translucent)).toBe(6);
   });
 
@@ -538,5 +540,58 @@ describe('드래곤 알 (#85)', () => {
       widest = Math.max(widest, hi - lo);
     }
     expect(widest).toBeCloseTo(12 / 16);
+  });
+});
+
+describe('이어지는 유리 (아빠 2026-11-09 "유리끼리 맞닿은 쪽은 경계선을 안 보이게")', () => {
+  const layersOf = (b: MeshBuffers, face: number, pick: (i: number) => boolean) => {
+    const out = new Set<number>();
+    for (let i = 0; i < b.vertexCount; i++) if (b.meta[i * 4 + 2] === face && pick(i)) out.add(b.meta[i * 4]!);
+    return [...out];
+  };
+  it('위아래로 쌓은 유리 둘: 옆면은 맞닿은 쪽(v+ / v−) 테두리를 지운 그림, 맨 위·맨 아래는 기본 그림, 사이 면은 없다', () => {
+    const r = greedyMesh(
+      padded((x, y, z) => (x === 5 && z === 5 && (y === 5 || y === 6) ? GLASS : 0)),
+      info,
+    );
+    const b = r.opaque!;
+    expect(quadCount(b)).toBe(10); // 6 + 6 − 사이 2
+    for (const face of [0, 1, 4, 5]) {
+      // 아래 블록 옆면(y 5..6)은 위가 이어짐(비트 3 = 8), 위 블록 옆면(y 6..7)은 아래가 이어짐(비트 2 = 4). 사각형마다 네 꼭짓점의 가장 낮은 y 로 가른다
+      const lo = new Set<number>(),
+        hi = new Set<number>();
+      for (let qd = 0; qd < b.vertexCount / 4; qd++) {
+        if (b.meta[qd * 16 + 2] !== face) continue;
+        let minY = Infinity;
+        for (let c = 0; c < 4; c++) minY = Math.min(minY, b.positions[(qd * 4 + c) * 3 + 1]!);
+        (minY === 5 ? lo : hi).add(b.meta[qd * 16]!);
+      }
+      expect(lo).toEqual(new Set([108]));
+      expect(hi).toEqual(new Set([104]));
+    }
+    expect(layersOf(b, 2, () => true)).toEqual([5]); // 윗면 기본
+    expect(layersOf(b, 3, () => true)).toEqual([5]); // 아랫면 기본
+  });
+  it('3×3 유리 벽: 가운데 칸 앞뒤 면은 테두리가 하나도 없고(255), 모서리 칸은 안쪽 두 변 + 대각선만 이어진다 — U 축이 반대인 뒷면은 비트도 반대', () => {
+    const r = greedyMesh(
+      padded((x, y, z) => (z === 5 && x >= 4 && x <= 6 && y >= 4 && y <= 6 ? GLASS : 0)),
+      info,
+    );
+    const b = r.opaque!;
+    const at = (x0: number, y0: number) => (i: number) => {
+      const x = b.positions[i * 3]!,
+        y = b.positions[i * 3 + 1]!;
+      return x >= x0 && x <= x0 + 1 && y >= y0 && y <= y0 + 1;
+    };
+    // 가운데 (5,5): 여덟 이웃 전부 → 255
+    expect(layersOf(b, 4, at(5, 5))).toContain(355);
+    expect(layersOf(b, 5, at(5, 5))).toContain(355);
+    // 모서리 (4,4): +Z 면(U=+x, V=+y)은 u+·v+·(u+,v+) = 2+8+64 = 74, −Z 면(U=−x)은 u−·v+·(u−,v+) = 1+8+128 = 137
+    const cornerFront = layersOf(b, 4, (i) => b.positions[i * 3]! <= 4.5 && b.positions[i * 3 + 1]! <= 4.5);
+    const cornerBack = layersOf(b, 5, (i) => b.positions[i * 3]! <= 4.5 && b.positions[i * 3 + 1]! <= 4.5);
+    expect(cornerFront).toContain(174);
+    expect(cornerBack).toContain(237);
+    // 맨 윗줄 세 칸의 윗면(U=+x)도 옆 칸과 이어진다: 왼쪽 끝 u+ 만(2), 가운데 u−·u+(3), 오른쪽 끝 u− 만(1)
+    expect(new Set(layersOf(b, 2, () => true))).toEqual(new Set([101, 102, 103]));
   });
 });

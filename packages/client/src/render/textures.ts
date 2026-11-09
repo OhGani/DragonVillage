@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { CONNECTED_BLOCKS, connectedImage, connectedKeys, connectedName } from '../mesh/connected';
 
 export const TEX_SIZE = 16;
 
@@ -77,6 +78,12 @@ export async function loadTextureAtlas(): Promise<TextureAtlas> {
     }),
   );
   for (const l of loaded) if (l) images.set(l.name, l.data);
+  // 이어지는 그림 (2026-11-09): 유리는 이웃 쪽 테두리를 지운 변형 46장을 기본 그림에서 만들어 넣는다
+  for (const name of CONNECTED_BLOCKS) {
+    const base = images.get(name);
+    if (!base) continue;
+    for (const k of connectedKeys()) if (k !== 0) images.set(connectedName(name, k), new ImageData(connectedImage(base.data, TEX_SIZE, k), TEX_SIZE, TEX_SIZE));
+  }
 
   const names = ['missing', ...[...images.keys()].filter((n) => n !== 'missing')];
   const depth = names.length;
