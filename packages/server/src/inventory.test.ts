@@ -158,6 +158,15 @@ describe('제작·양조 (M4)', () => {
     expect(BLOCKS.get(room.world.getBlock(FRONT.x, FRONT.y, FRONT.z)).id).toBe('crafting_table');
     expect(room.craft(ia, 'oak_door')).toBeNull();
     expect(countOf(p.inv, 'oak_door')).toBe(3);
+    // 나무 블록 (아빠 2026-11-10, #288): 가방에서 원목 4 → 나무 3, 3개면 모자라다
+    room.giveItems(ia, 'spruce_log', 3);
+    expect(room.craft(ia, 'spruce_wood')).toBe('MISSING');
+    room.giveItems(ia, 'spruce_log', 1);
+    expect(room.craft(ia, 'spruce_wood')).toBeNull();
+    expect(countOf(p.inv, 'spruce_wood')).toBe(3);
+    expect(countOf(p.inv, 'spruce_log')).toBe(0);
+    room.onBlockChange(ia, { seq: 2, x: FRONT.x + 1, y: FRONT.y, z: FRONT.z, id: 'spruce_wood' }, 1100);
+    expect(BLOCKS.get(room.world.getBlock(FRONT.x + 1, FRONT.y, FRONT.z)).id).toBe('spruce_wood'); // 놓인다
     expect(room.craft(ia, 'no_such')).toBe('BAD_RECIPE');
     expect(room.craft(ia, 'obsidian_from_lava')).toBe('BAD_RECIPE'); // world 레시피는 제작이 아니다
     expect(room.craft(ia, 'iron_pickaxe')).toBe('NEED_FORGE'); // 대장간을 지어야 (2026-09-24 열림)

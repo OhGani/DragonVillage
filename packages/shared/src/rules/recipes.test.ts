@@ -28,6 +28,9 @@ describe('parseRecipes', () => {
     expect(RECIPES.forStation('inventory').length).toBeGreaterThanOrEqual(9);
     expect(RECIPES.forStation('brewing')).toEqual([]); // 양조는 potions.json
     for (const r of RECIPES.craftable()) expect(r.release).toBe('v1');
+    // 나무 블록 8종 (아빠 2026-11-10, #288): 가방 2×2 에 원목 4개 → 나무 3개
+    for (const [log, wood] of [['log', 'wood'], ['spruce_log', 'spruce_wood'], ['birch_log', 'birch_wood'], ['jungle_log', 'jungle_wood'], ['acacia_log', 'acacia_wood'], ['dark_oak_log', 'dark_oak_wood'], ['cherry_log', 'cherry_wood'], ['mangrove_log', 'mangrove_wood']])
+      expect(RECIPES.require(wood!)).toMatchObject({ station: 'inventory', pattern: ['ll', 'll'], in: { [log!]: 4 }, out: { [wood!]: 3 } });
   });
 
   it('잘못된 값이면 한국어 DataError', () => {

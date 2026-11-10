@@ -1008,6 +1008,151 @@
       }
     },
     {
+      "id": "wood",
+      "name": "참나무 나무",
+      "station": "inventory",
+      "pattern": [
+        "ll",
+        "ll"
+      ],
+      "key": {
+        "l": "log"
+      },
+      "in": {
+        "log": 4
+      },
+      "out": {
+        "wood": 3
+      },
+      "_note": "아빠 2026-11-10: 가방 2×2 에 원목 4개 → 여섯 면이 옆 무늬인 나무 3개 (마인크래프트 값)"
+    },
+    {
+      "id": "spruce_wood",
+      "name": "가문비나무 나무",
+      "station": "inventory",
+      "pattern": [
+        "ll",
+        "ll"
+      ],
+      "key": {
+        "l": "spruce_log"
+      },
+      "in": {
+        "spruce_log": 4
+      },
+      "out": {
+        "spruce_wood": 3
+      }
+    },
+    {
+      "id": "birch_wood",
+      "name": "자작나무 나무",
+      "station": "inventory",
+      "pattern": [
+        "ll",
+        "ll"
+      ],
+      "key": {
+        "l": "birch_log"
+      },
+      "in": {
+        "birch_log": 4
+      },
+      "out": {
+        "birch_wood": 3
+      }
+    },
+    {
+      "id": "jungle_wood",
+      "name": "정글나무 나무",
+      "station": "inventory",
+      "pattern": [
+        "ll",
+        "ll"
+      ],
+      "key": {
+        "l": "jungle_log"
+      },
+      "in": {
+        "jungle_log": 4
+      },
+      "out": {
+        "jungle_wood": 3
+      }
+    },
+    {
+      "id": "acacia_wood",
+      "name": "아카시아나무 나무",
+      "station": "inventory",
+      "pattern": [
+        "ll",
+        "ll"
+      ],
+      "key": {
+        "l": "acacia_log"
+      },
+      "in": {
+        "acacia_log": 4
+      },
+      "out": {
+        "acacia_wood": 3
+      }
+    },
+    {
+      "id": "dark_oak_wood",
+      "name": "짙은 참나무 나무",
+      "station": "inventory",
+      "pattern": [
+        "ll",
+        "ll"
+      ],
+      "key": {
+        "l": "dark_oak_log"
+      },
+      "in": {
+        "dark_oak_log": 4
+      },
+      "out": {
+        "dark_oak_wood": 3
+      }
+    },
+    {
+      "id": "cherry_wood",
+      "name": "벚나무 나무",
+      "station": "inventory",
+      "pattern": [
+        "ll",
+        "ll"
+      ],
+      "key": {
+        "l": "cherry_log"
+      },
+      "in": {
+        "cherry_log": 4
+      },
+      "out": {
+        "cherry_wood": 3
+      }
+    },
+    {
+      "id": "mangrove_wood",
+      "name": "맹그로브 나무",
+      "station": "inventory",
+      "pattern": [
+        "ll",
+        "ll"
+      ],
+      "key": {
+        "l": "mangrove_log"
+      },
+      "in": {
+        "mangrove_log": 4
+      },
+      "out": {
+        "mangrove_wood": 3
+      }
+    },
+    {
       "id": "crafting_table",
       "name": "제작대",
       "station": "inventory",
