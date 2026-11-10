@@ -221,6 +221,79 @@
       "_note": "아빠 2026-11-06 — 판자 셋 윗판, 막대기 넷 다리"
     },
     {
+      "id": "campfire",
+      "name": "모닥불 (참나무)",
+      "station": "crafting_table",
+      "pattern": [" s ", "scs", "lll"],
+      "key": { "s": "stick", "c": "coal", "l": "log" },
+      "in": { "stick": 3, "coal": 1, "log": 3 },
+      "out": { "campfire": 1 },
+      "_note": "아빠 2026-11-10 (#290, 마인크래프트): 막대기 3 + 석탄 1 + 원목 3. 원목은 여덟 가지 어느 것이든 — 종류마다 레시피 하나씩"
+    },
+    {
+      "id": "campfire_spruce",
+      "name": "모닥불 (가문비나무)",
+      "station": "crafting_table",
+      "pattern": [" s ", "scs", "lll"],
+      "key": { "s": "stick", "c": "coal", "l": "spruce_log" },
+      "in": { "stick": 3, "coal": 1, "spruce_log": 3 },
+      "out": { "campfire": 1 }
+    },
+    {
+      "id": "campfire_birch",
+      "name": "모닥불 (자작나무)",
+      "station": "crafting_table",
+      "pattern": [" s ", "scs", "lll"],
+      "key": { "s": "stick", "c": "coal", "l": "birch_log" },
+      "in": { "stick": 3, "coal": 1, "birch_log": 3 },
+      "out": { "campfire": 1 }
+    },
+    {
+      "id": "campfire_jungle",
+      "name": "모닥불 (정글나무)",
+      "station": "crafting_table",
+      "pattern": [" s ", "scs", "lll"],
+      "key": { "s": "stick", "c": "coal", "l": "jungle_log" },
+      "in": { "stick": 3, "coal": 1, "jungle_log": 3 },
+      "out": { "campfire": 1 }
+    },
+    {
+      "id": "campfire_acacia",
+      "name": "모닥불 (아카시아나무)",
+      "station": "crafting_table",
+      "pattern": [" s ", "scs", "lll"],
+      "key": { "s": "stick", "c": "coal", "l": "acacia_log" },
+      "in": { "stick": 3, "coal": 1, "acacia_log": 3 },
+      "out": { "campfire": 1 }
+    },
+    {
+      "id": "campfire_dark_oak",
+      "name": "모닥불 (짙은 참나무)",
+      "station": "crafting_table",
+      "pattern": [" s ", "scs", "lll"],
+      "key": { "s": "stick", "c": "coal", "l": "dark_oak_log" },
+      "in": { "stick": 3, "coal": 1, "dark_oak_log": 3 },
+      "out": { "campfire": 1 }
+    },
+    {
+      "id": "campfire_cherry",
+      "name": "모닥불 (벚나무)",
+      "station": "crafting_table",
+      "pattern": [" s ", "scs", "lll"],
+      "key": { "s": "stick", "c": "coal", "l": "cherry_log" },
+      "in": { "stick": 3, "coal": 1, "cherry_log": 3 },
+      "out": { "campfire": 1 }
+    },
+    {
+      "id": "campfire_mangrove",
+      "name": "모닥불 (맹그로브)",
+      "station": "crafting_table",
+      "pattern": [" s ", "scs", "lll"],
+      "key": { "s": "stick", "c": "coal", "l": "mangrove_log" },
+      "in": { "stick": 3, "coal": 1, "mangrove_log": 3 },
+      "out": { "campfire": 1 }
+    },
+    {
       "id": "snow_block",
       "name": "눈 블록",
       "station": "crafting_table",

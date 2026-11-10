@@ -501,8 +501,10 @@ export type ClientJson =
   | { t: 'fillBottle'; x: number; y: number; z: number; slot: number }
   /** 낚시 (2026-11-06): cast = 낚싯대를 들고 물(x,y,z)에 찌 던지기, reel = 건지기(입질 때면 잡힌다) */
   | { t: 'fish'; act: 'cast' | 'reel'; slot: number; x?: number; y?: number; z?: number }
-  /** TNT 에 불 붙이기 (#195): 라이터를 든 칸, 그 자리 TNT → 4초 뒤 폭발 */
+  /** TNT 에 불 붙이기 (#195): 라이터를 든 칸, 그 자리 TNT → 4초 뒤 폭발. 꺼진 모닥불이면 다시 켠다 (#290) */
   | { t: 'ignite'; x: number; y: number; z: number; slot: number }
+  /** 모닥불 끄기 (#290): 삽을 든 칸, 그 자리 불붙은 모닥불 → 꺼진 모닥불 */
+  | { t: 'douse'; x: number; y: number; z: number; slot: number }
   /** 타고 있는 드래곤의 스킬 (M6-5). 지금은 'beam' 만 */
   | { t: 'skill'; id: string }
   /** 마을 창고 열기 (M6-6) — 창고 건물 옆에서 */
@@ -621,10 +623,10 @@ export type ServerJson =
   | { t: 'arrow'; from: { x: number; y: number; z: number }; to: { x: number; y: number; z: number }; fire?: boolean; snow?: boolean; sonic?: boolean; laser?: boolean; potion?: boolean; bullet?: boolean; wind?: boolean }
   /** 밀린다 (#223 눈 골렘 눈덩이는 피해 없이, #253 고릴라는 아프고 나서): (x, z) 방향으로 power 만큼. why = 'snow' | 'gorilla' */
   | { t: 'knock'; x: number; z: number; power: number; why?: string }
-  /** 식탁 위 음식 (2026-11-06): 바뀔 때 그 세계 모두에게, items 는 TABLE_SLOTS 칸 (빈 칸 null) */
-  | { t: 'table'; x: number; y: number; z: number; items: (string | null)[] }
-  /** 들어올 때 마을의 식탁 전부 */
-  | { t: 'tables'; list: { x: number; y: number; z: number; items: (string | null)[] }[] }
+  /** 식탁 위 음식 (2026-11-06): 바뀔 때 그 세계 모두에게, items 는 TABLE_SLOTS 칸 (빈 칸 null). fire = 모닥불 위 음식 (#290 — 낮게, 액자 없이 그린다) */
+  | { t: 'table'; x: number; y: number; z: number; items: (string | null)[]; fire?: boolean }
+  /** 들어올 때 마을의 식탁·모닥불 전부 */
+  | { t: 'tables'; list: { x: number; y: number; z: number; items: (string | null)[]; fire?: boolean }[] }
   /** 마을 방어전 상태 1Hz (M7-5). null = 끝났다/없다 */
   | { t: 'raid'; raid: RaidStateInfo | null }
   /** 누가 빔을 쐈다 (같은 세계 모두, 본인 포함) (M6-5). from 은 드래곤 입 근처, dir 은 단위 벡터 */

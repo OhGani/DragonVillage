@@ -20,6 +20,8 @@ const registry = parseBlocks({
     { id: 'sign', name: '표지판', hardness: 1, solid: false, shape: 'sign', texture: 'sign_board' },
     { id: 'far', name: '먼 그림', hardness: 1, texture: 'far' },
     { id: 'dining_table', name: '식탁', hardness: 2, transparent: true, shape: 'table', texture: 'sign_board' },
+    { id: 'campfire', name: '모닥불', hardness: 2, transparent: true, lightEmit: 15, shape: 'campfire', texture: 'campfire_log' },
+    { id: 'campfire_off', name: '꺼진 모닥불', hardness: 2, transparent: true, shape: 'campfire', texture: 'campfire_log' },
   ],
 });
 const texIndex = new Map([
@@ -40,6 +42,9 @@ const texIndex = new Map([
   ['bed_side', 14],
   ['sign_board', 15],
   ['far', 300], // 텍스처가 256장을 넘는다 (#202)
+  ['campfire_log', 20],
+  ['campfire_log_end', 21],
+  ['campfire_fire', 22],
 ]);
 for (const k of connectedKeys()) if (k !== 0) texIndex.set(connectedName('glass', k), 100 + k); // 이어지는 유리 (2026-11-09): glass@k → 100+k
 const info = buildMeshBlockInfo(registry, texIndex);
@@ -424,6 +429,31 @@ describe('식탁 (2026-11-06)', () => {
     const m = greedyMesh(padded((x, y, z) => ((x === 5 || x === 6) && y === 5 && z === 5 ? TABLE : 0)), info).opaque!;
     expect(m.indexCount / 6).toBe(2 * 5 + 4 * 5); // 윗판마다 맞닿은 면 하나 빼고 5면, 다리 넷
     checkWinding(m);
+  });
+});
+
+describe('모닥불 (#290)', () => {
+  const one = (id: string) => greedyMesh(padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? registry.numOf(id) : 0)), info).opaque!;
+  const layersOf = (m: MeshBuffers) => {
+    const count = new Map<number, number>();
+    for (let v = 0; v < m.vertexCount; v += 4) count.set(m.meta[v * 4]!, (count.get(m.meta[v * 4]!) ?? 0) + 1);
+    return count;
+  };
+  it('불붙은 모닥불: 통나무 넷 × 6면 + 불꽃 판 두 장(양면 4) = 28면. 자른 면은 통나무마다 둘, 높이는 반 칸', () => {
+    const m = one('campfire');
+    expect(m.indexCount / 6).toBe(28);
+    const layers = layersOf(m);
+    expect(layers.get(20)).toBe(16); // 껍질
+    expect(layers.get(21)).toBe(8); // 자른 면
+    expect(layers.get(22)).toBe(4); // 불꽃
+    let top = 0;
+    for (let v = 0; v < m.vertexCount; v++) if (m.meta[v * 4] !== 22) top = Math.max(top, m.positions[v * 3 + 1]!);
+    expect(top).toBeCloseTo(5.5, 5);
+  });
+  it('꺼진 모닥불: 불꽃 없이 통나무만 24면', () => {
+    const m = one('campfire_off');
+    expect(m.indexCount / 6).toBe(24);
+    expect(layersOf(m).has(22)).toBe(false);
   });
 });
 

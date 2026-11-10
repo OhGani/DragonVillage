@@ -6,6 +6,12 @@ export class TableSheet {
   private readonly sheet: HTMLElement;
   private readonly list: HTMLElement;
   private at: { x: number; y: number; z: number } | null = null;
+  private readonly title: HTMLElement;
+  private readonly hint: HTMLElement;
+  /** 모닥불 창인가 (#290) — 제목·도움말이 다르고, 아직 날것이면 '굽는 중' */
+  private fire = false;
+  /** 모닥불에서 익는 것 (날것 → 익힌 것). Game 이 넣어 준다 */
+  cooks: ReadonlyMap<string, string> = new Map();
 
   constructor(
     root: HTMLElement,
@@ -23,6 +29,7 @@ export class TableSheet {
     const title = document.createElement('div');
     title.className = 'bag-title';
     title.textContent = '🍽️ 식탁';
+    this.title = title;
     this.list = document.createElement('div');
     this.list.style.display = 'flex';
     this.list.style.flexDirection = 'column';
@@ -32,6 +39,7 @@ export class TableSheet {
     hint.style.fontSize = '13px';
     hint.style.opacity = '0.8';
     hint.textContent = '먹을 것을 손에 들고 식탁을 탭하면 올라가요 (4개까지)';
+    this.hint = hint;
     const close = document.createElement('button');
     close.className = 'plain-btn chat-close';
     close.textContent = '닫기';
@@ -53,8 +61,11 @@ export class TableSheet {
     return this.visible && this.at !== null && this.at.x === x && this.at.y === y && this.at.z === z;
   }
 
-  show(x: number, y: number, z: number, items: readonly (string | null)[]): void {
+  show(x: number, y: number, z: number, items: readonly (string | null)[], fire = false): void {
     this.at = { x, y, z };
+    this.fire = fire;
+    this.title.textContent = fire ? '🔥 모닥불' : '🍽️ 식탁';
+    this.hint.textContent = fire ? '날고기·생선·감자를 손에 들고 모닥불을 탭하면 30초 뒤 익어요 (4개까지)' : '먹을 것을 손에 들고 식탁을 탭하면 올라가요 (4개까지)';
     this.render(items);
     this.sheet.hidden = false;
   }
@@ -88,7 +99,7 @@ export class TableSheet {
         row.appendChild(img);
       }
       const name = document.createElement('span');
-      name.textContent = this.nameOf(id);
+      name.textContent = this.fire && this.cooks.has(id) ? `${this.nameOf(id)} — 굽는 중` : this.nameOf(id);
       name.style.flex = '1';
       const eat = document.createElement('button');
       eat.className = 'chat-phrase';

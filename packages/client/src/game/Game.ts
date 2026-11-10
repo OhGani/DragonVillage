@@ -35,6 +35,8 @@ import {
   FLAG_SPRINT,
   FLAG_WATER,
   foodOf,
+  CAMPFIRE,
+  campfireCooks,
   generateExpedition,
   generateVillage,
   GROUND_Y,
@@ -113,6 +115,9 @@ import { BagView, type Stations } from '../ui/bag';
 import { ChatView } from '../ui/chat';
 import { PetNamePicker } from '../ui/petNames';
 import { TableSheet } from '../ui/tableSheet';
+
+/** 모닥불에 구울 수 있는 것 (#290): 날것 → 익힌 것 */
+const CAMPFIRE_COOKS = campfireCooks(RECIPES, FOOD);
 import { TalkSheet } from '../ui/talk';
 import { ChestView } from '../ui/chest';
 import { Hud, type HotbarSlot } from '../ui/hud';
@@ -355,6 +360,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const orbView = new OrbView(scene);
   /** 블록 부스러기 (캐는 중 톡톡, 부서지면 와르르) */
   const particles = new Particles(scene);
+  // 모닥불 연기 (#290)
+  const CAMPFIRE_NUM = registry.numOf(CAMPFIRE);
+  let smokeAcc = 0,
+    smokeScan = 0;
+  let campfiresNear: [number, number, number][] | null = null;
   // 낚시 (2026-11-06): 찌·줄. handSpot = 화면 오른쪽 아래 손 자리(세계 좌표) — 줄이 여기서 나간다
   const fishView = new FishView(scene);
   const handSpot = new THREE.Vector3();
@@ -429,6 +439,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       if (started && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) resume();
     },
   );
+  tableSheet.cooks = CAMPFIRE_COOKS;
   remote.iconOf = (id) => iconOf(id, 32); // 다른 사람 손에 든 것 (#96)
   let sentHeld: string | null | undefined; // 서버에 마지막으로 알린 손 아이템
 
@@ -704,17 +715,21 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       },
       onHint: (text) => hud.toast(text, 2000),
       onUseTable: (bx, by, bz) => {
-        // 식탁 (2026-11-06): 먹을 것을 들었으면 바로 올리고, 아니면 식탁 창 (먹기·가방에)
+        // 식탁 (2026-11-06): 먹을 것을 들었으면 바로 올리고, 아니면 식탁 창 (먹기·가방에).
+        // 모닥불 (#290): 구울 수 있는 날것을 들었으면 올리고, 아니면 모닥불 창
         if (anyPanelOpen() || !started || disconnected) return;
-        if (hud.selectedItem && foodOf(FOOD, hud.selectedItem)) {
+        const fire = registry.get(ctx.world.getBlock(bx, by, bz)).shape === 'campfire';
+        if (hud.selectedItem && (fire ? CAMPFIRE_COOKS.has(hud.selectedItem) : foodOf(FOOD, hud.selectedItem))) {
           net.sendTable('put', bx, by, bz, hud.selectedIndex);
           return;
         }
         input.paused = true;
         kbm.enabled = false;
         if (kbm.locked) document.exitPointerLock();
-        tableSheet.show(bx, by, bz, tableView.itemsAt(bx, by, bz));
+        tableSheet.show(bx, by, bz, tableView.itemsAt(bx, by, bz), fire);
       },
+      onLightCampfire: (x, y, z) => net.sendIgnite(x, y, z, hud.selectedIndex), // 꺼진 모닥불 켜기 (#290)
+      onDouseCampfire: (x, y, z) => net.sendDouse(x, y, z, hud.selectedIndex), // 삽으로 끄기
       onOpenChest: (bx, by, bz) => {
         if (bag.visible || nest.visible || chat.visible) return;
         net.sendOpenChest(bx, by, bz);
@@ -997,7 +1012,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     },
     onDemand: (counts) => talk.setDemand(counts), // 가게 값 (#230)
     onTable: (m) => {
-      tableView.set(m.x, m.y, m.z, m.items);
+      tableView.set(m.x, m.y, m.z, m.items, m.fire === true);
       if (tableSheet.isAt(m.x, m.y, m.z)) tableSheet.update(m.items);
     },
     onTables: (list) => tableView.setAll(list),
@@ -1265,6 +1280,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         hurtSound();
         if (m.cause === 'poison') hud.toast('🤢 독이에요 — 잠깐 아파요', 1500);
         if (m.cause === 'drown') hud.toast('🫧 숨이 막혀요! 물 위로 올라가요', 1200); // #246
+        if (m.cause === 'campfire') hud.toast('🔥 앗 뜨거워! 모닥불에서 내려와요', 1200); // #290
         if (m.cause === 'totem') hud.toast('💛 불사의 토템이 살렸어요! 하트 2개로 다시', 2500); // #252
         if (m.cause === 'potion') hud.toast('💔 앗, 고통의 물약! 던져야 하는 거였어요', 2000); // #245
         if (m.cause === 'iron_golem') hud.toast('🗿 철 골렘한테 맞았어요 — 주민을 때리면 안 돼요', 1500); // #221
@@ -2038,7 +2054,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const heldFood = foodOf(FOOD, hud.selectedItem);
     // 당근·감자처럼 먹을 것이자 씨앗인 것은 농지를 겨눴을 땐 심기만 한다 (#212 — 전엔 심으면서 하나를 더 먹었다)
     const planting = interaction.target !== null && interaction.selectedBlock > 0 && registry.get(interaction.target.id).id === 'farmland';
-    const aimingTable = interaction.target !== null && registry.get(interaction.target.id).shape === 'table'; // 식탁을 탭하면 먹지 않고 올린다
+    const aimedShape = interaction.target !== null ? registry.get(interaction.target.id).shape : null;
+    const aimingTable = aimedShape === 'table' || aimedShape === 'campfire'; // 식탁·모닥불을 탭하면 먹지 않고 올린다
     if (heldFood && !planting && !aimingTable && inp.secondaryTap && aimedMob === null && !guarding && !anyPanelOpen() && started && !disconnected) {
       net.sendEat(hud.selectedIndex);
       hand.swing();
@@ -2114,6 +2131,21 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         particles.crumb(t.x, t.y, t.z, t.face, blockColor(t.id));
       }
     } else highlight.clearTarget();
+    // 모닥불 연기 (#290): 0.35초마다 둘레 12칸의 불붙은 모닥불에서 한 줌씩 (자리는 2초마다 다시 찾는다)
+    if ((smokeAcc += dt) >= 0.35) {
+      smokeAcc = 0;
+      if (++smokeScan >= 6 || campfiresNear === null) {
+        smokeScan = 0;
+        campfiresNear = [];
+        const px = Math.floor(ctx.player.pos.x),
+          py = Math.floor(ctx.player.pos.y),
+          pz = Math.floor(ctx.player.pos.z);
+        for (let y = py - 6; y <= py + 6; y++)
+          for (let z = pz - 12; z <= pz + 12; z++)
+            for (let x = px - 12; x <= px + 12; x++) if (ctx.world.inBounds(x, y, z) && ctx.world.getBlock(x, y, z) === CAMPFIRE_NUM) campfiresNear.push([x, y, z]);
+      }
+      for (const [x, y, z] of campfiresNear) if (ctx.world.inBounds(x, y, z) && ctx.world.getBlock(x, y, z) === CAMPFIRE_NUM) particles.smoke(x, y, z);
+    }
     particles.update(dt);
     fireworks.update(dt);
     hud.setProgress(drawProgress > 0 ? drawProgress : interaction.progress); // 활 당김도 같은 고리로 (#119)

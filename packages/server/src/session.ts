@@ -73,6 +73,7 @@ const TABLE_ERROR_KO: Record<string, string> = {
   NO_TABLE: '여기엔 식탁이 없어요',
   TOO_FAR: '식탁에 더 가까이 가요',
   NOT_EDIBLE: '식탁엔 먹을 것만 올릴 수 있어요',
+  NOT_COOKABLE: '모닥불엔 날고기·생선·감자만 구울 수 있어요',
   TABLE_FULL: '식탁이 꽉 찼어요 (4개까지)',
   EMPTY: '거기엔 음식이 없어요',
   BAG_FULL: '가방이 꽉 찼어요',
@@ -506,7 +507,15 @@ export class Session {
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
         if (!Number.isInteger(msg.x) || !Number.isInteger(msg.y) || !Number.isInteger(msg.z) || !Number.isInteger(msg.slot)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
         const err = this.room.ignite(this.idx, msg.slot as number, msg.x as number, msg.y as number, msg.z as number);
-        if (err) return this.error(err, err === 'NO_FLINT' ? '라이터를 들고 탭해요' : err === 'NOT_TNT' ? 'TNT 에만 불을 붙여요' : err === 'TOO_FAR' ? '너무 멀어요 — 가까이 가요' : '지금은 할 수 없어요');
+        if (err) return this.error(err, err === 'NO_FLINT' ? '라이터를 들고 탭해요' : err === 'NOT_TNT' ? 'TNT 나 꺼진 모닥불에만 불을 붙여요' : err === 'TOO_FAR' ? '너무 멀어요 — 가까이 가요' : '지금은 할 수 없어요');
+        return;
+      }
+      case 'douse': {
+        // 모닥불 끄기 (#290)
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.x) || !Number.isInteger(msg.y) || !Number.isInteger(msg.z) || !Number.isInteger(msg.slot)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.douse(this.idx, msg.slot as number, msg.x as number, msg.y as number, msg.z as number);
+        if (err) return this.error(err, err === 'NO_SHOVEL' ? '삽을 들고 탭해요' : err === 'NOT_FIRE' ? '불붙은 모닥불에만 써요' : err === 'TOO_FAR' ? '너무 멀어요 — 가까이 가요' : '지금은 끌 수 없어요');
         return;
       }
       case 'fillBottle': {

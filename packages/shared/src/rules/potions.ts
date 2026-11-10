@@ -122,7 +122,7 @@ export const MOB_POISON_EVERY_MS = 1250;
 export const MOB_SLOW_MUL = 0.5;
 export const MOB_WEAK_MUL = 0.5;
 /** 화염 저항이 막는 피해 원인 */
-export const FIRE_CAUSES: readonly string[] = ['blaze', 'ghast', 'fire', 'lava'];
+export const FIRE_CAUSES: readonly string[] = ['blaze', 'ghast', 'fire', 'lava', 'campfire'];
 /**
  * 잔류형 구름 (#246): 떨어진 자리 바닥에 LINGER_SECONDS 동안 남는다. 반지름은 LINGER_RADIUS 에서 시간에 따라 줄고(30초에 1칸),
  * LINGER_EVERY_MS 마다 그 안의 몹(나쁜 물약)·사람(좋은 물약)에게 다시 걸며 한 명 맞을 때마다 LINGER_USE_SHRINK 만큼 더 준다. LINGER_MIN_RADIUS 아래면 사라진다

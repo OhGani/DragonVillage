@@ -21,6 +21,8 @@ import {
   raycastVoxels,
   type RayHit,
   shovelOf,
+  CAMPFIRE,
+  CAMPFIRE_OFF,
   TILLABLE,
   toolOf,
   type VoxelWorld, enchantLevelOf, MINECART } from '@dragon-village/shared';
@@ -51,6 +53,9 @@ export interface InteractionEvents {
   onFillBottle?(x: number, y: number, z: number): void;
   /** TNT 에 불 (#195) */
   onIgnite?(x: number, y: number, z: number): void;
+  /** 모닥불 (#290): 라이터로 꺼진 모닥불 켜기 · 삽으로 불 끄기 */
+  onLightCampfire?(x: number, y: number, z: number): void;
+  onDouseCampfire?(x: number, y: number, z: number): void;
   /** 상자를 탭했다 (#84) — 놓기 대신 연다 */
   onOpenChest?(x: number, y: number, z: number): void;
   /** 식탁 탭 (2026-11-06): 음식을 들었으면 올리고, 아니면 식탁 창 */
@@ -345,10 +350,14 @@ export class Interaction {
     }
     // 라이터 (#195): 들고 TNT 를 탭 → 4초 뒤 폭발
     if (t && this.heldItem === 'flint_and_steel') {
-      if (this.registry.get(t.id).id === 'tnt') {
+      const lit = this.registry.get(t.id).id;
+      if (lit === 'tnt') {
         this.events.onIgnite?.(t.x, t.y, t.z);
         this.events.onSwing();
-      } else this.events.onHint?.('🔥 라이터는 TNT 에 불을 붙여요');
+      } else if (lit === CAMPFIRE_OFF) {
+        this.events.onLightCampfire?.(t.x, t.y, t.z); // 꺼진 모닥불 다시 켜기 (#290)
+        this.events.onSwing();
+      } else this.events.onHint?.('🔥 라이터는 TNT 나 꺼진 모닥불에 불을 붙여요');
       return;
     }
     // 뼛가루 (#193): 들고 작물 싹·묘목을 탭 → 서버가 바로 키운다
@@ -358,6 +367,12 @@ export class Interaction {
         this.events.onBoneMeal?.(t.x, t.y, t.z);
         this.events.onSwing();
       } else this.events.onHint?.('🦴 뼛가루는 자라는 것(싹·묘목)에 써요');
+      return;
+    }
+    // 삽으로 모닥불 끄기 (#290): 삽을 들고 불붙은 모닥불을 탭 → 꺼진 모닥불 (서버가 바꾼다)
+    if (t && shovelOf(TOOLS, this.heldItem) && this.registry.get(t.id).id === CAMPFIRE) {
+      this.events.onDouseCampfire?.(t.x, t.y, t.z);
+      this.events.onSwing();
       return;
     }
     // 삽으로 잔디 다듬기 (#191): 삽을 들고 잔디 윗면을 탭 → 캐지 않고 잔디 길이 된다
@@ -384,8 +399,8 @@ export class Interaction {
       this.events.onSwing();
       return;
     }
-    // 식탁을 탭하면 놓는 대신 식탁 쓰기 (2026-11-06)
-    if (tdef.shape === 'table') {
+    // 식탁·모닥불(#290)을 탭하면 놓는 대신 쓰기 (2026-11-06)
+    if (tdef.shape === 'table' || tdef.shape === 'campfire') {
       this.events.onUseTable?.(t.x, t.y, t.z);
       this.events.onSwing();
       return;

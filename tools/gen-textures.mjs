@@ -240,6 +240,85 @@ const TEX = {
     }
   },
   sand: (c) => c.noise([219, 207, 163], 8).blotch(0.04),
+  // ---- 모닥불 (#290, 2026-11-10): 전부 임시 — 아들이 덮어쓸 것
+  // 통나무 껍질: 결이 없는 얼룩 (누운 통나무라 어느 쪽으로 봐도 어색하지 않게) + 그을린 점
+  campfire_log: (c) => {
+    c.noise([104, 78, 47], 12).blotch(0.12);
+    for (let i = 0; i < 14; i++) c.mul(Math.floor(c.rnd() * S), Math.floor(c.rnd() * S), 0.55);
+  },
+  // 통나무 자른 면: 4×4 칸마다 껍질 테두리 + 밝은 속. 메셔가 세계 좌표로 그림을 입히므로 통나무 자리(가로 1~4·11~14 열, 세로 4줄씩)에만 자른 면이 있고 나머지는 껍질
+  campfire_log_end: (c) => {
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const u = x >= 1 && x <= 4 ? x - 1 : x >= 11 && x <= 14 ? x - 11 : 0,
+          v = y % 4;
+        const edge = u === 0 || u === 3 || v === 0 || v === 3;
+        const n = (c.rnd() - 0.5) * 10;
+        if (edge) c.set(x, y, 92 + n, 68 + n, 40 + n);
+        else c.set(x, y, 190 + n, 152 + n, 96 + n);
+      }
+  },
+  // 불꽃: 아래는 넓고 희게, 위로 갈수록 좁고 붉게 (대각선 판 두 장에 입힌다)
+  campfire_fire: (c) => {
+    c.clear();
+    const half = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 5, 6, 6, 6]; // 줄마다 불꽃 반 너비 (위 → 아래)
+    for (let y = 1; y < S; y++) {
+      const h = half[y];
+      const lean = y < 6 ? (y % 2 === 0 ? 1 : 0) : 0; // 끝이 살짝 흔들린다
+      for (let x = 8 - h + lean; x < 8 + h + lean; x++) {
+        const d = Math.abs(x - 7.5 - lean) / Math.max(1, h); // 0 가운데 … 1 가장자리
+        const t = y / 15; // 0 위 … 1 아래
+        const heat = t * (1 - d * 0.8); // 아래 가운데가 가장 뜨겁다
+        if (c.rnd() < 0.08 && d > 0.5) continue; // 가장자리 이 빠짐
+        if (heat > 0.62) c.set(x, y, 255, 244, 188);
+        else if (heat > 0.42) c.set(x, y, 255, 208, 64);
+        else if (heat > 0.22) c.set(x, y, 255, 146, 28);
+        else c.set(x, y, 226, 84, 20);
+      }
+    }
+    for (const [x, y] of [[4, 3], [11, 1], [12, 5], [3, 7]]) c.set(x, y, 255, 170, 40); // 튀는 불티
+  },
+  // 가방 아이콘: 엇갈린 통나무 위에 불꽃
+  campfire: (c) => {
+    c.clear();
+    const log = (x0, x1, y0, y1, k) => {
+      for (let y = y0; y <= y1; y++)
+        for (let x = x0; x <= x1; x++) {
+          const n = (c.rnd() - 0.5) * 12;
+          const end = x === x0 || x === x1;
+          c.set(x, y, (end ? 176 : 104) * k + n, (end ? 140 : 78) * k + n, (end ? 88 : 47) * k + n);
+        }
+    };
+    log(1, 14, 12, 14, 1); // 앞 통나무
+    log(3, 12, 10, 11, 0.8); // 뒤 통나무
+    const half = [0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4];
+    for (let y = 2; y < 12; y++) {
+      const h = half[y];
+      for (let x = 8 - h; x < 8 + h; x++) {
+        const d = Math.abs(x - 7.5) / Math.max(1, h),
+          t = (y - 2) / 9;
+        const heat = t * (1 - d * 0.8);
+        if (heat > 0.6) c.set(x, y, 255, 244, 188);
+        else if (heat > 0.38) c.set(x, y, 255, 208, 64);
+        else if (heat > 0.18) c.set(x, y, 255, 146, 28);
+        else c.set(x, y, 226, 84, 20);
+      }
+    }
+  },
+  campfire_off: (c) => {
+    c.clear();
+    const log = (x0, x1, y0, y1, k) => {
+      for (let y = y0; y <= y1; y++)
+        for (let x = x0; x <= x1; x++) {
+          const n = (c.rnd() - 0.5) * 12;
+          const end = x === x0 || x === x1;
+          c.set(x, y, (end ? 176 : 104) * k + n, (end ? 140 : 78) * k + n, (end ? 88 : 47) * k + n);
+        }
+    };
+    log(1, 14, 12, 14, 1);
+    log(3, 12, 10, 11, 0.8);
+    for (const [x, y] of [[6, 9], [7, 9], [8, 9], [9, 9], [7, 8], [8, 8]]) c.set(x, y, 58, 52, 48); // 식은 숯
+  },
   gravel: (c) => c.cells(16, [128, 122, 118], 0.2, 0.7, 10),
   log_side: (c) => {
     for (let x = 0; x < S; x++) {

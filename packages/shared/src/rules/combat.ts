@@ -216,9 +216,9 @@ export function reduceDamage(damage: number, defense: number, toughness: number)
   return damage * (1 - a / 25);
 }
 
-/** 갑옷이 줄여 주는 피해인가 — 낙하·독·굶주림은 아니다 */
+/** 갑옷이 줄여 주는 피해인가 — 낙하·독·굶주림·모닥불(#290, 마인크래프트)은 아니다 */
 export function armorApplies(cause: string): boolean {
-  return cause !== 'fall' && cause !== 'poison' && cause !== 'drown' && cause !== 'respawn';
+  return cause !== 'fall' && cause !== 'poison' && cause !== 'drown' && cause !== 'respawn' && cause !== 'campfire';
 }
 /** 화살(원거리)로 치는 몹 */
 export const ARROW_CAUSES: readonly string[] = ['pillager', 'skeleton'];

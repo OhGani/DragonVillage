@@ -993,6 +993,29 @@
       "_note": "아빠 2026-11-06 \"식탁 만들어 주고 음식을 식탁 위에 놓을 수 있음\": 가문비 판자 윗판 + 다리 넷(붙여 놓으면 긴 식탁 하나, 다리는 바깥 모서리만). 먹을 것을 들고 탭하면 올라가고(4개까지), 다른 걸 들고 탭하면 식탁 창 — 먹기·가방에 넣기. 부수면 올린 음식은 부순 사람 가방으로"
     },
     {
+      "id": "campfire",
+      "name": "모닥불",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 15,
+      "transparent": true,
+      "texture": "campfire_log",
+      "shape": "campfire",
+      "_note": "아빠 2026-11-10 (#290, 마인크래프트 위키 '모닥불'): 통나무 넷을 엇갈려 쌓고 가운데 불꽃. 날고기·생선·감자를 들고 탭하면 올라가고(4개까지) 연료 없이 30초 뒤 익는다 — 다른 걸 들고 탭하면 모닥불 창(먹기·가방에). 빛 15, 위에 서면 0.5초마다 하트 반 칸. 삽으로 탭하면 꺼지고 라이터로 다시 켠다. 아이콘은 campfire.png, 통나무 campfire_log / campfire_log_end, 불꽃 campfire_fire"
+    },
+    {
+      "id": "campfire_off",
+      "name": "꺼진 모닥불",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "transparent": true,
+      "drops": "campfire",
+      "texture": "campfire_log",
+      "shape": "campfire",
+      "_note": "삽으로 끈 모닥불 (#290). 빛도 피해도 없고 음식이 익지 않는다. 라이터로 탭하면 다시 켜진다. 부수면 모닥불이 나온다"
+    },
+    {
       "id": "infested_stone",
       "name": "벌레 먹은 돌",
       "hardness": 0.75,

@@ -39,6 +39,9 @@ export const SIGN_POST_HALF = 1 / 16;
 /** 식탁 (2026-11-06): 윗판 두께·다리 굵기 (블록 단위). 윗면은 칸 꼭대기 */
 export const TABLE_TOP_T = 3 / 16;
 export const TABLE_LEG = 2 / 16;
+/** 모닥불 (#290): 통나무 굵기 4/16, 쌓은 높이 8/16. 불꽃 판의 반 너비 */
+export const CAMPFIRE_LOG = 4 / 16;
+export const CAMPFIRE_FLAME_HALF = 0.3;
 export const SIGN_POST_TOP = 9 / 16;
 export const SIGN_BOARD_HALF = 7 / 16;
 export const SIGN_BOARD_Y0 = 8 / 16;
@@ -571,6 +574,40 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
   };
 
   /**
+   * 모닥불 전용 패스 (#290): 아래 통나무 둘(남북으로 누움, 가로 1~5·11~15) 위에 통나무 둘(동서, 세로 1~5·11~15)을 엇갈려 얹고,
+   * 불이 붙어 있으면 가운데에 불꽃 판 두 장(대각선, 양면). 자른 면 그림은 세계 좌표로 입혀진다(campfire_log_end 의 4×4 칸)
+   */
+  const emitCampfires = () => {
+    const L = CAMPFIRE_LOG,
+      P = 1 / 16;
+    for (let y = 0; y < N; y++)
+      for (let z = 0; z < N; z++)
+        for (let x = 0; x < N; x++) {
+          const cf = info[padded[paddedIndex(x, y, z)]]?.campfire;
+          if (!cf) continue;
+          const lt = lightOfCell(x, y, z);
+          for (const o of [P, 1 - P - L]) {
+            for (let f = 0; f < 6; f++) boxFace(opaque, f, [x + o, y, z], [x + o + L, y + L, z + 1], f >= 4 ? cf.end : cf.log, lt);
+            for (let f = 0; f < 6; f++) boxFace(opaque, f, [x, y + L, z + o], [x + 1, y + 2 * L, z + o + L], f < 2 ? cf.end : cf.log, lt);
+          }
+          if (cf.fire < 0) continue;
+          const H = CAMPFIRE_FLAME_HALF;
+          const put = (a: [number, number], b: [number, number]) => {
+            const c = [
+              [x + a[0], y + P, z + a[1], 0, 0, 3, lt],
+              [x + b[0], y + P, z + b[1], 1, 0, 3, lt],
+              [x + b[0], y + 1, z + b[1], 1, 1, 3, lt],
+              [x + a[0], y + 1, z + a[1], 0, 1, 3, lt],
+            ];
+            opaque.quad(c, cf.fire, 2);
+            opaque.quad([c[0]!, c[3]!, c[2]!, c[1]!], cf.fire, 2); // 뒷면
+          };
+          put([0.5 - H, 0.5 - H], [0.5 + H, 0.5 + H]);
+          put([0.5 - H, 0.5 + H], [0.5 + H, 0.5 - H]);
+        }
+  };
+
+  /**
    * 알 전용 패스 (#85): 상자 여섯 층. 층끼리 맞닿는 면은 넓은 쪽만 그린다(같은 자리에 두 면이 겹쳐 깜빡이지 않게).
    */
   const emitEggs = () => {
@@ -712,7 +749,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
             kb = 0,
             kfl = 0,
             kbl = 0;
-          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg && !bi.cross && bi.bed === null && !bi.sign && !bi.table && bi.rail === null) {
+          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg && !bi.cross && bi.bed === null && !bi.sign && !bi.table && !bi.campfire && bi.rail === null) {
             p[d] = i + 1;
             const idF = padded[paddedIndex(p[0], p[1], p[2])];
             p[d] = i;
@@ -766,6 +803,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
   emitBeds();
   emitSigns();
   emitTables();
+  emitCampfires();
 
   return { opaque: opaque.build(), translucent: trans.build() };
 }

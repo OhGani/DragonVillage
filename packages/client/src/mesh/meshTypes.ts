@@ -33,6 +33,8 @@ export interface MeshBlockInfo {
   sign: boolean;
   /** 식탁(2026-11-06): 윗판 + 다리 넷 */
   table?: boolean;
+  /** 모닥불(#290): 엇갈린 통나무 넷 + 불꽃. 레이어 — log 껍질, end 자른 면, fire 불꽃(꺼졌으면 −1). 모닥불이 아니면 null */
+  campfire?: { log: number; end: number; fire: number } | null;
   /** 철도(#237): 바닥에 누운 판 한 장. RAIL_DIRS 번호(0 ns 1 ew 2 ne 3 nw 4 se 5 sw), 철도가 아니면 null */
   rail: number | null;
   /** 이어지는 그림(유리, 2026-11-09): 면 둘레 이웃 8비트 → 레이어 표 (connected.ts). 아니면 null */

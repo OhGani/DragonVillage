@@ -169,8 +169,8 @@ export interface NetEvents {
   /** 펫 목록·이름 (#109) */
   onPets(list: { id: number; name: string | null; mine: boolean; mode?: 'follow' | 'sit' | 'free' }[]): void;
   /** 식탁 위 음식 하나 바뀜 / 들어올 때 전부 (2026-11-06) */
-  onTable(m: { x: number; y: number; z: number; items: (string | null)[] }): void;
-  onTables(list: { x: number; y: number; z: number; items: (string | null)[] }[]): void;
+  onTable(m: { x: number; y: number; z: number; items: (string | null)[]; fire?: boolean }): void;
+  onTables(list: { x: number; y: number; z: number; items: (string | null)[]; fire?: boolean }[]): void;
   /** 가게에서 산 횟수 (#230) */
   onDemand(counts: Record<string, number>): void;
   /** 원정에 따라온 펫 (#145) */
@@ -430,6 +430,11 @@ export class NetClient {
   /** TNT 불 붙이기 (#195) */
   sendIgnite(x: number, y: number, z: number, slot: number): void {
     this.sendJson({ t: 'ignite', x, y, z, slot });
+  }
+
+  /** 모닥불 끄기 (#290): 삽을 든 칸 */
+  sendDouse(x: number, y: number, z: number, slot: number): void {
+    this.sendJson({ t: 'douse', x, y, z, slot });
   }
 
   /** 뼛가루 (#193) */

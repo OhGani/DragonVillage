@@ -47,6 +47,15 @@ const SPOTS: readonly [number, number][] = [
   [0.24, 0.24],
 ];
 
+/** 모닥불 (#290): 쌓은 통나무 윗면 높이, 음식 네 자리는 모서리 쪽(가운데는 불꽃) */
+const CAMPFIRE_TOP = 8 / 16;
+const FIRE_SPOTS: readonly [number, number][] = [
+  [-0.3, -0.3],
+  [0.3, -0.3],
+  [-0.3, 0.3],
+  [0.3, 0.3],
+];
+
 export class TableView {
   private readonly group = new THREE.Group();
   private readonly tables = new Map<string, THREE.Group>();
@@ -73,8 +82,8 @@ export class TableView {
     return t;
   }
 
-  /** 식탁 하나 (items 는 4칸, 빈 칸 null) */
-  set(x: number, y: number, z: number, items: readonly (string | null)[]): void {
+  /** 식탁 하나 (items 는 4칸, 빈 칸 null). fire = 모닥불 (#290): 통나무 높이(8/16)에 액자 없이 음식만 눕힌다 */
+  set(x: number, y: number, z: number, items: readonly (string | null)[], fire = false): void {
     const key = `${x},${y},${z}`;
     const old = this.tables.get(key);
     if (old) {
@@ -88,13 +97,15 @@ export class TableView {
     if (items.every((i) => !i)) return;
     this.items.set(key, [...items]);
     const g = new THREE.Group();
-    g.position.set(x + 0.5, y + 1, z + 0.5);
+    g.position.set(x + 0.5, fire ? y + CAMPFIRE_TOP - FRAME_T : y + 1, z + 0.5);
     items.forEach((id, i) => {
       if (!id) return;
-      const [ox, oz] = SPOTS[i]!;
-      const frame = new THREE.Mesh(FRAME_GEOM, frameMaterials());
-      frame.position.set(ox, FRAME_T / 2 + 0.002, oz);
-      g.add(frame);
+      const [ox, oz] = fire ? FIRE_SPOTS[i]! : SPOTS[i]!;
+      if (!fire) {
+        const frame = new THREE.Mesh(FRAME_GEOM, frameMaterials());
+        frame.position.set(ox, FRAME_T / 2 + 0.002, oz);
+        g.add(frame);
+      }
       const tex = this.texture(id);
       if (!tex) return;
       const icon = new THREE.Mesh(ICON_GEOM, new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }));
@@ -107,9 +118,9 @@ export class TableView {
   }
 
   /** 들어올 때 전부 바꾼다 */
-  setAll(list: readonly { x: number; y: number; z: number; items: readonly (string | null)[] }[]): void {
+  setAll(list: readonly { x: number; y: number; z: number; items: readonly (string | null)[]; fire?: boolean }[]): void {
     this.clear();
-    for (const t of list) this.set(t.x, t.y, t.z, t.items);
+    for (const t of list) this.set(t.x, t.y, t.z, t.items, t.fire === true);
   }
 
   /** 그 자리 음식 (식탁 창에서 쓴다) */

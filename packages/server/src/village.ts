@@ -165,6 +165,12 @@ import {
   SPLASH_RADIUS,
   THROW_RANGE,
   FIRE_CAUSES,
+  CAMPFIRE,
+  CAMPFIRE_OFF,
+  CAMPFIRE_COOK_MS,
+  CAMPFIRE_DAMAGE,
+  CAMPFIRE_HURT_EVERY_MS,
+  campfireCooks,
   type ServerJson,
   LINGER_SECONDS,
   LINGER_RADIUS,
@@ -280,6 +286,10 @@ const TNT_BLAST_PROOF = 30;
 const TOTEM_OF_UNDYING = 'totem_of_undying';
 const TOTEM_HP = 4;
 const FLINT_AND_STEEL = 'flint_and_steel';
+/** 모닥불에 구울 수 있는 것: 날것 → 익힌 것 (#290, 화로 레시피에서 뽑는다) */
+const COOKS = campfireCooks(RECIPES, FOOD);
+/** 모닥불 굽기 확인 간격 */
+const COOK_CHECK_MS = 1000;
 const CROP_CHECK_MS = 10_000;
 /** 침대 윗면 (#204): 메셔 BED_HEIGHT 와 같다 */
 const BED_TOP = 9 / 16;
@@ -344,6 +354,8 @@ export interface RoomPlayer {
   airAt: number;
   airSent: number;
   drownNextAt: number;
+  /** 모닥불 위에 서 있을 때 다음 피해 시각 (#290) */
+  fireNextAt?: number;
   /** 남들에게 마지막으로 알린 막기 상태 (#144) */
   guardShown: boolean;
   /** 침대에 누워 있음 (#204). 접속 동안만 */
@@ -526,6 +538,7 @@ export class VillageRoom {
     this.bootSoil = [];
     if (healing) this.log(`마을 ${this.info.code}: 드러난 흙 ${healing}칸이 잔디로 자라기 시작해요`);
     this.repairChests();
+    for (const t of this.villageTables()) if (t.fire) this.watchCampfire('village', t, 0); // 모닥불 위 날것은 켜진 뒤 30초 (#290)
   }
 
   /** 옛 둥지 자리들의 생성 지형 (되돌릴 때 쓴다) */
@@ -891,17 +904,17 @@ export class VillageRoom {
   }
 
   /** 저장된 상자 속 (없으면 null). 새로 만들지 않는다 */
-  private storedChest(p: RoomPlayer, c: { x: number; y: number; z: number }): Inventory | null {
+  private storedChest(p: Pick<RoomPlayer, 'world'>, c: { x: number; y: number; z: number }): Inventory | null {
     if (p.world === 'expedition') return this.expeditionChests.get(this.chestKey(c)) ?? null;
     return this.storage?.getChest(this.info.code, c.x, c.y, c.z) ?? null;
   }
 
-  private deleteStoredChest(p: RoomPlayer, c: { x: number; y: number; z: number }): void {
+  private deleteStoredChest(p: Pick<RoomPlayer, 'world'>, c: { x: number; y: number; z: number }): void {
     if (p.world === 'expedition') this.expeditionChests.delete(this.chestKey(c));
     else this.storage?.deleteChest(this.info.code, c.x, c.y, c.z);
   }
 
-  private writeChest(p: RoomPlayer, home: { x: number; y: number; z: number }, chest: Inventory, now = Date.now()): void {
+  private writeChest(p: Pick<RoomPlayer, 'world'>, home: { x: number; y: number; z: number }, chest: Inventory, now = Date.now()): void {
     if (p.world === 'expedition') this.expeditionChests.set(this.chestKey(home), chest);
     else this.storage?.saveChest(this.info.code, home.x, home.y, home.z, chest, now);
   }
@@ -909,29 +922,130 @@ export class VillageRoom {
   // ---------------------------------------------------------------- 식탁 (아빠 2026-11-06)
 
   /** 식탁 위 음식 (TABLE_SLOTS 칸). 상자와 같은 저장 칸(chests 표·원정 메모리)을 쓴다 — 한 자리는 상자 아니면 식탁이라 겹치지 않는다 */
-  private tableItems(p: RoomPlayer, c: { x: number; y: number; z: number }): (string | null)[] {
+  private tableItems(p: Pick<RoomPlayer, 'world'>, c: { x: number; y: number; z: number }): (string | null)[] {
     const inv = this.storedChest(p, c);
     const out: (string | null)[] = Array.from({ length: TABLE_SLOTS }, (_, i) => inv?.[i]?.item ?? null);
     return out;
   }
-  private saveTable(p: RoomPlayer, c: { x: number; y: number; z: number }, items: (string | null)[], now: number): void {
+  private saveTable(p: Pick<RoomPlayer, 'world'>, c: { x: number; y: number; z: number }, items: (string | null)[], now: number): void {
     if (items.every((i) => i === null)) this.deleteStoredChest(p, c);
     else {
       const inv = emptyChest(false); // 상자와 같은 모양(27칸)으로 저장한다 — 앞 TABLE_SLOTS 칸만 쓴다
       items.forEach((item, i) => (inv[i] = item ? { item, count: 1 } : null));
       this.writeChest(p, c, inv, now);
     }
-    this.broadcastJson({ t: 'table', x: c.x, y: c.y, z: c.z, items }, -1, p.world);
+    const world = p.world === 'village' ? this.world : this.expedition?.world;
+    const fire = !!world && world.inBounds(c.x, c.y, c.z) && this.registry.get(world.getBlock(c.x, c.y, c.z)).shape === 'campfire';
+    this.broadcastJson({ t: 'table', x: c.x, y: c.y, z: c.z, items, ...(fire ? { fire: true } : {}) }, -1, p.world);
   }
-  /** 마을의 식탁 전부 (들어올 때 보낸다) */
-  private villageTables(): { x: number; y: number; z: number; items: (string | null)[] }[] {
-    const out: { x: number; y: number; z: number; items: (string | null)[] }[] = [];
+  /** 마을의 식탁·모닥불 전부 (들어올 때 보낸다) */
+  private villageTables(): { x: number; y: number; z: number; items: (string | null)[]; fire?: boolean }[] {
+    const out: { x: number; y: number; z: number; items: (string | null)[]; fire?: boolean }[] = [];
     for (const c of this.storage?.listChestCells(this.info.code) ?? []) {
-      if (!this.world.inBounds(c.x, c.y, c.z) || this.registry.get(this.world.getBlock(c.x, c.y, c.z)).shape !== 'table') continue;
+      if (!this.world.inBounds(c.x, c.y, c.z)) continue;
+      const shape = this.registry.get(this.world.getBlock(c.x, c.y, c.z)).shape;
+      if (shape !== 'table' && shape !== 'campfire') continue;
       const inv = this.storage!.getChest(this.info.code, c.x, c.y, c.z);
-      out.push({ ...c, items: Array.from({ length: TABLE_SLOTS }, (_, i) => inv?.[i]?.item ?? null) });
+      out.push({ ...c, items: Array.from({ length: TABLE_SLOTS }, (_, i) => inv?.[i]?.item ?? null), ...(shape === 'campfire' ? { fire: true } : {}) });
     }
     return out;
+  }
+
+  // ---------------------------------------------------------------- 모닥불 (#290, 아빠 2026-11-10)
+
+  /** 모닥불에서 굽는 중: "세계:x,y,z" → 칸마다 굽기 시작한 시각 (0 = 아직/없음). 메모리에만 — 서버를 다시 켜면 30초를 처음부터 센다 */
+  private cooking = new Map<string, { world: WorldKind; x: number; y: number; z: number; at: number[] }>();
+  private lastCookCheck = 0;
+
+  /** 그 모닥불을 굽기 목록에 올린다. slot 을 주면 그 칸은 지금부터, reset 이면 전부 지금부터 (다시 켰을 때) */
+  private watchCampfire(world: WorldKind, c: { x: number; y: number; z: number }, now: number, slot?: number, reset = false): void {
+    const key = `${world}:${c.x},${c.y},${c.z}`;
+    let e = this.cooking.get(key);
+    if (!e) {
+      e = { world, x: c.x, y: c.y, z: c.z, at: Array.from({ length: TABLE_SLOTS }, () => 0) };
+      this.cooking.set(key, e);
+    }
+    if (reset) e.at.fill(now);
+    if (slot !== undefined) e.at[slot] = now;
+  }
+
+  /** 1초마다: 불붙은 모닥불 위의 날것이 30초 지나면 익는다. 꺼진 모닥불은 기다린다 */
+  private tickCampfires(now: number): void {
+    if (this.cooking.size === 0 || now - this.lastCookCheck < COOK_CHECK_MS) return;
+    this.lastCookCheck = now;
+    for (const [key, e] of [...this.cooking]) {
+      const world = e.world === 'village' ? this.world : this.expedition?.world;
+      const def = world && world.inBounds(e.x, e.y, e.z) ? this.registry.get(world.getBlock(e.x, e.y, e.z)) : null;
+      if (!def || def.shape !== 'campfire') {
+        this.cooking.delete(key); // 부서졌다·원정이 끝났다
+        continue;
+      }
+      if (def.id !== CAMPFIRE) continue;
+      const items = this.tableItems(e, e);
+      let cooked = false,
+        raw = false;
+      for (let i = 0; i < TABLE_SLOTS; i++) {
+        const out = items[i] ? COOKS.get(items[i]!) : undefined;
+        if (!out) {
+          e.at[i] = 0;
+          continue;
+        }
+        if (!e.at[i]) e.at[i] = now;
+        if (now - e.at[i]! >= CAMPFIRE_COOK_MS) {
+          items[i] = out;
+          e.at[i] = 0;
+          cooked = true;
+        } else raw = true;
+      }
+      if (cooked) {
+        this.saveTable(e, e, items, now);
+        this.broadcastJson({ t: 'mob', ev: 'love', id: -1, mob: 'crop', x: e.x + 0.5, y: e.y + 0.7, z: e.z + 0.5 }, -1, e.world); // 다 익었다 — 반짝 (하트 연출 재사용)
+      }
+      if (!raw) this.cooking.delete(key);
+    }
+  }
+
+  /** 시험용: 모닥불 확인을 지금 바로 */
+  checkCampfires(now: number): void {
+    this.lastCookCheck = 0;
+    this.tickCampfires(now);
+  }
+
+  /** 그 자리 블록을 서버가 바꾼다 (모닥불 켜기·끄기) */
+  private swapBlock(kind: WorldKind, x: number, y: number, z: number, id: string): void {
+    const world = kind === 'village' ? this.world : this.expedition?.world;
+    if (!world) return;
+    world.setBlock(x, y, z, this.registry.require(id).num);
+    if (kind === 'village') this.markDirtyBlock(x, y, z);
+    else this.expedition?.markModified(x, y, z);
+    this.broadcast(encodeBlockChanged({ x, y, z, id, by: -1 }), -1, kind);
+  }
+
+  /** 모닥불 끄기 (#290): 삽을 들고 불붙은 모닥불을 탭. 올린 음식은 그대로 남는다(익지는 않는다). 오류: NO_SHOVEL · NOT_FIRE · TOO_FAR */
+  douse(idx: number, slot: number, x: number, y: number, z: number): string | null {
+    const p = this.players.get(idx);
+    if (!p) return 'NOT_IN_VILLAGE';
+    const held = slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
+    if (!shovelOf(TOOLS, held)) return 'NO_SHOVEL';
+    const world = this.worldOf(p);
+    if (!world.inBounds(x, y, z) || this.registry.get(world.getBlock(x, y, z)).id !== CAMPFIRE) return 'NOT_FIRE';
+    if (Math.hypot(x + 0.5 - p.pos.x, y + 0.5 - (p.pos.y + EYE), z + 0.5 - p.pos.z) > HIT_REACH + 1) return 'TOO_FAR';
+    this.swapBlock(p.world, x, y, z, CAMPFIRE_OFF);
+    return null;
+  }
+
+  /** 틱마다: 불붙은 모닥불 위에 서 있으면 0.5초마다 1 (#290) — 갑옷은 못 막고 화염 저항 물약은 막는다. 탈것 위에선 안 닿는다 */
+  private tickCampfireBurn(now: number): void {
+    for (const p of this.players.values()) {
+      if (p.hp <= 0 || p.riding || (p.fireNextAt ?? 0) > now) continue;
+      const w = this.worldOf(p);
+      const x = Math.floor(p.pos.x),
+        y = Math.floor(p.pos.y - 0.2),
+        z = Math.floor(p.pos.z);
+      if (!w.inBounds(x, y, z) || this.registry.get(w.getBlock(x, y, z)).id !== CAMPFIRE || p.pos.y - (y + 1) > 0.3) continue;
+      p.fireNextAt = now + CAMPFIRE_HURT_EVERY_MS;
+      this.hurt(p, CAMPFIRE_DAMAGE, 'campfire', now);
+    }
   }
 
   /**
@@ -942,7 +1056,9 @@ export class VillageRoom {
     const p = this.players.get(idx);
     if (!p) return 'NOT_IN_VILLAGE';
     const world = this.worldOf(p);
-    if (!world.inBounds(x, y, z) || this.registry.get(world.getBlock(x, y, z)).shape !== 'table') return 'NO_TABLE';
+    const shape = world.inBounds(x, y, z) ? this.registry.get(world.getBlock(x, y, z)).shape : null;
+    if (shape !== 'table' && shape !== 'campfire') return 'NO_TABLE';
+    const fire = shape === 'campfire'; // 모닥불 (#290): 구울 수 있는 날것만 올린다
     if (Math.hypot(p.pos.x - (x + 0.5), p.pos.y + EYE - (y + 0.5), p.pos.z - (z + 0.5)) > REACH) return 'TOO_FAR';
     const c = { x, y, z };
     const items = this.tableItems(p, c);
@@ -950,12 +1066,14 @@ export class VillageRoom {
     if (act === 'put') {
       const held = slot !== undefined && slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
       if (!held || !foodOf(FOOD, held)) return 'NOT_EDIBLE';
+      if (fire && !COOKS.has(held)) return 'NOT_COOKABLE';
       const free = items.indexOf(null);
       if (free < 0) return 'TABLE_FULL';
       if (!takeFromSlot(p.inv, slot!, 1, changed)) return 'NOT_EDIBLE';
       items[free] = held;
       this.sendInv(p, changed);
       this.saveTable(p, c, items, now);
+      if (fire) this.watchCampfire(p.world, c, now, free);
       return null;
     }
     if (i === undefined || i < 0 || i >= TABLE_SLOTS || !items[i]) return 'EMPTY';
@@ -1439,15 +1557,22 @@ export class VillageRoom {
   /** 불붙은 TNT (#195): at 에 터진다 */
   private fuses: { x: number; y: number; z: number; world: 'village' | 'expedition'; at: number; by: number }[] = [];
 
-  /** TNT 에 불 붙이기 (#195): 라이터를 들고 TNT 를 탭. 오류: NO_FLINT · NOT_TNT · TOO_FAR */
+  /** TNT 에 불 붙이기 (#195): 라이터를 들고 TNT 를 탭. 꺼진 모닥불이면 다시 켠다 (#290). 오류: NO_FLINT · NOT_TNT · TOO_FAR */
   ignite(idx: number, slot: number, x: number, y: number, z: number, now = Date.now()): string | null {
     const p = this.players.get(idx);
     if (!p) return 'NOT_IN_VILLAGE';
     const held = slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
     if (held !== FLINT_AND_STEEL) return 'NO_FLINT';
     const world = this.worldOf(p);
-    if (!world.inBounds(x, y, z) || this.registry.get(world.getBlock(x, y, z)).id !== 'tnt') return 'NOT_TNT';
+    const target = world.inBounds(x, y, z) ? this.registry.get(world.getBlock(x, y, z)).id : '';
+    if (target !== 'tnt' && target !== CAMPFIRE_OFF) return 'NOT_TNT';
     if (Math.hypot(x + 0.5 - p.pos.x, y + 0.5 - (p.pos.y + EYE), z + 0.5 - p.pos.z) > HIT_REACH + 1) return 'TOO_FAR';
+    if (target === CAMPFIRE_OFF) {
+      // 꺼진 모닥불 다시 켜기 (#290): 올려 둔 날것은 지금부터 30초
+      this.swapBlock(p.world, x, y, z, CAMPFIRE);
+      if (this.tableItems(p, { x, y, z }).some((i) => i !== null)) this.watchCampfire(p.world, { x, y, z }, now, undefined, true);
+      return null;
+    }
     this.lightFuse(x, y, z, p.world, now + TNT_FUSE_MS, idx);
     return null;
   }
@@ -1462,7 +1587,7 @@ export class VillageRoom {
   /** 폭발에 부서지는 블록인가 (#247): 공기·액체·기반암처럼 hardness 없는 것·흑요석급·상자(속이 사라지니까)·침대·문(두 칸짜리)·둥지 알은 남는다. 마을 건물 자리는 밖에서 본다 */
   private blastBreaks(def: ReturnType<BlockRegistry['get']>): boolean {
     if (def.num === AIR_ID || def.fluid || def.hardness === null || def.hardness >= TNT_BLAST_PROOF) return false;
-    if (def.chest || def.bed || def.door || def.shape === 'egg' || def.id === 'tnt') return false; // 드래곤 알 16종도 (#249)
+    if (def.chest || def.bed || def.door || def.shape === 'egg' || def.shape === 'campfire' || def.id === 'tnt') return false; // 드래곤 알 16종도 (#249). 모닥불은 올린 음식이 사라지니까 (#290)
     return true;
   }
 
@@ -3292,7 +3417,7 @@ export class VillageRoom {
       // 문·침대는 어느 칸을 부숴도 원래 아이템 하나 (#71·#204 — 전엔 침대 머리 칸을 부수면 아무것도 안 나왔다)
       let drop = dropOf(prev.door ? this.registry.get(prev.door.base) : prev.bed ? this.registry.get(prev.bed.base) : prev, req.x, req.y, req.z, seed);
       // 내가 놓았던 블록이면 원래 블록 그대로 (돌 → 조약돌, 잔디 → 흙, 광석 → 보석으로 바뀌지 않게). 작물·문·침대는 원래 규칙대로
-      if (wasPlaced && !prev.fluid && prev.tool && prev.drops !== prev.id && itemForPlacing(prev.id, this.registry) === prev.id) drop = { item: prev.id, count: 1, needsBucket: false };
+      if (wasPlaced && !prev.fluid && prev.tool && prev.drops !== prev.id && prev.id !== CAMPFIRE_OFF && itemForPlacing(prev.id, this.registry) === prev.id) drop = { item: prev.id, count: 1, needsBucket: false };
       if (drop) {
         if (drop.needsBucket) take(p.inv, BUCKET, 1, changed);
         // 행운 인챈트 (#231): 곡괭이로 캐는 광석(드롭이 블록과 다른 것)이 0~단계 개 더 — 자리·시드로 결정론
@@ -3311,8 +3436,8 @@ export class VillageRoom {
         if (prev.id === 'infested_stone') this.mobSys.silverfishFrom(req.x, req.y, req.z);
         if (prev.id === 'creaking_heart') this.mobSys.heartBroken(req.x, req.y, req.z);
       }
-      if (prev.shape === 'table') {
-        // 식탁을 부수면 올린 음식은 부순 사람 가방으로 (2026-11-06)
+      if (prev.shape === 'table' || prev.shape === 'campfire') {
+        // 식탁·모닥불(#290)을 부수면 올린 음식은 부순 사람 가방으로 (2026-11-06)
         for (const item of this.tableItems(p, req)) if (item) this.giveTo(p, item, 1, changed);
         this.deleteStoredChest(p, req);
         this.broadcastJson({ t: 'table', x: req.x, y: req.y, z: req.z, items: Array.from({ length: TABLE_SLOTS }, () => null) }, -1, p.world);
@@ -3799,6 +3924,8 @@ export class VillageRoom {
     this.tickHealth(now);
     this.tickPotionEffects(now);
     this.tickBreath(now);
+    this.tickCampfires(now);
+    this.tickCampfireBurn(now);
     this.tickFishing(now);
     this.tickClouds(now);
     if (this.lastFlush === 0) this.lastFlush = now;

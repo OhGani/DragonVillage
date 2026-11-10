@@ -1,6 +1,7 @@
 export * from './rules/blocks';
 export * from './rules/trees';
 export * from './rules/food';
+export * from './rules/campfire';
 export * from './rules/fishing';
 export * from './rules/trades';
 export * from './rules/enchants';

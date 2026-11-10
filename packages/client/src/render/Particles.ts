@@ -9,7 +9,11 @@ interface Part {
   vel: THREE.Vector3;
   born: number;
   life: number;
+  /** 연기 (#290): 떨어지지 않고 천천히 올라가며 커진다 */
+  smoke?: boolean;
 }
+const SMOKE = new THREE.BoxGeometry(0.16, 0.16, 0.16);
+const SMOKE_COLORS = [0x6e6e6e, 0x858585, 0x9a9a9a];
 
 const GEOM = new THREE.BoxGeometry(0.1, 0.1, 0.1);
 const SMALL = new THREE.BoxGeometry(0.06, 0.06, 0.06);
@@ -98,6 +102,13 @@ export class Particles {
     this.add(SMALL, color, cx, cy, cz, v, 0.45 + rnd() * 0.2, now);
   }
 
+  /** 모닥불 연기 한 줌 (#290): 불꽃 위에서 천천히 올라가며 옅어진다(작아진다) */
+  smoke(bx: number, by: number, bz: number, now = performance.now()): void {
+    const v = new THREE.Vector3((rnd() - 0.5) * 0.15, 0.7 + rnd() * 0.4, (rnd() - 0.5) * 0.15);
+    this.add(SMOKE, SMOKE_COLORS[Math.floor(rnd() * SMOKE_COLORS.length)]!, bx + 0.35 + rnd() * 0.3, by + 0.95, bz + 0.35 + rnd() * 0.3, v, 3 + rnd() * 1.5, now);
+    this.parts[this.parts.length - 1]!.smoke = true;
+  }
+
   private drop(i: number): void {
     const p = this.parts[i]!;
     this.group.remove(p.mesh);
@@ -110,6 +121,13 @@ export class Particles {
       const age = (now - p.born) / 1000;
       if (age > p.life) {
         this.drop(i);
+        continue;
+      }
+      if (p.smoke) {
+        p.mesh.position.addScaledVector(p.vel, dt);
+        p.mesh.rotation.y += dt * 0.6;
+        const k = age / p.life;
+        p.mesh.scale.setScalar(k < 0.25 ? 0.6 + k * 3.2 : Math.max(0.1, 1.4 * (1 - (k - 0.25) / 0.75))); // 피어올랐다 사그라든다
         continue;
       }
       p.vel.y -= 12 * dt;
