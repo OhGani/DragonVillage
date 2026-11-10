@@ -541,6 +541,61 @@ describe('VillageRoom 블록 변경 검증', () => {
     expect(BLOCKS.get(room.world.getBlock(66, GROUND_Y + 1, 64)).id).toBe('grass'); // 이제 아래 흙도 잔디
   });
 
+  it('드러난 흙도 잔디 (#289): 잔디를 캐서 드러난 흙은 1분 뒤 잔디, 물속 흙은 그대로, 전에 파 둔 흙은 다시 켜면 자라기 시작 — 밭 물길 바닥 흙은 그대로', () => {
+    const storage = new Storage(':memory:');
+    const room = new VillageRoom({ ...INFO }, BLOCKS, storage, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const idAt = (r: VillageRoom, x: number, y: number, z: number) => BLOCKS.get(r.world.getBlock(x, y, z)).id;
+    // 광장 밖에서 나란한 잔디 두 칸(아래는 흙, 위는 빈 곳)을 찾아 캔다 → 아래 흙이 드러난다
+    let gx = -1;
+    const gz = 64;
+    const turf = (x: number) => idAt(room, x, GROUND_Y, gz) === 'grass' && idAt(room, x, GROUND_Y - 1, gz) === 'dirt' && room.world.getBlock(x, GROUND_Y + 1, gz) === 0;
+    for (let x = 84; x < 110 && gx < 0; x++) if (turf(x) && turf(x + 1)) gx = x;
+    expect(gx).toBeGreaterThan(0);
+    const here = { x: gx + 0.5, y: GROUND_Y + 1, z: gz + 2.5, yaw: 0, pitch: 0, flags: 0 };
+    room.onMove(ra.idx, here);
+    room.onBlockChange(ra.idx, { seq: 1, x: gx, y: GROUND_Y, z: gz, id: 'air' }, 1000);
+    room.onBlockChange(ra.idx, { seq: 2, x: gx + 1, y: GROUND_Y, z: gz, id: 'air' }, 1000);
+    expect(rejected(a)).toEqual([]);
+    // 한 칸은 물에 잠겼다
+    room.world.setBlock(gx + 1, GROUND_Y, gz, BLOCKS.numOf('water'));
+    room.checkCrops(50_000);
+    expect(room.crops.get(`${gx},${GROUND_Y - 1},${gz}`)).toBe(50_000); // 다음 확인 때부터 센다
+    expect(room.crops.has(`${gx + 1},${GROUND_Y - 1},${gz}`)).toBe(false);
+    room.checkCrops(50_000 + 30_000);
+    expect(idAt(room, gx, GROUND_Y - 1, gz)).toBe('dirt');
+    room.checkCrops(50_000 + 61_000);
+    expect(idAt(room, gx, GROUND_Y - 1, gz)).toBe('grass');
+    expect(idAt(room, gx + 1, GROUND_Y - 1, gz)).toBe('dirt'); // 물속
+    expect(room.crops.size).toBe(0);
+    expect(storage.listCrops(INFO.code)).toEqual([]);
+
+    // 전에 파 두어 기록 없이 남은 흙: 다시 켜면 찾아서 자라기 시작한다. 밭 물길 바닥(물속 흙)은 그대로
+    const old = new Storage(':memory:');
+    const r1 = new VillageRoom({ ...INFO }, BLOCKS, old, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const b = inbox();
+    const rb = r1.join('b'.repeat(32), '아들', 1, b.send)!;
+    r1.onMove(rb.idx, here);
+    r1.onBlockChange(rb.idx, { seq: 1, x: gx, y: GROUND_Y, z: gz, id: 'air' }, 1000);
+    expect(idAt(r1, 20, GROUND_Y, 56)).toBe('water'); // 서쪽 밭 물길
+    expect(idAt(r1, 20, GROUND_Y - 1, 56)).toBe('dirt');
+    r1.onMove(rb.idx, { x: 21.5, y: GROUND_Y + 1, z: 57.5, yaw: 0, pitch: 0, flags: 0 });
+    give(r1.players.get(rb.idx)!.inv, 'stone', 1);
+    r1.onBlockChange(rb.idx, { seq: 2, x: 23, y: GROUND_Y + 2, z: 57, id: 'stone' }, 1100); // 그 청크를 저장되게
+    expect(rejected(b)).toEqual([]);
+    r1.flush(2000);
+    expect(old.listCrops(INFO.code)).toEqual([]); // 확인 전에 꺼졌다
+    const again = new VillageRoom({ ...INFO }, BLOCKS, old, () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const at = again.crops.get(`${gx},${GROUND_Y - 1},${gz}`)!;
+    expect(at).toBeGreaterThan(0);
+    expect(again.crops.has(`20,${GROUND_Y - 1},56`)).toBe(false);
+    again.join('b'.repeat(32), '아들', 1, () => {});
+    again.checkCrops(at + 61_000);
+    expect(idAt(again, gx, GROUND_Y - 1, gz)).toBe('grass');
+    expect(idAt(again, 20, GROUND_Y - 1, 56)).toBe('dirt');
+  });
+
   it('공기를 부수기·모르는 블록·흐르는 물 단계 놓기는 INVALID', () => {
     const { room, a, ia } = setup();
     room.onBlockChange(ia, { seq: 5, x: 66, y: GROUND_Y + 3, z: 64, id: 'air' }, 1000);

@@ -477,7 +477,10 @@ export class VillageRoom {
     this.world = gen.world;
     this.spawn = gen.spawn;
     this.fluids = new FluidSim(this.world, registry);
-    this.fluids.onBlockSet = (x, y, z) => this.batch.push({ x, y, z, id: registry.get(this.world.getBlock(x, y, z)).id });
+    this.fluids.onBlockSet = (x, y, z) => {
+      this.batch.push({ x, y, z, id: registry.get(this.world.getBlock(x, y, z)).id });
+      this.soilPending.add(`${x},${y - 1},${z}`); // 물이 빠지면 그 아래 흙도 잔디가 된다 (#289)
+    };
     const pristine = this.snapshotOldNestSites(); // 저장을 덮기 전, 생성 지형 그대로
     this.load();
     this.ensureNest(pristine);
@@ -512,6 +515,16 @@ export class VillageRoom {
     if (this.builtIds().includes('forge')) this.animals.spawnBlacksmith(Date.now()); // 대장간이 있으면 대장장이 (#173)
     for (const r of this.storage?.listPlaced(this.info.code) ?? []) this.placed.set(`${r.x},${r.y},${r.z}`, { token: r.token, nick: r.nick }); // 남의 집 보호 (#151)
     for (const r of this.storage?.listCrops(this.info.code) ?? []) this.crops.set(`${r.x},${r.y},${r.z}`, r.plantedAt); // 농사 (#165)
+    // 전에 파 두어 드러난 채 남은 흙 (#289): 지금부터 1분 뒤 잔디. 저장은 안 한다 — 다시 켜면 또 찾는다
+    const bootAt = Date.now();
+    let healing = 0;
+    for (const key of this.bootSoil) {
+      if (this.crops.has(key)) continue;
+      this.crops.set(key, bootAt);
+      healing++;
+    }
+    this.bootSoil = [];
+    if (healing) this.log(`마을 ${this.info.code}: 드러난 흙 ${healing}칸이 잔디로 자라기 시작해요`);
     this.repairChests();
   }
 
@@ -1308,9 +1321,46 @@ export class VillageRoom {
 
   /** 10초마다: 심은 지 growMinutes 지난 작물을 익은 블록으로 바꾼다 (#165). 그 자리에 작물이 없어졌으면 기록만 지운다 */
   private tickCrops(now: number): void {
-    if (this.crops.size === 0 || now - this.lastCropCheck < CROP_CHECK_MS) return;
+    if ((this.crops.size === 0 && this.soilPending.size === 0) || now - this.lastCropCheck < CROP_CHECK_MS) return;
     this.lastCropCheck = now;
+    this.watchSoil(now);
     for (const [key, plantedAt] of [...this.crops]) this.growCrop(key, plantedAt, now, false);
+  }
+
+  /** 위 칸이 비었나 — 단단한 블록도 물·용암도 없다 (흙 → 잔디 #171·#289) */
+  private openAbove(x: number, y: number, z: number): boolean {
+    if (!this.world.inBounds(x, y + 1, z)) return true;
+    const up = this.registry.get(this.world.getBlock(x, y + 1, z));
+    return !up.solid && !up.fluid;
+  }
+
+  /** 드러난 흙인가: 위가 빈 흙 (growsWhenOpen) */
+  private isOpenSoil(x: number, y: number, z: number): boolean {
+    return this.world.inBounds(x, y, z) && this.registry.get(this.world.getBlock(x, y, z)).growsWhenOpen === true && this.openAbove(x, y, z);
+  }
+
+  /**
+   * 드러난 흙도 잔디가 된다 (#289, 아빠 2026-11-10 "흙이 시간 지나면 잔디로 안 바뀌는데"):
+   * 전엔 놓은 흙만 기록해서, 잔디를 캐서 드러난 흙·TNT 구덩이의 흙은 영영 흙이었다.
+   * 블록이 바뀐 자리와 그 아래 칸(soilPending)을 보고, 위가 빈 흙이면 지금부터 growMinutes 뒤 잔디가 되게 기록한다
+   */
+  private watchSoil(now: number): void {
+    if (this.soilPending.size === 0) return;
+    for (const key of this.soilPending) {
+      if (this.crops.has(key)) continue;
+      const [x, y, z] = key.split(',').map(Number) as [number, number, number];
+      if (!this.isOpenSoil(x, y, z)) continue;
+      this.crops.set(key, now);
+      this.storage?.setCrop(this.info.code, x, y, z, now);
+    }
+    this.soilPending.clear();
+  }
+
+  /** 청크 한 개의 칸 + 바로 아래 한 층(위 청크가 바뀌면 아래 청크 맨 윗줄 흙이 드러난다) 가운데 드러난 흙 */
+  private openSoilIn(c: { cx: number; cy: number; cz: number }, out: Set<string>): void {
+    for (let y = c.cy * CHUNK_SIZE - 1; y < (c.cy + 1) * CHUNK_SIZE; y++)
+      for (let z = c.cz * CHUNK_SIZE; z < (c.cz + 1) * CHUNK_SIZE; z++)
+        for (let x = c.cx * CHUNK_SIZE; x < (c.cx + 1) * CHUNK_SIZE; x++) if (this.isOpenSoil(x, y, z)) out.add(`${x},${y},${z}`);
   }
 
   /**
@@ -1366,7 +1416,7 @@ export class VillageRoom {
     }
     if (!force && now - plantedAt < (cur.growMinutes ?? 0) * 60_000) return false;
     if (cur.seed && !cur.plantOn && !force && !this.hasWaterNear(x, y - 1, z)) return false; // 마른 밭의 작물은 안 자란다 (#199, 뼛가루는 예외). 영혼 모래 작물은 물이 필요 없다 (#206)
-    if (cur.growsWhenOpen && this.world.inBounds(x, y + 1, z) && this.registry.get(this.world.getBlock(x, y + 1, z)).solid) return false; // 위가 막혔으면 그대로 흙 (#171)
+    if (cur.growsWhenOpen && !this.openAbove(x, y, z)) return false; // 위가 막혔거나 물속이면 그대로 흙 (#171, #289)
     this.world.setBlock(x, y, z, next.num);
     this.markDirtyBlock(x, y, z);
     this.broadcast(encodeBlockChanged({ x, y, z, id: next.id, by: -1 }), -1, 'village');
@@ -1591,7 +1641,10 @@ export class VillageRoom {
       this.info.genVersion = VILLAGE_GEN_VERSION;
       return;
     }
-    const rows = this.storage.loadChunks(this.info.code);
+    const rows = this.storage.loadChunks(this.info.code).filter((r) => this.world.chunkInBounds(r.cx, r.cy, r.cz));
+    // 생성 지형에 원래 드러나 있던 흙(밭 사이 흙길 등)은 그대로 둔다 (#289)
+    const bornOpen = new Set<string>();
+    for (const r of rows) this.openSoilIn(r, bornOpen);
     const unknown = new Set<string>();
     for (const r of rows) {
       if (!this.world.chunkInBounds(r.cx, r.cy, r.cz)) continue;
@@ -1612,6 +1665,9 @@ export class VillageRoom {
               woke++;
             }
           }
+    const nowOpen = new Set<string>();
+    for (const r of rows) this.openSoilIn(r, nowOpen);
+    this.bootSoil = [...nowOpen].filter((k) => !bornOpen.has(k));
     if (rows.length) this.log(`마을 ${this.info.code}: 저장 청크 ${rows.length}개 불러옴${unknown.size ? ` (모르는 블록 ${[...unknown].join(', ')} → 공기)` : ''}${woke ? `, 고인 액체 ${woke}칸 깨움` : ''}`);
   }
 
@@ -1927,6 +1983,10 @@ export class VillageRoom {
   /** 자라는 작물 (#165): "x,y,z" → 심은 시각. 마을만 */
   readonly crops = new Map<string, number>();
   private lastCropCheck = 0;
+  /** 블록이 바뀐 자리와 그 아래 칸 — 다음 작물 확인 때 '드러난 흙'이면 잔디로 자라기 시작한다 (#289) */
+  private soilPending = new Set<string>();
+  /** 켤 때 찾은, 저장된 청크 속 드러난 흙 (#289). 작물 기록을 읽은 뒤 자라기 시작 */
+  private bootSoil: string[] = [];
 
   /** 마지막 방어전 결과 → 깃대 맨 위 깃발 색 */
   private flagMark(): FlagMark {
@@ -3449,6 +3509,8 @@ export class VillageRoom {
     const key = chunkKey(c.cx, c.cy, c.cz);
     this.dirty.set(key, c);
     this.modified.set(key, c);
+    this.soilPending.add(`${x},${y},${z}`); // 드러난 흙 → 잔디 (#289)
+    this.soilPending.add(`${x},${y - 1},${z}`);
   }
 
   // ---------------------------------------------------------------- 원정 (M3)
