@@ -204,94 +204,227 @@
       "id": "brown_wool_from_bison",
       "name": "갈색 양털 (들소 모피)",
       "station": "crafting_table",
-      "pattern": ["ff", "ff"],
-      "key": { "f": "bison_fur" },
-      "in": { "bison_fur": 4 },
-      "out": { "brown_wool": 1 },
+      "pattern": [
+        "ff",
+        "ff"
+      ],
+      "key": {
+        "f": "bison_fur"
+      },
+      "in": {
+        "bison_fur": 4
+      },
+      "out": {
+        "brown_wool": 1
+      },
       "_note": "들소 모피 4개 → 갈색 양털 (아빠가 보낸 설명 2026-11-06)"
     },
     {
       "id": "dining_table",
       "name": "식탁",
       "station": "crafting_table",
-      "pattern": ["ppp", "s s", "s s"],
-      "key": { "p": "planks", "s": "stick" },
-      "in": { "planks": 3, "stick": 4 },
-      "out": { "dining_table": 1 },
+      "pattern": [
+        "ppp",
+        "s s",
+        "s s"
+      ],
+      "key": {
+        "p": "planks",
+        "s": "stick"
+      },
+      "in": {
+        "planks": 3,
+        "stick": 4
+      },
+      "out": {
+        "dining_table": 1
+      },
       "_note": "아빠 2026-11-06 — 판자 셋 윗판, 막대기 넷 다리"
     },
     {
       "id": "campfire",
       "name": "모닥불 (참나무)",
       "station": "crafting_table",
-      "pattern": [" s ", "scs", "lll"],
-      "key": { "s": "stick", "c": "coal", "l": "log" },
-      "in": { "stick": 3, "coal": 1, "log": 3 },
-      "out": { "campfire": 1 },
+      "pattern": [
+        " s ",
+        "scs",
+        "lll"
+      ],
+      "key": {
+        "s": "stick",
+        "c": "coal",
+        "l": "log"
+      },
+      "in": {
+        "stick": 3,
+        "coal": 1,
+        "log": 3
+      },
+      "out": {
+        "campfire": 1
+      },
       "_note": "아빠 2026-11-10 (#290, 마인크래프트): 막대기 3 + 석탄 1 + 원목 3. 원목은 여덟 가지 어느 것이든 — 종류마다 레시피 하나씩"
     },
     {
       "id": "campfire_spruce",
       "name": "모닥불 (가문비나무)",
       "station": "crafting_table",
-      "pattern": [" s ", "scs", "lll"],
-      "key": { "s": "stick", "c": "coal", "l": "spruce_log" },
-      "in": { "stick": 3, "coal": 1, "spruce_log": 3 },
-      "out": { "campfire": 1 }
+      "pattern": [
+        " s ",
+        "scs",
+        "lll"
+      ],
+      "key": {
+        "s": "stick",
+        "c": "coal",
+        "l": "spruce_log"
+      },
+      "in": {
+        "stick": 3,
+        "coal": 1,
+        "spruce_log": 3
+      },
+      "out": {
+        "campfire": 1
+      }
     },
     {
       "id": "campfire_birch",
       "name": "모닥불 (자작나무)",
       "station": "crafting_table",
-      "pattern": [" s ", "scs", "lll"],
-      "key": { "s": "stick", "c": "coal", "l": "birch_log" },
-      "in": { "stick": 3, "coal": 1, "birch_log": 3 },
-      "out": { "campfire": 1 }
+      "pattern": [
+        " s ",
+        "scs",
+        "lll"
+      ],
+      "key": {
+        "s": "stick",
+        "c": "coal",
+        "l": "birch_log"
+      },
+      "in": {
+        "stick": 3,
+        "coal": 1,
+        "birch_log": 3
+      },
+      "out": {
+        "campfire": 1
+      }
     },
     {
       "id": "campfire_jungle",
       "name": "모닥불 (정글나무)",
       "station": "crafting_table",
-      "pattern": [" s ", "scs", "lll"],
-      "key": { "s": "stick", "c": "coal", "l": "jungle_log" },
-      "in": { "stick": 3, "coal": 1, "jungle_log": 3 },
-      "out": { "campfire": 1 }
+      "pattern": [
+        " s ",
+        "scs",
+        "lll"
+      ],
+      "key": {
+        "s": "stick",
+        "c": "coal",
+        "l": "jungle_log"
+      },
+      "in": {
+        "stick": 3,
+        "coal": 1,
+        "jungle_log": 3
+      },
+      "out": {
+        "campfire": 1
+      }
     },
     {
       "id": "campfire_acacia",
       "name": "모닥불 (아카시아나무)",
       "station": "crafting_table",
-      "pattern": [" s ", "scs", "lll"],
-      "key": { "s": "stick", "c": "coal", "l": "acacia_log" },
-      "in": { "stick": 3, "coal": 1, "acacia_log": 3 },
-      "out": { "campfire": 1 }
+      "pattern": [
+        " s ",
+        "scs",
+        "lll"
+      ],
+      "key": {
+        "s": "stick",
+        "c": "coal",
+        "l": "acacia_log"
+      },
+      "in": {
+        "stick": 3,
+        "coal": 1,
+        "acacia_log": 3
+      },
+      "out": {
+        "campfire": 1
+      }
     },
     {
       "id": "campfire_dark_oak",
       "name": "모닥불 (짙은 참나무)",
       "station": "crafting_table",
-      "pattern": [" s ", "scs", "lll"],
-      "key": { "s": "stick", "c": "coal", "l": "dark_oak_log" },
-      "in": { "stick": 3, "coal": 1, "dark_oak_log": 3 },
-      "out": { "campfire": 1 }
+      "pattern": [
+        " s ",
+        "scs",
+        "lll"
+      ],
+      "key": {
+        "s": "stick",
+        "c": "coal",
+        "l": "dark_oak_log"
+      },
+      "in": {
+        "stick": 3,
+        "coal": 1,
+        "dark_oak_log": 3
+      },
+      "out": {
+        "campfire": 1
+      }
     },
     {
       "id": "campfire_cherry",
       "name": "모닥불 (벚나무)",
       "station": "crafting_table",
-      "pattern": [" s ", "scs", "lll"],
-      "key": { "s": "stick", "c": "coal", "l": "cherry_log" },
-      "in": { "stick": 3, "coal": 1, "cherry_log": 3 },
-      "out": { "campfire": 1 }
+      "pattern": [
+        " s ",
+        "scs",
+        "lll"
+      ],
+      "key": {
+        "s": "stick",
+        "c": "coal",
+        "l": "cherry_log"
+      },
+      "in": {
+        "stick": 3,
+        "coal": 1,
+        "cherry_log": 3
+      },
+      "out": {
+        "campfire": 1
+      }
     },
     {
       "id": "campfire_mangrove",
       "name": "모닥불 (맹그로브)",
       "station": "crafting_table",
-      "pattern": [" s ", "scs", "lll"],
-      "key": { "s": "stick", "c": "coal", "l": "mangrove_log" },
-      "in": { "stick": 3, "coal": 1, "mangrove_log": 3 },
-      "out": { "campfire": 1 }
+      "pattern": [
+        " s ",
+        "scs",
+        "lll"
+      ],
+      "key": {
+        "s": "stick",
+        "c": "coal",
+        "l": "mangrove_log"
+      },
+      "in": {
+        "stick": 3,
+        "coal": 1,
+        "mangrove_log": 3
+      },
+      "out": {
+        "campfire": 1
+      }
     },
     {
       "id": "snow_block",
@@ -1388,7 +1521,7 @@
     },
     {
       "id": "oak_stairs",
-      "name": "계단",
+      "name": "참나무 계단",
       "station": "crafting_table",
       "pattern": [
         "p  ",
@@ -1403,6 +1536,292 @@
       },
       "out": {
         "oak_stairs": 4
+      },
+      "_note": "계단 (#291): 재료 6 → 계단 4 (마인크래프트와 같음). 좌우를 뒤집어 놓아도 돼요"
+    },
+    {
+      "id": "spruce_stairs",
+      "name": "가문비나무 계단",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "pp ",
+        "ppp"
+      ],
+      "key": {
+        "p": "spruce_planks"
+      },
+      "in": {
+        "spruce_planks": 6
+      },
+      "out": {
+        "spruce_stairs": 4
+      }
+    },
+    {
+      "id": "birch_stairs",
+      "name": "자작나무 계단",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "pp ",
+        "ppp"
+      ],
+      "key": {
+        "p": "birch_planks"
+      },
+      "in": {
+        "birch_planks": 6
+      },
+      "out": {
+        "birch_stairs": 4
+      }
+    },
+    {
+      "id": "jungle_stairs",
+      "name": "정글나무 계단",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "pp ",
+        "ppp"
+      ],
+      "key": {
+        "p": "jungle_planks"
+      },
+      "in": {
+        "jungle_planks": 6
+      },
+      "out": {
+        "jungle_stairs": 4
+      }
+    },
+    {
+      "id": "acacia_stairs",
+      "name": "아카시아나무 계단",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "pp ",
+        "ppp"
+      ],
+      "key": {
+        "p": "acacia_planks"
+      },
+      "in": {
+        "acacia_planks": 6
+      },
+      "out": {
+        "acacia_stairs": 4
+      }
+    },
+    {
+      "id": "dark_oak_stairs",
+      "name": "짙은 참나무 계단",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "pp ",
+        "ppp"
+      ],
+      "key": {
+        "p": "dark_oak_planks"
+      },
+      "in": {
+        "dark_oak_planks": 6
+      },
+      "out": {
+        "dark_oak_stairs": 4
+      }
+    },
+    {
+      "id": "cherry_stairs",
+      "name": "벚나무 계단",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "pp ",
+        "ppp"
+      ],
+      "key": {
+        "p": "cherry_planks"
+      },
+      "in": {
+        "cherry_planks": 6
+      },
+      "out": {
+        "cherry_stairs": 4
+      }
+    },
+    {
+      "id": "mangrove_stairs",
+      "name": "맹그로브 계단",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "pp ",
+        "ppp"
+      ],
+      "key": {
+        "p": "mangrove_planks"
+      },
+      "in": {
+        "mangrove_planks": 6
+      },
+      "out": {
+        "mangrove_stairs": 4
+      }
+    },
+    {
+      "id": "cobblestone_stairs",
+      "name": "조약돌 계단",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "pp ",
+        "ppp"
+      ],
+      "key": {
+        "p": "cobblestone"
+      },
+      "in": {
+        "cobblestone": 6
+      },
+      "out": {
+        "cobblestone_stairs": 4
+      }
+    },
+    {
+      "id": "stone_stairs",
+      "name": "돌 계단",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "pp ",
+        "ppp"
+      ],
+      "key": {
+        "p": "stone"
+      },
+      "in": {
+        "stone": 6
+      },
+      "out": {
+        "stone_stairs": 4
+      }
+    },
+    {
+      "id": "stone_brick_stairs",
+      "name": "석재 벽돌 계단",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "pp ",
+        "ppp"
+      ],
+      "key": {
+        "p": "stone_bricks"
+      },
+      "in": {
+        "stone_bricks": 6
+      },
+      "out": {
+        "stone_brick_stairs": 4
+      }
+    },
+    {
+      "id": "mossy_cobblestone_stairs",
+      "name": "이끼 낀 조약돌 계단",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "pp ",
+        "ppp"
+      ],
+      "key": {
+        "p": "mossy_cobblestone"
+      },
+      "in": {
+        "mossy_cobblestone": 6
+      },
+      "out": {
+        "mossy_cobblestone_stairs": 4
+      }
+    },
+    {
+      "id": "sandstone_stairs",
+      "name": "사암 계단",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "pp ",
+        "ppp"
+      ],
+      "key": {
+        "p": "sandstone"
+      },
+      "in": {
+        "sandstone": 6
+      },
+      "out": {
+        "sandstone_stairs": 4
+      }
+    },
+    {
+      "id": "nether_brick_stairs",
+      "name": "네더 벽돌 계단",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "pp ",
+        "ppp"
+      ],
+      "key": {
+        "p": "nether_bricks"
+      },
+      "in": {
+        "nether_bricks": 6
+      },
+      "out": {
+        "nether_brick_stairs": 4
+      }
+    },
+    {
+      "id": "quartz_stairs",
+      "name": "석영 계단",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "pp ",
+        "ppp"
+      ],
+      "key": {
+        "p": "quartz_block"
+      },
+      "in": {
+        "quartz_block": 6
+      },
+      "out": {
+        "quartz_stairs": 4
+      }
+    },
+    {
+      "id": "deepslate_stairs",
+      "name": "심층암 계단",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "pp ",
+        "ppp"
+      ],
+      "key": {
+        "p": "deepslate"
+      },
+      "in": {
+        "deepslate": 6
+      },
+      "out": {
+        "deepslate_stairs": 4
       }
     },
     {

@@ -22,7 +22,7 @@ import {
   RIDE_SEAT_Y,
   tryStepUp,
   type Vec3,
-  type VoxelWorld, CART_SEAT_Y, advanceCart, type CartState, pushOutOf, type SepBody } from '@dragon-village/shared';
+  type VoxelWorld, CART_SEAT_Y, advanceCart, type CartState, pushOutOf, type SepBody, FINE_RES, fineSolidQuery, type SolidQuery } from '@dragon-village/shared';
 import type * as THREE from 'three';
 import type { InputState } from '../input/InputState';
 
@@ -146,9 +146,12 @@ export class Player {
     this.pos = { ...spawn };
     this.spawn = { ...spawn };
     this.yaw = yaw;
+    this.fineSolid = fineSolidQuery(registry, (x, y, z) => world.getBlock(x, y, z));
   }
 
   private readonly isSolid = (x: number, y: number, z: number): boolean => this.registry.isSolid(this.world.getBlock(x, y, z));
+  /** 반 칸 눈금 충돌 (#291): 계단의 반 칸 턱까지 본다. moveBody·tryStepUp·hasGroundBelow 에 FINE_RES 와 같이 넘긴다 */
+  private readonly fineSolid: SolidQuery;
 
   /** 물·용암 등 액체 안인지 */
   private isWaterAt(x: number, y: number, z: number): boolean {
@@ -200,9 +203,9 @@ export class Player {
     v.x = vx;
     v.y = 0;
     v.z = vz;
-    moveBody(this.isSolid, p, size, v, look, this.probeOut);
+    moveBody(this.fineSolid, p, size, v, look, this.probeOut, FINE_RES);
     if (!this.probeOut.hitX && !this.probeOut.hitZ) return false;
-    return tryStepUp(this.isSolid, { x: pos.x, y: pos.y, z: pos.z }, p, size, vx, vz, look, FLY_STEP, false) !== null;
+    return tryStepUp(this.fineSolid, { x: pos.x, y: pos.y, z: pos.z }, p, size, vx, vz, look, FLY_STEP, false, FINE_RES) !== null;
   }
 
   /** 탈것에 앉은 높이 (#178): 타고 있으면 몸 상자가 이만큼 아래로 길어져 탈것이 땅속에 안 들어간다 */
@@ -414,12 +417,12 @@ export class Player {
       pz = pos.z;
     const vx0 = vel.x,
       vz0 = vel.z;
-    moveBody(this.isSolid, pos, size, vel, h, this.moveOut);
+    moveBody(this.fineSolid, pos, size, vel, h, this.moveOut, FINE_RES);
     this.onGround = this.moveOut.onGround;
 
     // 한 칸 턱 자동 오르기 (앞으로 걷다 막혔을 때). 물속에서는 바닥을 딛지 않아도(헤엄) 둑을 밀면 올라선다
     if (!flying && !this.sneaking && (wasGround || this.inWater) && (this.moveOut.hitX || this.moveOut.hitZ)) {
-      const r = tryStepUp(this.isSolid, { x: px, y: py, z: pz }, pos, size, vx0, vz0, h, this.inWater ? WATER_STEP : camel ? CAMEL_STEP : AUTO_STEP); // 낙타는 1.5칸 턱도 넘는다
+      const r = tryStepUp(this.fineSolid, { x: px, y: py, z: pz }, pos, size, vx0, vz0, h, this.inWater ? WATER_STEP : camel ? CAMEL_STEP : AUTO_STEP, true, FINE_RES); // 낙타는 1.5칸 턱도 넘는다
       if (r) {
         vel.x = r.vx;
         vel.z = r.vz;
@@ -437,7 +440,7 @@ export class Player {
         this.pushVel.x = p.dx / h;
         this.pushVel.y = 0;
         this.pushVel.z = p.dz / h;
-        moveBody(this.isSolid, pos, PLAYER_SIZE, this.pushVel, h, this.pushOut);
+        moveBody(this.fineSolid, pos, PLAYER_SIZE, this.pushVel, h, this.pushOut, FINE_RES);
       }
     }
     pos.y += seat; // 탈것 상자 → 다시 내 발 높이 (#178)
@@ -445,13 +448,13 @@ export class Player {
     if (Math.abs(this.stepCamOffset) < 0.002) this.stepCamOffset = 0;
 
     // 웅크리면 모서리에서 안 떨어진다
-    if (this.sneaking && wasGround && !hasGroundBelow(this.isSolid, pos, PLAYER_SIZE)) {
+    if (this.sneaking && wasGround && !hasGroundBelow(this.fineSolid, pos, PLAYER_SIZE, 0.05, FINE_RES)) {
       const nx = pos.x;
       pos.x = px; // 1) x 만 되돌려 본다
-      if (!hasGroundBelow(this.isSolid, pos, PLAYER_SIZE)) {
+      if (!hasGroundBelow(this.fineSolid, pos, PLAYER_SIZE, 0.05, FINE_RES)) {
         pos.x = nx;
         pos.z = pz; // 2) z 만 되돌려 본다
-        if (!hasGroundBelow(this.isSolid, pos, PLAYER_SIZE)) pos.x = px; // 3) 둘 다
+        if (!hasGroundBelow(this.fineSolid, pos, PLAYER_SIZE, 0.05, FINE_RES)) pos.x = px; // 3) 둘 다
       }
       vel.x = vel.z = 0;
       this.onGround = true;

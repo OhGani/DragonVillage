@@ -180,6 +180,19 @@ export interface BlockDef {
   readonly bed: BedInfo | null;
   /** 철도 변형 (#237). 철도가 아니면 null */
   readonly rail: RailInfo | null;
+  /** 계단 (#291): 방향·뒤집힘. 계단이 아니면 null */
+  readonly stairs: StairInfo | null;
+}
+
+/**
+ * 계단 (#291, 아빠 2026-11-13). facing = 높은 쪽이 있는 방향 = 놓은 사람이 보던 방향(걸어 올라가는 쪽, DOOR_FACING 과 같은 번호).
+ * top = 뒤집힌 계단(천장 쪽이 꽉 찬 것). JSON 의 계단 자체가 북쪽·바로 선 것이고 나머지 일곱은 코드가 만든다.
+ * 모서리 모양(ㄱ자)은 저장하지 않고 이웃 계단을 보고 그때그때 정한다 — rules/stairs.ts
+ */
+export interface StairInfo {
+  readonly base: number;
+  readonly facing: number;
+  readonly top: boolean;
 }
 
 /** 상자 (결정 #84). pair −1 = 혼자(27칸), 0~3 = 그 방향 상자와 합쳐진 큰 상자(둘이 54칸) */
@@ -293,6 +306,8 @@ export class BlockRegistry {
   private readonly beds = new Map<number, number[]>();
   /** 철도 변형 (#237): 철도 번호 → 모양 → 번호 */
   private readonly rails = new Map<number, Map<RailDir, number>>();
+  /** 계단 변형 (#291): 계단 번호 → [facing + (뒤집힘 4)] 번호 */
+  private readonly stairs = new Map<number, number[]>();
 
   constructor(readonly defs: readonly BlockDef[]) {
     for (const d of defs) {
@@ -311,6 +326,11 @@ export class BlockRegistry {
         let bArr = this.beds.get(d.bed.base);
         if (!bArr) this.beds.set(d.bed.base, (bArr = []));
         bArr[d.bed.facing * 2 + (d.bed.head ? 1 : 0)] = d.num;
+      }
+      if (d.stairs) {
+        let sArr = this.stairs.get(d.stairs.base);
+        if (!sArr) this.stairs.set(d.stairs.base, (sArr = []));
+        sArr[d.stairs.facing + (d.stairs.top ? 4 : 0)] = d.num;
       }
       if (d.rail) {
         let rm = this.rails.get(d.rail.base);
@@ -387,6 +407,11 @@ export class BlockRegistry {
   /** 철도 모양 변형 (#237). 없으면 곧은 철도 그대로 */
   railVariant(base: number, dir: RailDir): number {
     return this.rails.get(base)?.get(dir) ?? base;
+  }
+
+  /** 계단 변형 (#291): 계단 번호(JSON 것) + 높은 쪽 방향 + 뒤집힘 → 블록 번호 */
+  stairVariant(base: number, facing: number, top: boolean): number {
+    return this.stairs.get(base)?.[(facing & 3) + (top ? 4 : 0)] ?? base;
   }
 
   doorVariant(base: number, facing: number, upper: boolean, open: boolean, hinge = 0): number {
@@ -559,6 +584,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       chest: null,
       bed: null,
       rail: null,
+      stairs: null,
     };
   });
 
@@ -698,6 +724,25 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
         rail: { base: src.num, dir },
       });
     }
+  }
+
+  // 계단(shape 'stairs', #291): JSON 의 계단은 북쪽을 보고 바로 선 것. 코드가 방향 4 × 뒤집힘 2 = 나머지 일곱 변형을 만든다.
+  // 반쯤 빈 블록이라 옆 블록의 면을 가리지 않고(transparent) 빛도 지나간다. 부수면 어느 변형이든 계단 아이템 하나
+  for (const src of [...defs]) {
+    if (src.shape !== 'stairs' || !src.textures) continue;
+    Object.assign(src, { transparent: true, lightFilter: 0, stairs: { base: src.num, facing: 0, top: false } });
+    for (const top of [false, true])
+      for (let facing = 0; facing < 4; facing++) {
+        if (!top && facing === 0) continue;
+        defs.push({
+          ...src,
+          num: defs.length,
+          id: `${src.id}@${DOOR_FACING[facing]}${top ? '^' : ''}`,
+          internal: true,
+          drops: src.drops ?? src.id,
+          stairs: { base: src.num, facing, top },
+        });
+      }
   }
 
   if (defs.length > 65535) problems.push(`블록이 너무 많아요 (최대 65535개)`);

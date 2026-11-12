@@ -13,6 +13,51 @@ function texCanvas(img: ImageData): HTMLCanvasElement {
   return c;
 }
 
+/**
+ * 계단 아이콘 (#291): 등각 계단 — 왼쪽 뒤가 높고 오른쪽 앞이 낮다 (마인크래프트 가방의 계단처럼).
+ * 점 (X 오른쪽 아래, Z 왼쪽 아래, Y 위; 0~16) → 화면 (16 + X − Z, (X + Z)/2 + 16 − Y) × k
+ */
+export function renderStairIcon(top: ImageData, side: ImageData, size = 40): HTMLCanvasElement {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = Math.round(size * dpr);
+  canvas.style.width = canvas.style.height = `${size}px`;
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  const k = (size * dpr) / 32;
+  const T = texCanvas(top),
+    S = texCanvas(side);
+  /** 지금 변환에서 그림의 (sx, sy, w, h) 조각을 제자리에 그리고 alpha 만큼 어둡게 */
+  const part = (img: HTMLCanvasElement, sx: number, sy: number, w: number, h: number, alpha: number) => {
+    ctx.drawImage(img, sx, sy, w, h, sx, sy, w, h);
+    if (alpha <= 0) return;
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+    ctx.fillRect(sx, sy, w, h);
+    ctx.globalCompositeOperation = 'source-over';
+  };
+  /** 높이 Y 의 윗면: 그림 (u, v) = (X, Z) */
+  const topAt = (Y: number) => ctx.setTransform(k, 0.5 * k, -k, 0.5 * k, 16 * k, (16 - Y) * k);
+  /** X = c 평면의 오른쪽 면: 그림 (u, v) = (16 − Z, 16 − Y) */
+  const rightAt = (c: number) => ctx.setTransform(k, -0.5 * k, 0, k, c * k, (0.5 * c + 8) * k);
+  // 아래 디딤판 (Y 8, X 8~16) → 위 디딤판 (Y 16, X 0~8)
+  topAt(8);
+  part(T, 8, 0, 8, 16, 0);
+  topAt(16);
+  part(T, 0, 0, 8, 16, 0);
+  // 챌판 (X 8, Y 8~16) 과 아래 단의 앞면 (X 16, Y 0~8)
+  rightAt(8);
+  part(S, 0, 0, 16, 8, 0.42);
+  rightAt(16);
+  part(S, 0, 8, 16, 8, 0.42);
+  // 왼쪽 면 (Z 16): ㄴ자 — 아래 단 전부 + 위 단의 뒤쪽 반
+  ctx.setTransform(k, 0.5 * k, 0, k, 0, 8 * k);
+  part(S, 0, 8, 16, 8, 0.22);
+  part(S, 0, 0, 8, 8, 0.22);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  return canvas;
+}
+
 export function renderBlockIcon(top: ImageData, side: ImageData, size = 40): HTMLCanvasElement {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const canvas = document.createElement('canvas');

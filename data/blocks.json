@@ -822,11 +822,147 @@
     },
     {
       "id": "oak_stairs",
-      "name": "계단",
+      "name": "참나무 계단",
       "hardness": 2.0,
       "tool": "axe",
       "lightEmit": 0,
       "texture": "planks",
+      "shape": "stairs",
+      "_note": "계단 (#291): 놓으면 높은 쪽이 내가 보는 방향 — 그대로 걸어 올라가요. 블록 아랫면이나 옆면의 위쪽 반을 탭하면 뒤집혀요. 옆으로 돌려 붙이면 모서리(ㄱ자)가 저절로 이어져요. 새 계단은 이 블록을 복사해서 id·name·texture 만 바꾸면 돼요(shape 는 stairs 그대로)"
+    },
+    {
+      "id": "spruce_stairs",
+      "name": "가문비나무 계단",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "spruce_planks",
+      "shape": "stairs"
+    },
+    {
+      "id": "birch_stairs",
+      "name": "자작나무 계단",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "birch_planks",
+      "shape": "stairs"
+    },
+    {
+      "id": "jungle_stairs",
+      "name": "정글나무 계단",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "jungle_planks",
+      "shape": "stairs"
+    },
+    {
+      "id": "acacia_stairs",
+      "name": "아카시아나무 계단",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "acacia_planks",
+      "shape": "stairs"
+    },
+    {
+      "id": "dark_oak_stairs",
+      "name": "짙은 참나무 계단",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "dark_oak_planks",
+      "shape": "stairs"
+    },
+    {
+      "id": "cherry_stairs",
+      "name": "벚나무 계단",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "cherry_planks",
+      "shape": "stairs"
+    },
+    {
+      "id": "mangrove_stairs",
+      "name": "맹그로브 계단",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "mangrove_planks",
+      "shape": "stairs"
+    },
+    {
+      "id": "cobblestone_stairs",
+      "name": "조약돌 계단",
+      "hardness": 2.0,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "cobblestone",
+      "shape": "stairs"
+    },
+    {
+      "id": "stone_stairs",
+      "name": "돌 계단",
+      "hardness": 1.5,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "stone",
+      "shape": "stairs"
+    },
+    {
+      "id": "stone_brick_stairs",
+      "name": "석재 벽돌 계단",
+      "hardness": 1.5,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "stone_bricks",
+      "shape": "stairs"
+    },
+    {
+      "id": "mossy_cobblestone_stairs",
+      "name": "이끼 낀 조약돌 계단",
+      "hardness": 2.0,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "mossy_cobblestone",
+      "shape": "stairs"
+    },
+    {
+      "id": "sandstone_stairs",
+      "name": "사암 계단",
+      "hardness": 0.8,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "sandstone",
+      "shape": "stairs"
+    },
+    {
+      "id": "nether_brick_stairs",
+      "name": "네더 벽돌 계단",
+      "hardness": 2.0,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "nether_bricks",
+      "shape": "stairs"
+    },
+    {
+      "id": "quartz_stairs",
+      "name": "석영 계단",
+      "hardness": 0.8,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "quartz_block",
+      "shape": "stairs"
+    },
+    {
+      "id": "deepslate_stairs",
+      "name": "심층암 계단",
+      "hardness": 3.0,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "deepslate",
       "shape": "stairs"
     },
     {

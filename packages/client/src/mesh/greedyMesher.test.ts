@@ -22,6 +22,7 @@ const registry = parseBlocks({
     { id: 'dining_table', name: '식탁', hardness: 2, transparent: true, shape: 'table', texture: 'sign_board' },
     { id: 'campfire', name: '모닥불', hardness: 2, transparent: true, lightEmit: 15, shape: 'campfire', texture: 'campfire_log' },
     { id: 'campfire_off', name: '꺼진 모닥불', hardness: 2, transparent: true, shape: 'campfire', texture: 'campfire_log' },
+    { id: 'oak_stairs', name: '계단', hardness: 2, shape: 'stairs', texture: 'stone' },
   ],
 });
 const texIndex = new Map([
@@ -623,5 +624,79 @@ describe('이어지는 유리 (아빠 2026-11-09 "유리끼리 맞닿은 쪽은 
     expect(cornerBack).toContain(237);
     // 맨 윗줄 세 칸의 윗면(U=+x)도 옆 칸과 이어진다: 왼쪽 끝 u+ 만(2), 가운데 u−·u+(3), 오른쪽 끝 u− 만(1)
     expect(new Set(layersOf(b, 2, () => true))).toEqual(new Set([101, 102, 103]));
+  });
+});
+
+describe('계단 (#291)', () => {
+  const OAK = registry.numOf('oak_stairs');
+  const mesh = (cells: Record<string, number>) => greedyMesh(padded((x, y, z) => cells[`${x},${y},${z}`] ?? 0), info).opaque!;
+  /** 법선 방향(면 번호)별 넓이 합 */
+  const areas = (m: MeshBuffers) => {
+    const out = [0, 0, 0, 0, 0, 0];
+    for (let q = 0; q < m.vertexCount; q += 4) {
+      const p = (i: number) => [m.positions[(q + i) * 3]!, m.positions[(q + i) * 3 + 1]!, m.positions[(q + i) * 3 + 2]!];
+      const a = p(0),
+        b = p(1),
+        c = p(3);
+      const e1 = [b[0]! - a[0]!, b[1]! - a[1]!, b[2]! - a[2]!],
+        e2 = [c[0]! - a[0]!, c[1]! - a[1]!, c[2]! - a[2]!];
+      out[m.meta[q * 4 + 2]!]! += Math.hypot(e1[1]! * e2[2]! - e1[2]! * e2[1]!, e1[2]! * e2[0]! - e1[0]! * e2[2]!, e1[0]! * e2[1]! - e1[1]! * e2[0]!);
+    }
+    return out;
+  };
+  it('곧은 계단 하나: 면 10장. 윗면 넓이 1(디딤판 둘), 높은 쪽 옆면 1, 낮은 쪽 옆면 1(챌판 + 앞면), 양옆 ㄴ자 0.75', () => {
+    const m = mesh({ '5,5,5': OAK }); // 북쪽(−z)이 높다
+    expect(m.indexCount / 6).toBe(10);
+    const a = areas(m);
+    expect(a[2]).toBeCloseTo(1, 5); // +Y
+    expect(a[3]).toBeCloseTo(1, 5); // −Y
+    expect(a[5]).toBeCloseTo(1, 5); // −Z (높은 쪽, 꽉 찬 면)
+    expect(a[4]).toBeCloseTo(1, 5); // +Z (챌판 반 + 앞면 반)
+    expect(a[0]).toBeCloseTo(0.75, 5);
+    expect(a[1]).toBeCloseTo(0.75, 5);
+    // 윗 디딤판은 y 6 의 북쪽 반, 아래 디딤판은 y 5.5 의 남쪽 반
+    let hi = 0,
+      lo = 0;
+    for (let q = 0; q < m.vertexCount; q += 4)
+      if (m.meta[q * 4 + 2] === 2) {
+        const y = m.positions[q * 3 + 1]!;
+        if (Math.abs(y - 6) < 1e-6) hi++;
+        else if (Math.abs(y - 5.5) < 1e-6) lo++;
+      }
+    expect([hi, lo]).toEqual([1, 1]);
+  });
+  it('뒤집힌 계단은 위가 꽉 찬 면', () => {
+    const m = mesh({ '5,5,5': registry.stairVariant(OAK, 0, true) });
+    expect(m.indexCount / 6).toBe(10);
+    let full = 0;
+    for (let q = 0; q < m.vertexCount; q += 4) if (m.meta[q * 4 + 2] === 2 && Math.abs(m.positions[q * 3 + 1]! - 6) < 1e-6) full++;
+    expect(full).toBe(1);
+    expect(areas(m)[3]).toBeCloseTo(1, 5); // 아래는 반 칸 높이의 면 + 바닥 쪽 반
+  });
+  it('모서리: 앞에 옆으로 돌아선 계단이 있으면 바깥 모서리(위 조각 하나), 뒤에 있으면 안쪽 모서리(셋)', () => {
+    const WEST = registry.stairVariant(OAK, 3, false);
+    // 위층(y 5.5~6)의 윗면 넓이 = 위 조각 수 × 0.25
+    const topArea = (m: MeshBuffers, x0: number) => {
+      let s = 0;
+      for (let q = 0; q < m.vertexCount; q += 4) {
+        if (m.meta[q * 4 + 2] !== 2 || Math.abs(m.positions[q * 3 + 1]! - 6) > 1e-6) continue;
+        const xs = [0, 1, 2, 3].map((i) => m.positions[(q + i) * 3]!),
+          zs = [0, 1, 2, 3].map((i) => m.positions[(q + i) * 3 + 2]!);
+        if (Math.min(...xs) < x0 || Math.max(...xs) > x0 + 1) continue;
+        s += (Math.max(...xs) - Math.min(...xs)) * (Math.max(...zs) - Math.min(...zs));
+      }
+      return s;
+    };
+    const outer = mesh({ '5,5,5': OAK, '5,5,4': WEST }); // 북쪽을 보는 계단의 앞(북)에 서쪽을 보는 계단
+    expect(topArea(outer, 5) - 0.5).toBeCloseTo(0.25, 5); // (5,5,5) 의 위 조각 하나 + (5,5,4) 의 둘 = 0.75 → 내 것 0.25
+    const inner = mesh({ '5,5,5': OAK, '5,5,6': WEST }); // 뒤(남)에 있으면
+    expect(topArea(inner, 5) - 0.5).toBeCloseTo(0.75, 5);
+  });
+  it('옆 칸이 불투명 블록이면 그쪽 가장자리 면은 안 그린다', () => {
+    const STONE = registry.numOf('stone');
+    const m = greedyMesh(padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? OAK : x === 5 && y === 4 && z === 5 ? STONE : 0)), info).opaque!;
+    let below = 0;
+    for (let q = 0; q < m.vertexCount; q += 4) if (m.meta[q * 4 + 2] === 3 && Math.abs(m.positions[q * 3 + 1]! - 5) < 1e-6) below++;
+    expect(below).toBe(0); // 계단 아랫면 없음 (돌 윗면은 계단이 불투명이 아니라 그대로 있다)
   });
 });

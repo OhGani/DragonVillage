@@ -9,7 +9,7 @@
  *
  * 면 번호: 0 +X, 1 -X, 2 +Y, 3 -Y, 4 +Z, 5 -Z
  */
-import { CHUNK_SIZE, DOOR_DIR, OUTSIDE_LIGHT, paddedIndex } from '@dragon-village/shared';
+import { CHUNK_SIZE, DOOR_DIR, OUTSIDE_LIGHT, paddedIndex, stairMask, stairShape } from '@dragon-village/shared';
 import { LAYER_NONE, LAYER_TRANSLUCENT, type MeshBlockInfo, type MeshBuffers, type MeshResult } from './meshTypes';
 
 const N = CHUNK_SIZE;
@@ -610,6 +610,87 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
   /**
    * 알 전용 패스 (#85): 상자 여섯 층. 층끼리 맞닿는 면은 넓은 쪽만 그린다(같은 자리에 두 면이 겹쳐 깜빡이지 않게).
    */
+  /**
+   * 계단 전용 패스 (#291): 한 칸을 반 칸 조각 여덟(2×2×2)으로 보고, 찬 조각의 드러난 면만 그린다.
+   * 어느 조각이 찼는지는 방향·뒤집힘 + 이웃 계단(모서리)으로 정한다 — 물리(fineSolidQuery)와 같은 stairMask.
+   * 칸 가장자리 면은 옆 칸이 불투명 블록이면 안 그리고, 한 평면의 조각들은 되는 대로 큰 사각형으로 묶는다.
+   * 그림은 세계 좌표를 면에 투영해 붙이니(boxFace) 판자 무늬가 옆 블록과 그대로 이어진다
+   */
+  const emitStairs = () => {
+    const mn = [0, 0, 0],
+      mx = [0, 0, 0],
+      s = [0, 0, 0],
+      base = [0, 0, 0];
+    for (let y = 0; y < N; y++)
+      for (let z = 0; z < N; z++)
+        for (let x = 0; x < N; x++) {
+          const bi = info[padded[paddedIndex(x, y, z)]];
+          if (bi === undefined || !bi.stairs) continue;
+          const [facing, top] = bi.stairs;
+          const shape = stairShape(facing, top === 1, (dx, dz) => {
+            const n = info[padded[paddedIndex(x + dx, y, z + dz)]]?.stairs;
+            return n ? { facing: n[0], top: n[1] === 1 } : null;
+          });
+          const mask = stairMask(facing, top === 1, shape);
+          const filled = (): boolean => ((mask >> (s[0]! + s[2]! * 2 + s[1]! * 4)) & 1) === 1;
+          const lt = lightOfCell(x, y, z);
+          base[0] = x;
+          base[1] = y;
+          base[2] = z;
+          for (let f = 0; f < 6; f++) {
+            const d = f >> 1,
+              plus = (f & 1) === 0;
+            const u = (d + 1) % 3,
+              v = (d + 2) % 3;
+            const nrm = FACE_NORMAL[f]!;
+            const nb = info[padded[paddedIndex(x + nrm[0], y + nrm[1], z + nrm[2])]];
+            const covered = nb !== undefined && nb.opaque;
+            for (let layer = 0; layer < 2; layer++) {
+              const edge = plus ? layer === 1 : layer === 0; // 칸 가장자리의 면인가 (아니면 칸 안쪽 — 디딤판·챌판)
+              if (edge && covered) continue;
+              let vis = 0; // 드러난 조각 면: 비트 a + b·2 (a 는 u 축, b 는 v 축)
+              for (let b = 0; b < 2; b++)
+                for (let a = 0; a < 2; a++) {
+                  s[d] = layer;
+                  s[u] = a;
+                  s[v] = b;
+                  if (!filled()) continue;
+                  if (!edge) {
+                    s[d] = plus ? 1 : 0;
+                    if (filled()) continue; // 앞 조각에 가려짐
+                  }
+                  vis |= 1 << (a + b * 2);
+                }
+              if (vis === 0) continue;
+              const rect = (a0: number, a1: number, b0: number, b1: number) => {
+                mn[d] = base[d]! + layer * 0.5;
+                mx[d] = mn[d]! + 0.5;
+                mn[u] = base[u]! + a0 * 0.5;
+                mx[u] = base[u]! + (a1 + 1) * 0.5;
+                mn[v] = base[v]! + b0 * 0.5;
+                mx[v] = base[v]! + (b1 + 1) * 0.5;
+                boxFace(opaque, f, mn, mx, bi.tex[f]!, lt);
+              };
+              if (vis === 15) {
+                rect(0, 1, 0, 1);
+                continue;
+              }
+              for (let b = 0; b < 2; b++)
+                if (((vis >> (b * 2)) & 3) === 3) {
+                  rect(0, 1, b, b);
+                  vis &= ~(3 << (b * 2));
+                }
+              for (let a = 0; a < 2; a++)
+                if ((vis & (1 << a)) !== 0 && (vis & (1 << (a + 2))) !== 0) {
+                  rect(a, a, 0, 1);
+                  vis &= ~((1 << a) | (1 << (a + 2)));
+                }
+              for (let i = 0; i < 4; i++) if ((vis & (1 << i)) !== 0) rect(i & 1, i & 1, i >> 1, i >> 1);
+            }
+          }
+        }
+  };
+
   const emitEggs = () => {
     for (let y = 0; y < N; y++)
       for (let z = 0; z < N; z++)
@@ -749,7 +830,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
             kb = 0,
             kfl = 0,
             kbl = 0;
-          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg && !bi.cross && bi.bed === null && !bi.sign && !bi.table && !bi.campfire && bi.rail === null) {
+          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg && !bi.cross && bi.bed === null && !bi.sign && !bi.table && !bi.campfire && bi.rail === null && !bi.stairs) {
             p[d] = i + 1;
             const idF = padded[paddedIndex(p[0], p[1], p[2])];
             p[d] = i;
@@ -804,6 +885,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
   emitSigns();
   emitTables();
   emitCampfires();
+  emitStairs();
 
   return { opaque: opaque.build(), translucent: trans.build() };
 }

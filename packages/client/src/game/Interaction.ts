@@ -468,7 +468,17 @@ export class Interaction {
       }
     }
     // 물·용암은 양동이 하나만큼(8/8)의 고인 액체로 놓는다 — 사방으로 퍼지되 양만큼만 (결정 #65)
-    const blockNum = def.fluid ? this.registry.fluidFinite(def.fluidSource, FLUID_FULL) : this.selectedBlock;
+    let blockNum = def.fluid ? this.registry.fluidFinite(def.fluidSource, FLUID_FULL) : this.selectedBlock;
+    // 계단 (#291): 높은 쪽이 내가 보는 방향 — 그대로 걸어 올라간다. 블록 아랫면이나 옆면의 위쪽 반을 탭하면 뒤집어서(천장 쪽이 꽉 찬 계단)
+    if (def.stairs) {
+      const look = this.player.lookDir;
+      let top = t.ny < 0;
+      if (t.ny === 0) {
+        const len = Math.hypot(look.x, look.y, look.z) || 1;
+        top = this.player.eye.y + (look.y / len) * t.distance - t.y > 0.5;
+      }
+      blockNum = this.registry.stairVariant(def.stairs.base, facingOf(look.x, look.z), top);
+    }
     const res = this.world.setBlock(x, y, z, blockNum);
     if (res.changed) {
       this.events.onBlocksChanged(res.dirty);
