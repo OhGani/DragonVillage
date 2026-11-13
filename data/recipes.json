@@ -2761,6 +2761,28 @@
       }
     },
     {
+      "id": "lead",
+      "name": "끈",
+      "station": "crafting_table",
+      "pattern": [
+        "ss ",
+        "sb ",
+        "  s"
+      ],
+      "key": {
+        "s": "string",
+        "b": "slime_ball"
+      },
+      "in": {
+        "string": 4,
+        "slime_ball": 1
+      },
+      "out": {
+        "lead": 2
+      },
+      "_note": "끈 (#297): 실 4 + 슬라임 볼 1 → 끈 2 (마인크래프트와 같음). 끈을 들고 동물을 탭하면 따라오고, 울타리를 탭하면 거기 묶여요. 실은 거미, 슬라임 볼은 늪의 슬라임"
+    },
+    {
       "id": "sign",
       "name": "표지판",
       "station": "crafting_table",

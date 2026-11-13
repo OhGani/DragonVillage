@@ -171,6 +171,8 @@ export interface NetEvents {
   /** 식탁 위 음식 하나 바뀜 / 들어올 때 전부 (2026-11-06) */
   onTable(m: { x: number; y: number; z: number; items: (string | null)[]; fire?: boolean }): void;
   onTables(list: { x: number; y: number; z: number; items: (string | null)[]; fire?: boolean }[]): void;
+  /** 끈 (#297): 매인 동물 목록이 바뀌었다 */
+  onLeash(list: { id: number; by: number | null; post: [number, number, number] | null }[]): void;
   /** 가게에서 산 횟수 (#230) */
   onDemand(counts: Record<string, number>): void;
   /** 원정에 따라온 펫 (#145) */
@@ -430,6 +432,11 @@ export class NetClient {
   /** TNT 불 붙이기 (#195) */
   sendIgnite(x: number, y: number, z: number, slot: number): void {
     this.sendJson({ t: 'ignite', x, y, z, slot });
+  }
+
+  /** 끈 (#297): 끌고 있는 동물을 이 울타리에 묶기 */
+  sendTie(x: number, y: number, z: number): void {
+    this.sendJson({ t: 'tie', x, y, z });
   }
 
   /** 모닥불 끄기 (#290): 삽을 든 칸 */
@@ -708,6 +715,7 @@ export class NetClient {
     else if (msg.t === 'pets') ev.onPets(msg.list);
     else if (msg.t === 'table') ev.onTable(msg);
     else if (msg.t === 'tables') ev.onTables(msg.list);
+    else if (msg.t === 'leash') ev.onLeash(msg.list);
     else if (msg.t === 'demand') ev.onDemand(msg.counts);
     else if (msg.t === 'companions') ev.onCompanions(msg.list);
     else if (msg.t === 'ending') ev.onEnding({ x: msg.x, y: msg.y, z: msg.z });

@@ -106,6 +106,10 @@ const TRADE_ERROR_KO: Record<string, string> = {
   BAG_FULL: '가방이 가득 찼어요 — 자리를 비워요',
 };
 const USE_ERROR_KO: Record<string, string> = {
+  LEASH_OTHER: '다른 사람이 끈으로 끌고 있어요',
+  NO_LEASH: '이건 끈으로 맬 수 없어요',
+  LEASHED: '끈에 매여 있어요 — 빈손으로 탭해서 끈부터 풀어요',
+  BAG_FULL: '가방이 가득해요 — 한 칸을 비워요',
   NO_MOB: '거기엔 아무것도 없어요',
   TOO_FAR: '너무 멀어요 — 가까이 가요',
   NOT_FOOD: '이 동물이 먹는 걸 들고 탭해요 (소·양 밀, 돼지 당근, 닭 씨앗, 강아지 뼈, 양은 가위)',
@@ -508,6 +512,14 @@ export class Session {
         if (!Number.isInteger(msg.x) || !Number.isInteger(msg.y) || !Number.isInteger(msg.z) || !Number.isInteger(msg.slot)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
         const err = this.room.ignite(this.idx, msg.slot as number, msg.x as number, msg.y as number, msg.z as number);
         if (err) return this.error(err, err === 'NO_FLINT' ? '라이터를 들고 탭해요' : err === 'NOT_TNT' ? 'TNT 나 꺼진 모닥불에만 불을 붙여요' : err === 'TOO_FAR' ? '너무 멀어요 — 가까이 가요' : '지금은 할 수 없어요');
+        return;
+      }
+      case 'tie': {
+        // 끈 (#297): 끌고 있는 동물을 울타리에 묶기
+        if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
+        if (!Number.isInteger(msg.x) || !Number.isInteger(msg.y) || !Number.isInteger(msg.z)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.tieLeash(this.idx, msg.x as number, msg.y as number, msg.z as number);
+        if (err) return this.error(err, err === 'NOT_FENCE' ? '울타리를 탭해요' : err === 'TOO_FAR' ? '너무 멀어요 — 가까이 가요' : err === 'NO_LEASH' ? '끈으로 끌고 있는 동물이 없어요' : '지금은 묶을 수 없어요');
         return;
       }
       case 'douse': {

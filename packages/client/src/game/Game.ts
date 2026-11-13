@@ -113,6 +113,7 @@ import { SKY_COLOR, createChunkMaterials } from '../render/ChunkMaterial';
 import { ChunkRenderer } from '../render/ChunkRenderer';
 import { HandView } from '../render/Hand';
 import { BlockHighlight, type BoxShape } from '../render/Highlight';
+import { LeashView } from '../render/LeashView';
 import { PortalView } from '../render/Portal';
 import { Sky } from '../render/Sky';
 import { loadTextureAtlas } from '../render/textures';
@@ -372,6 +373,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   let campfiresNear: [number, number, number][] | null = null;
   // 낚시 (2026-11-06): 찌·줄. handSpot = 화면 오른쪽 아래 손 자리(세계 좌표) — 줄이 여기서 나간다
   const fishView = new FishView(scene);
+  const leashView = new LeashView(scene); // 끈 (#297)
   const handSpot = new THREE.Vector3();
   const updateHandSpot = () => handSpot.set(0.32, -0.3, -0.6).applyMatrix4(camera.matrixWorld);
   const fireworks = new FireworkView(scene); // 폭죽 (#211)
@@ -734,6 +736,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         tableSheet.show(bx, by, bz, tableView.itemsAt(bx, by, bz), fire);
       },
       onLightCampfire: (x, y, z) => net.sendIgnite(x, y, z, hud.selectedIndex), // 꺼진 모닥불 켜기 (#290)
+      onTieLeash: (x, y, z) => net.sendTie(x, y, z), // 끌던 동물을 울타리에 (#297)
       onDouseCampfire: (x, y, z) => net.sendDouse(x, y, z, hud.selectedIndex), // 삽으로 끄기
       onOpenChest: (bx, by, bz) => {
         if (bag.visible || nest.visible || chat.visible) return;
@@ -809,6 +812,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     pending.clear();
     companions.clear(); // 세계가 바뀌면 따라온 펫 목록은 서버가 다시 준다 (#145)
     fishView.clear(); // 찌는 그 세계에 두고 온다 (서버도 지운다)
+    leashView.set([]); // 끈 목록은 마을에 돌아오면 서버가 다시 준다 (#297)
     ctx = buildWorld(w.kind, w.expedition, { ...w.spawn }, w.chunks);
     // 그 세계에 있는 사람들만 보인다
     for (const idx of remote.indices()) remote.remove(idx);
@@ -1021,6 +1025,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       if (tableSheet.isAt(m.x, m.y, m.z)) tableSheet.update(m.items);
     },
     onTables: (list) => tableView.setAll(list),
+    onLeash: (list) => {
+      // 끈 (#297): 줄을 그리고, 내가 끌고 있으면 울타리 탭이 '묶기' 가 된다
+      leashView.set(ctx.kind === 'village' ? list : []);
+      ctx.interaction.leading = ctx.kind === 'village' && list.some((l) => l.by === myIdx);
+    },
     onPets: (list) => {
       pets.clear();
       for (const p of list) pets.set(p.id, { name: p.name, mine: p.mine, mode: p.mode ?? 'follow' });
@@ -2106,6 +2115,19 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       updateHandSpot();
       fishView.update(dt, now, handSpot);
     }
+    if (leashView.active) {
+      // 끈 (#297): 내 쪽 끝은 오른손 언저리(허리 높이, 조금 앞·오른쪽), 남은 그 사람 허리
+      const sy = Math.sin(player.yaw),
+        cy = Math.cos(player.yaw);
+      leashView.update(
+        (id) => mobView.positionOf(id),
+        (idx) => {
+          if (idx === myIdx) return { x: player.pos.x + cy * 0.3 - sy * 0.25, y: player.pos.y + 0.95, z: player.pos.z - sy * 0.3 - cy * 0.25 };
+          const r = remote.positionOf(idx);
+          return r ? { x: r.x, y: r.y + 0.95, z: r.z } : null;
+        },
+      );
+    }
 
     // 위치는 20Hz 로 서버에
     moveAcc += dt * 1000;
@@ -2356,6 +2378,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       pool.dispose();
       sky.dispose();
       highlight.dispose();
+      leashView.dispose();
       hand.dispose();
       remote.dispose();
       materials.dispose();

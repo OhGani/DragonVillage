@@ -212,6 +212,9 @@ export class Storage {
     this.ensureColumn('animals', 'eggs', 'INTEGER NOT NULL DEFAULT 0');
     this.ensureColumn('animals', 'last_egg_at', 'INTEGER NOT NULL DEFAULT 0');
     this.ensureColumn('animals', 'name', 'TEXT'); // 펫 이름 (#109)
+    this.ensureColumn('animals', 'leash_x', 'INTEGER'); // 울타리에 묶인 자리 (#297). 사람이 끄는 중인 것은 저장 안 한다
+    this.ensureColumn('animals', 'leash_y', 'INTEGER');
+    this.ensureColumn('animals', 'leash_z', 'INTEGER');
     this.stmts = {
       getVillage: this.db.prepare('SELECT code, name, seed, gen_version AS genVersion, created_at AS createdAt FROM villages WHERE code = ?'),
       getFlag: this.db.prepare('SELECT value FROM village_flags WHERE village = ? AND key = ?'),
@@ -236,9 +239,9 @@ export class Storage {
       listBuildings: this.db.prepare('SELECT id FROM buildings WHERE village = ? ORDER BY built_at'),
       addBuilding: this.db.prepare('INSERT OR IGNORE INTO buildings(village, id, built_at) VALUES (?, ?, ?)'),
       addRaid: this.db.prepare('INSERT INTO raids(village, started_at, won, wave) VALUES (?, ?, ?, ?)'),
-      listAnimals: this.db.prepare('SELECT id, kind, x, y, z, born_at AS bornAt, adult_at AS adultAt, owner, sitting, free, home_x AS homeX, home_z AS homeZ, wool_at AS woolAt, eggs, last_egg_at AS lastEggAt, name FROM animals WHERE village = ? ORDER BY id'),
-      insertAnimal: this.db.prepare('INSERT INTO animals(village, kind, x, y, z, born_at, adult_at, owner, sitting, free, home_x, home_z, wool_at, eggs, last_egg_at, name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'),
-      updateAnimal: this.db.prepare('UPDATE animals SET x = ?, y = ?, z = ?, adult_at = ?, owner = ?, sitting = ?, free = ?, home_x = ?, home_z = ?, wool_at = ?, eggs = ?, last_egg_at = ?, name = ? WHERE id = ?'),
+      listAnimals: this.db.prepare('SELECT id, kind, x, y, z, born_at AS bornAt, adult_at AS adultAt, owner, sitting, free, home_x AS homeX, home_z AS homeZ, wool_at AS woolAt, eggs, last_egg_at AS lastEggAt, name, leash_x AS leashX, leash_y AS leashY, leash_z AS leashZ FROM animals WHERE village = ? ORDER BY id'),
+      insertAnimal: this.db.prepare('INSERT INTO animals(village, kind, x, y, z, born_at, adult_at, owner, sitting, free, home_x, home_z, wool_at, eggs, last_egg_at, name, leash_x, leash_y, leash_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+      updateAnimal: this.db.prepare('UPDATE animals SET x = ?, y = ?, z = ?, adult_at = ?, owner = ?, sitting = ?, free = ?, home_x = ?, home_z = ?, wool_at = ?, eggs = ?, last_egg_at = ?, name = ?, leash_x = ?, leash_y = ?, leash_z = ? WHERE id = ?'),
       deleteAnimal: this.db.prepare('DELETE FROM animals WHERE id = ?'),
       countRaidsSince: this.db.prepare('SELECT COUNT(*) AS n FROM raids WHERE village = ? AND started_at >= ?'),
       lastRaid: this.db.prepare('SELECT won, wave, started_at AS startedAt FROM raids WHERE village = ? ORDER BY started_at DESC LIMIT 1'),
@@ -417,10 +420,10 @@ export class Storage {
     return (this.stmts.listAnimals.all(code) as (Omit<AnimalRow, 'sitting' | 'free'> & { sitting: number; free: number })[]).map((r) => ({ ...r, kind: r.kind as AnimalRow['kind'], sitting: r.sitting === 1, free: r.free === 1 }));
   }
   insertAnimal(code: string, r: Omit<AnimalRow, 'id'>): number {
-    return Number(this.stmts.insertAnimal.run(code, r.kind, r.x, r.y, r.z, r.bornAt, r.adultAt, r.owner, r.sitting ? 1 : 0, r.free ? 1 : 0, r.homeX, r.homeZ, r.woolAt, r.eggs, r.lastEggAt, r.name).lastInsertRowid);
+    return Number(this.stmts.insertAnimal.run(code, r.kind, r.x, r.y, r.z, r.bornAt, r.adultAt, r.owner, r.sitting ? 1 : 0, r.free ? 1 : 0, r.homeX, r.homeZ, r.woolAt, r.eggs, r.lastEggAt, r.name, r.leashX ?? null, r.leashY ?? null, r.leashZ ?? null).lastInsertRowid);
   }
   updateAnimal(r: AnimalRow): void {
-    this.stmts.updateAnimal.run(r.x, r.y, r.z, r.adultAt, r.owner, r.sitting ? 1 : 0, r.free ? 1 : 0, r.homeX, r.homeZ, r.woolAt, r.eggs, r.lastEggAt, r.name, r.id);
+    this.stmts.updateAnimal.run(r.x, r.y, r.z, r.adultAt, r.owner, r.sitting ? 1 : 0, r.free ? 1 : 0, r.homeX, r.homeZ, r.woolAt, r.eggs, r.lastEggAt, r.name, r.leashX ?? null, r.leashY ?? null, r.leashZ ?? null, r.id);
   }
   deleteAnimal(id: number): void {
     this.stmts.deleteAnimal.run(id);

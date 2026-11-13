@@ -80,6 +80,7 @@ import {
   explosionDamage,
   facingFromYaw,
   SLAB_DOUBLE,
+  LEAD,
   FEED_REST_MS,
   feedItems,
   finalDamage,
@@ -521,6 +522,10 @@ export class VillageRoom {
       fits: (idx, items) => {
         const p = this.players.get(idx);
         return !!p && fits(p.inv, items);
+      },
+      tell: (idx, code, message) => {
+        const p = this.players.get(idx);
+        if (p) this.sendJson(p, { t: 'error', code, message });
       },
       log: (msg) => this.log(`마을 ${this.info.code}: ${msg}`),
     });
@@ -1888,6 +1893,7 @@ export class VillageRoom {
     if (this.raid) this.sendJson(player, { t: 'raid', raid: this.raid.state(Date.now()) });
     this.sendJson(player, { t: 'pets', list: this.animals.petsFor(token) }); // 펫 이름 (#109)
     this.sendJson(player, { t: 'tables', list: this.villageTables() }); // 식탁 위 음식 (2026-11-06)
+    this.sendJson(player, { t: 'leash', list: this.animals.leashes() }); // 끈에 매인 동물 (#297)
     this.sendDemand(player, Date.now()); // 가게 값 (#230)
     if (player.riding) this.broadcastNest(); // 둥지에서 그 드래곤이 빠진다
     this.savePlayer(player);
@@ -1923,9 +1929,19 @@ export class VillageRoom {
     return n;
   }
 
+  /** 끈 (#297): 마을을 떠나는 사람이 끌던 동물을 풀고 끈을 가방에 돌려준다 (가방이 가득하면 못 받는다) */
+  private returnLeads(p: RoomPlayer): void {
+    const n = this.animals.dropLeashesOf(p.token);
+    if (n === 0) return;
+    const changed = new Set<number>();
+    give(p.inv, LEAD, n, changed);
+    this.sendInv(p, changed);
+  }
+
   leave(idx: number, why = ''): void {
     const p = this.players.get(idx);
     if (!p) return;
+    if (p.world === 'village') this.returnLeads(p);
     this.players.delete(idx);
     if (p.world === 'expedition' && this.expedition) {
       this.expedition.members.delete(idx);
@@ -2293,7 +2309,8 @@ export class VillageRoom {
     if (p.world !== 'village' || mobId < ANIMAL_ID_BASE) return 'NO_MOB';
     const before = this.animals.petsFor(p.token).length;
     // 말·돼지 (#166·#185): 내 것을 빈손으로 탭 → 탄다 (드래곤 타기와 같은 mount 메시지, dragon: 'horse' | 'pig')
-    if (!held && !p.riding && this.animals.isMyHorse(mobId, p.token)) {
+    if (!held && !p.riding && this.animals.isMyHorse(mobId, p.token) && !this.animals.isLeashed(mobId)) {
+      // 끈에 매인 말은 빈손 탭이 '끈 풀기' (#297) — 풀고 나서 다시 탭하면 탄다
       const err = this.animals.mount({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held }, mobId, now);
       if (err) return err;
       const kind = this.animals.kindOf(mobId) ?? 'horse';
@@ -2306,6 +2323,18 @@ export class VillageRoom {
     const err = this.animals.use({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held }, mobId, held, now);
     if (!err && this.animals.petsFor(p.token).length !== before) this.broadcastPets(); // 길들여졌다
     return err;
+  }
+
+  /** 끈 (#297): 끌고 있는 동물들을 울타리에 묶는다. 오류: NOT_FENCE · TOO_FAR · NO_LEASH(끌고 있는 동물이 없다) */
+  tieLeash(idx: number, x: number, y: number, z: number): string | null {
+    const p = this.players.get(idx);
+    if (!p || p.world !== 'village') return 'NOT_IN_VILLAGE';
+    if (!this.world.inBounds(x, y, z) || !this.registry.get(this.world.getBlock(x, y, z)).fence) return 'NOT_FENCE';
+    if (Math.hypot(x + 0.5 - p.pos.x, y + 0.5 - (p.pos.y + EYE), z + 0.5 - p.pos.z) > HIT_REACH + 1) return 'TOO_FAR';
+    const n = this.animals.tie(p.token, x, y, z);
+    if (n === 0) return 'NO_LEASH';
+    this.sendJson(p, { t: 'error', code: 'LEASH_TIED', message: `🪢 울타리에 ${n > 1 ? `${n}마리를 ` : ''}묶었어요 — 탭하면 풀려요` });
+    return null;
   }
 
   private tickRaid(now: number): void {
@@ -3371,6 +3400,15 @@ export class VillageRoom {
         }
       }
     }
+    // 울타리를 부수면 거기 묶인 동물이 풀리고 끈은 부순 사람에게 (#297)
+    if (prev.fence && num === AIR_ID && p.world === 'village') {
+      const leads = this.animals.postBroken(req.x, req.y, req.z);
+      if (leads > 0) {
+        const ch = new Set<number>();
+        this.giveTo(p, LEAD, leads, ch);
+        this.sendInv(p, ch);
+      }
+    }
     // 침대는 두 칸이 함께 (#188): 놓으면 머리 칸도, 부수면 다른 반쪽도
     const bedHalf = def.bed ?? prev.bed;
     let bedOther: { x: number; z: number } | null = null;
@@ -3714,6 +3752,7 @@ export class VillageRoom {
     if (p.riding && isMountKind(p.riding.dragon)) this.dismount(p.idx); // 말·돼지는 원정에 못 간다 (#166)
     this.broadcastJson({ t: 'playerLeft', idx: p.idx }, p.idx, 'village');
     // 펫 원정 동행 (#145): 포탈 24칸 안에서 앉아 있지 않은 내 펫은 같이 간다
+    this.returnLeads(p); // 끌던 동물은 풀어 두고 끈은 가방으로 (#297)
     const taken = this.animals.takeAlong(p.token, p.pos.x, p.pos.z, PET_ALONG_RANGE);
     if (taken.length) this.log(`마을 ${this.info.code}: ${p.nick} 의 펫 ${taken.length}마리가 원정에 따라감`);
     p.world = 'expedition';
@@ -3831,6 +3870,7 @@ export class VillageRoom {
     this.sendJson(p, { t: 'worldEnter', kind: 'village', expedition: null, spawn: me, players: others, chunkCount: this.modifiedCount });
     this.sendJson(p, { t: 'orbs', list: this.orbsIn('village') });
     this.sendJson(p, { t: 'tables', list: this.villageTables() }); // 식탁 위 음식 (2026-11-06)
+    this.sendJson(p, { t: 'leash', list: this.animals.leashes() }); // 끈에 매인 동물 (#297)
     this.sendClouds(p, 'village', Date.now());
     this.sendModifiedChunks(p.send);
     this.sendJson(p, { t: 'ready' });

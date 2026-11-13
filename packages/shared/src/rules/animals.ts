@@ -28,6 +28,25 @@ export const HORSE_SEAT_Y = 1.25;
 /** 말을 타면 이 속도로 달린다 (칸/초, 사람 달리기 5.6) */
 export const HORSE_SPEED = 9.5;
 /** 탈 수 있는 동물 (#166 말, #185 돼지) — 안장을 씌우면 내 것, 빈손 탭으로 탄다 */
+/**
+ * 끈 (#297, 아빠 2026-11-14 마인크래프트 '끈'): 끈을 들고 동물을 탭하면 매여서 따라오고, 그대로 울타리를 탭하면 거기 묶인다.
+ * 맨 동물을 빈손(또는 끈)으로 탭하면 풀리고 끈이 가방으로 돌아온다. 주민·보트·수레는 못 맨다
+ */
+export const LEAD = 'lead';
+/** 끄는 사람과 이만큼 벌어지면 끈이 풀린다 (끈은 가방으로) */
+export const LEASH_SNAP = 10;
+/** 이 안에 있으면 서 있고, 넘으면 따라온다 */
+export const LEASH_SLACK = 2.5;
+/** 이보다 멀면 끌려오는 속도(칸/초)로 — 걷는 사람(4.3)보다 조금 빠르게 */
+export const LEASH_PULL_FAR = 4;
+export const LEASH_PULL_SPEED = 5.2;
+/** 울타리에 묶이면 이 안에서만 돌아다닌다 */
+export const LEASH_POST_R = 4;
+const NO_LEASH: readonly string[] = ['villager', 'boat', 'minecart'];
+export function canLeash(kind: MobKind): boolean {
+  return ANIMAL_KINDS.includes(kind) && !NO_LEASH.includes(kind);
+}
+
 export const MOUNT_KINDS = ['horse', 'pig', 'boat', 'minecart', 'camel'] as const; // 낙타 (2026-11-07) // 보트 (#209)·수레 (#237): 주인 없이 누구나 탄다
 export type MountKind = (typeof MOUNT_KINDS)[number];
 export function isMountKind(kind: string): kind is MountKind {

@@ -505,6 +505,8 @@ export type ClientJson =
   | { t: 'ignite'; x: number; y: number; z: number; slot: number }
   /** 모닥불 끄기 (#290): 삽을 든 칸, 그 자리 불붙은 모닥불 → 꺼진 모닥불 */
   | { t: 'douse'; x: number; y: number; z: number; slot: number }
+  /** 끈 (#297): 끌고 있는 동물들을 이 울타리에 묶는다 */
+  | { t: 'tie'; x: number; y: number; z: number }
   /** 타고 있는 드래곤의 스킬 (M6-5). 지금은 'beam' 만 */
   | { t: 'skill'; id: string }
   /** 마을 창고 열기 (M6-6) — 창고 건물 옆에서 */
@@ -627,6 +629,8 @@ export type ServerJson =
   | { t: 'table'; x: number; y: number; z: number; items: (string | null)[]; fire?: boolean }
   /** 들어올 때 마을의 식탁·모닥불 전부 */
   | { t: 'tables'; list: { x: number; y: number; z: number; items: (string | null)[]; fire?: boolean }[] }
+  /** 끈 (#297): 지금 매인 동물 전부. by = 끄는 사람 번호, post = 묶인 울타리 칸 */
+  | { t: 'leash'; list: { id: number; by: number | null; post: [number, number, number] | null }[] }
   /** 마을 방어전 상태 1Hz (M7-5). null = 끝났다/없다 */
   | { t: 'raid'; raid: RaidStateInfo | null }
   /** 누가 빔을 쐈다 (같은 세계 모두, 본인 포함) (M6-5). from 은 드래곤 입 근처, dir 은 단위 벡터 */

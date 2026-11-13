@@ -49,6 +49,13 @@ import {
   RESPAWN_EVERY_MS,
   rollDrops,
   SADDLE,
+  LEAD,
+  LEASH_POST_R,
+  LEASH_PULL_FAR,
+  LEASH_PULL_SPEED,
+  LEASH_SLACK,
+  LEASH_SNAP,
+  canLeash,
   shearRoll,
   SHEARS_ITEM,
   siteOf,
@@ -88,6 +95,10 @@ export interface AnimalRow {
   lastEggAt: number;
   /** 펫 이름 (#109, pet-names.json 에서만) */
   name: string | null;
+  /** 끈으로 묶인 울타리 칸 (#297). 안 묶였으면 null/없음 */
+  leashX?: number | null;
+  leashY?: number | null;
+  leashZ?: number | null;
 }
 
 export interface AnimalStore {
@@ -115,6 +126,8 @@ export interface AnimalHooks {
   reward(idx: number, drops: { item: string; count: number }[], xp: number, at: { x: number; y: number; z: number }, now: number): void;
   /** 손에 든 것 하나를 쓴다 (먹이·뼈). 못 쓰면 false */
   consume(idx: number, item: string): boolean;
+  /** 한 사람에게 알림 한 줄 (끈 #297) */
+  tell?(idx: number, code: string, message: string): void;
   /** 이 물건들이 지금 가방에 다 들어가나 (안장 돌려주기 전에 묻는다) */
   fits?(idx: number, items: { item: string; count: number }[]): boolean;
   log(msg: string): void;
@@ -152,6 +165,8 @@ interface Animal extends AnimalRow {
   away: boolean;
   /** 말 (#166): 타고 있는 사람 번호. 타는 동안 목록에서 빠지고(클라가 탄 사람 밑에 그린다) 안 움직인다 */
   ridden: number | null;
+  /** 끈 (#297): 끌고 있는 사람의 토큰. 저장 안 함 — 그 사람이 마을을 떠나면 풀리고 끈은 가방으로 */
+  leashBy: string | null;
   dirty: boolean;
 }
 
@@ -195,7 +210,7 @@ export class AnimalSystem {
 
   private wrap(r: AnimalRow): Animal {
     const def = this.defs.get(r.kind);
-    return { ...r, hp: animalMaxHp(def.hp, r.kind, r.owner !== null), yaw: 0, target: null, pauseUntil: 0, busyUntil: 0, busyWith: -1, stuck: 0, stuckX: 0, stuckZ: 0, turn: 0, loveUntil: 0, breedCooldownUntil: 0, tameAttempts: 0, shearCount: 0, away: false, ridden: null, dirty: false };
+    return { ...r, hp: animalMaxHp(def.hp, r.kind, r.owner !== null), yaw: 0, target: null, pauseUntil: 0, busyUntil: 0, busyWith: -1, stuck: 0, stuckX: 0, stuckZ: 0, turn: 0, loveUntil: 0, breedCooldownUntil: 0, tameAttempts: 0, shearCount: 0, away: false, ridden: null, leashBy: null, dirty: false };
   }
 
   /** 발 높이 (그 자리 근처 층). 못 서면 null */
@@ -282,7 +297,7 @@ export class AnimalSystem {
 
   /** 내 펫 전부 부르기 (#174): 앉은 것·풀어놓은 것도 따라오기로 바꾸고 옆에 세운다. 탄 말·원정 간 것은 빼고. 부른 수 */
   callPets(token: string, at: { x: number; y: number; z: number }): number {
-    const mine = [...this.animals.values()].filter((a) => a.owner === token && !a.away && a.ridden === null);
+    const mine = [...this.animals.values()].filter((a) => a.owner === token && !a.away && a.ridden === null && !this.leashed(a)); // 끈에 매인 펫은 그대로 (#297)
     mine.forEach((a, i) => {
       a.sitting = false;
       a.free = false;
@@ -469,9 +484,32 @@ export class AnimalSystem {
         break;
       }
     }
-    // 목표: 주인 > 먹이 든 사람 > 산책
+    // 끈 (#297): 끄는 사람을 따라간다 — 가까우면 서 있고, 너무 벌어지면 풀린다. 울타리에 묶였으면 그 둘레에서만
     let goal: { x: number; z: number; stop: number } | null = null;
-    if (a.owner !== null && !a.free) {
+    let pull = 0;
+    if (a.leashBy !== null) {
+      const holder = players.find((p) => p.token === a.leashBy);
+      const d = holder ? Math.hypot(holder.x - a.x, holder.z - a.z) : Infinity;
+      if (!holder || d > LEASH_SNAP) {
+        this.unleash(a);
+        if (holder) {
+          this.hooks.reward(holder.idx, [{ item: LEAD, count: 1 }], 0, { x: a.x, y: a.y + 1, z: a.z }, now);
+          this.hooks.tell?.(holder.idx, 'LEASH_SNAP', '🪢 너무 멀어져서 끈이 풀렸어요 — 끈은 가방으로 돌아왔어요');
+        }
+      } else if (d <= LEASH_SLACK) {
+        a.target = null;
+        return;
+      } else {
+        goal = { x: holder.x, z: holder.z, stop: LEASH_SLACK - 0.6 };
+        pull = d;
+      }
+    }
+    const tied = a.leashX !== null && a.leashX !== undefined ? { x: a.leashX + 0.5, z: (a.leashZ ?? 0) + 0.5 } : null;
+    if (tied) {
+      if (!this.registry.get(this.world.getBlock(a.leashX!, a.leashY ?? 0, a.leashZ ?? 0)).fence) this.unleash(a); // 울타리가 없어졌다 (TNT 등)
+      else if (Math.hypot(tied.x - a.x, tied.z - a.z) > LEASH_POST_R) goal = { x: tied.x, z: tied.z, stop: LEASH_POST_R - 1.5 };
+    }
+    if (!goal && a.owner !== null && !a.free && !this.leashed(a)) {
       const owner = players.find((p) => p.token === a.owner);
       if (owner) {
         const d = Math.hypot(owner.x - a.x, owner.z - a.z);
@@ -509,7 +547,8 @@ export class AnimalSystem {
       }
     }
     let speed = def.speed;
-    if (!goal && a.kind === 'cat' && a.owner === null) {
+    if (pull > 0) speed = pull > LEASH_PULL_FAR ? Math.max(speed, LEASH_PULL_SPEED) : Math.max(speed, 2.6); // 끌려올 땐 걷는 사람을 따라잡을 만큼
+    if (!goal && a.kind === 'cat' && a.owner === null && !this.leashed(a)) {
       // 길들이지 않은 고양이 (2026-11-06): 사람이 CAT_SHY_R 안에 오면 CAT_FLEE 칸 떨어지게 달아난다 (대구·연어를 들었으면 위에서 따라온다)
       let near: AnimalViewer | null = null,
         nd: number = CAT_SHY_R;
@@ -552,6 +591,17 @@ export class AnimalSystem {
     const stepLen = Math.min(dist - goal.stop, speed * dt);
     const nx = a.x + (dx / dist) * stepLen,
       nz = a.z + (dz / dist) * stepLen;
+    // 묶인 동물은 끈 길이 밖으로 못 나간다 (먹이를 들고 불러도)
+    if (a.leashX !== null && a.leashX !== undefined) {
+      const px = a.leashX + 0.5,
+        pz = (a.leashZ ?? 0) + 0.5;
+      const dNew = Math.hypot(nx - px, nz - pz);
+      if (dNew > LEASH_POST_R && dNew > Math.hypot(a.x - px, a.z - pz)) {
+        a.target = null;
+        a.pauseUntil = now + 800;
+        return;
+      }
+    }
     const gy = this.groundAt(nx, nz, a.y);
     if (gy !== null && gy - a.y <= 1.05 && a.y - gy <= 2) {
       a.x = nx;
@@ -567,7 +617,7 @@ export class AnimalSystem {
         a.stuckZ = a.z;
       }
       a.stuck++;
-      if (a.stuck >= STUCK_GO_HOME) this.goHome(a, now);
+      if (a.stuck >= STUCK_GO_HOME && !this.leashed(a)) this.goHome(a, now); // 끈에 매인 동물은 집으로 순간이동하지 않는다 (#297)
       else if (a.stuck >= STUCK_SIDESTEP) this.sidestep(a);
     }
   }
@@ -666,7 +716,90 @@ export class AnimalSystem {
     this.hooks.json({ t: 'mob', ev: 'die', id, mob: a.kind, x: a.x, y: a.y, z: a.z });
     const baby = this.isBaby(a, now);
     this.hooks.log(`${def.name}${baby ? ' 아기' : ''}이(가) 잡혔어요 (남은 ${def.name} ${this.wildCountOf(a.kind)}마리)`);
-    this.hooks.reward(byIdx, baby ? [] : rollDrops(def, this.seed, a.id), def.xp, { x: a.x, y: a.y + 1, z: a.z }, now);
+    const drops = baby ? [] : rollDrops(def, this.seed, a.id);
+    if (this.leashed(a)) {
+      drops.push({ item: LEAD, count: 1 }); // 매여 있던 끈은 잡은 사람에게 (#297)
+      this.leashChanged();
+    }
+    this.hooks.reward(byIdx, drops, def.xp, { x: a.x, y: a.y + 1, z: a.z }, now);
+  }
+
+  // ---------------------------------------------------------------- 끈 (#297)
+
+  private leashed(a: Animal): boolean {
+    return a.leashBy !== null || (a.leashX !== null && a.leashX !== undefined);
+  }
+
+  isLeashed(mobId: number): boolean {
+    const a = this.find(mobId);
+    return a !== undefined && this.leashed(a);
+  }
+
+  private unleash(a: Animal): void {
+    a.leashBy = null;
+    a.leashX = a.leashY = a.leashZ = null;
+    a.dirty = true;
+    this.leashChanged();
+  }
+
+  /** 지금 매인 동물 전부: by = 끄는 사람 번호(마을에 없으면 빠진다), post = 묶인 울타리 칸 */
+  leashes(): { id: number; by: number | null; post: [number, number, number] | null }[] {
+    const players = this.hooks.players();
+    const out: { id: number; by: number | null; post: [number, number, number] | null }[] = [];
+    for (const a of this.animals.values()) {
+      if (!this.leashed(a) || a.away) continue;
+      if (a.leashBy !== null) {
+        const h = players.find((p) => p.token === a.leashBy);
+        if (h) out.push({ id: ANIMAL_ID_BASE + a.id, by: h.idx, post: null });
+      } else out.push({ id: ANIMAL_ID_BASE + a.id, by: null, post: [a.leashX!, a.leashY ?? 0, a.leashZ ?? 0] });
+    }
+    return out;
+  }
+
+  private leashChanged(): void {
+    this.hooks.json({ t: 'leash', list: this.leashes() });
+  }
+
+  /** 끌고 있는 동물을 전부 이 울타리에 묶는다. 묶은 수 */
+  tie(token: string, x: number, y: number, z: number): number {
+    let n = 0;
+    for (const a of this.animals.values()) {
+      if (a.leashBy !== token) continue;
+      a.leashBy = null;
+      a.leashX = x;
+      a.leashY = y;
+      a.leashZ = z;
+      a.target = null;
+      a.dirty = true;
+      n++;
+    }
+    if (n > 0) this.leashChanged();
+    return n;
+  }
+
+  /** 울타리가 부서졌다: 거기 묶인 동물을 풀어 준다. 돌려줄 끈 수 */
+  postBroken(x: number, y: number, z: number): number {
+    let n = 0;
+    for (const a of this.animals.values())
+      if (a.leashX === x && a.leashY === y && a.leashZ === z) {
+        a.leashX = a.leashY = a.leashZ = null;
+        a.dirty = true;
+        n++;
+      }
+    if (n > 0) this.leashChanged();
+    return n;
+  }
+
+  /** 끌던 사람이 마을을 떠난다(나가기·원정): 끌던 동물을 풀어 준다. 돌려줄 끈 수 */
+  dropLeashesOf(token: string): number {
+    let n = 0;
+    for (const a of this.animals.values())
+      if (a.leashBy === token) {
+        a.leashBy = null;
+        n++;
+      }
+    if (n > 0) this.leashChanged();
+    return n;
   }
 
   /**
@@ -680,6 +813,26 @@ export class AnimalSystem {
     const def = this.defs.get(a.kind);
     const id = ANIMAL_ID_BASE + a.id;
     if (a.owner !== null && a.owner !== p.token) return 'PET_OTHER';
+    // 끈 (#297): 매인 동물을 빈손이나 끈으로 탭 → 풀고 끈은 가방으로. 끈을 들고 안 매인 동물을 탭 → 맨다
+    if (this.leashed(a) && (held === null || held === LEAD)) {
+      if (a.leashBy !== null && a.leashBy !== p.token) return 'LEASH_OTHER';
+      if (this.hooks.fits && !this.hooks.fits(p.idx, [{ item: LEAD, count: 1 }])) return 'BAG_FULL';
+      this.unleash(a);
+      this.hooks.reward(p.idx, [{ item: LEAD, count: 1 }], 0, { x: a.x, y: a.y + 1, z: a.z }, now);
+      this.hooks.tell?.(p.idx, 'LEASH_OFF', '🪢 끈을 풀었어요');
+      return null;
+    }
+    if (held === LEAD) {
+      if (!canLeash(a.kind) || a.ridden !== null) return 'NO_LEASH';
+      if (!this.hooks.consume(p.idx, LEAD)) return 'NO_LEASH';
+      a.leashBy = p.token;
+      a.sitting = false;
+      a.target = null;
+      a.dirty = true;
+      this.leashChanged();
+      this.hooks.tell?.(p.idx, 'LEASH_ON', `🪢 ${def.name} · 끈에 맸어요 — 따라와요. 울타리를 탭하면 거기 묶여요`);
+      return null;
+    }
     // 양털 깎기 (M8-1 3차): 가위를 들고 양을 탭 → 양털 1~3, 5분 뒤 다시
     if (held === SHEARS_ITEM && a.kind === 'sheep') {
       if (this.isBaby(a, now) || a.woolAt > now) return 'NO_WOOL';
@@ -871,6 +1024,7 @@ export class AnimalSystem {
     if (!isMountKind(a.kind)) return 'NOT_HORSE';
     if (a.owner !== p.token && a.kind !== 'boat' && a.kind !== 'minecart') return 'NOT_MINE';
     if (a.ridden !== null) return 'OCCUPIED';
+    if (this.leashed(a)) return 'LEASHED'; // 끈부터 풀어야 탄다 (#297)
     if (this.isBaby(a, now)) return 'BABY_MOUNT'; // 망아지·아기 돼지는 못 탄다 (#219)
     if (Math.hypot(a.x - p.x, a.y + mobSize(a.kind).h * 0.5 - p.eyeY, a.z - p.z) > HIT_REACH + 1) return 'TOO_FAR';
     a.ridden = p.idx;
@@ -959,7 +1113,7 @@ export class AnimalSystem {
   takeAlong(token: string, x: number, z: number, maxDist: number): { id: number; kind: number; kindName: MobKind; name: string | null }[] {
     const out: { id: number; kind: number; kindName: MobKind; name: string | null }[] = [];
     for (const a of this.animals.values()) {
-      if (a.owner !== token || a.sitting || a.away || isMountKind(a.kind)) continue; // 말·돼지는 원정에 안 따라간다 (#166·#185)
+      if (a.owner !== token || a.sitting || a.away || isMountKind(a.kind) || this.leashed(a)) continue; // 말·돼지는 원정에 안 따라간다 (#166·#185), 울타리에 묶인 펫도 (#297)
       if (Math.hypot(a.x - x, a.z - z) > maxDist) continue;
       a.away = true;
       a.target = null;
@@ -1007,7 +1161,7 @@ export class AnimalSystem {
     for (const a of this.animals.values()) {
       if (!a.dirty) continue;
       a.dirty = false;
-      this.store.updateAnimal({ id: a.id, kind: a.kind, x: a.x, y: a.y, z: a.z, bornAt: a.bornAt, adultAt: a.adultAt, owner: a.owner, sitting: a.sitting, free: a.free, homeX: a.homeX, homeZ: a.homeZ, woolAt: a.woolAt, eggs: a.eggs, lastEggAt: a.lastEggAt, name: a.name });
+      this.store.updateAnimal({ id: a.id, kind: a.kind, x: a.x, y: a.y, z: a.z, bornAt: a.bornAt, adultAt: a.adultAt, owner: a.owner, sitting: a.sitting, free: a.free, homeX: a.homeX, homeZ: a.homeZ, woolAt: a.woolAt, eggs: a.eggs, lastEggAt: a.lastEggAt, name: a.name , leashX: a.leashX ?? null, leashY: a.leashY ?? null, leashZ: a.leashZ ?? null });
     }
   }
 }

@@ -58,6 +58,8 @@ export interface InteractionEvents {
   onIgnite?(x: number, y: number, z: number): void;
   /** 모닥불 (#290): 라이터로 꺼진 모닥불 켜기 · 삽으로 불 끄기 */
   onLightCampfire?(x: number, y: number, z: number): void;
+  /** 끈 (#297): 동물을 끌고 있을 때 울타리를 탭 → 거기 묶는다 */
+  onTieLeash?(x: number, y: number, z: number): void;
   onDouseCampfire?(x: number, y: number, z: number): void;
   /** 상자를 탭했다 (#84) — 놓기 대신 연다 */
   onOpenChest?(x: number, y: number, z: number): void;
@@ -79,6 +81,8 @@ export const PLANT_GROUND = new Set(['grass', 'dirt', 'farmland']);
 
 export class Interaction {
   target: RayHit | null = null;
+  /** 끈으로 동물을 끌고 있나 (#297, Game 이 서버 목록으로 채운다): 이때 울타리를 탭하면 놓기 대신 묶기 */
+  leading = false;
   /** 0..1 부수기 진행 */
   progress = 0;
   /** 몹을 조준하고 있으면 true — 그 프레임엔 블록을 안 부순다 (M7-2) */
@@ -440,6 +444,12 @@ export class Interaction {
     const tdef = this.registry.get(t.id);
     if (tdef.door) {
       this.toggleDoor(t, tdef);
+      return;
+    }
+    // 끈 (#297): 동물을 끌고 있으면 울타리 탭 = 거기 묶기 (손에 뭘 들었든)
+    if (tdef.fence && this.leading) {
+      this.events.onTieLeash?.(t.x, t.y, t.z);
+      this.events.onSwing();
       return;
     }
     // 울타리문을 탭하면 놓는 대신 열고 닫는다 (빈손도 됨, #295)
