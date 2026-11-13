@@ -27,6 +27,7 @@ const registry = parseBlocks({
     { id: 'oak_fence', name: '울타리', hardness: 2, shape: 'fence', texture: 'stone' },
     { id: 'oak_fence_gate', name: '울타리문', hardness: 2, shape: 'fence_gate', texture: 'stone' },
     { id: 'oak_trapdoor', name: '다락문', hardness: 3, shape: 'trapdoor', texture: 'stone' },
+    { id: 'ladder', name: '사다리', hardness: 0.4, solid: false, transparent: true, shape: 'ladder', texture: 'stone' },
   ],
 });
 const texIndex = new Map([
@@ -801,5 +802,27 @@ describe('다락문 (#296)', () => {
   it('옆 블록의 면을 가리지 않는다 (판 아래 돌 윗면이 그대로 있다)', () => {
     const m = greedyMesh(padded((x, y, z) => (x === 5 && z === 5 ? (y === 5 ? TRAP : y === 4 ? registry.numOf('stone') : 0) : 0)), info).opaque!;
     expect(m.indexCount / 6).toBe(12);
+  });
+});
+
+describe('사다리 (#299)', () => {
+  const LADDER = registry.numOf('ladder');
+  it('붙은 벽 쪽 가장자리의 1/16 판 한 장 (면 6장)', () => {
+    const span = (num: number, axis: number) => {
+      const m = greedyMesh(padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? num : 0)), info).opaque!;
+      expect(m.indexCount / 6).toBe(6);
+      let lo = Infinity,
+        hi = -Infinity;
+      for (let v = 0; v < m.vertexCount; v++) {
+        lo = Math.min(lo, m.positions[v * 3 + axis]!);
+        hi = Math.max(hi, m.positions[v * 3 + axis]!);
+      }
+      return [lo, hi];
+    };
+    expect(span(LADDER, 2)).toEqual([5, 5 + 1 / 16]); // 북쪽 벽
+    expect(span(registry.ladderVariant(LADDER, 1), 0)).toEqual([5 + 15 / 16, 6]); // 동쪽 벽
+    expect(span(registry.ladderVariant(LADDER, 2), 2)).toEqual([5 + 15 / 16, 6]);
+    expect(span(registry.ladderVariant(LADDER, 3), 0)).toEqual([5, 5 + 1 / 16]);
+    expect(span(LADDER, 1)).toEqual([5, 6]);
   });
 });

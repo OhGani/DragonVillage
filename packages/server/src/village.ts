@@ -1993,7 +1993,12 @@ export class VillageRoom {
     p.pos.pitch = m.pitch;
     p.pos.flags = m.flags & 0xff;
     // 낙하 (M7-1): 공중 최고점 → 착지 때 피해. 물·드래곤은 안 아프다
-    const fall = trackFall(p.fallPeak, p.pos.y, (m.flags & FLAG_GROUND) !== 0, (m.flags & FLAG_WATER) !== 0, p.riding !== null || hasEffect(p.effects, 'slow_falling', now)); // 느린 낙하 물약 (#245)
+    // 사다리 (#299): 발이 사다리 칸에 있으면 물처럼 낙하를 잊는다 — 타고 내려와도 안 다친다
+    const fx = Math.floor(p.pos.x),
+      fy = Math.floor(p.pos.y + 0.05),
+      fz = Math.floor(p.pos.z);
+    const onLadder = w.inBounds(fx, fy, fz) && this.registry.get(w.getBlock(fx, fy, fz)).ladder !== null;
+    const fall = trackFall(p.fallPeak, p.pos.y, (m.flags & FLAG_GROUND) !== 0, (m.flags & FLAG_WATER) !== 0 || onLadder, p.riding !== null || hasEffect(p.effects, 'slow_falling', now)); // 느린 낙하 물약 (#245)
     p.fallPeak = fall.peak;
     if (fall.damage > 0 && p.hp > 0) this.hurt(p, fall.damage, 'fall', now);
     // 구슬 회수: 가까이 지나가면 내 것
@@ -3274,7 +3279,7 @@ export class VillageRoom {
       return hoeOf(TOOLS, heldForTill) ? null : REJECT.TOOL;
     }
     // 놓기: 액체는 플레이어가 놓는 고인 액체 8/8 만(자연 원천·흐름은 못 놓는다), 그 외 내부 블록 불가, 자리는 공기·액체만, 누가 서 있으면 안 됨
-    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch && !def.bed && !def.rail && !def.stairs && !def.slab && !def.gate && !def.trap) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82), 계단 변형도 (#291), 반 블록 변형도 (#292)
+    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch && !def.bed && !def.rail && !def.stairs && !def.slab && !def.gate && !def.trap && !def.ladder) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82), 계단 변형도 (#291), 반 블록 변형도 (#292)
     if (def.bed && def.bed.head) return REJECT.INVALID; // 침대는 발 쪽만 놓는다(머리 칸은 서버가 채운다, #188)
     if (def.door && (def.door.upper || def.door.open)) return REJECT.INVALID; // 문은 아래·닫힘 변형만 놓는다(윗칸은 서버가 채운다)
     if (def.gate && def.gate.open) return REJECT.INVALID; // 울타리문은 닫힌 것만 놓는다 (#295)
@@ -3294,6 +3299,12 @@ export class VillageRoom {
         const isWater = (wx: number, wy: number, wz: number) => world.inBounds(wx, wy, wz) && this.registry.get(world.getBlock(wx, wy, wz)).fluid === 'water';
         if (!canPlantUpward(def.id, idOf, isWater, x, y, z)) return REJECT.NO_FARMLAND;
       } else if (def.plantOn ? below !== def.plantOn : below !== 'grass' && below !== 'dirt' && below !== 'farmland') return REJECT.NO_FARMLAND;
+    }
+    if (def.ladder) {
+      // 사다리 (#299): 붙을 벽(단단한 블록)이 그 방향에 있어야 한다
+      const [wx, wz] = DOOR_DIR[def.ladder.facing]!;
+      const wall = world.inBounds(x + wx, y, z + wz) ? this.registry.get(world.getBlock(x + wx, y, z + wz)) : null;
+      if (!wall || !wall.solid) return REJECT.INVALID;
     }
     if (def.rail) {
       // 철도 (#237): 고체 블록 위에만

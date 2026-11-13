@@ -190,6 +190,17 @@ export interface BlockDef {
   readonly gate: GateInfo | null;
   /** 다락문 (#296): 방향·위아래·열림. 다락문이 아니면 null */
   readonly trap: TrapInfo | null;
+  /** 사다리 (#299): 붙은 벽의 방향. 사다리가 아니면 null */
+  readonly ladder: LadderInfo | null;
+}
+
+/**
+ * 사다리 (#299, 아빠 2026-11-13). facing = 붙은 벽이 있는 방향(DOOR_FACING 번호). JSON 의 사다리 = 북쪽 벽에 붙은 것, 나머지 셋은 코드가 만든다.
+ * 지나갈 수 있는 얇은 판(solid false) — 그 칸에서 벽 쪽으로 밀면 타고 오른다 (클라 Player)
+ */
+export interface LadderInfo {
+  readonly base: number;
+  readonly facing: number;
 }
 
 /**
@@ -355,6 +366,8 @@ export class BlockRegistry {
   private readonly gates = new Map<number, number[]>();
   /** 다락문 변형 (#296): 다락문 번호 → [facing * 4 + 위 2 + 열림] 번호 */
   private readonly traps = new Map<number, number[]>();
+  /** 사다리 변형 (#299): 사다리 번호 → [facing] 번호 */
+  private readonly ladders = new Map<number, number[]>();
 
   constructor(readonly defs: readonly BlockDef[]) {
     for (const d of defs) {
@@ -378,6 +391,11 @@ export class BlockRegistry {
         let sArr = this.stairs.get(d.stairs.base);
         if (!sArr) this.stairs.set(d.stairs.base, (sArr = []));
         sArr[d.stairs.facing + (d.stairs.top ? 4 : 0)] = d.num;
+      }
+      if (d.ladder) {
+        let dArr = this.ladders.get(d.ladder.base);
+        if (!dArr) this.ladders.set(d.ladder.base, (dArr = []));
+        dArr[d.ladder.facing] = d.num;
       }
       if (d.trap) {
         let tArr = this.traps.get(d.trap.base);
@@ -474,6 +492,11 @@ export class BlockRegistry {
   /** 계단 변형 (#291): 계단 번호(JSON 것) + 높은 쪽 방향 + 뒤집힘 → 블록 번호 */
   stairVariant(base: number, facing: number, top: boolean): number {
     return this.stairs.get(base)?.[(facing & 3) + (top ? 4 : 0)] ?? base;
+  }
+
+  /** 사다리 변형 (#299): 사다리 번호(JSON 것) + 붙은 벽의 방향 → 블록 번호 */
+  ladderVariant(base: number, facing: number): number {
+    return this.ladders.get(base)?.[facing & 3] ?? base;
   }
 
   /** 다락문 변형 (#296): 다락문 번호(JSON 것) + 방향 + 위(천장 쪽) + 열림 → 블록 번호 */
@@ -666,6 +689,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       fence: false,
       gate: null,
       trap: null,
+      ladder: null,
     };
   });
 
@@ -888,6 +912,13 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
             trap: { base: src.num, facing, top, open },
           });
         }
+  }
+
+  // 사다리(shape 'ladder', #299): JSON 의 것 = 북쪽 벽에 붙은 것. 코드가 동·남·서 셋을 만든다. 언제나 지나갈 수 있다
+  for (const src of [...defs]) {
+    if (src.shape !== 'ladder' || !src.textures) continue;
+    Object.assign(src, { solid: false, transparent: true, lightFilter: 0, ladder: { base: src.num, facing: 0 } });
+    for (let facing = 1; facing < 4; facing++) defs.push({ ...src, num: defs.length, id: `${src.id}@${DOOR_FACING[facing]}`, internal: true, drops: src.drops ?? src.id, ladder: { base: src.num, facing } });
   }
 
   if (defs.length > 65535) problems.push(`블록이 너무 많아요 (최대 65535개)`);

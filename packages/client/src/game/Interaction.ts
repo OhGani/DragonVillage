@@ -530,6 +530,21 @@ export class Interaction {
       }
       return;
     }
+    // 사다리 (#299): 단단한 블록의 옆면에만 붙인다 (내가 선 칸에도 놓을 수 있다 — 타고 오르며 위로 이어 붙인다)
+    if (def.ladder) {
+      if (t.ny !== 0 || !this.registry.get(t.id).solid) {
+        this.events.onHint?.('🪜 사다리는 블록 옆면에 붙여요');
+        return;
+      }
+      const num = this.registry.ladderVariant(def.ladder.base, facingOf(-t.nx, -t.nz));
+      const r = this.world.setBlock(x, y, z, num);
+      if (r.changed) {
+        this.events.onBlocksChanged(r.dirty);
+        this.events.onPlaced?.(x, y, z, num, cur);
+        this.events.onSwing();
+      }
+      return;
+    }
     if (def.solid && bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y, z)) return; // 내 몸 안에는 못 놓는다
     // 씨앗 (#199): 농지에 물이 4칸 안에 없으면 심기는 되지만 안 자란다 — 미리 알려 준다
     if (def.seed && !def.plantOn) {

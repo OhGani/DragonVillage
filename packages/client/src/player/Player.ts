@@ -22,7 +22,7 @@ import {
   RIDE_SEAT_Y,
   tryStepUp,
   type Vec3,
-  type VoxelWorld, CART_SEAT_Y, advanceCart, type CartState, pushOutOf, type SepBody, FINE_RES, fineSolidQuery, type SolidQuery } from '@dragon-village/shared';
+  type VoxelWorld, CART_SEAT_Y, advanceCart, type CartState, pushOutOf, type SepBody, FINE_RES, fineSolidQuery, type SolidQuery, LADDER_DOWN, LADDER_UP } from '@dragon-village/shared';
 import type * as THREE from 'three';
 import type { InputState } from '../input/InputState';
 
@@ -100,6 +100,8 @@ export class Player {
   horseJump = 1.15;
   sprinting = false;
   inWater = false;
+  /** 사다리에 붙어 있다 (#299) */
+  onLadder = false;
   /** 드래곤을 타고 있다 (M6-4): 중력 없음, 점프 = 상승, 웅크리기 = 하강. 충돌은 사람 몸 그대로 */
   riding = false;
   /** 수레 (#237): 타는 동안 철도 위 위치·방향·속도. 탈 때 Game 이 null 로 되돌린다 */
@@ -152,6 +154,17 @@ export class Player {
   private readonly isSolid = (x: number, y: number, z: number): boolean => this.registry.isSolid(this.world.getBlock(x, y, z));
   /** 반 칸 눈금 충돌 (#291): 계단의 반 칸 턱까지 본다. moveBody·tryStepUp·hasGroundBelow 에 FINE_RES 와 같이 넘긴다 */
   private readonly fineSolid: SolidQuery;
+
+  /**
+   * 사다리에 붙어 있나 (#299): 발 칸이나 허리 칸이 사다리. 타고 있을 때(말·드래곤)는 아니다
+   */
+  private ladderAt(pos: Vec3): boolean {
+    if (this.riding) return false;
+    const x = Math.floor(pos.x),
+      z = Math.floor(pos.z);
+    for (const y of [Math.floor(pos.y + 0.05), Math.floor(pos.y + 0.9)]) if (this.registry.get(this.world.getBlock(x, y, z)).ladder) return true;
+    return false;
+  }
 
   /** 물·용암 등 액체 안인지 */
   private isWaterAt(x: number, y: number, z: number): boolean {
@@ -353,6 +366,7 @@ export class Player {
     vel.z += (wz * speed * flat - vel.z) * k;
 
     // 수직
+    this.onLadder = !flying && this.mountKind === null && !this.inWater && this.ladderAt(pos);
     if (flying) {
       // 날기: 시선 위아래 × 앞으로 밀기 + ▲ 위로 / ▼ 아래로. 아무것도 없으면 멈춤 (중력 없음)
       const look = pitchT * Math.sign(input.moveZ) * RIDE_SPEED * 0.8;
@@ -375,6 +389,11 @@ export class Player {
         vel.y -= GRAVITY * h;
         if (vel.y < -TERMINAL) vel.y = -TERMINAL;
       }
+    } else if (this.onLadder) {
+      // 사다리 (#299, 마인크래프트처럼): 벽 쪽으로 밀거나 점프를 누르면 오르고, 웅크리면 매달려 있고, 가만히 있으면 천천히 내려온다 — 떨어져 다치지 않는다
+      const pushingWall = (this.moveOut.hitX || this.moveOut.hitZ) && (input.moveX !== 0 || input.moveZ !== 0);
+      const target = input.jump || pushingWall ? LADDER_UP : this.sneaking ? 0 : -LADDER_DOWN;
+      vel.y += (target - vel.y) * Math.min(1, 14 * h);
     } else if (this.inWater) {
       // 얕은 물(발 위 한 칸이 물이 아님)에서 바닥을 딛고 있으면 진짜 점프 — 밭 물길에서 뛰어나올 수 있다
       if (input.jump && this.onGround && !this.isWaterAt(pos.x, pos.y + 1.0, pos.z)) {

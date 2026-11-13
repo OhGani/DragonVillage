@@ -374,7 +374,7 @@ export function itemIcon(id: string, size: number, registry: BlockRegistry, atla
   if (hit) return cloneCanvas(hit);
   const def = registry.find(id);
   let canvas: HTMLCanvasElement;
-  const sprite = def && def.textures ? (def.shape === 'cross' || def.shape === 'rail' ? atlas.images.get(def.textures[0]) : def.shape === 'bed' || def.shape === 'sign' || def.shape === 'torch' || def.shape === 'campfire' ? atlas.images.get(id) : undefined) : undefined;
+  const sprite = def && def.textures ? (def.shape === 'cross' || def.shape === 'rail' ? atlas.images.get(def.textures[0]) : def.shape === 'ladder' ? atlas.images.get(def.textures[0]) : def.shape === 'bed' || def.shape === 'sign' || def.shape === 'torch' || def.shape === 'campfire' ? atlas.images.get(id) : undefined) : undefined; // 사다리(#299)는 그림 그대로
   if (sprite) {
     canvas = renderSpriteIcon(sprite, size); // 꽃·풀 (#180)·침대 (#188)·표지판 (#197)·횃불(아들 입체 그림 2026-10-19): 정육면체가 아니라 그림 그대로
   } else if (def && def.textures && def.shape === 'door' && atlas.images.get(def.textures[0]) && atlas.images.get(def.textures[2])) {

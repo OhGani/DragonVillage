@@ -203,4 +203,33 @@ describe('계단 (#291, 아빠 2026-11-13)', () => {
     put(65, 'air');
     expect(countOf(p.inv, 'oak_trapdoor')).toBe(1);
   });
+
+  it('사다리 (#299): 붙을 벽이 있어야 놓인다. 사다리를 타고 내려오면 낙하 피해가 없다', () => {
+    const room = new VillageRoom({ ...INFO }, BLOCKS, new Storage(':memory:'), () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const ra = room.join('a'.repeat(32), '아빠', 0, () => {})!;
+    const p = room.players.get(ra.idx)!;
+    const w = room.world;
+    const G = GROUND_Y + 1;
+    room.onMove(ra.idx, { x: 64.5, y: G, z: 62.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, 1000);
+    give(p.inv, 'ladder', 2);
+    const idAt = (x: number, z: number) => BLOCKS.get(w.getBlock(x, G, z)).id;
+    // 벽이 없는 쪽으로는 못 붙인다
+    room.onBlockChange(ra.idx, { seq: 1, x: 64, y: G, z: 60, id: 'ladder' }, 1400);
+    expect(idAt(64, 60)).toBe('air');
+    w.setBlock(64, G, 59, BLOCKS.numOf('stone'));
+    room.onBlockChange(ra.idx, { seq: 2, x: 64, y: G, z: 60, id: 'ladder' }, 1800); // 북쪽(z 59)이 벽
+    room.onBlockChange(ra.idx, { seq: 3, x: 64, y: G, z: 61, id: 'ladder@e' }, 2200); // 동쪽엔 벽이 없다
+    expect([idAt(64, 60), idAt(64, 61)]).toEqual(['ladder', 'air']);
+    expect(countOf(p.inv, 'ladder')).toBe(1);
+    // 높은 데서 떨어져 사다리 칸에 닿으면 안 다친다, 맨땅이면 다친다
+    const fall = (x: number, z: number, t: number) => {
+      p.hp = 20;
+      room.onMove(ra.idx, { x, y: G + 12, z, yaw: 0, pitch: 0, flags: 0 }, t);
+      room.onMove(ra.idx, { x, y: G + 0.02, z, yaw: 0, pitch: 0, flags: 0 }, t + 100);
+      room.onMove(ra.idx, { x, y: G, z, yaw: 0, pitch: 0, flags: FLAG_GROUND }, t + 200);
+      return p.hp;
+    };
+    expect(fall(64.5, 60.5, 5000)).toBe(20);
+    expect(fall(66.5, 62.5, 9000)).toBeLessThan(20);
+  });
 });

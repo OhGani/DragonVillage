@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { type MoveResult, moveBody, tryStepUp } from '../physics/aabb';
 import { BLOCKS, RECIPES } from './data';
-import { FENCE_E, FENCE_HEIGHT, FENCE_ICON_BOXES, FENCE_N, FENCE_W, fenceBoxes, fenceFoot, fenceLinks, fenceLinksAt, fenceNeighborOf, gateBoxes, gateFoot, trapBoxes, trapFoot, trapSlice } from './fence';
+import { FENCE_E, FENCE_HEIGHT, FENCE_ICON_BOXES, FENCE_N, FENCE_W, fenceBoxes, fenceFoot, fenceLinks, fenceLinksAt, fenceNeighborOf, gateBoxes, gateFoot, ladderBoxes, trapBoxes, trapFoot, trapSlice } from './fence';
 import { itemForPlacing } from './items';
 import { FINE_RES, fineSolidQuery, raycastFine, standTop } from './stairs';
 
@@ -244,5 +244,51 @@ describe('다락문 (#296, 아빠 2026-11-13)', () => {
     const open = raycastFine(BLOCKS, (x, y, z) => (x === 5 && y === 1 && z === 5 ? v(0, false, true) : 0), any, 5.5, 1.5, 8.5, 0, 0, -1, 8)!;
     expect(open).toMatchObject({ x: 5, y: 1, z: 5, nz: 1 });
     expect(open.distance).toBeCloseTo(3.25, 5); // 판의 남쪽 면 z 5.25
+  });
+});
+
+describe('사다리 (#299, 아빠 2026-11-13)', () => {
+  const LADDER = BLOCKS.numOf('ladder');
+
+  it('벽 방향 넷, 언제나 지나갈 수 있다. 막대기 7 → 사다리 3', () => {
+    const base = BLOCKS.get(LADDER);
+    expect(base.ladder).toEqual({ base: LADDER, facing: 0 });
+    expect([base.solid, base.transparent, base.lightFilter]).toEqual([false, true, 0]);
+    const seen = new Set<number>();
+    for (let facing = 0; facing < 4; facing++) {
+      const d = BLOCKS.get(BLOCKS.ladderVariant(LADDER, facing));
+      expect(d.ladder).toEqual({ base: LADDER, facing });
+      expect(d.solid).toBe(false);
+      expect(d.drops).toBe('ladder');
+      expect(itemForPlacing(d.id, BLOCKS)).toBe('ladder');
+      seen.add(d.num);
+    }
+    expect(seen.size).toBe(4);
+    expect(BLOCKS.find('ladder@w')?.ladder?.facing).toBe(3);
+    expect(RECIPES.require('ladder')).toMatchObject({ in: { stick: 7 }, out: { ladder: 3 } });
+  });
+
+  it('모양은 벽 쪽 가장자리의 1/16 판', () => {
+    expect(ladderBoxes(0)).toEqual([[0, 0, 0, 16, 16, 1]]);
+    expect(ladderBoxes(1)).toEqual([[15, 0, 0, 16, 16, 16]]);
+    expect(ladderBoxes(2)).toEqual([[0, 0, 15, 16, 16, 16]]);
+    expect(ladderBoxes(3)).toEqual([[0, 0, 0, 1, 16, 16]]);
+  });
+
+  it('부딪히지 않고 지나간다. 조준은 벽 쪽 한 겹에 맞고, 옆에서 쏘면 그 뒤로 지나간다', () => {
+    // 북쪽 벽(z 4, 돌)에 붙은 사다리 (z 5)
+    const world = (x: number, y: number, z: number) => (y <= 0 ? STONE : y === 1 && z === 4 ? STONE : x === 5 && y === 1 && z === 5 ? LADDER : x === 9 && y === 1 && z === 5 ? STONE : 0);
+    const solid = fineSolidQuery(BLOCKS, world);
+    const p = { x: 5.5, y: 1, z: 8.5 };
+    const out = fresh();
+    moveBody(solid, p, PLAYER, { x: 0, y: 0, z: -10 }, 1, out, FINE_RES);
+    expect(p.z).toBeCloseTo(5 + 0.3, 3); // 사다리 칸을 지나 벽 앞까지
+    const any = (id: number) => id !== 0;
+    const front = raycastFine(BLOCKS, world, any, 5.5, 1.5, 8.5, 0, 0, -1, 8)!;
+    expect(front).toMatchObject({ x: 5, y: 1, z: 5, nz: 1 });
+    expect(front.distance).toBeCloseTo(3.25, 5); // 벽에서 ¼칸 앞
+    // 사다리 칸의 남쪽 반을 동쪽으로 가로지르는 줄은 사다리에 안 걸리고 뒤의 돌에
+    const across = raycastFine(BLOCKS, world, any, 2.5, 1.5, 5.7, 1, 0, 0, 10)!;
+    expect(across).toMatchObject({ x: 9, y: 1, z: 5 });
   });
 });

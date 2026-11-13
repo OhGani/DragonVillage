@@ -104,6 +104,14 @@ export function gateBoxes(facing: number, open: boolean): Box16[] {
   return alongX ? boxes : boxes.map(([x0, y0, z0, x1, y1, z1]) => [z0, y0, x0, z1, y1, x1] as const);
 }
 
+/** 사다리의 보이는 모양 (#299): 붙은 벽(facing) 쪽 가장자리의 1/16 두께 판 — 그림의 빈 곳은 뚫려 보인다 */
+export function ladderBoxes(facing: number): Box16[] {
+  return [facing === 0 ? [0, 0, 0, 16, 16, 1] : facing === 1 ? [15, 0, 0, 16, 16, 16] : facing === 2 ? [0, 0, 15, 16, 16, 16] : [0, 0, 0, 1, 16, 16]];
+}
+/** 사다리를 타고 오르는·내려오는 속도 (칸/초). 마인크래프트는 2.35 / 3 */
+export const LADDER_UP = 2.6;
+export const LADDER_DOWN = 3;
+
 /** 다락문 판 두께 (#296, 마인크래프트 3/16) */
 export const TRAP_THICK = 3;
 

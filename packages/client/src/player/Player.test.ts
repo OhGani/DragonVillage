@@ -118,3 +118,51 @@ describe('드래곤 타고 날 때 턱 넘기 (아빠 2026-11-05 "턱에 걸려�
     expect(p.pos.z).toBeLessThan(38);
   });
 });
+
+describe('사다리 (#299)', () => {
+  /** 바닥 y<8. z<30 은 y<14 까지 벽(여섯 칸 높이). 벽 남쪽 면(z 30, x 32)에 y 8~13 사다리(블록 2, 북쪽 벽에 붙음) */
+  function ladderWorld() {
+    const world = { sizeX: 64, sizeY: 32, sizeZ: 64, getBlock: (x: number, y: number, z: number) => (y < 8 || (z < 30 && y < 14) ? 1 : x === 32 && z === 30 && y >= 8 && y < 14 ? 2 : 0) };
+    const registry = { isSolid: (id: number) => id === 1, get: (id: number) => ({ fluid: null, ladder: id === 2 ? { base: 2, facing: 0 } : null }) };
+    return { world, registry };
+  }
+  const forward = { ...IDLE, moveZ: 1 };
+
+  it('사다리 칸에서 벽 쪽으로 밀면 타고 올라가 벽 위에 선다', () => {
+    const { world, registry } = ladderWorld();
+    const p = new Player(world as never, registry as never, { x: 32.5, y: 8, z: 32.5 });
+    let maxVy = 0;
+    for (let i = 0; i < 240; i++) {
+      p.update(forward, 1 / 60);
+      maxVy = Math.max(maxVy, p.vel.y);
+    }
+    expect(p.pos.y).toBeCloseTo(14, 1); // 벽 꼭대기
+    expect(p.pos.z).toBeLessThan(30); // 벽 위로 넘어갔다
+    expect(p.onGround).toBe(true);
+    expect(maxVy).toBeLessThan(3); // 뛰어오른 게 아니라 타고 올랐다
+  });
+
+  it('가만히 있으면 천천히 내려오고(떨어지는 속도 3칸/초 이하), 웅크리면 매달려 있다. 점프를 누르면 오른다', () => {
+    const { world, registry } = ladderWorld();
+    const p = new Player(world as never, registry as never, { x: 32.5, y: 12, z: 30.4 });
+    let minVy = 0;
+    for (let i = 0; i < 30; i++) {
+      p.update(IDLE, 1 / 60);
+      minVy = Math.min(minVy, p.vel.y);
+    }
+    expect(p.onLadder).toBe(true);
+    expect(minVy).toBeGreaterThanOrEqual(-3.01);
+    expect(p.pos.y).toBeLessThan(12);
+    const held = p.pos.y;
+    for (let i = 0; i < 60; i++) p.update({ ...IDLE, sneak: true }, 1 / 60);
+    expect(Math.abs(p.pos.y - held)).toBeLessThan(0.25); // 멈추는 동안 조금 미끄러질 뿐
+    const y1 = p.pos.y;
+    for (let i = 0; i < 30; i++) p.update({ ...IDLE, jump: true }, 1 / 60);
+    expect(p.pos.y).toBeGreaterThan(y1 + 0.8);
+    // 사다리가 없는 곳에서는 그냥 떨어진다
+    const q = new Player(world as never, registry as never, { x: 40.5, y: 12, z: 30.4 });
+    for (let i = 0; i < 15; i++) q.update(IDLE, 1 / 60); // 0.25초 — 아직 공중
+    expect(q.onLadder).toBe(false);
+    expect(q.vel.y).toBeLessThan(-6);
+  });
+});

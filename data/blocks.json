@@ -1318,6 +1318,18 @@
       "shape": "trapdoor"
     },
     {
+      "id": "ladder",
+      "name": "사다리",
+      "solid": false,
+      "transparent": true,
+      "hardness": 0.4,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "ladder",
+      "shape": "ladder",
+      "_note": "사다리 (#299): 단단한 블록의 옆면에 붙여요. 사다리 칸에서 벽 쪽으로 밀거나 점프를 누르면 올라가고, 가만히 있으면 천천히 내려와요(떨어져도 안 다쳐요). 웅크리면 매달려 있어요"
+    },
+    {
       "id": "oak_fence",
       "name": "참나무 울타리",
       "hardness": 2.0,

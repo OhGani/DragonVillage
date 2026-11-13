@@ -93,6 +93,7 @@ import {
   fenceLinksAt,
   gateBoxes,
   trapBoxes,
+  ladderBoxes,
   CRYSTAL_SHOT_RANGE,
   countOf, parseEnchanted, countBookshelves, CART_SEAT_Y, CURE_ITEM, MOB_STATE, type SepBody, FISHING_ROD } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP, TRADES, ENCHANTS, FISHING } from '@dragon-village/shared/data';
@@ -2160,6 +2161,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
           const links = fenceLinksAt(registry, (bx, by, bz) => (w.inBounds(bx, by, bz) ? w.getBlock(bx, by, bz) : AIR_ID), ht.x, ht.y, ht.z);
           box = { key: `f${links}`, boxes: fenceBoxes(links) };
         } else if (hd.gate) box = { key: `g${hd.gate.facing}${hd.gate.open ? 'o' : 'c'}`, boxes: gateBoxes(hd.gate.facing, hd.gate.open) };
+        else if (hd.ladder) box = { key: `l${hd.ladder.facing}`, boxes: ladderBoxes(hd.ladder.facing) }; // 사다리 (#299)
         else if (hd.trap) box = { key: `t${hd.trap.facing}${hd.trap.top ? 't' : 'b'}${hd.trap.open ? 'o' : 'c'}`, boxes: trapBoxes(hd.trap.facing, hd.trap.top, hd.trap.open) }; // 다락문 (#296)
         highlight.setTarget(ht.x, ht.y, ht.z, partMask(hd, (sx, sy, sz) => (w.inBounds(sx, sy, sz) ? registry.get(w.getBlock(sx, sy, sz)).stairs : null), ht.x, ht.y, ht.z), box);
       }

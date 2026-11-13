@@ -9,7 +9,7 @@
  *
  * 면 번호: 0 +X, 1 -X, 2 +Y, 3 -Y, 4 +Z, 5 -Z
  */
-import { type Box16, CHUNK_SIZE, DOOR_DIR, type FenceNeighbor, OUTSIDE_LIGHT, fenceBoxes, fenceLinkBits, gateBoxes, paddedIndex, stairMask, stairShape, trapBoxes } from '@dragon-village/shared';
+import { type Box16, CHUNK_SIZE, DOOR_DIR, type FenceNeighbor, OUTSIDE_LIGHT, fenceBoxes, fenceLinkBits, gateBoxes, paddedIndex, ladderBoxes, stairMask, stairShape, trapBoxes } from '@dragon-village/shared';
 import { LAYER_NONE, LAYER_TRANSLUCENT, type MeshBlockInfo, type MeshBuffers, type MeshResult } from './meshTypes';
 
 const N = CHUNK_SIZE;
@@ -111,6 +111,11 @@ const GATE_SHAPES: readonly (readonly Box16[])[] = Array.from({ length: 8 }, (_,
 
 /** 다락문 판 (#296): [facing * 4 + 위 2 + 열림] 16가지 */
 const TRAP_SHAPES: readonly (readonly Box16[])[] = Array.from({ length: 16 }, (_, i) => trapBoxes(i >> 2, (i & 2) !== 0, (i & 1) === 1));
+
+/** 사다리 판 (#299): 붙은 벽 방향 넷 */
+const LADDER_SHAPES: readonly (readonly Box16[])[] = Array.from({ length: 4 }, (_, f) => ladderBoxes(f));
+/** 상자 모양으로 그리는 블록인가 (울타리·울타리문·다락문·사다리) */
+const boxy = (bi: MeshBlockInfo): boolean => bi.fence === true || !!bi.gate || (bi.trap !== null && bi.trap !== undefined) || (bi.ladder !== null && bi.ladder !== undefined);
 
 class GeomBuilder {
   positions: Float32Array;
@@ -716,8 +721,8 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
       for (let z = 0; z < N; z++)
         for (let x = 0; x < N; x++) {
           const bi = info[padded[paddedIndex(x, y, z)]];
-          if (bi === undefined || (!bi.fence && !bi.gate && (bi.trap === null || bi.trap === undefined))) continue;
-          const boxes = bi.trap !== null && bi.trap !== undefined ? TRAP_SHAPES[bi.trap]! : bi.gate ? GATE_SHAPES[bi.gate[0] * 2 + bi.gate[1]]! : FENCE_SHAPES[fenceLinkBits((dx, dz) => neighbor(x + dx, y, z + dz))]!;
+          if (bi === undefined || !boxy(bi)) continue;
+          const boxes = bi.ladder !== null && bi.ladder !== undefined ? LADDER_SHAPES[bi.ladder]! : bi.trap !== null && bi.trap !== undefined ? TRAP_SHAPES[bi.trap]! : bi.gate ? GATE_SHAPES[bi.gate[0] * 2 + bi.gate[1]]! : FENCE_SHAPES[fenceLinkBits((dx, dz) => neighbor(x + dx, y, z + dz))]!;
           const lt = lightOfCell(x, y, z);
           for (const b of boxes) {
             mn[0] = x + b[0] / 16;
@@ -870,7 +875,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
             kb = 0,
             kfl = 0,
             kbl = 0;
-          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg && !bi.cross && bi.bed === null && !bi.sign && !bi.table && !bi.campfire && bi.rail === null && !bi.stairs && !bi.slab && !bi.fence && !bi.gate && (bi.trap === null || bi.trap === undefined)) {
+          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg && !bi.cross && bi.bed === null && !bi.sign && !bi.table && !bi.campfire && bi.rail === null && !bi.stairs && !bi.slab && !boxy(bi)) {
             p[d] = i + 1;
             const idF = padded[paddedIndex(p[0], p[1], p[2])];
             p[d] = i;

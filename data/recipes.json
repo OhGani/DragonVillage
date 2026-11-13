@@ -2783,6 +2783,26 @@
       "_note": "끈 (#297): 실 4 + 슬라임 볼 1 → 끈 2 (마인크래프트와 같음). 끈을 들고 동물을 탭하면 따라오고, 울타리를 탭하면 거기 묶여요. 실은 거미, 슬라임 볼은 늪의 슬라임"
     },
     {
+      "id": "ladder",
+      "name": "사다리",
+      "station": "crafting_table",
+      "pattern": [
+        "s s",
+        "sss",
+        "s s"
+      ],
+      "key": {
+        "s": "stick"
+      },
+      "in": {
+        "stick": 7
+      },
+      "out": {
+        "ladder": 3
+      },
+      "_note": "사다리 (#299): 막대기 7 → 사다리 3 (마인크래프트와 같음)"
+    },
+    {
       "id": "sign",
       "name": "표지판",
       "station": "crafting_table",
