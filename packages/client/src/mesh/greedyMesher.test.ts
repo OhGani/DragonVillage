@@ -24,6 +24,9 @@ const registry = parseBlocks({
     { id: 'campfire_off', name: '꺼진 모닥불', hardness: 2, transparent: true, shape: 'campfire', texture: 'campfire_log' },
     { id: 'oak_stairs', name: '계단', hardness: 2, shape: 'stairs', texture: 'stone' },
     { id: 'oak_slab', name: '반 블록', hardness: 2, shape: 'slab', texture: 'stone' },
+    { id: 'oak_fence', name: '울타리', hardness: 2, shape: 'fence', texture: 'stone' },
+    { id: 'oak_fence_gate', name: '울타리문', hardness: 2, shape: 'fence_gate', texture: 'stone' },
+    { id: 'oak_trapdoor', name: '다락문', hardness: 3, shape: 'trapdoor', texture: 'stone' },
   ],
 });
 const texIndex = new Map([
@@ -730,5 +733,73 @@ describe('반 블록 (#292)', () => {
     const STONE = registry.numOf('stone');
     const pair = greedyMesh(padded((x, y, z) => (y === 5 && z === 5 && (x === 5 || x === 6) ? (x === 5 ? DOUBLE : STONE) : 0)), info).opaque!;
     expect(pair.indexCount / 6).toBe(10); // 맞닿은 두 면이 없다
+  });
+});
+
+describe('울타리·울타리문 (#295)', () => {
+  const FENCE = registry.numOf('oak_fence');
+  const GATE = registry.numOf('oak_fence_gate');
+  const STONE = registry.numOf('stone');
+  const mesh = (cells: Record<string, number>) => greedyMesh(padded((x, y, z) => cells[`${x},${y},${z}`] ?? 0), info).opaque!;
+  const span = (m: MeshBuffers, axis: number) => {
+    let lo = Infinity,
+      hi = -Infinity;
+    for (let v = 0; v < m.vertexCount; v++) {
+      lo = Math.min(lo, m.positions[v * 3 + axis]!);
+      hi = Math.max(hi, m.positions[v * 3 + axis]!);
+    }
+    return [lo, hi];
+  };
+  it('혼자 선 울타리는 기둥 하나 (면 6장, 4/16 굵기)', () => {
+    const m = mesh({ '5,5,5': FENCE });
+    expect(m.indexCount / 6).toBe(6);
+    expect(span(m, 0)).toEqual([5 + 6 / 16, 5 + 10 / 16]);
+    expect(span(m, 1)).toEqual([5, 6]);
+  });
+  it('옆에 울타리가 있으면 서로 가로대 둘씩 뻗어 이어지고, 꽉 찬 블록 쪽으로도 뻗는다. 유리 쪽으로는 안 뻗는다', () => {
+    const pair = mesh({ '5,5,5': FENCE, '6,5,5': FENCE });
+    expect(pair.indexCount / 6).toBe(2 * (6 + 2 * 6));
+    expect(span(pair, 0)).toEqual([5 + 6 / 16, 6 + 10 / 16]);
+    const wall = mesh({ '5,5,5': FENCE, '5,5,4': STONE });
+    expect(wall.indexCount / 6).toBe(6 + 2 * 6 + 6); // 기둥 + 가로대 둘 + 돌 여섯 면
+    const glass = mesh({ '5,5,5': FENCE, '5,5,4': registry.numOf('glass') });
+    expect(glass.indexCount / 6).toBe(6 + 6);
+  });
+  it('울타리문: 닫히면 다섯 조각, 열리면 여덟. 나란히 걸린 문 쪽으로 울타리 가로대가 뻗는다', () => {
+    expect(mesh({ '5,5,5': GATE }).indexCount / 6).toBe(30);
+    const open = mesh({ '5,5,5': registry.gateVariant(GATE, 0, true) });
+    expect(open.indexCount / 6).toBe(48);
+    expect(span(open, 2)[0]).toBe(5 + 1 / 16); // 북쪽으로 젖혀졌다
+    // 북쪽을 보고 놓은 문(동서로 걸림)의 동쪽 울타리는 이어지고, 남쪽 울타리는 안 이어진다
+    expect(mesh({ '5,5,5': GATE, '6,5,5': FENCE }).indexCount / 6).toBe(30 + 6 + 12);
+    expect(mesh({ '5,5,5': GATE, '5,5,6': FENCE }).indexCount / 6).toBe(30 + 6);
+  });
+});
+
+describe('다락문 (#296)', () => {
+  const TRAP = registry.numOf('oak_trapdoor');
+  const one = (num: number) => greedyMesh(padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? num : 0)), info).opaque!;
+  const span = (m: MeshBuffers, axis: number) => {
+    let lo = Infinity,
+      hi = -Infinity;
+    for (let v = 0; v < m.vertexCount; v++) {
+      lo = Math.min(lo, m.positions[v * 3 + axis]!);
+      hi = Math.max(hi, m.positions[v * 3 + axis]!);
+    }
+    return [lo, hi];
+  };
+  it('얇은 판 한 장 (면 6장): 닫히면 바닥 3/16, 천장 쪽이면 위 3/16, 열리면 보던 쪽 가장자리에 선다', () => {
+    const closed = one(TRAP);
+    expect(closed.indexCount / 6).toBe(6);
+    expect(span(closed, 1)).toEqual([5, 5 + 3 / 16]);
+    expect(span(one(registry.trapVariant(TRAP, 0, true, false)), 1)).toEqual([5 + 13 / 16, 6]);
+    const north = one(registry.trapVariant(TRAP, 0, false, true));
+    expect(span(north, 1)).toEqual([5, 6]);
+    expect(span(north, 2)).toEqual([5, 5 + 3 / 16]);
+    expect(span(one(registry.trapVariant(TRAP, 1, false, true)), 0)).toEqual([5 + 13 / 16, 6]);
+  });
+  it('옆 블록의 면을 가리지 않는다 (판 아래 돌 윗면이 그대로 있다)', () => {
+    const m = greedyMesh(padded((x, y, z) => (x === 5 && z === 5 ? (y === 5 ? TRAP : y === 4 ? registry.numOf('stone') : 0) : 0)), info).opaque!;
+    expect(m.indexCount / 6).toBe(12);
   });
 });

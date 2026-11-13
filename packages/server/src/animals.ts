@@ -41,6 +41,7 @@ import {
   type MobRegistry,
   mobSize,
   separationPushes,
+  standTop,
   type SepBody,
   PET_FOLLOW_STOP,
   PET_TELEPORT_RANGE,
@@ -209,7 +210,8 @@ export class AnimalSystem {
       if (!here.solid || here.fluid) continue;
       const a1 = this.registry.get(w.getBlock(bx, y + 1, bz));
       const a2 = this.registry.get(w.getBlock(bx, y + 2, bz));
-      if (!a1.solid && !a2.solid && !a1.fluid && !a2.fluid) return y + 1;
+      // 계단·반 블록 위에서는 반 칸 높이에 선다 (#294)
+      if (!a1.solid && !a2.solid && !a1.fluid && !a2.fluid) return standTop(this.registry, (gx, gy, gz) => (w.inBounds(gx, gy, gz) ? w.getBlock(gx, gy, gz) : 0), bx, y, bz, x, z);
     }
     return null;
   };
@@ -218,7 +220,7 @@ export class AnimalSystem {
   private grassSpot(c: { x: number; z: number }): number | null {
     if (!isAnimalSpot(c.x, c.z)) return null;
     const y = this.groundAt(c.x, c.z, GROUND_Y + 4);
-    if (y === null || this.world.getBlock(Math.floor(c.x), y - 1, Math.floor(c.z)) !== this.registry.numOf('grass')) return null;
+    if (y === null || this.world.getBlock(Math.floor(c.x), Math.ceil(y) - 1, Math.floor(c.z)) !== this.registry.numOf('grass')) return null;
     return y;
   }
 
@@ -332,7 +334,7 @@ export class AnimalSystem {
           z = Math.floor(door.z + Math.sin(ang) * d) + 0.5;
         const y = this.groundAt(x, z, GROUND_Y + 4);
         if (y === null) continue;
-        const under = this.registry.get(this.world.getBlock(Math.floor(x), y - 1, Math.floor(z))).id;
+        const under = this.registry.get(this.world.getBlock(Math.floor(x), Math.ceil(y) - 1, Math.floor(z))).id;
         if (under !== 'grass' && under !== 'dirt' && under !== 'grass_path' && under !== 'gravel') continue; // 땅 위에만 (지붕 위 말고)
         this.add({ kind: 'cat', x, y, z, bornAt: now, adultAt: null, owner: null, sitting: false, homeX: x, homeZ: z, woolAt: 0, eggs: 0, lastEggAt: now, name: null }, now);
         made++;

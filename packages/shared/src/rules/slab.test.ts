@@ -3,7 +3,7 @@ import { type MoveResult, moveBody } from '../physics/aabb';
 import { SLAB_BOTTOM, SLAB_DOUBLE, SLAB_TOP } from './blocks';
 import { BLOCKS, RECIPES } from './data';
 import { dropOf, itemForPlacing } from './items';
-import { FINE_RES, FULL_MASK, fineSolidQuery, partMask, raycastFine } from './stairs';
+import { FINE_RES, FULL_MASK, fineSolidQuery, partMask, raycastFine, standTop } from './stairs';
 
 const noStairs = () => null;
 
@@ -94,5 +94,23 @@ describe('반 블록 (#292, 아빠 2026-11-13)', () => {
     const riser = raycastFine(BLOCKS, (x, y, z) => (x === 5 && y === 1 && z === 5 ? STAIR : 0), any, 5.5, 1.75, 8.5, 0, 0, -1, 8)!;
     expect(riser).toMatchObject({ x: 5, y: 1, z: 5, nz: 1 });
     expect(riser.distance).toBeCloseTo(3, 5); // z 8.5 → 5.5
+  });
+
+  it('딛는 높이 (#294): 보통 블록은 칸 꼭대기, 아래 반은 반 칸, 계단은 발밑 조각에 따라 — 모서리 계단도', () => {
+    const STONE = BLOCKS.numOf('stone');
+    const OAK = BLOCKS.numOf('oak_stairs'); // 북쪽이 높다
+    const WEST = BLOCKS.stairVariant(OAK, 3, false);
+    // (0,0,0) 돌, (1,0,0) 아래 반, (2,0,0) 위 반, (3,0,0) 계단, (5,0,5) 계단 + 그 북쪽 (5,0,4) 에 서쪽 계단 → 바깥 모서리
+    const getBlock = (x: number, y: number, z: number) => (y !== 0 ? 0 : z === 0 ? [STONE, base.num, TOP, OAK][x] ?? 0 : x === 5 && z === 5 ? OAK : x === 5 && z === 4 ? WEST : 0);
+    const top = (bx: number, bz: number, x: number, z: number) => standTop(BLOCKS, getBlock, bx, 0, bz, x, z);
+    expect(top(0, 0, 0.5, 0.5)).toBe(1);
+    expect(top(1, 0, 1.5, 0.5)).toBe(0.5);
+    expect(top(2, 0, 2.5, 0.5)).toBe(1);
+    expect(top(3, 0, 3.5, 0.2)).toBe(1);
+    expect(top(3, 0, 3.5, 0.8)).toBe(0.5);
+    // 바깥 모서리: 북서 조각만 높다
+    expect(top(5, 5, 5.2, 5.2)).toBe(1);
+    expect(top(5, 5, 5.8, 5.2)).toBe(0.5);
+    expect(top(5, 5, 5.2, 5.8)).toBe(0.5);
   });
 });

@@ -2297,7 +2297,7 @@
     },
     {
       "id": "oak_trapdoor",
-      "name": "다락문",
+      "name": "참나무 다락문",
       "station": "crafting_table",
       "pattern": [
         "ppp",
@@ -2314,8 +2314,134 @@
       }
     },
     {
+      "id": "spruce_trapdoor",
+      "name": "가문비나무 다락문",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp",
+        "ppp"
+      ],
+      "key": {
+        "p": "spruce_planks"
+      },
+      "in": {
+        "spruce_planks": 6
+      },
+      "out": {
+        "spruce_trapdoor": 2
+      }
+    },
+    {
+      "id": "birch_trapdoor",
+      "name": "자작나무 다락문",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp",
+        "ppp"
+      ],
+      "key": {
+        "p": "birch_planks"
+      },
+      "in": {
+        "birch_planks": 6
+      },
+      "out": {
+        "birch_trapdoor": 2
+      }
+    },
+    {
+      "id": "jungle_trapdoor",
+      "name": "정글나무 다락문",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp",
+        "ppp"
+      ],
+      "key": {
+        "p": "jungle_planks"
+      },
+      "in": {
+        "jungle_planks": 6
+      },
+      "out": {
+        "jungle_trapdoor": 2
+      }
+    },
+    {
+      "id": "acacia_trapdoor",
+      "name": "아카시아나무 다락문",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp",
+        "ppp"
+      ],
+      "key": {
+        "p": "acacia_planks"
+      },
+      "in": {
+        "acacia_planks": 6
+      },
+      "out": {
+        "acacia_trapdoor": 2
+      }
+    },
+    {
+      "id": "dark_oak_trapdoor",
+      "name": "짙은 참나무 다락문",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp",
+        "ppp"
+      ],
+      "key": {
+        "p": "dark_oak_planks"
+      },
+      "in": {
+        "dark_oak_planks": 6
+      },
+      "out": {
+        "dark_oak_trapdoor": 2
+      }
+    },
+    {
+      "id": "cherry_trapdoor",
+      "name": "벚나무 다락문",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp",
+        "ppp"
+      ],
+      "key": {
+        "p": "cherry_planks"
+      },
+      "in": {
+        "cherry_planks": 6
+      },
+      "out": {
+        "cherry_trapdoor": 2
+      }
+    },
+    {
+      "id": "mangrove_trapdoor",
+      "name": "맹그로브 다락문",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp",
+        "ppp"
+      ],
+      "key": {
+        "p": "mangrove_planks"
+      },
+      "in": {
+        "mangrove_planks": 6
+      },
+      "out": {
+        "mangrove_trapdoor": 2
+      }
+    },
+    {
       "id": "oak_fence",
-      "name": "울타리",
+      "name": "참나무 울타리",
       "station": "crafting_table",
       "pattern": [
         "psp",
@@ -2331,6 +2457,307 @@
       },
       "out": {
         "oak_fence": 3
+      },
+      "_note": "울타리 (#295): 판자 4 + 막대기 2 → 울타리 3. 울타리문은 막대기 4 + 판자 2 → 1 (마인크래프트와 같음)"
+    },
+    {
+      "id": "spruce_fence",
+      "name": "가문비나무 울타리",
+      "station": "crafting_table",
+      "pattern": [
+        "psp",
+        "psp"
+      ],
+      "key": {
+        "p": "spruce_planks",
+        "s": "stick"
+      },
+      "in": {
+        "spruce_planks": 4,
+        "stick": 2
+      },
+      "out": {
+        "spruce_fence": 3
+      }
+    },
+    {
+      "id": "birch_fence",
+      "name": "자작나무 울타리",
+      "station": "crafting_table",
+      "pattern": [
+        "psp",
+        "psp"
+      ],
+      "key": {
+        "p": "birch_planks",
+        "s": "stick"
+      },
+      "in": {
+        "birch_planks": 4,
+        "stick": 2
+      },
+      "out": {
+        "birch_fence": 3
+      }
+    },
+    {
+      "id": "jungle_fence",
+      "name": "정글나무 울타리",
+      "station": "crafting_table",
+      "pattern": [
+        "psp",
+        "psp"
+      ],
+      "key": {
+        "p": "jungle_planks",
+        "s": "stick"
+      },
+      "in": {
+        "jungle_planks": 4,
+        "stick": 2
+      },
+      "out": {
+        "jungle_fence": 3
+      }
+    },
+    {
+      "id": "acacia_fence",
+      "name": "아카시아나무 울타리",
+      "station": "crafting_table",
+      "pattern": [
+        "psp",
+        "psp"
+      ],
+      "key": {
+        "p": "acacia_planks",
+        "s": "stick"
+      },
+      "in": {
+        "acacia_planks": 4,
+        "stick": 2
+      },
+      "out": {
+        "acacia_fence": 3
+      }
+    },
+    {
+      "id": "dark_oak_fence",
+      "name": "짙은 참나무 울타리",
+      "station": "crafting_table",
+      "pattern": [
+        "psp",
+        "psp"
+      ],
+      "key": {
+        "p": "dark_oak_planks",
+        "s": "stick"
+      },
+      "in": {
+        "dark_oak_planks": 4,
+        "stick": 2
+      },
+      "out": {
+        "dark_oak_fence": 3
+      }
+    },
+    {
+      "id": "cherry_fence",
+      "name": "벚나무 울타리",
+      "station": "crafting_table",
+      "pattern": [
+        "psp",
+        "psp"
+      ],
+      "key": {
+        "p": "cherry_planks",
+        "s": "stick"
+      },
+      "in": {
+        "cherry_planks": 4,
+        "stick": 2
+      },
+      "out": {
+        "cherry_fence": 3
+      }
+    },
+    {
+      "id": "mangrove_fence",
+      "name": "맹그로브 울타리",
+      "station": "crafting_table",
+      "pattern": [
+        "psp",
+        "psp"
+      ],
+      "key": {
+        "p": "mangrove_planks",
+        "s": "stick"
+      },
+      "in": {
+        "mangrove_planks": 4,
+        "stick": 2
+      },
+      "out": {
+        "mangrove_fence": 3
+      }
+    },
+    {
+      "id": "oak_fence_gate",
+      "name": "참나무 울타리문",
+      "station": "crafting_table",
+      "pattern": [
+        "sps",
+        "sps"
+      ],
+      "key": {
+        "p": "planks",
+        "s": "stick"
+      },
+      "in": {
+        "stick": 4,
+        "planks": 2
+      },
+      "out": {
+        "oak_fence_gate": 1
+      }
+    },
+    {
+      "id": "spruce_fence_gate",
+      "name": "가문비나무 울타리문",
+      "station": "crafting_table",
+      "pattern": [
+        "sps",
+        "sps"
+      ],
+      "key": {
+        "p": "spruce_planks",
+        "s": "stick"
+      },
+      "in": {
+        "stick": 4,
+        "spruce_planks": 2
+      },
+      "out": {
+        "spruce_fence_gate": 1
+      }
+    },
+    {
+      "id": "birch_fence_gate",
+      "name": "자작나무 울타리문",
+      "station": "crafting_table",
+      "pattern": [
+        "sps",
+        "sps"
+      ],
+      "key": {
+        "p": "birch_planks",
+        "s": "stick"
+      },
+      "in": {
+        "stick": 4,
+        "birch_planks": 2
+      },
+      "out": {
+        "birch_fence_gate": 1
+      }
+    },
+    {
+      "id": "jungle_fence_gate",
+      "name": "정글나무 울타리문",
+      "station": "crafting_table",
+      "pattern": [
+        "sps",
+        "sps"
+      ],
+      "key": {
+        "p": "jungle_planks",
+        "s": "stick"
+      },
+      "in": {
+        "stick": 4,
+        "jungle_planks": 2
+      },
+      "out": {
+        "jungle_fence_gate": 1
+      }
+    },
+    {
+      "id": "acacia_fence_gate",
+      "name": "아카시아나무 울타리문",
+      "station": "crafting_table",
+      "pattern": [
+        "sps",
+        "sps"
+      ],
+      "key": {
+        "p": "acacia_planks",
+        "s": "stick"
+      },
+      "in": {
+        "stick": 4,
+        "acacia_planks": 2
+      },
+      "out": {
+        "acacia_fence_gate": 1
+      }
+    },
+    {
+      "id": "dark_oak_fence_gate",
+      "name": "짙은 참나무 울타리문",
+      "station": "crafting_table",
+      "pattern": [
+        "sps",
+        "sps"
+      ],
+      "key": {
+        "p": "dark_oak_planks",
+        "s": "stick"
+      },
+      "in": {
+        "stick": 4,
+        "dark_oak_planks": 2
+      },
+      "out": {
+        "dark_oak_fence_gate": 1
+      }
+    },
+    {
+      "id": "cherry_fence_gate",
+      "name": "벚나무 울타리문",
+      "station": "crafting_table",
+      "pattern": [
+        "sps",
+        "sps"
+      ],
+      "key": {
+        "p": "cherry_planks",
+        "s": "stick"
+      },
+      "in": {
+        "stick": 4,
+        "cherry_planks": 2
+      },
+      "out": {
+        "cherry_fence_gate": 1
+      }
+    },
+    {
+      "id": "mangrove_fence_gate",
+      "name": "맹그로브 울타리문",
+      "station": "crafting_table",
+      "pattern": [
+        "sps",
+        "sps"
+      ],
+      "key": {
+        "p": "mangrove_planks",
+        "s": "stick"
+      },
+      "in": {
+        "stick": 4,
+        "mangrove_planks": 2
+      },
+      "out": {
+        "mangrove_fence_gate": 1
       }
     },
     {

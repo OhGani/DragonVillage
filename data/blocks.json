@@ -1246,21 +1246,222 @@
     },
     {
       "id": "oak_trapdoor",
-      "name": "다락문",
+      "name": "참나무 다락문",
       "hardness": 3.0,
       "tool": "axe",
       "lightEmit": 0,
       "texture": "trapdoor",
+      "shape": "trapdoor",
+      "_note": "다락문 (#296): 얇은 판. 탭하면 열리고 닫혀요(빈손도 됨). 블록 윗면에 놓으면 바닥에, 아랫면이나 옆면의 위쪽 반에 놓으면 천장 쪽에 붙어요. 열면 놓을 때 보던 쪽 가장자리에 서요. 그림은 textures/<texture>.png — 뚫린 곳은 투명하게 그리면 돼요"
+    },
+    {
+      "id": "spruce_trapdoor",
+      "name": "가문비나무 다락문",
+      "hardness": 3.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "spruce_trapdoor",
+      "shape": "trapdoor"
+    },
+    {
+      "id": "birch_trapdoor",
+      "name": "자작나무 다락문",
+      "hardness": 3.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "birch_trapdoor",
+      "shape": "trapdoor"
+    },
+    {
+      "id": "jungle_trapdoor",
+      "name": "정글나무 다락문",
+      "hardness": 3.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "jungle_trapdoor",
+      "shape": "trapdoor"
+    },
+    {
+      "id": "acacia_trapdoor",
+      "name": "아카시아나무 다락문",
+      "hardness": 3.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "acacia_trapdoor",
+      "shape": "trapdoor"
+    },
+    {
+      "id": "dark_oak_trapdoor",
+      "name": "짙은 참나무 다락문",
+      "hardness": 3.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "dark_oak_trapdoor",
+      "shape": "trapdoor"
+    },
+    {
+      "id": "cherry_trapdoor",
+      "name": "벚나무 다락문",
+      "hardness": 3.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "cherry_trapdoor",
+      "shape": "trapdoor"
+    },
+    {
+      "id": "mangrove_trapdoor",
+      "name": "맹그로브 다락문",
+      "hardness": 3.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "mangrove_trapdoor",
       "shape": "trapdoor"
     },
     {
       "id": "oak_fence",
-      "name": "울타리",
+      "name": "참나무 울타리",
       "hardness": 2.0,
       "tool": "axe",
       "lightEmit": 0,
       "texture": "planks",
+      "shape": "fence",
+      "_note": "울타리 (#295): 가운데 기둥 + 옆에 울타리·울타리문·꽉 찬 블록이 있으면 그쪽으로 가로대가 저절로 이어져요. 한 칸 반 높이로 쳐서 사람도 동물도 못 넘어요. 새 울타리는 이 블록을 복사해서 id·name·texture 만 바꾸면 돼요"
+    },
+    {
+      "id": "spruce_fence",
+      "name": "가문비나무 울타리",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "spruce_planks",
       "shape": "fence"
+    },
+    {
+      "id": "birch_fence",
+      "name": "자작나무 울타리",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "birch_planks",
+      "shape": "fence"
+    },
+    {
+      "id": "jungle_fence",
+      "name": "정글나무 울타리",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "jungle_planks",
+      "shape": "fence"
+    },
+    {
+      "id": "acacia_fence",
+      "name": "아카시아나무 울타리",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "acacia_planks",
+      "shape": "fence"
+    },
+    {
+      "id": "dark_oak_fence",
+      "name": "짙은 참나무 울타리",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "dark_oak_planks",
+      "shape": "fence"
+    },
+    {
+      "id": "cherry_fence",
+      "name": "벚나무 울타리",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "cherry_planks",
+      "shape": "fence"
+    },
+    {
+      "id": "mangrove_fence",
+      "name": "맹그로브 울타리",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "mangrove_planks",
+      "shape": "fence"
+    },
+    {
+      "id": "oak_fence_gate",
+      "name": "참나무 울타리문",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "planks",
+      "shape": "fence_gate",
+      "_note": "울타리문 (#295): 탭하면 열리고 닫혀요(빈손도 됨). 문짝은 놓을 때 보던 방향과 직각으로 걸리고, 열면 보던 쪽으로 젖혀져요. 닫혀 있으면 울타리처럼 못 넘어요"
+    },
+    {
+      "id": "spruce_fence_gate",
+      "name": "가문비나무 울타리문",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "spruce_planks",
+      "shape": "fence_gate"
+    },
+    {
+      "id": "birch_fence_gate",
+      "name": "자작나무 울타리문",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "birch_planks",
+      "shape": "fence_gate"
+    },
+    {
+      "id": "jungle_fence_gate",
+      "name": "정글나무 울타리문",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "jungle_planks",
+      "shape": "fence_gate"
+    },
+    {
+      "id": "acacia_fence_gate",
+      "name": "아카시아나무 울타리문",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "acacia_planks",
+      "shape": "fence_gate"
+    },
+    {
+      "id": "dark_oak_fence_gate",
+      "name": "짙은 참나무 울타리문",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "dark_oak_planks",
+      "shape": "fence_gate"
+    },
+    {
+      "id": "cherry_fence_gate",
+      "name": "벚나무 울타리문",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "cherry_planks",
+      "shape": "fence_gate"
+    },
+    {
+      "id": "mangrove_fence_gate",
+      "name": "맹그로브 울타리문",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "mangrove_planks",
+      "shape": "fence_gate"
     },
     {
       "id": "dining_table",

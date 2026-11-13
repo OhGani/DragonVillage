@@ -442,6 +442,34 @@ export class Interaction {
       this.toggleDoor(t, tdef);
       return;
     }
+    // 울타리문을 탭하면 놓는 대신 열고 닫는다 (빈손도 됨, #295)
+    if (tdef.gate) {
+      const g = tdef.gate;
+      // 닫을 때 문 칸에 내가 서 있으면 안 된다
+      if (g.open && bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, t.x, t.y, t.z)) return;
+      const next = this.registry.gateVariant(g.base, g.facing, !g.open);
+      const r = this.world.setBlock(t.x, t.y, t.z, next);
+      if (r.changed) {
+        this.events.onBlocksChanged(r.dirty);
+        this.events.onPlaced?.(t.x, t.y, t.z, next, t.id);
+        this.events.onSwing();
+      }
+      return;
+    }
+    // 다락문을 탭하면 놓는 대신 열고 닫는다 (빈손도 됨, #296)
+    if (tdef.trap) {
+      const tr = tdef.trap;
+      // 닫을 때 그 칸에 내가 서 있으면 안 된다 (판에 끼인다)
+      if (tr.open && bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, t.x, t.y, t.z)) return;
+      const next = this.registry.trapVariant(tr.base, tr.facing, tr.top, !tr.open);
+      const r = this.world.setBlock(t.x, t.y, t.z, next);
+      if (r.changed) {
+        this.events.onBlocksChanged(r.dirty);
+        this.events.onPlaced?.(t.x, t.y, t.z, next, t.id);
+        this.events.onSwing();
+      }
+      return;
+    }
     // 상자를 탭하면 놓는 대신 연다 (빈손도 됨, #84)
     if (tdef.chest) {
       this.events.onOpenChest?.(t.x, t.y, t.z);
@@ -522,6 +550,10 @@ export class Interaction {
     }
     // 물·용암은 양동이 하나만큼(8/8)의 고인 액체로 놓는다 — 사방으로 퍼지되 양만큼만 (결정 #65)
     let blockNum = def.fluid ? this.registry.fluidFinite(def.fluidSource, FLUID_FULL) : this.selectedBlock;
+    // 다락문 (#296): 닫힌 채로 바닥에 — 블록 아랫면이나 옆면의 위쪽 반을 탭하면 천장 쪽에. 열면 내가 보던 쪽 가장자리에 선다
+    if (def.trap) blockNum = this.registry.trapVariant(def.trap.base, facingOf(this.player.lookDir.x, this.player.lookDir.z), t.ny < 0 || (t.ny === 0 && this.hitUpperHalf(t)), false);
+    // 울타리문 (#295): 문짝이 내가 보는 방향과 직각으로 걸린다 (열면 보던 쪽으로 젖혀진다)
+    if (def.gate) blockNum = this.registry.gateVariant(def.gate.base, facingOf(this.player.lookDir.x, this.player.lookDir.z), false);
     // 계단 (#291): 높은 쪽이 내가 보는 방향 — 그대로 걸어 올라간다. 블록 아랫면이나 옆면의 위쪽 반을 탭하면 뒤집어서(천장 쪽이 꽉 찬 계단)
     if (def.stairs) {
       const look = this.player.lookDir;

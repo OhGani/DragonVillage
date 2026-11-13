@@ -46,6 +46,7 @@ import {
   PHANTOM_MAX,
   POLAR_CUB_R,
   bodyInWall,
+  standTop,
   bodyR,
   moveMob,
   BISON_FUR_REGROW_MS,
@@ -541,15 +542,17 @@ export class MobSystem {
       const a2 = this.registry.get(w.getBlock(bx, y + 2, bz));
       return !a1.solid && !a2.solid && !a1.fluid && !a2.fluid;
     };
+    // 계단·반 블록 위에서는 반 칸 높이에 선다 (#294). 세계 밖 칸은 공기로
+    const top = (y: number): number => standTop(this.registry, (gx, gy, gz) => (w.inBounds(gx, gy, gz) ? w.getBlock(gx, gy, gz) : 0), bx, y, bz, x, z);
     if (nearY !== undefined) {
       const y0 = Math.floor(nearY);
-      for (let y = Math.min(w.sizeY - 3, y0 + 2); y >= Math.max(1, y0 - 6); y--) if (standable(y)) return y + 1;
+      for (let y = Math.min(w.sizeY - 3, y0 + 2); y >= Math.max(1, y0 - 6); y--) if (standable(y)) return top(y);
       return null;
     }
     for (let y = Math.min(w.sizeY - 3, 90); y >= 1; y--) {
       const here = this.registry.get(w.getBlock(bx, y, bz));
       if (!here.solid || here.fluid) continue;
-      return standable(y) ? y + 1 : null; // 위가 막혀 있으면 못 선다
+      return standable(y) ? top(y) : null; // 위가 막혀 있으면 못 선다
     }
     return null;
   };

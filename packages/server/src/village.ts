@@ -3196,6 +3196,16 @@ export class VillageRoom {
       for (const other of this.playersIn(p.world)) if (bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, ly, z) || bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, ly + 1, z)) return REJECT.OCCUPIED;
       return null;
     }
+    // 울타리문 열고 닫기 (#295): 같은 문·같은 방향에서 열림만 뒤집는 요청. 가방과 무관, 아무나. 닫을 땐 그 칸에 누가 서 있으면 안 된다
+    if (def.gate && cur.gate && def.gate.base === cur.gate.base && def.gate.facing === cur.gate.facing && def.gate.open !== cur.gate.open) {
+      if (!def.gate.open) for (const other of this.playersIn(p.world)) if (bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, y, z)) return REJECT.OCCUPIED;
+      return null;
+    }
+    // 다락문 열고 닫기 (#296): 같은 다락문·같은 방향·같은 위아래에서 열림만 뒤집는 요청. 닫을 땐 그 칸에 누가 서 있으면 안 된다
+    if (def.trap && cur.trap && def.trap.base === cur.trap.base && def.trap.facing === cur.trap.facing && def.trap.top === cur.trap.top && def.trap.open !== cur.trap.open) {
+      if (!def.trap.open) for (const other of this.playersIn(p.world)) if (bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, y, z)) return REJECT.OCCUPIED;
+      return null;
+    }
     if (def.num === AIR_ID) {
       // 부수기: 자연 원천과 고인 액체(얕은 웅덩이 포함)는 양동이처럼 떠낼 수 있고, 자연 흐름은 못 건드린다(원천을 없애면 마른다). hardness 없는 블록(기반암)은 못 부순다
       if (cur.num === AIR_ID) return REJECT.INVALID;
@@ -3235,9 +3245,11 @@ export class VillageRoom {
       return hoeOf(TOOLS, heldForTill) ? null : REJECT.TOOL;
     }
     // 놓기: 액체는 플레이어가 놓는 고인 액체 8/8 만(자연 원천·흐름은 못 놓는다), 그 외 내부 블록 불가, 자리는 공기·액체만, 누가 서 있으면 안 됨
-    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch && !def.bed && !def.rail && !def.stairs && !def.slab) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82), 계단 변형도 (#291), 반 블록 변형도 (#292)
+    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch && !def.bed && !def.rail && !def.stairs && !def.slab && !def.gate && !def.trap) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82), 계단 변형도 (#291), 반 블록 변형도 (#292)
     if (def.bed && def.bed.head) return REJECT.INVALID; // 침대는 발 쪽만 놓는다(머리 칸은 서버가 채운다, #188)
     if (def.door && (def.door.upper || def.door.open)) return REJECT.INVALID; // 문은 아래·닫힘 변형만 놓는다(윗칸은 서버가 채운다)
+    if (def.gate && def.gate.open) return REJECT.INVALID; // 울타리문은 닫힌 것만 놓는다 (#295)
+    if (def.trap && def.trap.open) return REJECT.INVALID; // 다락문도 (#296)
     // 가방에 그 아이템(액체면 찬 양동이)이 있어야 한다 (M4, #66)
     if (def.seed) {
       // 농사 (#165): 작물(씨앗으로 심는 것)은 농지 위에만. 흙처럼 그냥 자라는 블록(#171)은 아무 데나
@@ -3377,7 +3389,7 @@ export class VillageRoom {
         cz = (req.z + bedOther.z) / 2 + 0.5;
       for (const o of [...this.players.values()]) if (o.sleeping && o.world === p.world && Math.abs(o.sleeping.x - cx) < 0.01 && Math.abs(o.sleeping.z - cz) < 0.01) this.sleep(o.idx, null);
     }
-    const isToggle = def.door !== null && prev.door !== null;
+    const isToggle = (def.door !== null && prev.door !== null) || (def.gate !== null && prev.gate !== null) || (def.trap !== null && prev.trap !== null); // 문·울타리문(#295)·다락문(#296) 열고 닫기
     // 농사 (#165): 심으면 자라기 시작, 부수면(또는 다른 블록이 되면) 기록을 지운다
     if (p.world === 'village') {
       const ckey = `${req.x},${req.y},${req.z}`;

@@ -88,6 +88,11 @@ import {
   type VoxelWorld,
   xpProgress,
   raycastVoxels,
+  partMask,
+  fenceBoxes,
+  fenceLinksAt,
+  gateBoxes,
+  trapBoxes,
   CRYSTAL_SHOT_RANGE,
   countOf, parseEnchanted, countBookshelves, CART_SEAT_Y, CURE_ITEM, MOB_STATE, type SepBody, FISHING_ROD } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP, TRADES, ENCHANTS, FISHING } from '@dragon-village/shared/data';
@@ -107,7 +112,7 @@ import { HUSK_SLOW_SEC, Player } from '../player/Player';
 import { SKY_COLOR, createChunkMaterials } from '../render/ChunkMaterial';
 import { ChunkRenderer } from '../render/ChunkRenderer';
 import { HandView } from '../render/Hand';
-import { BlockHighlight } from '../render/Highlight';
+import { BlockHighlight, type BoxShape } from '../render/Highlight';
 import { PortalView } from '../render/Portal';
 import { Sky } from '../render/Sky';
 import { loadTextureAtlas } from '../render/textures';
@@ -2122,7 +2127,20 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     chunks.markDirtyAll(light.flush());
 
     if (interaction.target) {
-      highlight.setTarget(interaction.target.x, interaction.target.y, interaction.target.z);
+      {
+        // 외곽선은 블록 모양대로 (#293): 계단은 ㄴ자(모서리 포함), 반 블록은 반 칸
+        const ht = interaction.target;
+        const w = ctx.world;
+        const hd = registry.get(ht.id);
+        // 울타리·울타리문 (#295): 기둥 + 이어진 가로대 모양 그대로
+        let box: BoxShape | undefined;
+        if (hd.fence) {
+          const links = fenceLinksAt(registry, (bx, by, bz) => (w.inBounds(bx, by, bz) ? w.getBlock(bx, by, bz) : AIR_ID), ht.x, ht.y, ht.z);
+          box = { key: `f${links}`, boxes: fenceBoxes(links) };
+        } else if (hd.gate) box = { key: `g${hd.gate.facing}${hd.gate.open ? 'o' : 'c'}`, boxes: gateBoxes(hd.gate.facing, hd.gate.open) };
+        else if (hd.trap) box = { key: `t${hd.trap.facing}${hd.trap.top ? 't' : 'b'}${hd.trap.open ? 'o' : 'c'}`, boxes: trapBoxes(hd.trap.facing, hd.trap.top, hd.trap.open) }; // 다락문 (#296)
+        highlight.setTarget(ht.x, ht.y, ht.z, partMask(hd, (sx, sy, sz) => (w.inBounds(sx, sy, sz) ? registry.get(w.getBlock(sx, sy, sz)).stairs : null), ht.x, ht.y, ht.z), box);
+      }
       highlight.setProgress(interaction.progress);
       // 캐는 중이면 보는 면에서 부스러기가 톡톡
       if (interaction.progress > 0 && (crumbAcc += dt) >= 0.11) {

@@ -43,6 +43,9 @@ export function buildMeshBlockInfo(registry: BlockRegistry, textureIndex: Readon
       campfire: d.shape === 'campfire' ? { log: s, end: layerOf('campfire_log_end'), fire: d.lightEmit > 0 ? layerOf('campfire_fire') : -1 } : null,
       rail: d.rail ? RAIL_DIRS.indexOf(d.rail.dir) : null,
       stairs: d.stairs ? [d.stairs.facing, d.stairs.top ? 1 : 0] : null,
+      fence: d.fence,
+      gate: d.gate ? [d.gate.facing, d.gate.open ? 1 : 0] : null,
+      trap: d.trap ? d.trap.facing * 4 + (d.trap.top ? 2 : 0) + (d.trap.open ? 1 : 0) : null,
       slab: d.slab && d.slab.kind !== SLAB_DOUBLE ? (d.slab.kind === SLAB_TOP ? 0xf0 : 0x0f) : null,
       connect: CONNECTED_BLOCKS.has(d.id) ? connectTable(side, (n) => textureIndex.get(n)) : null, // 유리끼리 맞닿은 쪽 테두리 없애기 (2026-11-09)
       layer,

@@ -14,6 +14,7 @@
 import { type BlockDef, type BlockRegistry, DOOR_DIR, SLAB_BOTTOM, SLAB_TOP, type StairInfo } from './blocks';
 import type { SolidQuery } from '../physics/aabb';
 import { type RayHit, raycastVoxels } from '../physics/raycast';
+import { FENCE_HEIGHT, fenceFoot, fenceLinksAt, gateFoot, trapFoot, trapSlice } from './fence';
 
 export const STAIR_STRAIGHT = 0;
 export const STAIR_INNER_LEFT = 1;
@@ -90,30 +91,83 @@ export function partMask(d: Pick<BlockDef, 'slab' | 'stairs'>, stairAt: (x: numb
   return FULL_MASK;
 }
 
-/** 물리가 세계를 보는 눈금: 한 칸을 둘로 (계단·반 블록의 반 칸 턱) */
-export const FINE_RES = 2;
+/**
+ * 그 블록(bx, by, bz)을 딛고 (x, z) 자리에 섰을 때의 발 높이 (#294 — 서버의 몹·동물·주민).
+ * 보통 블록은 칸 꼭대기(by + 1). 계단·반 블록은 발밑 조각을 본다: 위 조각이 차 있으면 꼭대기, 아니면 반 칸(by + ½).
+ * 울타리·닫힌 울타리문은 한 칸 반(#295) — 한 칸까지만 오르는 몹·동물은 못 넘는다.
+ * 몹은 몸 가운데 한 점으로 땅을 따라가니(moveMob) 이것만 맞추면 계단을 반 칸씩 오르내린다
+ */
+export function standTop(registry: BlockRegistry, getBlock: (x: number, y: number, z: number) => number, bx: number, by: number, bz: number, x: number, z: number): number {
+  const d = registry.get(getBlock(bx, by, bz));
+  if (d.fence || (d.gate && !d.gate.open)) return by + FENCE_HEIGHT;
+  if (d.trap) return by + (d.trap.top ? 1 : 0.25); // 닫힌 다락문 (#296): 바닥 판은 ¼칸, 천장 판은 칸 꼭대기
+  if (!d.slab && !d.stairs) return by + 1;
+  const mask = partMask(d, (sx, sy, sz) => registry.get(getBlock(sx, sy, sz)).stairs, bx, by, bz);
+  const q = (x - bx >= 0.5 ? 1 : 0) + (z - bz >= 0.5 ? 2 : 0);
+  return by + (((mask >> (4 + q)) & 1) === 1 ? 1 : 0.5);
+}
 
 /**
- * 반 칸 눈금의 충돌 질의 (moveBody 에 res = FINE_RES 와 함께 넘긴다). 좌표는 반 칸 단위.
- * 보통 블록은 여덟 조각이 다 차 있고, 계단·반 블록만 조각마다 다르다.
+ * 물리·조준이 세계를 보는 눈금: 한 칸을 넷으로 (#295 — 울타리 기둥이 가운데 두 조각). 계단·반 블록의 반 칸은 두 조각씩.
+ * 조각 좌표 = 블록 좌표 × FINE_RES, 칸 안 조각 번호는 0..3
+ */
+export const FINE_RES = 4;
+const SUB = FINE_RES - 1;
+
+/** 블록 종류별로 조각을 어떻게 볼지 — 레지스트리에서 한 번만 뽑아 둔다 */
+const K_FULL = 0,
+  K_PARTS = 1, // 계단·반 블록 (조각 마스크)
+  K_FENCE = 2,
+  K_GATE_X = 3, // 닫힌 울타리문, 문짝이 동서로
+  K_GATE_Z = 4,
+  K_TRAP = 5; // 다락문 (#296): K_TRAP + slice (바닥·천장·열림 넷) — 열려 있어도 얇은 판에 부딪힌다
+const kindTables = new WeakMap<object, Uint8Array>();
+function kindTable(registry: BlockRegistry): Uint8Array {
+  const hit = kindTables.get(registry);
+  if (hit) return hit;
+  const defs = (registry as { defs?: readonly BlockDef[] }).defs ?? []; // 시험용 가짜 레지스트리에는 defs 가 없다 → 전부 보통 블록
+  const t = new Uint8Array(defs.length);
+  for (const d of defs) t[d.num] = d.trap ? K_TRAP + trapSlice(d.trap.facing, d.trap.top, d.trap.open) : d.fence ? K_FENCE : d.gate ? (d.gate.open ? K_FULL : (d.gate.facing & 1) === 0 ? K_GATE_X : K_GATE_Z) : (d.slab && d.slab.kind !== 2) || d.stairs ? K_PARTS : K_FULL;
+  kindTables.set(registry, t);
+  return t;
+}
+
+/**
+ * 눈금 FINE_RES 의 충돌 질의 (moveBody 에 res = FINE_RES 와 함께 넘긴다). 좌표는 조각 단위.
+ * 보통 블록은 조각이 다 차 있고, 계단·반 블록은 조각 마스크대로, 울타리·닫힌 울타리문은 발자국(fence.ts) 모양으로 **한 칸 반 높이** —
+ * 그래서 고체가 아닌 칸의 아래쪽 반은 바로 밑 칸이 울타리인지도 본다
  */
 export function fineSolidQuery(registry: BlockRegistry, getBlock: (x: number, y: number, z: number) => number): SolidQuery {
+  const kinds = kindTable(registry);
   const stairAt = (x: number, y: number, z: number): StairInfo | null => registry.get(getBlock(x, y, z)).stairs;
+  const foot = (k: number, x: number, y: number, z: number, sx: number, sz: number): boolean =>
+    k === K_FENCE ? fenceFoot(fenceLinksAt(registry, getBlock, x, y, z), sx, sz) : gateFoot(k === K_GATE_X ? 0 : 1, sx, sz);
   return (hx, hy, hz) => {
-    const x = hx >> 1,
-      y = hy >> 1,
-      z = hz >> 1;
+    const x = hx >> 2,
+      y = hy >> 2,
+      z = hz >> 2;
     const id = getBlock(x, y, z);
-    if (!registry.isSolid(id)) return false;
-    const mask = partMask(registry.get(id), stairAt, x, y, z);
-    return mask === FULL_MASK || ((mask >> ((hx & 1) | ((hz & 1) << 1) | ((hy & 1) << 2))) & 1) === 1;
+    const k = kinds[id] ?? K_FULL;
+    if (k >= K_TRAP) return trapFoot(k - K_TRAP, hx & SUB, hy & SUB, hz & SUB);
+    if (k >= K_FENCE) return foot(k, x, y, z, hx & SUB, hz & SUB);
+    if (k === K_PARTS) {
+      const mask = partMask(registry.get(id), stairAt, x, y, z);
+      return ((mask >> (((hx & SUB) >> 1) | (((hz & SUB) >> 1) << 1) | (((hy & SUB) >> 1) << 2))) & 1) === 1;
+    }
+    if (registry.isSolid(id)) return true;
+    if ((hy & SUB) < 2) {
+      // 울타리 위 반 칸: 넘지 못하게 막는다
+      const kb = kinds[getBlock(x, y - 1, z)] ?? K_FULL;
+      if (kb >= K_FENCE && kb < K_TRAP) return foot(kb, x, y - 1, z, hx & SUB, hz & SUB);
+    }
+    return false;
   };
 }
 
 /**
- * 조준 (#292): raycastVoxels 를 반 칸 눈금으로 — 계단·반 블록의 빈 반쪽은 지나가고 실제로 보이는 면에 맞는다.
+ * 조준 (#292): raycastVoxels 를 조각 눈금으로 — 계단·반 블록의 빈 반쪽, 울타리의 빈 곳은 지나가고 실제로 보이는 면에 맞는다.
  * 돌려주는 자리(x, y, z)와 거리는 블록 단위, face·법선은 맞은 조각의 면 (반 블록 윗면을 맞히면 그 반 블록 칸 + 위쪽 법선).
- * 시작 칸(눈이 들어 있는 블록)은 전처럼 통째로 건너뛴다
+ * 시작 칸(눈이 들어 있는 블록)은 전처럼 통째로 건너뛴다. 울타리는 칸 안의 발자국만(위 반 칸 더는 조준에 없다)
  */
 export function raycastFine(
   registry: BlockRegistry,
@@ -130,17 +184,25 @@ export function raycastFine(
   const sx = Math.floor(ox),
     sy = Math.floor(oy),
     sz = Math.floor(oz);
+  const kinds = kindTable(registry);
   const stairAt = (x: number, y: number, z: number): StairInfo | null => registry.get(getBlock(x, y, z)).stairs;
   const hit = raycastVoxels(
     (hx, hy, hz) => {
-      const x = hx >> 1,
-        y = hy >> 1,
-        z = hz >> 1;
+      const x = hx >> 2,
+        y = hy >> 2,
+        z = hz >> 2;
       if (x === sx && y === sy && z === sz) return 0;
       const id = getBlock(x, y, z);
       if (id === 0) return 0;
-      const mask = partMask(registry.get(id), stairAt, x, y, z);
-      return mask === FULL_MASK || ((mask >> ((hx & 1) | ((hz & 1) << 1) | ((hy & 1) << 2))) & 1) === 1 ? id : 0;
+      const k = kinds[id] ?? K_FULL;
+      if (k === K_FULL) return id;
+      if (k === K_PARTS) {
+        const mask = partMask(registry.get(id), stairAt, x, y, z);
+        return ((mask >> (((hx & SUB) >> 1) | (((hz & SUB) >> 1) << 1) | (((hy & SUB) >> 1) << 2))) & 1) === 1 ? id : 0;
+      }
+      if (k >= K_TRAP) return trapFoot(k - K_TRAP, hx & SUB, hy & SUB, hz & SUB) ? id : 0;
+      const inFoot = k === K_FENCE ? fenceFoot(fenceLinksAt(registry, getBlock, x, y, z), hx & SUB, hz & SUB) : gateFoot(k === K_GATE_X ? 0 : 1, hx & SUB, hz & SUB);
+      return inFoot ? id : 0;
     },
     hits,
     ox * FINE_RES,
@@ -152,9 +214,9 @@ export function raycastFine(
     maxDist * FINE_RES,
   );
   if (!hit) return null;
-  hit.x >>= 1;
-  hit.y >>= 1;
-  hit.z >>= 1;
+  hit.x >>= 2;
+  hit.y >>= 2;
+  hit.z >>= 2;
   hit.distance /= FINE_RES;
   return hit;
 }

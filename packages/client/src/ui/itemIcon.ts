@@ -1,6 +1,6 @@
 import type { BlockRegistry } from '@dragon-village/shared';
 import { DRAGONS } from '@dragon-village/shared/data';
-import { dragonOfEgg, potionFromItemId } from '@dragon-village/shared';
+import { dragonOfEgg, FENCE_ICON_BOXES, gateBoxes, potionFromItemId, trapBoxes } from '@dragon-village/shared';
 
 /** 물약 변형(potion.healing.long, splash_potion.x …)은 기본 물약 그림을 쓴다 (#175·유리병 자동 색칠) */
 function potionSpriteId(id: string, atlas: IconSource): string {
@@ -8,7 +8,7 @@ function potionSpriteId(id: string, atlas: IconSource): string {
   const p = potionFromItemId(id);
   return p ? `potion.${p.id}` : id;
 }
-import { renderBlockIcon, renderSlabIcon, renderStairIcon } from './icons';
+import { renderBlockIcon, renderBoxesIcon, renderSlabIcon, renderStairIcon } from './icons';
 
 export interface IconSource {
   images: Map<string, ImageData>;
@@ -382,7 +382,12 @@ export function itemIcon(id: string, size: number, registry: BlockRegistry, atla
   } else if (def && def.textures && !dragonOfEgg(id)) {
     // 드래곤 알 16종은 블록이지만(#249) 아이콘은 아래 drawItem 의 드래곤 색 타원 그대로
     const missing = atlas.images.get('missing')!;
-    canvas = (def.shape === 'stairs' ? renderStairIcon : def.shape === 'slab' ? renderSlabIcon : renderBlockIcon)(atlas.images.get(def.textures[0]) ?? missing, atlas.images.get(def.textures[1]) ?? missing, size); // 계단은 계단 모양으로 (#291), 반 블록은 반만 (#292)
+    if (def.shape === 'fence' || def.shape === 'fence_gate' || def.shape === 'trapdoor') {
+      // 울타리·울타리문 (#295): 기둥과 가로대 모양 그대로. 다락문 (#296): 바닥에 누운 얇은 판
+      canvas = renderBoxesIcon(def.shape === 'fence' ? FENCE_ICON_BOXES : def.shape === 'trapdoor' ? trapBoxes(0, false, false) : gateBoxes(0, false), atlas.images.get(def.textures[0]) ?? missing, atlas.images.get(def.textures[1]) ?? missing, size);
+    } else {
+      canvas = (def.shape === 'stairs' ? renderStairIcon : def.shape === 'slab' ? renderSlabIcon : renderBlockIcon)(atlas.images.get(def.textures[0]) ?? missing, atlas.images.get(def.textures[1]) ?? missing, size); // 계단은 계단 모양으로 (#291), 반 블록은 반만 (#292)
+    }
   } else if (atlas.images.get(potionSpriteId(id, atlas))) {
     // 아이템 이름과 같은 16×16 그림이 textures/ 에 있으면 그대로 (#175, 아들 다이아몬드 그림) — 블록이 아닌 아이템은 이 길이 먼저
     canvas = renderSpriteIcon(atlas.images.get(potionSpriteId(id, atlas))!, size);

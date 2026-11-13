@@ -184,6 +184,33 @@ export interface BlockDef {
   readonly stairs: StairInfo | null;
   /** 반 블록 (#292): 아래·위·둘을 합친 한 칸. 반 블록이 아니면 null */
   readonly slab: SlabInfo | null;
+  /** 울타리 (#295): 가운데 기둥 + 이웃 쪽으로 뻗는 가로대. 이어짐은 저장하지 않고 이웃을 보고 정한다 (rules/fence.ts) */
+  readonly fence: boolean;
+  /** 울타리문 (#295): 방향·열림. 울타리문이 아니면 null */
+  readonly gate: GateInfo | null;
+  /** 다락문 (#296): 방향·위아래·열림. 다락문이 아니면 null */
+  readonly trap: TrapInfo | null;
+}
+
+/**
+ * 다락문 (#296, 아빠 2026-11-13). 3/16 두께의 판. 닫히면 칸 바닥(또는 top 이면 천장)에 눕고, 열리면 facing 쪽 가장자리에 선다.
+ * facing = 놓은 사람이 보던 방향(DOOR_FACING 번호). JSON 의 다락문 = 북쪽·바닥·닫힘
+ */
+export interface TrapInfo {
+  readonly base: number;
+  readonly facing: number;
+  readonly top: boolean;
+  readonly open: boolean;
+}
+
+/**
+ * 울타리문 (#295, 아빠 2026-11-13). facing = 놓은 사람이 보던 방향(DOOR_FACING 번호) — 문짝은 그와 직각으로 걸리고, 열리면 그 방향으로 젖혀진다.
+ * JSON 의 울타리문 = 북쪽·닫힘. 열린 문은 지나갈 수 있다(solid false)
+ */
+export interface GateInfo {
+  readonly base: number;
+  readonly facing: number;
+  readonly open: boolean;
 }
 
 /**
@@ -324,6 +351,10 @@ export class BlockRegistry {
   private readonly stairs = new Map<number, number[]>();
   /** 반 블록 변형 (#292): 반 블록 번호 → [kind] 번호 */
   private readonly slabs = new Map<number, number[]>();
+  /** 울타리문 변형 (#295): 울타리문 번호 → [facing * 2 + 열림] 번호 */
+  private readonly gates = new Map<number, number[]>();
+  /** 다락문 변형 (#296): 다락문 번호 → [facing * 4 + 위 2 + 열림] 번호 */
+  private readonly traps = new Map<number, number[]>();
 
   constructor(readonly defs: readonly BlockDef[]) {
     for (const d of defs) {
@@ -347,6 +378,16 @@ export class BlockRegistry {
         let sArr = this.stairs.get(d.stairs.base);
         if (!sArr) this.stairs.set(d.stairs.base, (sArr = []));
         sArr[d.stairs.facing + (d.stairs.top ? 4 : 0)] = d.num;
+      }
+      if (d.trap) {
+        let tArr = this.traps.get(d.trap.base);
+        if (!tArr) this.traps.set(d.trap.base, (tArr = []));
+        tArr[d.trap.facing * 4 + (d.trap.top ? 2 : 0) + (d.trap.open ? 1 : 0)] = d.num;
+      }
+      if (d.gate) {
+        let gArr = this.gates.get(d.gate.base);
+        if (!gArr) this.gates.set(d.gate.base, (gArr = []));
+        gArr[d.gate.facing * 2 + (d.gate.open ? 1 : 0)] = d.num;
       }
       if (d.slab) {
         let lArr = this.slabs.get(d.slab.base);
@@ -433,6 +474,16 @@ export class BlockRegistry {
   /** 계단 변형 (#291): 계단 번호(JSON 것) + 높은 쪽 방향 + 뒤집힘 → 블록 번호 */
   stairVariant(base: number, facing: number, top: boolean): number {
     return this.stairs.get(base)?.[(facing & 3) + (top ? 4 : 0)] ?? base;
+  }
+
+  /** 다락문 변형 (#296): 다락문 번호(JSON 것) + 방향 + 위(천장 쪽) + 열림 → 블록 번호 */
+  trapVariant(base: number, facing: number, top: boolean, open: boolean): number {
+    return this.traps.get(base)?.[(facing & 3) * 4 + (top ? 2 : 0) + (open ? 1 : 0)] ?? base;
+  }
+
+  /** 울타리문 변형 (#295): 울타리문 번호(JSON 것) + 방향 + 열림 → 블록 번호 */
+  gateVariant(base: number, facing: number, open: boolean): number {
+    return this.gates.get(base)?.[(facing & 3) * 2 + (open ? 1 : 0)] ?? base;
   }
 
   /** 반 블록 변형 (#292): 반 블록 번호(JSON 것) + 아래 0·위 1·합친 것 2 → 블록 번호 */
@@ -612,6 +663,9 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       rail: null,
       stairs: null,
       slab: null,
+      fence: false,
+      gate: null,
+      trap: null,
     };
   });
 
@@ -791,6 +845,49 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       dropCount: [2, 2],
       slab: { base: src.num, kind: SLAB_DOUBLE },
     });
+  }
+
+  // 울타리(shape 'fence', #295): 블록은 하나뿐 — 가로대가 어디로 뻗는지는 그릴 때·부딪힐 때 이웃을 보고 정한다.
+  // 울타리문(shape 'fence_gate'): JSON 의 것 = 북쪽·닫힘. 코드가 방향 4 × 열림 2 의 나머지 일곱을 만든다. 열린 문은 지나갈 수 있다
+  for (const src of [...defs]) {
+    if (!src.textures) continue;
+    if (src.shape === 'fence') Object.assign(src, { transparent: true, lightFilter: 0, fence: true });
+    if (src.shape !== 'fence_gate') continue;
+    Object.assign(src, { transparent: true, lightFilter: 0, gate: { base: src.num, facing: 0, open: false } });
+    for (let facing = 0; facing < 4; facing++)
+      for (const open of [false, true]) {
+        if (facing === 0 && !open) continue;
+        defs.push({
+          ...src,
+          num: defs.length,
+          id: `${src.id}@${DOOR_FACING[facing]}${open ? '>' : ''}`,
+          internal: true,
+          solid: !open,
+          drops: src.drops ?? src.id,
+          gate: { base: src.num, facing, open },
+        });
+      }
+  }
+
+  // 다락문(shape 'trapdoor', #296): JSON 의 것 = 북쪽·바닥·닫힘. 코드가 방향 4 × 위아래 2 × 열림 2 의 나머지 열다섯을 만든다.
+  // 얇은 판이라 옆 블록의 면을 가리지 않고 빛이 지나간다. 열린 것은 서버(몹·동물)에게는 없는 블록(solid false) — 사람은 얇은 판에 부딪힌다(fineSolidQuery)
+  for (const src of [...defs]) {
+    if (src.shape !== 'trapdoor' || !src.textures) continue;
+    Object.assign(src, { transparent: true, lightFilter: 0, trap: { base: src.num, facing: 0, top: false, open: false } });
+    for (let facing = 0; facing < 4; facing++)
+      for (const top of [false, true])
+        for (const open of [false, true]) {
+          if (facing === 0 && !top && !open) continue;
+          defs.push({
+            ...src,
+            num: defs.length,
+            id: `${src.id}@${DOOR_FACING[facing]}${top ? '^' : ''}${open ? '>' : ''}`,
+            internal: true,
+            solid: !open,
+            drops: src.drops ?? src.id,
+            trap: { base: src.num, facing, top, open },
+          });
+        }
   }
 
   if (defs.length > 65535) problems.push(`블록이 너무 많아요 (최대 65535개)`);

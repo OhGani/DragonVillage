@@ -1,6 +1,13 @@
 import { mulberry32 } from '@dragon-village/shared';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { boxEdges, outlineEdges, partBoxes, type Seg } from './partOutline';
+
+/** 16분의 1 단위 상자들로 적은 모양 (울타리·울타리문, #295). key 가 같으면 같은 모양 */
+export interface BoxShape {
+  key: string;
+  boxes: readonly (readonly number[])[];
+}
 
 const STAGES = 10;
 const OUTLINE_THICKNESS = 0.02; // 블록 대비 두께 — 폰 고해상도에서도 보이게 (WebGL 선 굵기는 1px 고정)
@@ -54,22 +61,34 @@ function makeCrackTextures(): THREE.CanvasTexture[] {
   return out;
 }
 
-/** 12개 모서리를 가는 사각기둥으로 — 화면 크기와 무관하게 보이는 외곽선 */
-function makeOutlineGeometry(size: number, t: number): THREE.BufferGeometry {
-  const h = size / 2;
+/** 칸 가운데를 원점으로, 바깥으로 아주 조금 부풀린 좌표 (면과 겹쳐 깜빡이지 않게) */
+const OUTLINE_SCALE = 1.004;
+const CRACK_PAD = 0.001;
+
+/**
+ * 모양(조각 마스크, #293)의 모서리를 가는 사각기둥으로 — 화면 크기와 무관하게 보이는 외곽선.
+ * 보통 블록은 모서리 12개, 반 블록은 반 칸 상자, 계단은 ㄴ자
+ */
+function makeOutlineGeometry(edges: readonly Seg[], t: number): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = [];
-  const edge = (sx: number, sy: number, sz: number, x: number, y: number, z: number) => {
-    const g = new THREE.BoxGeometry(sx, sy, sz);
-    g.translate(x, y, z);
+  for (const [x0, y0, z0, x1, y1, z1] of edges) {
+    const g = new THREE.BoxGeometry((x1 - x0) * OUTLINE_SCALE + t, (y1 - y0) * OUTLINE_SCALE + t, (z1 - z0) * OUTLINE_SCALE + t);
+    g.translate(((x0 + x1) / 2 - 0.5) * OUTLINE_SCALE, ((y0 + y1) / 2 - 0.5) * OUTLINE_SCALE, ((z0 + z1) / 2 - 0.5) * OUTLINE_SCALE);
     parts.push(g);
-  };
-  const L = size + t;
-  for (const a of [-h, h])
-    for (const b of [-h, h]) {
-      edge(L, t, t, 0, a, b); // x 방향 모서리 4개
-      edge(t, L, t, a, 0, b); // y 방향
-      edge(t, t, L, a, b, 0); // z 방향
-    }
+  }
+  const merged = mergeGeometries(parts, false);
+  for (const p of parts) p.dispose();
+  return merged!;
+}
+
+/** 금을 입힐 상자들 (모양대로). 상자마다 금 그림이 한 장씩 */
+function makeCrackGeometry(boxes: readonly Seg[]): THREE.BufferGeometry {
+  const parts = boxes.map(([x0, y0, z0, x1, y1, z1]) => {
+    const g = new THREE.BoxGeometry(x1 - x0 + CRACK_PAD * 2, y1 - y0 + CRACK_PAD * 2, z1 - z0 + CRACK_PAD * 2);
+    g.translate((x0 + x1) / 2 - 0.5, (y0 + y1) / 2 - 0.5, (z0 + z1) / 2 - 0.5);
+    return g;
+  });
+  if (parts.length === 1) return parts[0]!;
   const merged = mergeGeometries(parts, false);
   for (const p of parts) p.dispose();
   return merged!;
@@ -82,10 +101,24 @@ export class BlockHighlight {
   private readonly crackMat: THREE.MeshBasicMaterial;
   private readonly crackTextures: THREE.CanvasTexture[];
   private stage = -1;
+  /** 모양(조각 마스크)별 외곽선·금 상자 — 처음 볼 때 만들어 둔다 (#293). 255 = 보통 블록 */
+  private readonly shapes = new Map<string, { outline: THREE.BufferGeometry; crack: THREE.BufferGeometry }>();
+  private shapeKey = 'm255';
+
+  private shapeOf(mask: number, box?: BoxShape): { outline: THREE.BufferGeometry; crack: THREE.BufferGeometry } {
+    const key = box ? box.key : `m${mask}`;
+    let s = this.shapes.get(key);
+    if (!s) {
+      const edges = box ? boxEdges(box.boxes) : outlineEdges(mask);
+      const boxes: Seg[] = box ? box.boxes.map((b) => [b[0]! / 16, b[1]! / 16, b[2]! / 16, b[3]! / 16, b[4]! / 16, b[5]! / 16] as const) : partBoxes(mask);
+      this.shapes.set(key, (s = { outline: makeOutlineGeometry(edges, OUTLINE_THICKNESS), crack: makeCrackGeometry(boxes) }));
+    }
+    return s;
+  }
 
   constructor(scene: THREE.Scene) {
     this.outline = new THREE.Mesh(
-      makeOutlineGeometry(1.004, OUTLINE_THICKNESS),
+      this.shapeOf(255).outline,
       new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45, depthWrite: false }),
     );
     this.outline.renderOrder = 5;
@@ -101,13 +134,23 @@ export class BlockHighlight {
       polygonOffsetFactor: -2,
       polygonOffsetUnits: -2,
     });
-    this.crack = new THREE.Mesh(new THREE.BoxGeometry(1.002, 1.002, 1.002), this.crackMat);
+    this.crack = new THREE.Mesh(this.shapeOf(255).crack, this.crackMat);
     this.crack.renderOrder = 4;
     this.crack.visible = false;
     scene.add(this.crack);
   }
 
-  setTarget(x: number, y: number, z: number): void {
+  /** mask = 그 블록의 조각 마스크 (계단·반 블록은 모양대로, #293). 안 주면 보통 블록. box 를 주면 그 상자들 모양으로 (울타리 #295) */
+  setTarget(x: number, y: number, z: number, mask = 255, box?: BoxShape): void {
+    mask &= 255;
+    if (mask === 0) mask = 255;
+    const key = box ? box.key : `m${mask}`;
+    if (key !== this.shapeKey) {
+      this.shapeKey = key;
+      const s = this.shapeOf(mask, box);
+      this.outline.geometry = s.outline;
+      this.crack.geometry = s.crack;
+    }
     this.outline.visible = true;
     this.outline.position.set(x + 0.5, y + 0.5, z + 0.5);
     this.crack.position.copy(this.outline.position);
@@ -135,9 +178,12 @@ export class BlockHighlight {
   }
 
   dispose(): void {
-    this.outline.geometry.dispose();
+    for (const s of this.shapes.values()) {
+      s.outline.dispose();
+      s.crack.dispose();
+    }
+    this.shapes.clear();
     (this.outline.material as THREE.Material).dispose();
-    this.crack.geometry.dispose();
     this.crackMat.dispose();
     for (const t of this.crackTextures) t.dispose();
   }

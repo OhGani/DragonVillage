@@ -39,6 +39,12 @@ export interface MeshBlockInfo {
   stairs?: readonly [number, number] | null;
   /** 반 블록(#292): 찬 조각 마스크 (아래 반 0x0f, 위 반 0xf0). 계단과 같은 패스로 그린다. 합친 한 칸은 보통 블록이라 null */
   slab?: number | null;
+  /** 울타리(#295): 기둥 + 이웃 쪽 가로대. 어디로 이어지는지는 이웃을 보고 정한다 */
+  fence?: boolean;
+  /** 울타리문(#295): [facing, 열렸으면 1]. 아니면 null */
+  gate?: readonly [number, number] | null;
+  /** 다락문(#296): facing * 4 + 위 2 + 열림 (얇은 판 한 장). 아니면 null */
+  trap?: number | null;
   /** 철도(#237): 바닥에 누운 판 한 장. RAIL_DIRS 번호(0 ns 1 ew 2 ne 3 nw 4 se 5 sw), 철도가 아니면 null */
   rail: number | null;
   /** 이어지는 그림(유리, 2026-11-09): 면 둘레 이웃 8비트 → 레이어 표 (connected.ts). 아니면 null */

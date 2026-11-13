@@ -28,6 +28,7 @@ export * from './rules/raid';
 export * from './rules/animals';
 export * from './rules/rails';
 export * from './rules/stairs';
+export * from './rules/fence';
 export * from './rules/combat';
 export * from './rules/petNames';
 export * from './rules/villagerTalk';
