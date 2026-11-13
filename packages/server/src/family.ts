@@ -7,6 +7,7 @@
  * - 할 일은 아이별. 아이가 게임에서 체크 → 승인 필요 없으면 바로 approved, 필요하면 checked → 부모가 /family 또는 게임 안(부모 플레이어)에서 승인·거절.
  * - 시간: 접속 중 1분마다 used_sec 누적(세션이 addUsage 호출). 오늘 카드는 순수 함수(shared/rules/family)가 만든다.
  *   enforceTime 이 false 면 표시만 하고 막지 않는다 (아빠 2026-09-19: 테스트 동안 제한 없음).
+ * - 부모 플레이어(게임 닉네임을 가족에 연결한 부모)도 아이와 같은 분량·같은 시간대만 논다 (#298, parentCardFor).
  * - 규칙 4: 할 일 보상은 시간만. 규칙 5: 기본 시간은 서버가 절대 깎지 않는다.
  * - 부모 여러 명(엄마)은 v1.1: 같은 가족 코드로 가입하기.
  */
@@ -348,12 +349,36 @@ export class FamilyService {
 
   // ---------------------------------------------------------------- 오늘 카드·시간
 
-  /** 아이의 오늘 카드. 아이가 아니면 null */
+  /** 오늘 카드: 아이는 자기 것, 부모 플레이어는 아이와 같은 분량·시간대의 카드(#298). 둘 다 아니면 null */
   todayCard(nick: string, now = Date.now()): TodayCard | null {
-    const key = nickKey(nick);
-    const c = this.storage.getChild(key);
-    if (!c) return null;
-    return this.cardFor(key, now);
+    return this.cardOfKey(nickKey(nick), now);
+  }
+
+  private cardOfKey(key: string, now: number): TodayCard | null {
+    if (this.storage.getChild(key)) return this.cardFor(key, now);
+    const pp = this.storage.getParentPlayer(key);
+    return pp ? this.parentCardFor(key, pp.family, now) : null;
+  }
+
+  /**
+   * 부모 플레이어의 오늘 카드 (#298, 아빠 2026-11-13 "아빠도 아들이랑 동일한 시간동안만"):
+   * 아이가 오늘 받은 분량(기본 + 보너스 + 조정)·같은 접속 시간대·같은 '오늘 게임 없음'. 쓴 시간만 부모 자기 것(time_ledger 에 부모 닉네임으로).
+   * 아이가 여럿이면 오늘 분량이 가장 많은 아이 기준. 가족에 아이가 없으면 null (제한 없음). 할 일 목록은 비운다 — 부모는 체크하지 않는다
+   */
+  private parentCardFor(key: string, familyId: number, now: number): TodayCard | null {
+    let best: TodayCard | null = null,
+      bestTotal = -Infinity;
+    for (const c of this.storage.listChildren(familyId)) {
+      const card = this.cardFor(c.nickKey, now);
+      const total = card.baseMin + card.bonusMin + card.manualAdj;
+      if (total > bestTotal) {
+        best = card;
+        bestTotal = total;
+      }
+    }
+    if (!best) return null;
+    const usedMin = Math.floor((this.storage.getLedger(key, best.date)?.usedSec ?? 0) / 60);
+    return { ...best, usedMin, remainingMin: Math.max(0, bestTotal - usedMin), todos: [] };
   }
 
   private cardFor(key: string, now: number): TodayCard {
@@ -464,25 +489,22 @@ export class FamilyService {
    */
   timeBlock(nick: string, now = Date.now()): { reason: Exclude<TimeUpReason, 'idle'>; message: string } | null {
     if (!this.enforceTime) return null;
-    const key = nickKey(nick);
-    if (!this.storage.getChild(key)) return null;
-    const card = this.cardFor(key, now);
+    const card = this.cardOfKey(nickKey(nick), now); // 아이, 또는 부모 플레이어 (#298)
+    if (!card) return null;
     const reason = timeUpReason(card);
     return reason ? { reason, message: timeUpMessage(reason, card) } : null;
   }
 
   /** 내보내는 말 (5분 무입력 포함) */
   timeUpText(reason: TimeUpReason, nick: string, now = Date.now()): string {
-    const key = nickKey(nick);
-    return timeUpMessage(reason, this.storage.getChild(key) ? this.cardFor(key, now) : null);
+    return timeUpMessage(reason, this.cardOfKey(nickKey(nick), now));
   }
 
   /** 원정 출발해도 되나. 제한이 꺼져 있거나 아이가 아니면 항상 ok */
   expeditionCheck(nick: string, expeditionSec: number, now = Date.now()): { ok: true } | { ok: false; message: string } {
     if (!this.enforceTime) return { ok: true };
-    const key = nickKey(nick);
-    if (!this.storage.getChild(key)) return { ok: true };
-    const card = this.cardFor(key, now);
+    const card = this.cardOfKey(nickKey(nick), now); // 부모 플레이어도 아이와 같은 조건 (#298)
+    if (!card) return { ok: true };
     const expMin = Math.ceil(expeditionSec / 60);
     if (canStartExpedition(card, expMin, this.rules)) return { ok: true };
     const need = expeditionNeedMin(expMin, this.rules);
@@ -493,16 +515,28 @@ export class FamilyService {
 
   /** 제한이 켜져 있고 지금 내보내야 하면, 접속 중인 아이에게 timeUp (세션이 연결을 닫는다) */
   private kickIfNeeded(key: string, now: number): void {
-    if (!this.enforceTime || !this.listeners.has(key)) return;
-    const card = this.cardFor(key, now);
-    const reason = timeUpReason(card);
-    if (reason) this.notify(key, { t: 'timeUp', reason, message: timeUpMessage(reason, card) });
+    if (!this.enforceTime) return;
+    for (const k of this.withParents(key)) {
+      if (!this.listeners.has(k)) continue;
+      const card = this.cardOfKey(k, now);
+      const reason = card ? timeUpReason(card) : null;
+      if (card && reason) this.notify(k, { t: 'timeUp', reason, message: timeUpMessage(reason, card) });
+    }
   }
 
-  /** 카드가 바뀌었을 때 접속 중인 아이에게 밀어 준다 */
+  /** 카드가 바뀌었을 때 접속 중인 아이에게 밀어 준다. 아이의 분량이 바뀌면 부모 플레이어의 카드도 같이 바뀐다 (#298) */
   private pushCard(key: string, now: number): void {
-    if (!this.listeners.has(key)) return;
-    this.notify(key, { t: 'today', card: this.cardFor(key, now) });
+    for (const k of this.withParents(key)) {
+      if (!this.listeners.has(k)) continue;
+      const card = this.cardOfKey(k, now);
+      if (card) this.notify(k, { t: 'today', card });
+    }
+  }
+
+  /** 이 닉네임 + (아이라면) 그 가족의 부모 플레이어들 */
+  private withParents(key: string): string[] {
+    const c = this.storage.getChild(key);
+    return c ? [key, ...this.storage.listParentPlayers(c.family).map((p) => p.nickKey)] : [key];
   }
 
   /** 아이가 할 일을 체크했다 */
@@ -540,12 +574,12 @@ export class FamilyService {
     return true;
   }
 
-  /** 접속 중 시간 누적 (세션이 1분마다). 아이가 아니면 null */
+  /** 접속 중 시간 누적 (세션이 1분마다). 아이도 부모 플레이어(#298)도 아니면 null */
   addUsage(nick: string, sec: number, now = Date.now()): TodayCard | null {
     const key = nickKey(nick);
-    if (!this.storage.getChild(key)) return null;
+    if (!this.cardOfKey(key, now)) return null;
     this.storage.addUsage(key, seoulTime(now).date, Math.max(0, Math.floor(sec)));
-    return this.cardFor(key, now);
+    return this.cardOfKey(key, now);
   }
 
   /** 부모 화면용: 아이별 오늘 카드 + 할 일 */

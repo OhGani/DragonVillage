@@ -53,13 +53,14 @@ describe('서울 시간', () => {
     expect(seoulTime(Date.UTC(2026, 8, 19, 15, 10)).date).toBe('2026-09-20');
     expect(seoulTime(Date.UTC(2026, 8, 19, 15, 10)).weekday).toBe(0);
   });
-  it('접속 불가 시간대: 평일 16시 전·21시 후, 주말 9시 전', () => {
+  it('접속 불가 시간대: 평일 16시 전·22시 후(2026-11-13 밤 9시 → 10시), 주말 9시 전', () => {
     expect(isBlockedNow(FAMILY_RULES, seoulTime(SAT_1020))).toBe(false);
     expect(isBlockedNow(FAMILY_RULES, seoulTime(MON_1530))).toBe(true);
     expect(nextOpenHHMM(FAMILY_RULES, seoulTime(MON_1530))).toBe('16:00');
     expect(isBlockedNow(FAMILY_RULES, seoulTime(Date.UTC(2026, 8, 21, 7, 0)))).toBe(false); // 월 16:00
-    expect(isBlockedNow(FAMILY_RULES, seoulTime(Date.UTC(2026, 8, 21, 12, 0)))).toBe(true); // 월 21:00
-    expect(nextOpenHHMM(FAMILY_RULES, seoulTime(Date.UTC(2026, 8, 21, 12, 0)))).toBeNull(); // 오늘은 더 안 열림
+    expect(isBlockedNow(FAMILY_RULES, seoulTime(Date.UTC(2026, 8, 21, 12, 0)))).toBe(false); // 월 21:00 — 아직 열려 있다
+    expect(isBlockedNow(FAMILY_RULES, seoulTime(Date.UTC(2026, 8, 21, 13, 0)))).toBe(true); // 월 22:00
+    expect(nextOpenHHMM(FAMILY_RULES, seoulTime(Date.UTC(2026, 8, 21, 13, 0)))).toBeNull(); // 오늘은 더 안 열림
   });
 });
 
@@ -141,9 +142,9 @@ describe('할 일', () => {
 
 describe('시간 제한 (M5-4)', () => {
   it('차단까지 남은 분, 원정 출발 조건 = min(남은 시간, 차단까지) ≥ 길이 + 3', () => {
-    expect(minutesUntilBlocked(FAMILY_RULES, seoulTime(SAT_1020))).toBe(21 * 60 - (10 * 60 + 20)); // 토 21:00 까지
+    expect(minutesUntilBlocked(FAMILY_RULES, seoulTime(SAT_1020))).toBe(22 * 60 - (10 * 60 + 20)); // 토 22:00 까지
     expect(minutesUntilBlocked(FAMILY_RULES, seoulTime(MON_1530))).toBe(0); // 막혀 있음
-    expect(minutesUntilBlocked(FAMILY_RULES, seoulTime(Date.UTC(2026, 8, 21, 11, 50)))).toBe(10); // 월 20:50
+    expect(minutesUntilBlocked(FAMILY_RULES, seoulTime(Date.UTC(2026, 8, 21, 12, 50)))).toBe(10); // 월 21:50
     expect(expeditionNeedMin(10, FAMILY_RULES)).toBe(13);
     const base = { remainingMin: 20, minutesUntilBlocked: 600, noPlayToday: false };
     expect(canStartExpedition(base, 10, FAMILY_RULES)).toBe(true);
@@ -156,7 +157,7 @@ describe('시간 제한 (M5-4)', () => {
     const inp = { todos: [teeth], logs: [], time: seoulTime(SAT_1020), rules: FAMILY_RULES, lastWeekRate: null, usedSec: 0, manualAdj: 0, enforced: true };
     const ok = buildTodayCard(inp);
     expect(timeUpReason(ok)).toBeNull();
-    expect(ok.minutesUntilBlocked).toBe(640);
+    expect(ok.minutesUntilBlocked).toBe(700);
     expect(ok.nextOpen).toBeNull();
     const adj = buildTodayCard({ ...inp, manualAdj: 10, adjustments: [{ min: 10, reason: '방 청소' }] });
     expect(adj.remainingMin).toBe(40);

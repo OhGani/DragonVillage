@@ -157,13 +157,18 @@ describe('할 일·승인·시간 (M5-3)', () => {
     const t = family.addTodo(fid, '쁘뚜', '수학', 'daily', true, SAT)!;
     expect(gotChild.at(-1)).toMatchObject({ t: 'today', card: { todos: [{ id: t.id, status: 'pending' }] } });
     expect(family.childrenStatus(fid, SAT)[0]!.online).toBe(true);
+    // 부모 플레이어는 아이의 카드가 바뀔 때마다 자기 카드(같은 분량, #298)도 받는다 — 여기선 승인 알림만 본다
+    const asks = () => gotParent.filter((m) => m.t !== 'today');
+    expect(gotParent.at(-1)).toMatchObject({ t: 'today', card: { baseMin: 30, remainingMin: 30, todos: [] } });
     family.checkTodo('쁘뚜', t.id, SAT);
-    expect(gotParent[0]).toMatchObject({ t: 'approvalAsk', id: t.id, date: '2026-09-19', child: '쁘뚜', title: '수학' });
-    expect(gotParent[1]).toMatchObject({ t: 'pending', items: [{ id: t.id, date: '2026-09-19', child: '쁘뚜', title: '수학' }] });
+    expect(asks()[0]).toMatchObject({ t: 'approvalAsk', id: t.id, date: '2026-09-19', child: '쁘뚜', title: '수학' });
+    expect(asks()[1]).toMatchObject({ t: 'pending', items: [{ id: t.id, date: '2026-09-19', child: '쁘뚜', title: '수학' }] });
     expect(family.pendingItems(fid)).toHaveLength(1);
     family.decideTodo(fid, t.id, '2026-09-19', true, SAT);
     expect(gotChild.at(-1)).toMatchObject({ t: 'today', card: { bonusMin: 5, todos: [{ status: 'approved' }] } });
-    expect(gotParent.at(-1)).toEqual({ t: 'pending', items: [] });
+    expect(asks().at(-1)).toEqual({ t: 'pending', items: [] });
+    // 아이가 보너스를 받으면 부모 플레이어의 분량도 같이 늘어난다
+    expect(gotParent.filter((m) => m.t === 'today').at(-1)).toMatchObject({ card: { bonusMin: 5, remainingMin: 35, todos: [] } });
     family.detach('오가니', lp);
     family.detach('쁘뚜', lc);
     const n = gotChild.length;
@@ -244,6 +249,56 @@ describe('시간 조정·오늘 게임 없음·PIN 초기화·제한 판정 (M5-
     expect(accounts.hasPin(A)).toBe(false);
     expect(accounts.claim(A, '쁘뚜', 3000)).toEqual({ ok: true, needPin: true });
     expect(accounts.resume('쁘뚜', '1111', 3000)).toEqual({ ok: false, reason: 'NO_PIN' });
+  });
+
+  it('부모 플레이어도 아이와 같은 분량·같은 시간대만 (#298): 쓴 시간은 따로 세고, 아이의 조정·오늘 게임 없음도 같이 따른다', () => {
+    const B = 'b'.repeat(32);
+    const { family, accounts, fid } = withChildEnforced(true);
+    accounts.claim(B, '오가니', 1000);
+    accounts.setPin(B, '2222');
+    // 연결하기 전에는 그냥 손님 — 제한 없음
+    expect(family.todayCard('오가니', SAT)).toBeNull();
+    expect(family.timeBlock('오가니', SAT)).toBeNull();
+    expect(family.addUsage('오가니', 60, SAT)).toBeNull();
+    expect(family.linkParentPlayer(fid, '오가니', '2222')).toMatchObject({ ok: true });
+    // 토요일 기본 30분, 할 일 목록은 비어 있다
+    expect(family.todayCard('오가니', SAT)).toMatchObject({ baseMin: 30, usedMin: 0, remainingMin: 30, enforced: true, todos: [] });
+    // 아이가 쓴 시간은 아빠 시계와 무관, 아빠가 쓴 시간도 아이 시계와 무관
+    family.addUsage('쁘뚜', 10 * 60, SAT);
+    expect(family.todayCard('오가니', SAT)!.remainingMin).toBe(30);
+    expect(family.addUsage('오가니', 12 * 60, SAT)!.remainingMin).toBe(18);
+    expect(family.todayCard('쁘뚜', SAT)!.remainingMin).toBe(20);
+    // 아이에게 +10분 조정 → 아빠 분량도 같이
+    family.adjustTime(fid, '쁘뚜', 10, '심부름', SAT);
+    expect(family.todayCard('오가니', SAT)!.remainingMin).toBe(28);
+    // 원정은 남은 시간이 충분할 때만
+    expect(family.expeditionCheck('오가니', 600, SAT)).toEqual({ ok: true });
+    family.addUsage('오가니', 20 * 60, SAT);
+    expect(family.expeditionCheck('오가니', 600, SAT)).toMatchObject({ ok: false });
+    // 다 쓰면 입장 거절, 접속 중이면 내보낸다
+    const got: ServerJson[] = [];
+    family.attach('오가니', (m) => got.push(m));
+    family.addUsage('오가니', 8 * 60, SAT);
+    expect(family.timeBlock('오가니', SAT)).toMatchObject({ reason: 'over' });
+    expect(family.timeBlock('쁘뚜', SAT)).toBeNull(); // 아이는 아직 남았다
+    // 같은 시간대: 토요일 08:00(9시 전)·22:30 에는 못 들어온다, 21:30 은 된다 (밤 10시부터 닫힘)
+    const SUN = SAT + 86_400_000;
+    expect(family.timeBlock('오가니', Date.UTC(2026, 8, 19, 23, 0))).toMatchObject({ reason: 'blocked' }); // 일 08:00
+    expect(family.timeBlock('오가니', Date.UTC(2026, 8, 20, 12, 30))).toBeNull(); // 일 21:30
+    expect(family.timeBlock('오가니', Date.UTC(2026, 8, 20, 13, 30))).toMatchObject({ reason: 'blocked' }); // 일 22:30
+    // 아이가 '오늘 게임 없음' 이면 아빠도 — 접속 중이면 바로 timeUp
+    got.length = 0;
+    family.setNoPlay(fid, '쁘뚜', true, SUN);
+    expect(family.timeBlock('오가니', SUN)).toMatchObject({ reason: 'noPlay' });
+    expect(got.some((m) => m.t === 'timeUp')).toBe(true);
+    // 제한이 꺼져 있으면 부모도 안 막는다 (카드는 보인다)
+    const off = withChildEnforced(false);
+    off.accounts.claim(B, '오가니', 1000);
+    off.accounts.setPin(B, '2222');
+    off.family.linkParentPlayer(off.fid, '오가니', '2222');
+    off.family.addUsage('오가니', 60 * 60, SAT);
+    expect(off.family.timeBlock('오가니', SAT)).toBeNull();
+    expect(off.family.todayCard('오가니', SAT)).toMatchObject({ enforced: false, remainingMin: 0 });
   });
 });
 

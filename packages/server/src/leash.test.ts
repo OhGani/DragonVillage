@@ -31,7 +31,7 @@ function setup(storage = new Storage(':memory:')) {
   return { storage, room, ra, p, cow, json, moveTo, slotOf, run, dist, id: ANIMAL_ID_BASE + cow.id };
 }
 
-describe('끈 (#297, 아빠 2026-11-14)', () => {
+describe('끈 (#297, 아빠 2026-11-13)', () => {
   it('실 4 + 슬라임 볼 1 → 끈 2. 주민·보트·수레는 못 맨다', () => {
     const r = RECIPES.require('lead');
     expect(r.in).toEqual({ string: 4, slime_ball: 1 });
