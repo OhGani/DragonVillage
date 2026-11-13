@@ -27,4 +27,47 @@ describe('계단 (#291, 아빠 2026-11-13)', () => {
     expect(countOf(p.inv, 'oak_stairs')).toBe(3);
     expect(p.inv.some((s) => s?.item.includes('@'))).toBe(false);
   });
+
+  it('반 블록 (#292): 아래·위 반으로 놓이고, 같은 반 블록을 하나 더 얹으면 한 칸으로 합쳐진다. 부수면 둘이 돌아온다', () => {
+    const room = new VillageRoom({ ...INFO }, BLOCKS, new Storage(':memory:'), () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const ra = room.join('a'.repeat(32), '아빠', 0, () => {})!;
+    const p = room.players.get(ra.idx)!;
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 66.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, 1000);
+    const y = GROUND_Y + 1;
+    const idAt = (x: number) => BLOCKS.get(room.world.getBlock(x, y, 64)).id;
+    give(p.inv, 'oak_slab', 4);
+    give(p.inv, 'cobblestone_slab', 1);
+    let seq = 1,
+      now = 1000;
+    const put = (x: number, id: string) => room.onBlockChange(ra.idx, { seq: seq++, x, y, z: 64, id }, (now += 400));
+    // 빈 자리에 합친 한 칸을 한 번에 놓을 수는 없다
+    put(63, 'oak_slab@2');
+    expect(idAt(63)).toBe('air');
+    put(63, 'oak_slab');
+    put(64, 'oak_slab@^');
+    expect([idAt(63), idAt(64)]).toEqual(['oak_slab', 'oak_slab@^']);
+    expect(countOf(p.inv, 'oak_slab')).toBe(2);
+    // 다른 반 블록으로는 못 합친다, 보통 블록으로 덮을 수도 없다
+    put(63, 'cobblestone_slab@2');
+    give(p.inv, 'stone', 1);
+    put(63, 'stone');
+    expect(idAt(63)).toBe('oak_slab');
+    expect(countOf(p.inv, 'cobblestone_slab')).toBe(1);
+    // 같은 반 블록 하나를 더 → 한 칸 (아래 반에도, 위 반에도)
+    put(63, 'oak_slab@2');
+    put(64, 'oak_slab@2');
+    expect([idAt(63), idAt(64)]).toEqual(['oak_slab@2', 'oak_slab@2']);
+    expect(countOf(p.inv, 'oak_slab')).toBe(0);
+    // 이미 한 칸이면 더 못 얹는다
+    give(p.inv, 'oak_slab', 1);
+    put(63, 'oak_slab@2');
+    expect(countOf(p.inv, 'oak_slab')).toBe(1);
+    // 부수면 둘씩
+    now += 5000;
+    put(63, 'air');
+    now += 5000;
+    put(64, 'air');
+    expect([idAt(63), idAt(64)]).toEqual(['air', 'air']);
+    expect(countOf(p.inv, 'oak_slab')).toBe(5);
+  });
 });

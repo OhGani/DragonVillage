@@ -58,6 +58,37 @@ export function renderStairIcon(top: ImageData, side: ImageData, size = 40): HTM
   return canvas;
 }
 
+/** 반 블록 아이콘 (#292): 등각 블록의 아래 반 — 윗면은 반 칸 높이에 */
+export function renderSlabIcon(top: ImageData, side: ImageData, size = 40): HTMLCanvasElement {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = Math.round(size * dpr);
+  canvas.style.width = canvas.style.height = `${size}px`;
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  const k = (size * dpr) / 32;
+  const T = texCanvas(top),
+    S = texCanvas(side);
+  const shadeLower = (alpha: number) => {
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+    ctx.fillRect(0, 8, 16, 8);
+    ctx.globalCompositeOperation = 'source-over';
+  };
+  // 윗면 (반 칸 높이 = 화면에서 8칸 아래)
+  ctx.setTransform(k, 0.5 * k, -k, 0.5 * k, 16 * k, 8 * k);
+  ctx.drawImage(T, 0, 0, 16, 16);
+  // 왼쪽·오른쪽 면의 아래 반
+  ctx.setTransform(k, 0.5 * k, 0, k, 0, 8 * k);
+  ctx.drawImage(S, 0, 8, 16, 8, 0, 8, 16, 8);
+  shadeLower(0.22);
+  ctx.setTransform(k, -0.5 * k, 0, k, 16 * k, 16 * k);
+  ctx.drawImage(S, 0, 8, 16, 8, 0, 8, 16, 8);
+  shadeLower(0.42);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  return canvas;
+}
+
 export function renderBlockIcon(top: ImageData, side: ImageData, size = 40): HTMLCanvasElement {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const canvas = document.createElement('canvas');

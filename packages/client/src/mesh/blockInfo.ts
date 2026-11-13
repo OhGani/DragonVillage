@@ -1,4 +1,4 @@
-import { DOOR_DIR, RAIL_DIRS, type BlockRegistry } from '@dragon-village/shared';
+import { DOOR_DIR, RAIL_DIRS, SLAB_DOUBLE, SLAB_TOP, type BlockRegistry } from '@dragon-village/shared';
 import { CONNECTED_BLOCKS, connectTable } from './connected';
 import { LAYER_CUTOUT, LAYER_NONE, LAYER_OPAQUE, LAYER_TRANSLUCENT, type MeshBlockInfo } from './meshTypes';
 
@@ -43,6 +43,7 @@ export function buildMeshBlockInfo(registry: BlockRegistry, textureIndex: Readon
       campfire: d.shape === 'campfire' ? { log: s, end: layerOf('campfire_log_end'), fire: d.lightEmit > 0 ? layerOf('campfire_fire') : -1 } : null,
       rail: d.rail ? RAIL_DIRS.indexOf(d.rail.dir) : null,
       stairs: d.stairs ? [d.stairs.facing, d.stairs.top ? 1 : 0] : null,
+      slab: d.slab && d.slab.kind !== SLAB_DOUBLE ? (d.slab.kind === SLAB_TOP ? 0xf0 : 0x0f) : null,
       connect: CONNECTED_BLOCKS.has(d.id) ? connectTable(side, (n) => textureIndex.get(n)) : null, // 유리끼리 맞닿은 쪽 테두리 없애기 (2026-11-09)
       layer,
       opaque,

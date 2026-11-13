@@ -966,6 +966,151 @@
       "shape": "stairs"
     },
     {
+      "id": "oak_slab",
+      "name": "참나무 반 블록",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "planks",
+      "shape": "slab",
+      "_note": "반 블록 (#292): 반 칸 높이. 블록 윗면을 탭하면 아래 반, 아랫면이나 옆면의 위쪽 반을 탭하면 위 반으로 놓여요. 놓인 반 블록 위에 같은 걸 하나 더 놓으면 한 칸으로 합쳐지고, 부수면 둘이 나와요. 새 반 블록은 이 블록을 복사해서 id·name·texture 만 바꾸면 돼요(shape 는 slab 그대로)"
+    },
+    {
+      "id": "spruce_slab",
+      "name": "가문비나무 반 블록",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "spruce_planks",
+      "shape": "slab"
+    },
+    {
+      "id": "birch_slab",
+      "name": "자작나무 반 블록",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "birch_planks",
+      "shape": "slab"
+    },
+    {
+      "id": "jungle_slab",
+      "name": "정글나무 반 블록",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "jungle_planks",
+      "shape": "slab"
+    },
+    {
+      "id": "acacia_slab",
+      "name": "아카시아나무 반 블록",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "acacia_planks",
+      "shape": "slab"
+    },
+    {
+      "id": "dark_oak_slab",
+      "name": "짙은 참나무 반 블록",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "dark_oak_planks",
+      "shape": "slab"
+    },
+    {
+      "id": "cherry_slab",
+      "name": "벚나무 반 블록",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "cherry_planks",
+      "shape": "slab"
+    },
+    {
+      "id": "mangrove_slab",
+      "name": "맹그로브 반 블록",
+      "hardness": 2.0,
+      "tool": "axe",
+      "lightEmit": 0,
+      "texture": "mangrove_planks",
+      "shape": "slab"
+    },
+    {
+      "id": "cobblestone_slab",
+      "name": "조약돌 반 블록",
+      "hardness": 2.0,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "cobblestone",
+      "shape": "slab"
+    },
+    {
+      "id": "stone_slab",
+      "name": "돌 반 블록",
+      "hardness": 1.5,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "stone",
+      "shape": "slab"
+    },
+    {
+      "id": "stone_brick_slab",
+      "name": "석재 벽돌 반 블록",
+      "hardness": 1.5,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "stone_bricks",
+      "shape": "slab"
+    },
+    {
+      "id": "mossy_cobblestone_slab",
+      "name": "이끼 낀 조약돌 반 블록",
+      "hardness": 2.0,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "mossy_cobblestone",
+      "shape": "slab"
+    },
+    {
+      "id": "sandstone_slab",
+      "name": "사암 반 블록",
+      "hardness": 0.8,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "sandstone",
+      "shape": "slab"
+    },
+    {
+      "id": "nether_brick_slab",
+      "name": "네더 벽돌 반 블록",
+      "hardness": 2.0,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "nether_bricks",
+      "shape": "slab"
+    },
+    {
+      "id": "quartz_slab",
+      "name": "석영 반 블록",
+      "hardness": 0.8,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "quartz_block",
+      "shape": "slab"
+    },
+    {
+      "id": "deepslate_slab",
+      "name": "심층암 반 블록",
+      "hardness": 3.0,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "texture": "deepslate",
+      "shape": "slab"
+    },
+    {
       "id": "oak_door",
       "name": "참나무 문",
       "hardness": 3.0,

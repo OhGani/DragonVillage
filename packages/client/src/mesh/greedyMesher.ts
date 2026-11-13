@@ -611,7 +611,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
    * 알 전용 패스 (#85): 상자 여섯 층. 층끼리 맞닿는 면은 넓은 쪽만 그린다(같은 자리에 두 면이 겹쳐 깜빡이지 않게).
    */
   /**
-   * 계단 전용 패스 (#291): 한 칸을 반 칸 조각 여덟(2×2×2)으로 보고, 찬 조각의 드러난 면만 그린다.
+   * 계단·반 블록(#292) 패스 (#291): 한 칸을 반 칸 조각 여덟(2×2×2)으로 보고, 찬 조각의 드러난 면만 그린다.
    * 어느 조각이 찼는지는 방향·뒤집힘 + 이웃 계단(모서리)으로 정한다 — 물리(fineSolidQuery)와 같은 stairMask.
    * 칸 가장자리 면은 옆 칸이 불투명 블록이면 안 그리고, 한 평면의 조각들은 되는 대로 큰 사각형으로 묶는다.
    * 그림은 세계 좌표를 면에 투영해 붙이니(boxFace) 판자 무늬가 옆 블록과 그대로 이어진다
@@ -625,13 +625,16 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
       for (let z = 0; z < N; z++)
         for (let x = 0; x < N; x++) {
           const bi = info[padded[paddedIndex(x, y, z)]];
-          if (bi === undefined || !bi.stairs) continue;
-          const [facing, top] = bi.stairs;
-          const shape = stairShape(facing, top === 1, (dx, dz) => {
-            const n = info[padded[paddedIndex(x + dx, y, z + dz)]]?.stairs;
-            return n ? { facing: n[0], top: n[1] === 1 } : null;
-          });
-          const mask = stairMask(facing, top === 1, shape);
+          if (bi === undefined || (!bi.stairs && !bi.slab)) continue;
+          let mask = bi.slab ?? 0;
+          if (bi.stairs) {
+            const [facing, top] = bi.stairs;
+            const shape = stairShape(facing, top === 1, (dx, dz) => {
+              const n = info[padded[paddedIndex(x + dx, y, z + dz)]]?.stairs;
+              return n ? { facing: n[0], top: n[1] === 1 } : null;
+            });
+            mask = stairMask(facing, top === 1, shape);
+          }
           const filled = (): boolean => ((mask >> (s[0]! + s[2]! * 2 + s[1]! * 4)) & 1) === 1;
           const lt = lightOfCell(x, y, z);
           base[0] = x;
@@ -830,7 +833,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
             kb = 0,
             kfl = 0,
             kbl = 0;
-          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg && !bi.cross && bi.bed === null && !bi.sign && !bi.table && !bi.campfire && bi.rail === null && !bi.stairs) {
+          if (bi !== undefined && bi.layer !== LAYER_NONE && bi.fluidKind === 0 && bi.panel === null && bi.torch === null && !bi.egg && !bi.cross && bi.bed === null && !bi.sign && !bi.table && !bi.campfire && bi.rail === null && !bi.stairs && !bi.slab) {
             p[d] = i + 1;
             const idF = padded[paddedIndex(p[0], p[1], p[2])];
             p[d] = i;

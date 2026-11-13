@@ -37,6 +37,8 @@ export interface MeshBlockInfo {
   campfire?: { log: number; end: number; fire: number } | null;
   /** 계단(#291): [높은 쪽 방향, 뒤집혔으면 1]. 반 칸 조각들로 그리고 모서리 모양은 이웃 계단을 보고 정한다. 계단이 아니면 null */
   stairs?: readonly [number, number] | null;
+  /** 반 블록(#292): 찬 조각 마스크 (아래 반 0x0f, 위 반 0xf0). 계단과 같은 패스로 그린다. 합친 한 칸은 보통 블록이라 null */
+  slab?: number | null;
   /** 철도(#237): 바닥에 누운 판 한 장. RAIL_DIRS 번호(0 ns 1 ew 2 ne 3 nw 4 se 5 sw), 철도가 아니면 null */
   rail: number | null;
   /** 이어지는 그림(유리, 2026-11-09): 면 둘레 이웃 8비트 → 레이어 표 (connected.ts). 아니면 null */

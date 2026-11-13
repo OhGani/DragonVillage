@@ -8,7 +8,7 @@ function potionSpriteId(id: string, atlas: IconSource): string {
   const p = potionFromItemId(id);
   return p ? `potion.${p.id}` : id;
 }
-import { renderBlockIcon, renderStairIcon } from './icons';
+import { renderBlockIcon, renderSlabIcon, renderStairIcon } from './icons';
 
 export interface IconSource {
   images: Map<string, ImageData>;
@@ -382,7 +382,7 @@ export function itemIcon(id: string, size: number, registry: BlockRegistry, atla
   } else if (def && def.textures && !dragonOfEgg(id)) {
     // 드래곤 알 16종은 블록이지만(#249) 아이콘은 아래 drawItem 의 드래곤 색 타원 그대로
     const missing = atlas.images.get('missing')!;
-    canvas = (def.shape === 'stairs' ? renderStairIcon : renderBlockIcon)(atlas.images.get(def.textures[0]) ?? missing, atlas.images.get(def.textures[1]) ?? missing, size); // 계단은 계단 모양으로 (#291)
+    canvas = (def.shape === 'stairs' ? renderStairIcon : def.shape === 'slab' ? renderSlabIcon : renderBlockIcon)(atlas.images.get(def.textures[0]) ?? missing, atlas.images.get(def.textures[1]) ?? missing, size); // 계단은 계단 모양으로 (#291), 반 블록은 반만 (#292)
   } else if (atlas.images.get(potionSpriteId(id, atlas))) {
     // 아이템 이름과 같은 16×16 그림이 textures/ 에 있으면 그대로 (#175, 아들 다이아몬드 그림) — 블록이 아닌 아이템은 이 길이 먼저
     canvas = renderSpriteIcon(atlas.images.get(potionSpriteId(id, atlas))!, size);

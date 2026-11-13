@@ -182,7 +182,21 @@ export interface BlockDef {
   readonly rail: RailInfo | null;
   /** 계단 (#291): 방향·뒤집힘. 계단이 아니면 null */
   readonly stairs: StairInfo | null;
+  /** 반 블록 (#292): 아래·위·둘을 합친 한 칸. 반 블록이 아니면 null */
+  readonly slab: SlabInfo | null;
 }
+
+/**
+ * 반 블록 (#292, 아빠 2026-11-13). kind 0 = 아래 반(JSON 의 반 블록 그대로), 1 = 위 반(`@^`), 2 = 둘을 합친 한 칸(`@2`).
+ * 합친 것은 보통 블록처럼 꽉 차고 불투명하며, 부수면 반 블록 둘이 나온다
+ */
+export interface SlabInfo {
+  readonly base: number;
+  readonly kind: number;
+}
+export const SLAB_BOTTOM = 0;
+export const SLAB_TOP = 1;
+export const SLAB_DOUBLE = 2;
 
 /**
  * 계단 (#291, 아빠 2026-11-13). facing = 높은 쪽이 있는 방향 = 놓은 사람이 보던 방향(걸어 올라가는 쪽, DOOR_FACING 과 같은 번호).
@@ -308,6 +322,8 @@ export class BlockRegistry {
   private readonly rails = new Map<number, Map<RailDir, number>>();
   /** 계단 변형 (#291): 계단 번호 → [facing + (뒤집힘 4)] 번호 */
   private readonly stairs = new Map<number, number[]>();
+  /** 반 블록 변형 (#292): 반 블록 번호 → [kind] 번호 */
+  private readonly slabs = new Map<number, number[]>();
 
   constructor(readonly defs: readonly BlockDef[]) {
     for (const d of defs) {
@@ -331,6 +347,11 @@ export class BlockRegistry {
         let sArr = this.stairs.get(d.stairs.base);
         if (!sArr) this.stairs.set(d.stairs.base, (sArr = []));
         sArr[d.stairs.facing + (d.stairs.top ? 4 : 0)] = d.num;
+      }
+      if (d.slab) {
+        let lArr = this.slabs.get(d.slab.base);
+        if (!lArr) this.slabs.set(d.slab.base, (lArr = []));
+        lArr[d.slab.kind] = d.num;
       }
       if (d.rail) {
         let rm = this.rails.get(d.rail.base);
@@ -412,6 +433,11 @@ export class BlockRegistry {
   /** 계단 변형 (#291): 계단 번호(JSON 것) + 높은 쪽 방향 + 뒤집힘 → 블록 번호 */
   stairVariant(base: number, facing: number, top: boolean): number {
     return this.stairs.get(base)?.[(facing & 3) + (top ? 4 : 0)] ?? base;
+  }
+
+  /** 반 블록 변형 (#292): 반 블록 번호(JSON 것) + 아래 0·위 1·합친 것 2 → 블록 번호 */
+  slabVariant(base: number, kind: number): number {
+    return this.slabs.get(base)?.[kind] ?? base;
   }
 
   doorVariant(base: number, facing: number, upper: boolean, open: boolean, hinge = 0): number {
@@ -585,6 +611,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       bed: null,
       rail: null,
       stairs: null,
+      slab: null,
     };
   });
 
@@ -743,6 +770,27 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
           stairs: { base: src.num, facing, top },
         });
       }
+  }
+
+  // 반 블록(shape 'slab', #292): JSON 의 반 블록은 아래 반. 코드가 위 반(`@^`)과 둘을 합친 한 칸(`@2`)을 만든다.
+  // 반쪽은 계단처럼 옆 면을 가리지 않고 빛이 지나간다. 합친 것은 보통 블록(불투명)이고 부수면 반 블록 둘
+  for (const src of [...defs]) {
+    if (src.shape !== 'slab' || !src.textures) continue;
+    const solidFilter = src.lightFilter;
+    Object.assign(src, { transparent: true, lightFilter: 0, slab: { base: src.num, kind: SLAB_BOTTOM } });
+    defs.push({ ...src, num: defs.length, id: `${src.id}@^`, internal: true, drops: src.drops ?? src.id, slab: { base: src.num, kind: SLAB_TOP } });
+    defs.push({
+      ...src,
+      num: defs.length,
+      id: `${src.id}@2`,
+      name: `${src.name} 두 개`,
+      internal: true,
+      transparent: false,
+      lightFilter: solidFilter,
+      drops: src.drops ?? src.id,
+      dropCount: [2, 2],
+      slab: { base: src.num, kind: SLAB_DOUBLE },
+    });
   }
 
   if (defs.length > 65535) problems.push(`블록이 너무 많아요 (최대 65535개)`);

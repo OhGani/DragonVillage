@@ -18,7 +18,10 @@ import {
   hasWaterNear,
   hoeOf,
   needToolText,
-  raycastVoxels,
+  raycastFine,
+  SLAB_BOTTOM,
+  SLAB_DOUBLE,
+  SLAB_TOP,
   type RayHit,
   shovelOf,
   CAMPFIRE,
@@ -104,6 +107,51 @@ export class Interaction {
   ) {}
 
   private readonly getBlock = (x: number, y: number, z: number) => this.world.getBlock(x, y, z);
+
+  /** 맞은 자리의 높이가 그 칸의 위쪽 반인가 (계단 뒤집기 #291, 반 블록 위·아래 #292) */
+  private hitUpperHalf(t: RayHit): boolean {
+    const look = this.player.lookDir;
+    const len = Math.hypot(look.x, look.y, look.z) || 1;
+    return this.player.eye.y + (look.y / len) * t.distance - t.y > 0.5;
+  }
+
+  /**
+   * 반 블록 놓기 (#292, 마인크래프트처럼):
+   *  - 같은 반 블록의 빈 쪽 면(아래 반의 윗면, 위 반의 아랫면)을 탭하면 그 칸에 하나를 더 얹어 한 칸으로 합친다
+   *  - 그 밖에는 탭한 면 옆 칸에: 윗면이면 아래 반, 아랫면이면 위 반, 옆면이면 탭한 높이 쪽 반. 그 칸에 같은 반 블록이 있으면 합친다
+   */
+  private placeSlab(t: RayHit, def: BlockDef): void {
+    const base = def.slab!.base;
+    const half = (bx: number, by: number, bz: number): number => {
+      if (!this.world.inBounds(bx, by, bz)) return -1;
+      const s = this.registry.get(this.world.getBlock(bx, by, bz)).slab;
+      return s && s.base === base && s.kind !== SLAB_DOUBLE ? s.kind : -1;
+    };
+    let x = t.x,
+      y = t.y,
+      z = t.z;
+    let num: number;
+    const here = half(x, y, z);
+    if ((here === SLAB_BOTTOM && t.ny > 0) || (here === SLAB_TOP && t.ny < 0)) num = this.registry.slabVariant(base, SLAB_DOUBLE);
+    else {
+      x += t.nx;
+      y += t.ny;
+      z += t.nz;
+      if (!this.world.inBounds(x, y, z)) return;
+      const cur = this.world.getBlock(x, y, z);
+      if (half(x, y, z) >= 0) num = this.registry.slabVariant(base, SLAB_DOUBLE);
+      else if (cur !== AIR_ID && !this.registry.isFluid(cur)) return;
+      else num = this.registry.slabVariant(base, t.ny < 0 || (t.ny === 0 && this.hitUpperHalf(t)) ? SLAB_TOP : SLAB_BOTTOM);
+    }
+    if (bodyOverlapsBlock(this.player.pos, PLAYER_SIZE, x, y, z)) return; // 내 몸 안에는 못 놓는다 (올라선 반 블록을 한 칸으로 만들 수도 없다)
+    const prev = this.world.getBlock(x, y, z);
+    const res = this.world.setBlock(x, y, z, num);
+    if (res.changed) {
+      this.events.onBlocksChanged(res.dirty);
+      this.events.onPlaced?.(x, y, z, num, prev);
+      this.events.onSwing();
+    }
+  }
   /** 문 놓기(#71): 아래 칸 + 윗칸을 내가 보는 방향으로. 윗칸이 비어 있어야 한다 */
   /** 침대 (#188): 보는 방향으로 발·머리 두 칸. 머리 칸은 비어 있어야 하고 누가 서 있으면 안 된다 */
   private placeBed(x: number, y: number, z: number, base: BlockDef, cur: number): void {
@@ -202,7 +250,8 @@ export class Interaction {
   update(input: InputState, dt: number): void {
     const eye = this.player.eye;
     const dir = this.player.lookDir;
-    this.target = raycastVoxels(this.getBlock, this.targetable, eye.x, eye.y, eye.z, dir.x, dir.y, dir.z, REACH);
+    // 반 칸 눈금으로 조준 (#292): 계단·반 블록의 빈 반쪽은 지나가고 보이는 면에 맞는다
+    this.target = raycastFine(this.registry, this.getBlock, this.targetable, eye.x, eye.y, eye.z, dir.x, dir.y, dir.z, REACH);
 
     this.cooldown = Math.max(0, this.cooldown - dt);
 
@@ -411,6 +460,10 @@ export class Interaction {
       return;
     }
     if (this.selectedBlock <= 0) return;
+    if (this.registry.get(this.selectedBlock).slab) {
+      this.placeSlab(t, this.registry.get(this.selectedBlock));
+      return;
+    }
     const x = t.x + t.nx,
       y = t.y + t.ny,
       z = t.z + t.nz;
@@ -472,12 +525,7 @@ export class Interaction {
     // 계단 (#291): 높은 쪽이 내가 보는 방향 — 그대로 걸어 올라간다. 블록 아랫면이나 옆면의 위쪽 반을 탭하면 뒤집어서(천장 쪽이 꽉 찬 계단)
     if (def.stairs) {
       const look = this.player.lookDir;
-      let top = t.ny < 0;
-      if (t.ny === 0) {
-        const len = Math.hypot(look.x, look.y, look.z) || 1;
-        top = this.player.eye.y + (look.y / len) * t.distance - t.y > 0.5;
-      }
-      blockNum = this.registry.stairVariant(def.stairs.base, facingOf(look.x, look.z), top);
+      blockNum = this.registry.stairVariant(def.stairs.base, facingOf(look.x, look.z), t.ny < 0 || (t.ny === 0 && this.hitUpperHalf(t)));
     }
     const res = this.world.setBlock(x, y, z, blockNum);
     if (res.changed) {

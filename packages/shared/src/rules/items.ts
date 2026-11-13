@@ -201,6 +201,7 @@ export function itemForPlacing(blockId: string, registry: BlockRegistry): string
   if (d.torch) return registry.get(d.torch.base).id; // 벽에 붙인 횃불도 횃불 아이템 하나 (#82)
   if (d.rail) return registry.get(d.rail.base).id; // 굽은 철도도 철도 아이템 하나 (#237)
   if (d.stairs) return registry.get(d.stairs.base).id; // 어느 쪽을 보든·뒤집혔든 계단 아이템 하나 (#291)
+  if (d.slab) return registry.get(d.slab.base).id; // 위 반이든, 놓인 반 블록에 하나를 더 얹어 한 칸을 만들든 반 블록 아이템 하나 (#292)
   if (d.chest) return registry.get(d.chest.base).id; // 큰 상자 반쪽도 상자 아이템 하나 (#84)
   if (d.bed) return d.bed.head ? null : registry.get(d.bed.base).id; // 침대는 발 쪽을 놓을 때 침대 아이템 하나 (#188)
   if (d.seed) return d.seed; // 작물 싹은 씨앗 아이템으로 심는다 (#165)

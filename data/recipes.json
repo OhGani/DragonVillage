@@ -1825,6 +1825,279 @@
       }
     },
     {
+      "id": "oak_slab",
+      "name": "참나무 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "planks"
+      },
+      "in": {
+        "planks": 3
+      },
+      "out": {
+        "oak_slab": 6
+      },
+      "_note": "반 블록 (#292): 재료 3개를 한 줄로 → 반 블록 6 (마인크래프트와 같음)"
+    },
+    {
+      "id": "spruce_slab",
+      "name": "가문비나무 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "spruce_planks"
+      },
+      "in": {
+        "spruce_planks": 3
+      },
+      "out": {
+        "spruce_slab": 6
+      }
+    },
+    {
+      "id": "birch_slab",
+      "name": "자작나무 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "birch_planks"
+      },
+      "in": {
+        "birch_planks": 3
+      },
+      "out": {
+        "birch_slab": 6
+      }
+    },
+    {
+      "id": "jungle_slab",
+      "name": "정글나무 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "jungle_planks"
+      },
+      "in": {
+        "jungle_planks": 3
+      },
+      "out": {
+        "jungle_slab": 6
+      }
+    },
+    {
+      "id": "acacia_slab",
+      "name": "아카시아나무 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "acacia_planks"
+      },
+      "in": {
+        "acacia_planks": 3
+      },
+      "out": {
+        "acacia_slab": 6
+      }
+    },
+    {
+      "id": "dark_oak_slab",
+      "name": "짙은 참나무 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "dark_oak_planks"
+      },
+      "in": {
+        "dark_oak_planks": 3
+      },
+      "out": {
+        "dark_oak_slab": 6
+      }
+    },
+    {
+      "id": "cherry_slab",
+      "name": "벚나무 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "cherry_planks"
+      },
+      "in": {
+        "cherry_planks": 3
+      },
+      "out": {
+        "cherry_slab": 6
+      }
+    },
+    {
+      "id": "mangrove_slab",
+      "name": "맹그로브 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "mangrove_planks"
+      },
+      "in": {
+        "mangrove_planks": 3
+      },
+      "out": {
+        "mangrove_slab": 6
+      }
+    },
+    {
+      "id": "cobblestone_slab",
+      "name": "조약돌 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "cobblestone"
+      },
+      "in": {
+        "cobblestone": 3
+      },
+      "out": {
+        "cobblestone_slab": 6
+      }
+    },
+    {
+      "id": "stone_slab",
+      "name": "돌 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "stone"
+      },
+      "in": {
+        "stone": 3
+      },
+      "out": {
+        "stone_slab": 6
+      }
+    },
+    {
+      "id": "stone_brick_slab",
+      "name": "석재 벽돌 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "stone_bricks"
+      },
+      "in": {
+        "stone_bricks": 3
+      },
+      "out": {
+        "stone_brick_slab": 6
+      }
+    },
+    {
+      "id": "mossy_cobblestone_slab",
+      "name": "이끼 낀 조약돌 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "mossy_cobblestone"
+      },
+      "in": {
+        "mossy_cobblestone": 3
+      },
+      "out": {
+        "mossy_cobblestone_slab": 6
+      }
+    },
+    {
+      "id": "sandstone_slab",
+      "name": "사암 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "sandstone"
+      },
+      "in": {
+        "sandstone": 3
+      },
+      "out": {
+        "sandstone_slab": 6
+      }
+    },
+    {
+      "id": "nether_brick_slab",
+      "name": "네더 벽돌 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "nether_bricks"
+      },
+      "in": {
+        "nether_bricks": 3
+      },
+      "out": {
+        "nether_brick_slab": 6
+      }
+    },
+    {
+      "id": "quartz_slab",
+      "name": "석영 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "quartz_block"
+      },
+      "in": {
+        "quartz_block": 3
+      },
+      "out": {
+        "quartz_slab": 6
+      }
+    },
+    {
+      "id": "deepslate_slab",
+      "name": "심층암 반 블록",
+      "station": "crafting_table",
+      "pattern": [
+        "ppp"
+      ],
+      "key": {
+        "p": "deepslate"
+      },
+      "in": {
+        "deepslate": 3
+      },
+      "out": {
+        "deepslate_slab": 6
+      }
+    },
+    {
       "id": "oak_door",
       "name": "참나무 문",
       "station": "crafting_table",

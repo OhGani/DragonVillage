@@ -79,6 +79,7 @@ import {
   expeditionUnlocked,
   explosionDamage,
   facingFromYaw,
+  SLAB_DOUBLE,
   FEED_REST_MS,
   feedItems,
   finalDamage,
@@ -3234,7 +3235,7 @@ export class VillageRoom {
       return hoeOf(TOOLS, heldForTill) ? null : REJECT.TOOL;
     }
     // 놓기: 액체는 플레이어가 놓는 고인 액체 8/8 만(자연 원천·흐름은 못 놓는다), 그 외 내부 블록 불가, 자리는 공기·액체만, 누가 서 있으면 안 됨
-    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch && !def.bed && !def.rail && !def.stairs) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82), 계단 변형도 (#291)
+    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch && !def.bed && !def.rail && !def.stairs && !def.slab) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82), 계단 변형도 (#291), 반 블록 변형도 (#292)
     if (def.bed && def.bed.head) return REJECT.INVALID; // 침대는 발 쪽만 놓는다(머리 칸은 서버가 채운다, #188)
     if (def.door && (def.door.upper || def.door.open)) return REJECT.INVALID; // 문은 아래·닫힘 변형만 놓는다(윗칸은 서버가 채운다)
     // 가방에 그 아이템(액체면 찬 양동이)이 있어야 한다 (M4, #66)
@@ -3260,7 +3261,10 @@ export class VillageRoom {
     }
     const item = itemForPlacing(def.id, this.registry);
     if (!item || countOf(p.inv, item) < 1) return REJECT.NO_ITEM;
-    if (cur.num !== AIR_ID && !cur.fluid) return REJECT.OCCUPIED; // 횃불·꽃 같은 비고체 블록도 덮어쓰지 않는다(아이템이 사라지니까)
+    // 반 블록 (#292): 합친 한 칸은 같은 반 블록이 하나 놓인 자리에만 (빈 자리에 한 번에 둘은 못 놓는다). 그 밖에는 공기·액체 자리만
+    const slabMerge = def.slab !== null && def.slab.kind === SLAB_DOUBLE && cur.slab !== null && cur.slab.base === def.slab.base && cur.slab.kind !== SLAB_DOUBLE;
+    if (def.slab && def.slab.kind === SLAB_DOUBLE && !slabMerge) return REJECT.INVALID;
+    if (cur.num !== AIR_ID && !cur.fluid && !slabMerge) return REJECT.OCCUPIED; // 횃불·꽃 같은 비고체 블록도 덮어쓰지 않는다(아이템이 사라지니까)
     if (def.solid) for (const other of this.playersIn(p.world)) if (bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, y, z)) return REJECT.OCCUPIED;
     if (def.bed) {
       // 침대는 두 칸 (#188): 머리 칸도 공기여야 하고 누가 서 있으면 안 된다

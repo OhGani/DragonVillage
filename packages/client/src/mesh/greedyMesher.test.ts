@@ -23,6 +23,7 @@ const registry = parseBlocks({
     { id: 'campfire', name: '모닥불', hardness: 2, transparent: true, lightEmit: 15, shape: 'campfire', texture: 'campfire_log' },
     { id: 'campfire_off', name: '꺼진 모닥불', hardness: 2, transparent: true, shape: 'campfire', texture: 'campfire_log' },
     { id: 'oak_stairs', name: '계단', hardness: 2, shape: 'stairs', texture: 'stone' },
+    { id: 'oak_slab', name: '반 블록', hardness: 2, shape: 'slab', texture: 'stone' },
   ],
 });
 const texIndex = new Map([
@@ -698,5 +699,36 @@ describe('계단 (#291)', () => {
     let below = 0;
     for (let q = 0; q < m.vertexCount; q += 4) if (m.meta[q * 4 + 2] === 3 && Math.abs(m.positions[q * 3 + 1]! - 5) < 1e-6) below++;
     expect(below).toBe(0); // 계단 아랫면 없음 (돌 윗면은 계단이 불투명이 아니라 그대로 있다)
+  });
+});
+
+describe('반 블록 (#292)', () => {
+  const SLAB = registry.numOf('oak_slab');
+  const one = (num: number) => greedyMesh(padded((x, y, z) => (x === 5 && y === 5 && z === 5 ? num : 0)), info).opaque!;
+  const ys = (m: MeshBuffers) => {
+    let lo = Infinity,
+      hi = -Infinity;
+    for (let v = 0; v < m.vertexCount; v++) {
+      lo = Math.min(lo, m.positions[v * 3 + 1]!);
+      hi = Math.max(hi, m.positions[v * 3 + 1]!);
+    }
+    return [lo, hi];
+  };
+  it('아래 반은 반 칸 높이 상자 (면 6장), 위 반은 칸의 위쪽 반', () => {
+    const bottom = one(SLAB);
+    expect(bottom.indexCount / 6).toBe(6);
+    expect(ys(bottom)).toEqual([5, 5.5]);
+    const top = one(registry.slabVariant(SLAB, 1));
+    expect(top.indexCount / 6).toBe(6);
+    expect(ys(top)).toEqual([5.5, 6]);
+  });
+  it('둘을 합친 한 칸은 보통 블록처럼 그린다 (꽉 찬 면 6장, 옆 블록의 면을 가린다)', () => {
+    const DOUBLE = registry.slabVariant(SLAB, 2);
+    const m = one(DOUBLE);
+    expect(m.indexCount / 6).toBe(6);
+    expect(ys(m)).toEqual([5, 6]);
+    const STONE = registry.numOf('stone');
+    const pair = greedyMesh(padded((x, y, z) => (y === 5 && z === 5 && (x === 5 || x === 6) ? (x === 5 ? DOUBLE : STONE) : 0)), info).opaque!;
+    expect(pair.indexCount / 6).toBe(10); // 맞닿은 두 면이 없다
   });
 });

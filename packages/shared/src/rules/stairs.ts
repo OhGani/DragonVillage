@@ -11,8 +11,9 @@
  *
  * 조각 번호(비트): sx + sz·2 + sy·4 (sx·sy·sz 는 0 = 작은 쪽 반, 1 = 큰 쪽 반)
  */
-import { type BlockRegistry, DOOR_DIR, type StairInfo } from './blocks';
+import { type BlockDef, type BlockRegistry, DOOR_DIR, SLAB_BOTTOM, SLAB_TOP, type StairInfo } from './blocks';
 import type { SolidQuery } from '../physics/aabb';
+import { type RayHit, raycastVoxels } from '../physics/raycast';
 
 export const STAIR_STRAIGHT = 0;
 export const STAIR_INNER_LEFT = 1;
@@ -79,12 +80,22 @@ export function stairMaskAt(stairAt: (x: number, y: number, z: number) => StairI
   );
 }
 
-/** 물리가 세계를 보는 눈금: 한 칸을 둘로 (계단의 반 칸 턱) */
+/**
+ * 블록 하나의 조각 마스크 (#292): 반 블록은 아래 넷 / 위 넷, 계단은 이웃까지 보고, 그 밖의 블록은 여덟 조각 다.
+ * 고체인지는 따로 본다 — 여기서는 모양만
+ */
+export function partMask(d: Pick<BlockDef, 'slab' | 'stairs'>, stairAt: (x: number, y: number, z: number) => StairInfo | null, x: number, y: number, z: number): number {
+  if (d.slab) return d.slab.kind === SLAB_BOTTOM ? 0x0f : d.slab.kind === SLAB_TOP ? 0xf0 : FULL_MASK;
+  if (d.stairs) return stairMaskAt(stairAt, x, y, z, d.stairs);
+  return FULL_MASK;
+}
+
+/** 물리가 세계를 보는 눈금: 한 칸을 둘로 (계단·반 블록의 반 칸 턱) */
 export const FINE_RES = 2;
 
 /**
  * 반 칸 눈금의 충돌 질의 (moveBody 에 res = FINE_RES 와 함께 넘긴다). 좌표는 반 칸 단위.
- * 보통 블록은 여덟 조각이 다 차 있고, 계단만 조각마다 다르다.
+ * 보통 블록은 여덟 조각이 다 차 있고, 계단·반 블록만 조각마다 다르다.
  */
 export function fineSolidQuery(registry: BlockRegistry, getBlock: (x: number, y: number, z: number) => number): SolidQuery {
   const stairAt = (x: number, y: number, z: number): StairInfo | null => registry.get(getBlock(x, y, z)).stairs;
@@ -94,8 +105,56 @@ export function fineSolidQuery(registry: BlockRegistry, getBlock: (x: number, y:
       z = hz >> 1;
     const id = getBlock(x, y, z);
     if (!registry.isSolid(id)) return false;
-    const st = registry.get(id).stairs;
-    if (!st) return true;
-    return ((stairMaskAt(stairAt, x, y, z, st) >> ((hx & 1) | ((hz & 1) << 1) | ((hy & 1) << 2))) & 1) === 1;
+    const mask = partMask(registry.get(id), stairAt, x, y, z);
+    return mask === FULL_MASK || ((mask >> ((hx & 1) | ((hz & 1) << 1) | ((hy & 1) << 2))) & 1) === 1;
   };
+}
+
+/**
+ * 조준 (#292): raycastVoxels 를 반 칸 눈금으로 — 계단·반 블록의 빈 반쪽은 지나가고 실제로 보이는 면에 맞는다.
+ * 돌려주는 자리(x, y, z)와 거리는 블록 단위, face·법선은 맞은 조각의 면 (반 블록 윗면을 맞히면 그 반 블록 칸 + 위쪽 법선).
+ * 시작 칸(눈이 들어 있는 블록)은 전처럼 통째로 건너뛴다
+ */
+export function raycastFine(
+  registry: BlockRegistry,
+  getBlock: (x: number, y: number, z: number) => number,
+  hits: (id: number) => boolean,
+  ox: number,
+  oy: number,
+  oz: number,
+  dx: number,
+  dy: number,
+  dz: number,
+  maxDist: number,
+): RayHit | null {
+  const sx = Math.floor(ox),
+    sy = Math.floor(oy),
+    sz = Math.floor(oz);
+  const stairAt = (x: number, y: number, z: number): StairInfo | null => registry.get(getBlock(x, y, z)).stairs;
+  const hit = raycastVoxels(
+    (hx, hy, hz) => {
+      const x = hx >> 1,
+        y = hy >> 1,
+        z = hz >> 1;
+      if (x === sx && y === sy && z === sz) return 0;
+      const id = getBlock(x, y, z);
+      if (id === 0) return 0;
+      const mask = partMask(registry.get(id), stairAt, x, y, z);
+      return mask === FULL_MASK || ((mask >> ((hx & 1) | ((hz & 1) << 1) | ((hy & 1) << 2))) & 1) === 1 ? id : 0;
+    },
+    hits,
+    ox * FINE_RES,
+    oy * FINE_RES,
+    oz * FINE_RES,
+    dx,
+    dy,
+    dz,
+    maxDist * FINE_RES,
+  );
+  if (!hit) return null;
+  hit.x >>= 1;
+  hit.y >>= 1;
+  hit.z >>= 1;
+  hit.distance /= FINE_RES;
+  return hit;
 }
