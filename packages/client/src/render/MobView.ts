@@ -7,11 +7,11 @@
  * 거미 왕(M7-4)은 같은 거미 복셀을 2.2배로, 자줏빛 몸에 금 왕관. 잠들었을 땐 낮게 웅크리고, 소환할 땐 몸을 든다.
  * 동물(M8-1)은 `animalModel.ts` — 마인크래프트 비율·색 변종, 머리·다리·꼬리·날개를 따로 움직인다(걷기·풀 뜯기·꼬리·날개). 아기는 머리가 크다.
  */
-import { ANIMAL_FLAG, MOB_KIND_OF, MOB_STATE, type MobEntry, mobSize, ANIMAL_ID_BASE, type SepBody } from '@dragon-village/shared';
+import { ANIMAL_FLAG, JOCKEYS, MOB_KIND_NUM, MOB_KIND_OF, MOB_STATE, type MobEntry, type MobKind, mobSize, ANIMAL_ID_BASE, type SepBody } from '@dragon-village/shared';
 import { MOBS } from '@dragon-village/shared/data';
 import * as THREE from 'three';
 import { PLAYER_SHADES, type SkinPalette, VOXEL, playerVoxels } from './playerModel';
-import { type Part, FISH_MODEL_KINDS, WILD_MODEL_KINDS, animalParts, animalVariant, collarVoxels, gorillaParts, pufferPuffedVoxels, ravagerParts, tigerGlowEyes, wardenParts, wildParts } from './animalModel';
+import { type Part, FISH_MODEL_KINDS, WILD_MODEL_KINDS, animalParts, animalVariant, horseCoat, collarVoxels, gorillaParts, pufferPuffedVoxels, ravagerParts, tigerGlowEyes, wardenParts, wildParts } from './animalModel';
 import { type Voxel, buildVoxelGeometry } from './voxelGeometry';
 import { ENDERMAN_SPOTS, SKELETON_KIND_OF, endermanVoxels, skeletonVoxels } from './skeletonModel';
 import { endermiteVoxels, witchVoxels, zombieKindOf, zombieVoxels } from './zombieModel';
@@ -209,6 +209,13 @@ const CREEPER_GREEN = 0x4caf50;
 /** 사람 모양 몹 키 (좀비 주민 연출 글자 높이, #244) */
 const MOB_SIZE_H = 1.9;
 const SPIDER_DARK = 0x2a2320;
+/** 흰 말이 나오는 동물 번호 (#306 스켈레톤 기마병) */
+const WHITE_HORSE_ID = (() => {
+  for (let n = 1; n < 500; n++) if (horseCoat(animalVariant(n)) === 'white') return n;
+  return 1;
+})();
+/** 탈것을 탄 몹 (#306): 탄 몹이 앉는 높이 (탈것 등, 칸) */
+const JOCKEY_SEAT: Partial<Record<MobKind, number>> = { spider: 0.62, chicken: 0.5, ravager: 1.95, horse: 1.3 };
 const ANIMAL_NAMES = new Set(['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'boat', 'minecart', 'cat', 'camel']); // 보트·수레도 동물 체계로 그린다 (#209·#237)
 /** 원정 사냥 동물 (2026-11-05): 동물처럼 부위로 그리지만 상태는 몹 규칙(MOB_STATE)이라 따로 움직인다 */
 const WILD_NAMES = new Set<string>(WILD_MODEL_KINDS);
@@ -650,7 +657,48 @@ export class MobView {
     return f ? { kind: f.kind, state: f.state } : undefined;
   }
 
+  /**
+   * 탈것을 탄 몹 (#306): 탈것 인형을 그대로 만들고, 탄 몹의 몸만 떼어 그 등에 앉힌다 (다리는 앞으로 벌려 걸터앉은 자세).
+   * 걷는 움직임은 탈것 것, 맞으면 같이 번쩍이게 재질은 탈것 것을 같이 쓴다
+   */
+  private makeJockey(m: MobEntry, j: { mount: MobKind; rider: MobKind }): Figure {
+    // 기마병의 말은 뼈처럼 흰 말로 (얼룩말·검은 말이 섞이면 스켈레톤과 안 어울린다) — 흰 털이 나오는 번호로 만든 뒤 번호를 되돌린다
+    const f = this.make({ ...m, id: j.mount === 'horse' ? WHITE_HORSE_ID : m.id, kind: MOB_KIND_NUM[j.mount], state: 0 });
+    f.id = m.id;
+    const r = this.make({ ...m, kind: MOB_KIND_NUM[j.rider], state: 0 });
+    this.group.remove(r.group);
+    r.group.remove(r.bar.sprite);
+    r.bar.tex.dispose();
+    r.bar.sprite.material.dispose();
+    r.body.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (mesh.isMesh && mesh.material === r.material) mesh.material = f.material;
+    });
+    r.material.dispose();
+    if (r.legL && r.legR) {
+      r.legL.rotation.set(-1.35, 0, -0.45);
+      r.legR.rotation.set(-1.35, 0, 0.45);
+    }
+    const riderScale = r.body.scale.y; // 아기 좀비는 0.5
+    const seat = JOCKEY_SEAT[j.mount] ?? mobSize(MOB_KIND_NUM[j.mount]).h * 0.85;
+    const mountScale = f.body.scale.y || 1;
+    r.body.position.set(0, (seat - 12 * VOXEL * riderScale) / mountScale, 0);
+    r.body.scale.multiplyScalar(1 / mountScale);
+    f.body.add(r.body);
+    f.body.userData.noRear = j.mount !== 'ravager'; // 닭·말은 덤빌 때 앞다리를 들지 않는다 (파괴수만 내리친다)
+    // 여기서부터는 '탈것을 탄 몹' 한 마리: 종류·체력·체력 바 자리
+    f.kind = m.kind;
+    f.state = m.state;
+    f.animal = false;
+    f.maxHp = MOBS.get(MOB_KIND_OF[m.kind]!).hp;
+    f.bar.sprite.position.y = mobSize(m.kind).h + 0.35;
+    drawHpBar(f.bar.ctx, f.bar.tex, m.hp, f.maxHp);
+    return f;
+  }
+
   private make(m: MobEntry): Figure {
+    const jockey = JOCKEYS[MOB_KIND_OF[m.kind] ?? 'zombie'];
+    if (jockey) return this.makeJockey(m, jockey);
     const material = new THREE.MeshBasicMaterial({ vertexColors: true });
     const group = new THREE.Group();
     const body = new THREE.Group();
@@ -1223,7 +1271,7 @@ export class MobView {
         // 고릴라 (#253)·워든 (#254): 팔다리를 엇갈려 걷고, 덤빌 때는 두 팔을 번갈아 들어 내리친다
         const attack = f.state === MOB_STATE.attack;
         f.legs.forEach((leg, i) => {
-          leg.rotation.x = attack && i < 2 ? 1.3 * Math.abs(Math.sin(now * 0.006 + i * 1.6)) : i === 0 || i === 3 ? swing : -swing;
+          leg.rotation.x = attack && i < 2 && !f.body.userData.noRear ? 1.3 * Math.abs(Math.sin(now * 0.006 + i * 1.6)) : i === 0 || i === 3 ? swing : -swing;
         });
         if (f.head) f.head.rotation.x = speed > 0.3 ? Math.sin(f.walk * 2) * 0.05 : 0;
       }

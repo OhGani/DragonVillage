@@ -18,10 +18,10 @@ import { z } from 'zod';
 import { DataError, koreanizeMessage } from './blocks';
 import { hash3 } from '../math/prng';
 
-export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat' | 'snow_golem' | 'minecart' | 'zombie_villager' | 'gorilla' | 'giant_gorilla' | 'warden' | 'giant_warden' | 'gazelle' | 'raccoon' | 'roadrunner' | 'rattlesnake' | 'bison' | 'moose' | 'grizzly' | 'capuchin' | 'salmon' | 'cod' | 'tropical_fish' | 'pufferfish' | 'cat' | 'guardian' | 'elder_guardian' | 'slime' | 'giant_slime' | 'witch' | 'skeleton_king' | 'creeper_king' | 'enderman_king' | 'zombie_king' | 'bogged' | 'parched' | 'charged_creeper' | 'endermite' | 'baby_zombie' | 'drowned' | 'frostbite' | 'sperm_whale' | 'ravager' | 'elephant' | 'rhino' | 'anaconda' | 'tiger' | 'camel' | 'squid' | 'glow_squid' | 'polar_bear' | 'polar_bear_cub' | 'phantom' | 'magma_cube' | 'small_magma_cube' | 'hoglin' | 'zoglin' | 'piglin_brute' | 'shulker' | 'vex' | 'silverfish' | 'breeze' | 'creaking';
-export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'cat', 'guardian', 'elder_guardian', 'slime', 'giant_slime', 'witch', 'skeleton_king', 'creeper_king', 'enderman_king', 'zombie_king', 'bogged', 'parched', 'charged_creeper', 'endermite', 'baby_zombie', 'drowned', 'frostbite', 'sperm_whale', 'ravager', 'elephant', 'rhino', 'anaconda', 'tiger', 'camel', 'squid', 'glow_squid', 'polar_bear', 'polar_bear_cub', 'phantom', 'magma_cube', 'small_magma_cube', 'hoglin', 'zoglin', 'piglin_brute', 'shulker', 'vex', 'silverfish', 'breeze', 'creaking'];
-export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24, snow_golem: 25, minecart: 26, zombie_villager: 27, gorilla: 28, giant_gorilla: 29, warden: 30, giant_warden: 31, gazelle: 32, raccoon: 33, roadrunner: 34, rattlesnake: 35, bison: 36, moose: 37, grizzly: 38, capuchin: 39, salmon: 40, cod: 41, tropical_fish: 42, pufferfish: 43, cat: 44, guardian: 45, elder_guardian: 46, slime: 47, giant_slime: 48, witch: 49, skeleton_king: 50, creeper_king: 51, enderman_king: 52, zombie_king: 53, bogged: 54, parched: 55, charged_creeper: 56, endermite: 57, baby_zombie: 58, drowned: 59, frostbite: 60, sperm_whale: 61, ravager: 62, elephant: 63, rhino: 64, anaconda: 65, tiger: 66, camel: 67, squid: 68, glow_squid: 69, polar_bear: 70, polar_bear_cub: 71, phantom: 72, magma_cube: 73, small_magma_cube: 74, hoglin: 75, zoglin: 76, piglin_brute: 77, shulker: 78, vex: 79, silverfish: 80, breeze: 81, creaking: 82 };
-export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'cat', 'guardian', 'elder_guardian', 'slime', 'giant_slime', 'witch', 'skeleton_king', 'creeper_king', 'enderman_king', 'zombie_king', 'bogged', 'parched', 'charged_creeper', 'endermite', 'baby_zombie', 'drowned', 'frostbite', 'sperm_whale', 'ravager', 'elephant', 'rhino', 'anaconda', 'tiger', 'camel', 'squid', 'glow_squid', 'polar_bear', 'polar_bear_cub', 'phantom', 'magma_cube', 'small_magma_cube', 'hoglin', 'zoglin', 'piglin_brute', 'shulker', 'vex', 'silverfish', 'breeze', 'creaking'];
+export type MobKind = 'zombie' | 'creeper' | 'spider' | 'spider_king' | 'vindicator' | 'pillager' | 'evoker' | 'skeleton' | 'cow' | 'pig' | 'sheep' | 'chicken' | 'dog' | 'husk' | 'enderman' | 'stray' | 'zombified_piglin' | 'blaze' | 'wither_skeleton' | 'ghast' | 'ender_dragon' | 'horse' | 'villager' | 'iron_golem' | 'boat' | 'snow_golem' | 'minecart' | 'zombie_villager' | 'gorilla' | 'giant_gorilla' | 'warden' | 'giant_warden' | 'gazelle' | 'raccoon' | 'roadrunner' | 'rattlesnake' | 'bison' | 'moose' | 'grizzly' | 'capuchin' | 'salmon' | 'cod' | 'tropical_fish' | 'pufferfish' | 'cat' | 'guardian' | 'elder_guardian' | 'slime' | 'giant_slime' | 'witch' | 'skeleton_king' | 'creeper_king' | 'enderman_king' | 'zombie_king' | 'bogged' | 'parched' | 'charged_creeper' | 'endermite' | 'baby_zombie' | 'drowned' | 'frostbite' | 'sperm_whale' | 'ravager' | 'elephant' | 'rhino' | 'anaconda' | 'tiger' | 'camel' | 'squid' | 'glow_squid' | 'polar_bear' | 'polar_bear_cub' | 'phantom' | 'magma_cube' | 'small_magma_cube' | 'hoglin' | 'zoglin' | 'piglin_brute' | 'shulker' | 'vex' | 'silverfish' | 'breeze' | 'creaking' | 'spider_jockey' | 'chicken_jockey' | 'ravager_rider' | 'skeleton_horseman';
+export const MOB_KINDS: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'cat', 'guardian', 'elder_guardian', 'slime', 'giant_slime', 'witch', 'skeleton_king', 'creeper_king', 'enderman_king', 'zombie_king', 'bogged', 'parched', 'charged_creeper', 'endermite', 'baby_zombie', 'drowned', 'frostbite', 'sperm_whale', 'ravager', 'elephant', 'rhino', 'anaconda', 'tiger', 'camel', 'squid', 'glow_squid', 'polar_bear', 'polar_bear_cub', 'phantom', 'magma_cube', 'small_magma_cube', 'hoglin', 'zoglin', 'piglin_brute', 'shulker', 'vex', 'silverfish', 'breeze', 'creaking', 'spider_jockey', 'chicken_jockey', 'ravager_rider', 'skeleton_horseman'];
+export const MOB_KIND_NUM: Record<MobKind, number> = { zombie: 0, creeper: 1, spider: 2, spider_king: 3, vindicator: 4, pillager: 5, evoker: 6, skeleton: 7, cow: 8, pig: 9, sheep: 10, chicken: 11, dog: 12, husk: 13, enderman: 14, stray: 15, zombified_piglin: 16, blaze: 17, wither_skeleton: 18, ghast: 19, ender_dragon: 20, horse: 21, villager: 22, iron_golem: 23, boat: 24, snow_golem: 25, minecart: 26, zombie_villager: 27, gorilla: 28, giant_gorilla: 29, warden: 30, giant_warden: 31, gazelle: 32, raccoon: 33, roadrunner: 34, rattlesnake: 35, bison: 36, moose: 37, grizzly: 38, capuchin: 39, salmon: 40, cod: 41, tropical_fish: 42, pufferfish: 43, cat: 44, guardian: 45, elder_guardian: 46, slime: 47, giant_slime: 48, witch: 49, skeleton_king: 50, creeper_king: 51, enderman_king: 52, zombie_king: 53, bogged: 54, parched: 55, charged_creeper: 56, endermite: 57, baby_zombie: 58, drowned: 59, frostbite: 60, sperm_whale: 61, ravager: 62, elephant: 63, rhino: 64, anaconda: 65, tiger: 66, camel: 67, squid: 68, glow_squid: 69, polar_bear: 70, polar_bear_cub: 71, phantom: 72, magma_cube: 73, small_magma_cube: 74, hoglin: 75, zoglin: 76, piglin_brute: 77, shulker: 78, vex: 79, silverfish: 80, breeze: 81, creaking: 82, spider_jockey: 83, chicken_jockey: 84, ravager_rider: 85, skeleton_horseman: 86 };
+export const MOB_KIND_OF: readonly MobKind[] = ['zombie', 'creeper', 'spider', 'spider_king', 'vindicator', 'pillager', 'evoker', 'skeleton', 'cow', 'pig', 'sheep', 'chicken', 'dog', 'husk', 'enderman', 'stray', 'zombified_piglin', 'blaze', 'wither_skeleton', 'ghast', 'ender_dragon', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'zombie_villager', 'gorilla', 'giant_gorilla', 'warden', 'giant_warden', 'gazelle', 'raccoon', 'roadrunner', 'rattlesnake', 'bison', 'moose', 'grizzly', 'capuchin', 'salmon', 'cod', 'tropical_fish', 'pufferfish', 'cat', 'guardian', 'elder_guardian', 'slime', 'giant_slime', 'witch', 'skeleton_king', 'creeper_king', 'enderman_king', 'zombie_king', 'bogged', 'parched', 'charged_creeper', 'endermite', 'baby_zombie', 'drowned', 'frostbite', 'sperm_whale', 'ravager', 'elephant', 'rhino', 'anaconda', 'tiger', 'camel', 'squid', 'glow_squid', 'polar_bear', 'polar_bear_cub', 'phantom', 'magma_cube', 'small_magma_cube', 'hoglin', 'zoglin', 'piglin_brute', 'shulker', 'vex', 'silverfish', 'breeze', 'creaking', 'spider_jockey', 'chicken_jockey', 'ravager_rider', 'skeleton_horseman'];
 /** 순한 동물 (마을, M8-1). 규칙은 animals.ts */
 const PASSIVE_KINDS: readonly MobKind[] = ['cow', 'pig', 'sheep', 'chicken', 'dog', 'horse', 'villager', 'iron_golem', 'boat', 'snow_golem', 'minecart', 'cat', 'camel']; // 보트도 passive 목록에서 드롭을 읽는다 (#209)
 
@@ -100,7 +100,7 @@ export function bossMinionKinds(kind: MobKind): readonly MobKind[] {
   return by[kind] ?? ['spider'];
 }
 /** 우민 (마을 방어전 M7-5) */
-export const RAIDER_KINDS: readonly MobKind[] = ['vindicator', 'pillager', 'evoker', 'ravager']; // 파괴수 (아빠 그림 2026-11-06)
+export const RAIDER_KINDS: readonly MobKind[] = ['vindicator', 'pillager', 'evoker', 'ravager', 'ravager_rider']; // 파괴수 (아빠 그림 2026-11-06)
 /** 보스가 깨어나는 거리(칸) · 소환 주기 · 소환 수 · 살아 있는 부하 최대 */
 export const BOSS_AGGRO_RANGE = 24;
 export const BOSS_SUMMON_EVERY_MS = 8000;
@@ -280,6 +280,12 @@ const BASE: Record<MobKind, Omit<MobDef, 'drops' | 'xp' | 'name' | 'passive' | '
   breeze: { id: 'breeze', hp: 30, damage: 2, speed: 3, reach: 12, attackEveryMs: 2600, fuseMs: 0, explodeRadius: 0, poisonMs: 0, shot: 'wind' },
   // 어두운 숲: 크리킹 — 밤에 삐걱이 심장 곁에서 나온다. 쳐다보면 멈추고, 때려도 안 죽는다 — 심장을 부숴야 사라진다
   creaking: { id: 'creaking', hp: 1000, damage: 4, speed: 2.6, reach: 1.7, attackEveryMs: 1800, fuseMs: 0, explodeRadius: 0, poisonMs: 0, frozenWhenSeen: true, invulnerable: true },
+  // 탈것을 탄 몹 (#306, 아빠 2026-11-14 "탈것을 탄 몹 만들어 줘"): 몸·걸음은 탈것, 공격은 탄 몹. 탈것이 쓰러지면 탄 몹이 내려서 계속 싸운다(split 한 마리).
+  // 거미 기수 = 거미를 탄 스켈레톤(빠르게 다가와 활), 닭 기수 = 닭을 탄 아기 좀비(작고 빠르다), 파괴수 기수 = 파괴수를 탄 약탈자(아들 방어전 설계 "우민들은 파괴수를 타고 온다"), 스켈레톤 기마병 = 말을 탄 스켈레톤
+  spider_jockey: { id: 'spider_jockey', hp: 16, damage: 4, speed: 3.0, reach: 6, attackEveryMs: 2800, fuseMs: 0, explodeRadius: 0, poisonMs: 0, split: { kind: 'skeleton', n: 1 } },
+  chicken_jockey: { id: 'chicken_jockey', hp: 8, damage: 3, speed: 3.6, reach: 1.3, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 0, split: { kind: 'baby_zombie', n: 1 } },
+  ravager_rider: { id: 'ravager_rider', hp: 100, damage: 9, speed: 2.4, reach: 2.6, attackEveryMs: 2200, fuseMs: 0, explodeRadius: 0, poisonMs: 0, knock: true, split: { kind: 'pillager', n: 1 } },
+  skeleton_horseman: { id: 'skeleton_horseman', hp: 24, damage: 4, speed: 4.0, reach: 6, attackEveryMs: 2800, fuseMs: 0, explodeRadius: 0, poisonMs: 0, split: { kind: 'skeleton', n: 1 } },
   // 팬텀 (아빠가 보낸 그림·나무위키 2026-11-07): 마을 침대에서 오래(PHANTOM_INSOMNIA_MS) 안 잔 사람에게, 하늘이 트인 원정지의 밤에 높은 하늘에서 떼로 온다.
   // 빙빙 돌다 비스듬히 내려꽂혀 물고(swoop) 다시 올라간다. 고양이를 무서워한다(PHANTOM_CAT_R)
   phantom: { id: 'phantom', hp: 20, damage: 3, speed: 5.5, reach: 2.2, attackEveryMs: 1500, fuseMs: 0, explodeRadius: 0, poisonMs: 0, hover: 10, swoop: 6000 },
@@ -508,6 +514,11 @@ export const MOB_SIZES: Record<MobKind, { w: number; h: number }> = {
   charged_creeper: MOB_SIZE,
   endermite: { w: 0.4, h: 0.3 },
   baby_zombie: { w: 0.5, h: 0.95 },
+  // 탈것을 탄 몹 (#306): 탈것 폭 + 탄 몹 머리까지
+  spider_jockey: { w: 1.4, h: 1.9 },
+  chicken_jockey: { w: 0.5, h: 1.2 },
+  ravager_rider: { w: 1.9, h: 3.2 },
+  skeleton_horseman: { w: 1.3, h: 2.6 },
   drowned: MOB_SIZE,
   frostbite: MOB_SIZE,
   gorilla: { w: 1.4, h: 2.2 }, // 정글 (#253): 그림(복셀 키 28 × 1.4)과 맞춘다 — 사람보다 크다
@@ -555,6 +566,26 @@ export function mobSize(kind: MobKind | number): { w: number; h: number } {
   return MOB_SIZES[typeof kind === 'number' ? (MOB_KIND_OF[kind] ?? 'zombie') : kind];
 }
 /** 원거리 몹 (활·석궁): 닿는 거리가 이 이상이면 화살을 쏘는 것으로 본다 — 서버가 'arrow' 로 알리고 클라가 그린다 (M8-2) */
+/**
+ * 탈것을 탄 몹 (#306): 무엇이 무엇을 탔나. 클라는 탈것 인형 위에 탄 몹을 앉혀 그리고, 서버는 탈것이 쓰러지면 탄 몹을 그 자리에 세운다(BASE 의 split 과 같은 종류)
+ */
+export const JOCKEYS: Partial<Record<MobKind, { readonly mount: MobKind; readonly rider: MobKind }>> = {
+  spider_jockey: { mount: 'spider', rider: 'skeleton' },
+  chicken_jockey: { mount: 'chicken', rider: 'baby_zombie' },
+  ravager_rider: { mount: 'ravager', rider: 'pillager' },
+  skeleton_horseman: { mount: 'horse', rider: 'skeleton' },
+};
+/**
+ * 밤에 나오는 몹을 가끔 탈것을 탄 몹으로 바꾼다 (#306): 거미 여덟에 하나는 거미 기수, 스켈레톤 열둘에 하나는 기마병, 아기 좀비 셋에 하나는 닭 기수.
+ * roll 은 0..1 (자리·차례로 뽑은 결정론 값)
+ */
+export function jockeyFor(kind: MobKind, roll: number): MobKind {
+  if (kind === 'spider' && roll < 0.125) return 'spider_jockey';
+  if (kind === 'skeleton' && roll < 0.085) return 'skeleton_horseman';
+  if (kind === 'baby_zombie' && roll < 0.34) return 'chicken_jockey';
+  return kind;
+}
+
 export const RANGED_REACH = 4;
 export function isRangedMob(def: { reach: number }): boolean {
   return def.reach >= RANGED_REACH;

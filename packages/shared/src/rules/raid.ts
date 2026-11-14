@@ -89,14 +89,14 @@ export function raidWave(wave: number, waves: number, players: number): MobKind[
     push('evoker', 1);
     push('vindicator', 4 + extra);
     push('pillager', 3);
-    push('ravager', players >= 4 ? 2 : 1);
+    push('ravager_rider', players >= 4 ? 2 : 1); // 파괴수는 약탈자가 타고 온다 (#306, 아들 설계 "우민들은 파괴수를 타고 온다")
   } else if (wave === 1) {
     push('vindicator', 4 + extra);
     push('pillager', 2);
   } else {
     push('vindicator', 5 + extra);
     push('pillager', 3 + Math.floor(extra / 2));
-    push('ravager', 1);
+    push('ravager_rider', 1);
   }
   return list;
 }

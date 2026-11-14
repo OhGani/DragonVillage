@@ -57,6 +57,7 @@ import {
   explosionDamage,
   isBoss,
   isRangedMob,
+  jockeyFor,
   mobSize,
   pickKind,
   pickSpawn,
@@ -728,6 +729,7 @@ export class MobSystem {
         if (isZombieKind(kind) && kind !== 'zombie_villager' && zombieVillagerRoll(this.e.seed, this.turn)) kind = 'zombie_villager'; // 좀비·허스크 여덟에 하나는 좀비 주민 (#244)
         else if (kind === 'zombie' && hash3(this.turn, 1, 77, this.e.seed) < 0.12) kind = 'baby_zombie'; // 좀비 여덟에 하나쯤 아기 좀비 (2026-11-06)
         else if (kind === 'creeper' && hash3(this.turn, 2, 77, this.e.seed) < 0.1) kind = 'charged_creeper'; // 크리퍼 열에 하나 충전된 크리퍼
+        kind = jockeyFor(kind, hash3(this.turn, 3, 77, this.e.seed)); // 가끔 탈것을 탄 몹으로 (#306): 거미 기수·스켈레톤 기마병·닭 기수
         this.spawnKind(kind, spot.x, spot.y, spot.z);
       }
     }
@@ -1466,6 +1468,11 @@ export class MobSystem {
 
   /** 슬라임 쪼개기 (2026-11-06): 죽은 자리 둘레에 n 마리 */
   private splitInto(m: MobState, kind: MobKind, n: number): void {
+    if (n === 1) {
+      // 탈것을 탄 몹 (#306): 탈것이 쓰러진 바로 그 자리에 탄 몹이 내려선다
+      this.spawnKind(kind, m.x, this.groundAt(m.x, m.z, m.y) ?? m.y, m.z);
+      return;
+    }
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
       const x = m.x + Math.cos(a) * 1.5,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import bossesJson from '../../../../data/bosses.json';
 import { MOBS } from './data';
-import { BOSS_KIND, MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, isBoss, isLookingAt, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob, bossMinionKind, bossMinionKinds, KING_KINDS, MOB_KINDS, MOB_KIND_OF, MOB_KIND_NUM, isZombieKind, zombieVillagerRoll, CURE_MS, bodyInWall, bodyR, clearSight, type SolidAt } from './mobs';
+import { BOSS_KIND, MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, isBoss, isLookingAt, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob, bossMinionKind, bossMinionKinds, KING_KINDS, MOB_KINDS, MOB_KIND_OF, MOB_KIND_NUM, isZombieKind, zombieVillagerRoll, CURE_MS, bodyInWall, bodyR, clearSight, type SolidAt, JOCKEYS, RAIDER_KINDS, isRangedMob, jockeyFor } from './mobs';
 
 const flat = () => 41; // 어디나 발 높이 41
 
@@ -369,5 +369,46 @@ describe('벽 (아빠 2026-11-07 "건물 안 몹이 공격함 · 벽 밖으로 �
     expect(clearSight(wall, 104.5, 42.5, 100, 106.5, 42.5, 100)).toBe(false);
     expect(clearSight(wall, 104.5, 42.5, 130, 106.5, 42.5, 130)).toBe(true);
     expect(clearSight(wall, 100, 42.5, 100, 104.5, 42.5, 100)).toBe(true);
+  });
+});
+
+describe('탈것을 탄 몹 (#306, 아빠 2026-11-14)', () => {
+  it('네 종류: 몸은 탈것, 공격은 탄 몹. 탈것이 쓰러지면 탄 몹 한 마리가 내린다', () => {
+    const want: Record<string, [string, string]> = { spider_jockey: ['spider', 'skeleton'], chicken_jockey: ['chicken', 'baby_zombie'], ravager_rider: ['ravager', 'pillager'], skeleton_horseman: ['horse', 'skeleton'] };
+    expect(Object.keys(JOCKEYS).sort()).toEqual(Object.keys(want).sort());
+    for (const [id, [mount, rider]] of Object.entries(want)) {
+      const def = MOBS.get(id as MobKind);
+      expect(JOCKEYS[id as MobKind]).toEqual({ mount, rider });
+      expect(def.split).toEqual({ kind: rider, n: 1 }); // 쓰러지면 탄 몹이 내려서 계속 싸운다
+      expect(def.passive).toBe(false);
+      expect(def.name.length).toBeGreaterThan(1);
+      // 번호는 뒤에 덧붙였다 (프로토콜의 종류 번호가 안 밀린다)
+      expect(MOB_KIND_NUM[id as MobKind]).toBeGreaterThan(MOB_KIND_NUM.creaking);
+      expect(MOB_KIND_OF[MOB_KIND_NUM[id as MobKind]]).toBe(id);
+      // 판정 상자는 탈것 폭 + 탄 몹 머리까지
+      expect(mobSize(id as MobKind).w).toBeGreaterThanOrEqual(mobSize(mount as MobKind).w);
+      expect(mobSize(id as MobKind).h).toBeGreaterThan(mobSize(mount as MobKind).h);
+    }
+    // 거미 기수·기마병은 활(멀리서), 닭 기수는 물고, 파괴수 기수는 들이받는다(밀려남)
+    expect(isRangedMob(MOBS.get('spider_jockey'))).toBe(true);
+    expect(isRangedMob(MOBS.get('skeleton_horseman'))).toBe(true);
+    expect(isRangedMob(MOBS.get('chicken_jockey'))).toBe(false);
+    expect(MOBS.get('ravager_rider')).toMatchObject({ hp: 100, knock: true });
+    expect(MOBS.get('spider_jockey').poisonMs).toBe(0); // 독은 없다 (무는 게 아니라 쏜다)
+    expect(MOBS.get('skeleton_horseman').speed).toBeGreaterThan(MOBS.get('skeleton').speed * 1.5);
+    expect(RAIDER_KINDS).toContain('ravager_rider');
+  });
+
+  it('밤 몹이 가끔 탈것을 타고 나온다: 거미 여덟에 하나, 스켈레톤 열둘에 하나, 아기 좀비 셋에 하나. 다른 몹은 그대로', () => {
+    expect(jockeyFor('spider', 0.05)).toBe('spider_jockey');
+    expect(jockeyFor('spider', 0.5)).toBe('spider');
+    expect(jockeyFor('skeleton', 0.05)).toBe('skeleton_horseman');
+    expect(jockeyFor('skeleton', 0.1)).toBe('skeleton');
+    expect(jockeyFor('baby_zombie', 0.2)).toBe('chicken_jockey');
+    expect(jockeyFor('baby_zombie', 0.5)).toBe('baby_zombie');
+    for (const k of ['zombie', 'creeper', 'enderman', 'pillager'] as const) expect(jockeyFor(k, 0)).toBe(k);
+    let n = 0;
+    for (let i = 0; i < 1000; i++) if (jockeyFor('spider', i / 1000) !== 'spider') n++;
+    expect(n).toBe(125);
   });
 });

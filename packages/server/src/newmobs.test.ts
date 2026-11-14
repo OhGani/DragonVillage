@@ -226,3 +226,44 @@ describe('아빠 2026-11-07: 놓은 블록은 그대로 돌려받기 · 원정 �
     expect(sys.regularCount).toBe(0);
   });
 });
+
+describe('탈것을 탄 몹 (#306, 아빠 2026-11-14)', () => {
+  const setup = () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const json: { t: string; [k: string]: unknown }[] = [];
+    const hurt: string[] = [];
+    const me = { idx: 0, x: 64.5, y: GROUND_Y + 1, z: 64.5, eyeY: GROUND_Y + 1 + 1.6 };
+    const arena = { world: room.world, seed: 5, nightStartsAt: 0, nightMobs: [], den: null, ended: false, elapsedSec: () => 0 };
+    const sys = new MobSystem(arena, BLOCKS, MOBS, quietHooks(() => [me], hurt, json), { autoSpawn: false, aggroRange: 24, goal: null, quiet: true });
+    return { sys, me, json, hurt };
+  };
+
+  it('탈것이 쓰러지면 탄 몹이 바로 그 자리에 내려서 계속 싸운다: 거미 기수 → 스켈레톤, 닭 기수 → 아기 좀비, 파괴수 기수 → 약탈자, 기마병 → 스켈레톤', () => {
+    for (const [jockey, rider] of [['spider_jockey', 'skeleton'], ['chicken_jockey', 'baby_zombie'], ['ravager_rider', 'pillager'], ['skeleton_horseman', 'skeleton']] as const) {
+      const { sys, me, json } = setup();
+      const m = sys.spawnKind(jockey, 64.5, GROUND_Y + 1, 62.5);
+      const at = { x: m.x, z: m.z };
+      expect(sys.hit(me, m.id, 500, T0, 6)).toBeNull();
+      const left = [...sys.mobs.values()];
+      expect(left.map((x) => x.kind), jockey).toEqual([rider]);
+      expect(left[0]!.hp).toBe(MOBS.get(rider).hp); // 내린 몹은 멀쩡하다
+      expect(Math.hypot(left[0]!.x - at.x, left[0]!.z - at.z)).toBeLessThan(0.01);
+      expect(json.some((x) => x.t === 'mob' && x.ev === 'die' && x.id === m.id)).toBe(true);
+      expect(json.some((x) => x.t === 'mob' && x.ev === 'spawn' && x.mob === rider)).toBe(true);
+    }
+  });
+
+  it('거미 기수는 멀리서 활을 쏜다 (화살 연출이 간다), 닭 기수는 달려와 문다', () => {
+    const a = setup();
+    a.sys.spawnKind('spider_jockey', 64.5, GROUND_Y + 1, 59.5); // 5칸
+    for (let t = T0; t < T0 + 5000; t += 100) a.sys.tick(t);
+    expect(a.hurt).toContain('spider_jockey');
+    expect(a.json.some((x) => x.t === 'arrow')).toBe(true);
+    const b = setup();
+    const c = b.sys.spawnKind('chicken_jockey', 64.5, GROUND_Y + 1, 58.5); // 6칸
+    for (let t = T0; t < T0 + 5000; t += 100) b.sys.tick(t);
+    expect(b.hurt).toContain('chicken_jockey');
+    expect(b.json.some((x) => x.t === 'arrow')).toBe(false);
+    expect(Math.hypot(c.x - b.me.x, c.z - b.me.z)).toBeLessThan(2); // 달려와 붙었다
+  });
+});
