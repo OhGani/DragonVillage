@@ -380,7 +380,7 @@ export class Session {
       case 'startExpedition': {
         if (!this.room) return this.error('NOT_IN_VILLAGE', '먼저 마을에 들어가야 해요');
         if (typeof msg.expedition !== 'string') return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
-        // 시간 제한 (M5-4): 아이는 남은 시간·차단까지 남은 분이 원정 길이 + 여유보다 커야 출발 — 시간은 항상 마을에서 끝난다
+        // 시간 제한 (M5-4 → #303): 시간이 조금이라도 남아 있으면 출발 — 원정 중에 끝나면 그 자리에서 나가고 모은 것은 그대로
         if (this.family && this.nick) {
           const def = EXPEDITIONS.find(msg.expedition);
           const check = this.family.expeditionCheck(this.nick, def?.durationSec ?? 600);

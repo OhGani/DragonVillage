@@ -159,6 +159,8 @@ CREATE TABLE IF NOT EXISTS time_ledger(
 CREATE TABLE IF NOT EXISTS week_settlements(
   child TEXT NOT NULL, week_start TEXT NOT NULL, rate REAL NOT NULL, bonus_cap INTEGER NOT NULL, approved INTEGER NOT NULL, expected INTEGER NOT NULL,
   settled_at INTEGER NOT NULL, PRIMARY KEY(child, week_start));
+CREATE TABLE IF NOT EXISTS meta(
+  key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS dragons(
   id INTEGER PRIMARY KEY AUTOINCREMENT, village TEXT NOT NULL, token TEXT NOT NULL, dragon TEXT NOT NULL, stage TEXT NOT NULL,
   slot INTEGER, placed_at INTEGER NOT NULL, hatched_at INTEGER, fed INTEGER NOT NULL DEFAULT 0, resting_until INTEGER);
@@ -318,6 +320,9 @@ export class Storage {
       markGift: this.db.prepare('INSERT OR IGNORE INTO gifts_given(token, gift, given_at) VALUES (?, ?, ?)'),
       tradeDemand: this.db.prepare('SELECT item, count, updated_at AS updatedAt FROM trade_demand WHERE token = ? AND village = ?'),
       setTradeDemand: this.db.prepare('INSERT INTO trade_demand(token, village, item, count, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(token, village, item) DO UPDATE SET count = excluded.count, updated_at = excluded.updated_at'),
+      getMeta: this.db.prepare('SELECT value FROM meta WHERE key = ?'),
+      setMeta: this.db.prepare('INSERT INTO meta(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'),
+      delMeta: this.db.prepare('DELETE FROM meta WHERE key = ?'),
       getSettlement: this.db.prepare('SELECT child, week_start AS weekStart, rate, bonus_cap AS bonusCap, approved, expected, settled_at AS settledAt FROM week_settlements WHERE child = ? AND week_start = ?'),
       insertSettlement: this.db.prepare('INSERT OR IGNORE INTO week_settlements(child, week_start, rate, bonus_cap, approved, expected, settled_at) VALUES (?, ?, ?, ?, ?, ?, ?)'),
       listSettlements: this.db.prepare('SELECT child, week_start AS weekStart, rate, bonus_cap AS bonusCap, approved, expected, settled_at AS settledAt FROM week_settlements WHERE child = ? ORDER BY week_start DESC LIMIT ?'),
@@ -686,6 +691,16 @@ export class Storage {
     this.stmts.addXpOffline.run(amount, token);
   }
 
+  /** 서버 전체에 하나뿐인 값들 (시간 제한을 켠 날 등, #302) */
+  getMeta(key: string): string | null {
+    return (this.stmts.getMeta.get(key) as { value: string } | undefined)?.value ?? null;
+  }
+  setMeta(key: string, value: string): void {
+    this.stmts.setMeta.run(key, value);
+  }
+  delMeta(key: string): void {
+    this.stmts.delMeta.run(key);
+  }
   getSettlement(child: string, weekStart: string): SettlementRow | undefined {
     return this.stmts.getSettlement.get(child, weekStart) as SettlementRow | undefined;
   }

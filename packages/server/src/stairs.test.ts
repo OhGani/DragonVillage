@@ -232,4 +232,52 @@ describe('계단 (#291, 아빠 2026-11-13)', () => {
     expect(fall(64.5, 60.5, 5000)).toBe(20);
     expect(fall(66.5, 62.5, 9000)).toBeLessThan(20);
   });
+
+  it('벽이 없어지면 사다리도 떨어진다 (#300): 부순 사람 가방으로. 유리·문·계단에는 못 붙인다', () => {
+    const room = new VillageRoom({ ...INFO }, BLOCKS, new Storage(':memory:'), () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+    const ra = room.join('a'.repeat(32), '아빠', 0, () => {})!;
+    const p = room.players.get(ra.idx)!;
+    const w = room.world;
+    const G = GROUND_Y + 1;
+    room.onMove(ra.idx, { x: 64.5, y: G, z: 62.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, 1000);
+    const idAt = (x: number, y: number, z: number) => BLOCKS.get(w.getBlock(x, y, z)).id;
+    // 돌 기둥 두 칸 (64, G~G+1, 59) 의 남쪽·동쪽에 사다리 셋
+    const STONE = BLOCKS.numOf('stone');
+    w.setBlock(64, G, 59, STONE);
+    w.setBlock(64, G + 1, 59, STONE);
+    give(p.inv, 'ladder', 6);
+    let seq = 1,
+      now = 1000;
+    const put = (x: number, y: number, z: number, id: string) => room.onBlockChange(ra.idx, { seq: seq++, x, y, z, id }, (now += 400));
+    put(64, G, 60, 'ladder'); // 북쪽이 벽
+    put(64, G + 1, 60, 'ladder');
+    put(65, G, 59, 'ladder@w'); // 서쪽이 벽
+    expect([idAt(64, G, 60), idAt(64, G + 1, 60), idAt(65, G, 59)]).toEqual(['ladder', 'ladder', 'ladder@w']);
+    expect(countOf(p.inv, 'ladder')).toBe(3);
+    // 유리·계단·울타리에는 못 붙인다
+    for (const [i, id] of ['glass', 'oak_stairs', 'oak_fence'].entries()) {
+      w.setBlock(60 + i, G, 59, BLOCKS.numOf(id));
+      put(60 + i, G, 60, 'ladder');
+      expect(idAt(60 + i, G, 60), id).toBe('air');
+    }
+    expect(countOf(p.inv, 'ladder')).toBe(3);
+    // 아래 돌을 부수면 그 칸에 붙은 둘만 떨어지고, 위 칸 사다리는 남는다
+    now += 5000;
+    put(64, G, 59, 'air');
+    expect([idAt(64, G, 60), idAt(64, G + 1, 60), idAt(65, G, 59)]).toEqual(['air', 'ladder', 'air']);
+    expect(countOf(p.inv, 'ladder')).toBe(5);
+    now += 5000;
+    put(64, G + 1, 59, 'air');
+    expect(idAt(64, G + 1, 60)).toBe('air');
+    expect(countOf(p.inv, 'ladder')).toBe(6);
+    // 사다리를 직접 캐도(맨손) 어느 벽에 붙었든 사다리 하나가 돌아온다
+    w.setBlock(64, G, 59, STONE);
+    put(65, G, 59, 'ladder@w');
+    expect(countOf(p.inv, 'ladder')).toBe(5);
+    now += 5000;
+    put(65, G, 59, 'air');
+    expect(idAt(65, G, 59)).toBe('air');
+    expect(countOf(p.inv, 'ladder')).toBe(6);
+    expect(p.inv.some((sl) => sl?.item.includes('@'))).toBe(false);
+  });
 });

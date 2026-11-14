@@ -24,7 +24,7 @@ import {
   equipSlotOf,
   EXPEDITION_BOSS_KINDS,
   type ExpeditionEnterInfo,
-  expeditionNeedMin,
+  expeditionCutShort,
   type ExpeditionPhase,
   type ExpeditionStateInfo,
   expeditionUnlocked,
@@ -1855,9 +1855,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       }
       // 깃대 옆 (M7-5): 방어전 시작
       if (ctx.kind === 'village' && !raidState && Math.hypot(p.x - (FLAG_POLE.x + 0.5), p.z - (FLAG_POLE.z + 0.5)) <= 4) {
-        const need = expeditionNeedMin(Math.ceil(RAIDS.durationSec / 60), FAMILY_RULES);
         if (todayCard?.enforced && !canStartExpedition(todayCard, Math.ceil(RAIDS.durationSec / 60), FAMILY_RULES)) {
-          hud.showAction('오늘은 방어전은 쉬어요', `방어전은 ${need}분 필요해요`, '알겠어요', () => hud.hideAction());
+          hud.showAction('오늘은 방어전은 쉬어요', '오늘 게임 시간이 끝났어요', '알겠어요', () => hud.hideAction());
           return;
         }
         if (villageState.level < RAIDS.minVillageLevel) hud.showAction('🔔 우민 방어전', `마을 레벨 ${RAIDS.minVillageLevel}부터 우민이 쳐들어와요 (지금 ${villageState.level})`, '알겠어요', () => hud.hideAction());
@@ -1870,20 +1869,20 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     if (ctx.kind === 'village') {
       const open = openExpeditions();
       const def = open[expeditionPick % Math.max(1, open.length)] ?? EXPEDITIONS.require(FIRST_EXPEDITION);
-      // 시간 제한 (M5-4): 남은 시간이 원정 길이 + 여유보다 적으면 오늘은 마을에서
+      // 시간 제한 (#303): 시간이 조금이라도 남아 있으면 출발한다. 원정보다 짧게 남았으면 카드에 미리 알려 준다
       if (todayCard?.enforced && !canStartExpedition(todayCard, Math.ceil(def.durationSec / 60), FAMILY_RULES)) {
-        const need = expeditionNeedMin(Math.ceil(def.durationSec / 60), FAMILY_RULES);
-        const why = todayCard.noPlayToday ? '오늘은 게임 없는 날이에요' : todayCard.minutesUntilBlocked < todayCard.remainingMin ? `게임 시간이 ${todayCard.minutesUntilBlocked}분 뒤에 끝나요` : `남은 시간 ${todayCard.remainingMin}분`;
-        hud.showAction('오늘은 마을에서 놀자', `${why} · 원정은 ${need}분 필요해요`, '알겠어요', () => hud.hideAction());
+        hud.showAction('오늘은 마을에서 놀자', todayCard.noPlayToday ? '오늘은 게임 없는 날이에요' : '오늘 게임 시간이 끝났어요', '알겠어요', () => hud.hideAction());
         return;
       }
+      const cut = todayCard?.enforced ? expeditionCutShort(todayCard, Math.ceil(def.durationSec / 60)) : null;
+      const cutNote = cut !== null ? `\n⏰ 게임 시간이 ${cut}분 남았어요 — 끝나면 원정에서 바로 나가요 (모은 것은 그대로)` : '';
       if (expeditionState) {
         const m = Math.floor(expeditionState.remainingSec / 60);
         hud.showAction(`${expeditionState.name} 원정 중`, `${expeditionState.players}명이 나가 있어요 · 약 ${m}분 남음`, '따라가기' + KEY_HINT, () => net.sendStartExpedition(expeditionState!.id));
       } else {
         const night = def.nightStartsAt > 0 ? `${Math.round(def.nightStartsAt / 60)}분 뒤 밤` : '처음부터 어두워요 · 몹이 바로 나와요';
         const alt = open.length > 1 ? { label: `다른 곳 ▸ ${open[(expeditionPick + 1) % open.length]!.name}`, onClick: () => void (expeditionPick = (expeditionPick + 1) % open.length) } : undefined;
-        hud.showAction(`${def.name}${toward(def.name)} 원정`, `${Math.round(def.durationSec / 60)}분 · ${night} · 보물 상자 ${def.treasures}개\n포탈로 돌아오면 모은 것을 가져와요`, '원정 출발' + KEY_HINT, () => net.sendStartExpedition(def.id), alt);
+        hud.showAction(`${def.name}${toward(def.name)} 원정`, `${Math.round(def.durationSec / 60)}분 · ${night} · 보물 상자 ${def.treasures}개\n포탈로 돌아오면 모은 것을 가져와요${cutNote}`, '원정 출발' + KEY_HINT, () => net.sendStartExpedition(def.id), alt);
       }
     } else if (endingPortal && Math.hypot(ctx.player.pos.x - (endingPortal.x + 0.5), ctx.player.pos.z - (endingPortal.z + 0.5)) <= 1.6 && Math.abs(ctx.player.pos.y - endingPortal.y) <= 3) {
       hud.showAction('🏆 다른 차원 포탈', '엔더 드래곤을 물리쳤어요! 들어가면 엔딩', '엔딩 보기' + KEY_HINT, () => net.sendReturnHome());

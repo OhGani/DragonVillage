@@ -1591,6 +1591,35 @@ export class VillageRoom {
   }
 
   /** 폭발에 부서지는 블록인가 (#247): 공기·액체·기반암처럼 hardness 없는 것·흑요석급·상자(속이 사라지니까)·침대·문(두 칸짜리)·둥지 알은 남는다. 마을 건물 자리는 밖에서 본다 */
+  /**
+   * 사다리 (#300, 아빠 2026-11-13 "벽을 부술 때 사다리도 같이 떨어지게"): (x, y, z) 가 더는 벽이 못 되면 거기 붙어 있던 사다리 칸을 비운다.
+   * 지운 칸들을 돌려준다 — 알리기(BlockChanged·BlockBatch)와 사다리 돌려주기는 부른 쪽이 한다
+   */
+  private popLadders(kind: 'village' | 'expedition', x: number, y: number, z: number): { x: number; y: number; z: number }[] {
+    const world = kind === 'village' ? this.world : (this.expedition?.world ?? null);
+    const out: { x: number; y: number; z: number }[] = [];
+    if (!world) return out;
+    for (let facing = 0; facing < 4; facing++) {
+      const [dx, dz] = DOOR_DIR[facing]!;
+      const lx = x - dx,
+        lz = z - dz;
+      if (!world.inBounds(lx, y, lz) || this.registry.get(world.getBlock(lx, y, lz)).ladder?.facing !== facing) continue;
+      world.setBlock(lx, y, lz, AIR_ID);
+      const key = `${lx},${y},${lz}`;
+      if (kind === 'village') {
+        this.markDirtyBlock(lx, y, lz);
+        this.fluids.touch(lx, y, lz);
+        if (this.placed.delete(key)) this.storage?.delPlaced(this.info.code, lx, y, lz);
+      } else if (this.expedition) {
+        this.expedition.markModified(lx, y, lz);
+        this.expedition.fluids.touch(lx, y, lz);
+        this.expPlaced.delete(key);
+      }
+      out.push({ x: lx, y, z: lz });
+    }
+    return out;
+  }
+
   private blastBreaks(def: ReturnType<BlockRegistry['get']>): boolean {
     if (def.num === AIR_ID || def.fluid || def.hardness === null || def.hardness >= TNT_BLAST_PROOF) return false;
     if (def.chest || def.bed || def.door || def.shape === 'egg' || def.shape === 'campfire' || def.id === 'tnt') return false; // 드래곤 알 16종도 (#249). 모닥불은 올린 음식이 사라지니까 (#290)
@@ -1638,6 +1667,8 @@ export class VillageRoom {
             }
             broken.push({ x, y, z, id: 'air' });
           }
+      // 벽이 날아가면 거기 붙은 사다리도 같이 (#300, 드롭 없음 — TNT 는 원래 아무것도 안 남긴다)
+      for (const b of [...broken]) for (const l of this.popLadders(f.world, b.x, b.y, b.z)) broken.push({ ...l, id: 'air' });
       this.broadcast(encodeBlockBatch({ blocks: broken }), -1, f.world);
       // 사람·몹·동물 피해: 멀수록 적게. 갑옷은 통한다 (armorApplies)
       for (const q of this.playersIn(f.world)) {
@@ -3301,10 +3332,9 @@ export class VillageRoom {
       } else if (def.plantOn ? below !== def.plantOn : below !== 'grass' && below !== 'dirt' && below !== 'farmland') return REJECT.NO_FARMLAND;
     }
     if (def.ladder) {
-      // 사다리 (#299): 붙을 벽(단단한 블록)이 그 방향에 있어야 한다
+      // 사다리 (#299): 붙을 벽이 그 방향에 있어야 한다 — 꽉 찬 불투명 블록만 (#300: 문·유리·계단·울타리에는 못 붙인다)
       const [wx, wz] = DOOR_DIR[def.ladder.facing]!;
-      const wall = world.inBounds(x + wx, y, z + wz) ? this.registry.get(world.getBlock(x + wx, y, z + wz)) : null;
-      if (!wall || !wall.solid) return REJECT.INVALID;
+      if (!world.inBounds(x + wx, y, z + wz) || !this.registry.isOpaque(world.getBlock(x + wx, y, z + wz))) return REJECT.INVALID;
     }
     if (def.rail) {
       // 철도 (#237): 고체 블록 위에만
@@ -3409,6 +3439,16 @@ export class VillageRoom {
             this.broadcast(encodeBlockChanged({ x: pairFix.x, y: ny, z: pairFix.z, id: this.registry.get(v).id, by: idx }), -1, p.world);
           }
         }
+      }
+    }
+    // 벽이 없어지면 거기 붙어 있던 사다리가 떨어져 부순 사람 가방으로 (#300)
+    if (this.registry.isOpaque(prev.num) && !this.registry.isOpaque(num)) {
+      const popped = this.popLadders(p.world, req.x, req.y, req.z);
+      if (popped.length > 0) {
+        for (const l of popped) this.broadcast(encodeBlockChanged({ x: l.x, y: l.y, z: l.z, id: 'air', by: idx }), -1, p.world);
+        const ch = new Set<number>();
+        this.giveTo(p, 'ladder', popped.length, ch);
+        this.sendInv(p, ch);
       }
     }
     // 울타리를 부수면 거기 묶인 동물이 풀리고 끈은 부순 사람에게 (#297)

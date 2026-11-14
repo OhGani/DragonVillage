@@ -25,7 +25,6 @@ import {
   lastWeekWindow,
   weekStartOf,
   weeklyRate,
-  expeditionNeedMin,
   repeatFromString,
   repeatToString,
   seoulTime,
@@ -91,6 +90,8 @@ export interface PendingApproval {
 export interface FamilyOptions {
   /** 시간 제한을 실제로 거는가 (M5-4). 기본 false = 표시만 */
   enforceTime?: boolean;
+  /** 서버를 켠 시각 (시험용). 제한을 처음 켠 날을 적을 때 쓴다 */
+  now?: number;
 }
 
 type Listener = (msg: ServerJson) => void;
@@ -100,6 +101,12 @@ export class FamilyService {
   /** 접속 중인 플레이어(닉 키) → 메시지 보내기. 승인·카드 갱신을 실시간으로 밀어 준다 */
   private readonly listeners = new Map<string, Set<Listener>>();
   readonly enforceTime: boolean;
+  /**
+   * 시간 제한을 (다시) 켠 날 'YYYY-MM-DD' (#302). 꺼져 있으면 null.
+   * 제한이 꺼져 있던 동안은 할 일을 해도 얻는 게 없어 아무도 안 한다 — 그 기간을 '지난주 달성률 0%'로 쳐서 다시 켠 주의 보너스 한도를 0 으로 만들면 안 된다.
+   * 그래서 주간 정산은 이 날부터의 날짜만 센다. 지난주가 통째로 이 날 이전이면 정산 없음 = 첫 주 한도
+   */
+  readonly enforceSince: string | null;
 
   constructor(
     private readonly storage: Storage,
@@ -108,6 +115,14 @@ export class FamilyService {
     opts: FamilyOptions = {},
   ) {
     this.enforceTime = opts.enforceTime ?? false;
+    if (!this.enforceTime) {
+      this.storage.delMeta('enforce_since'); // 꺼 두면 잊는다 — 다음에 켜는 날이 새 시작
+      this.enforceSince = null;
+    } else {
+      let since = this.storage.getMeta('enforce_since');
+      if (!since) this.storage.setMeta('enforce_since', (since = seoulTime(opts.now ?? Date.now()).date));
+      this.enforceSince = since;
+    }
   }
 
   private newFamilyCode(): string {
@@ -407,16 +422,20 @@ export class FamilyService {
    */
   settlementFor(key: string, dateKey: string): { rate: number; bonusCap: number; approved: number; expected: number; weekStart: string } | null {
     const weekStart = weekStartOf(dateKey);
+    const win = lastWeekWindow(weekStart);
+    // 제한을 켠 날부터만 센다 (#302). 지난주가 통째로 그 전이면 정산 없음(첫 주 한도) — 꺼 둔 동안 0% 로 적힌 옛 정산 줄이 있어도 안 본다
+    const since = this.enforceSince;
+    const dates = since ? win.dates.filter((d) => d >= since) : win.dates;
+    if (since && dates.length === 0) return null;
     const row = this.storage.getSettlement(key, weekStart);
     if (row) return row;
-    const win = lastWeekWindow(weekStart);
     const todos = this.storage.listTodosByChild(key).map((r) => this.toTodo(r));
     const logs = this.storage.listLogsByChild(key, win.start).filter((l) => l.date <= win.end);
     const child = this.storage.getChild(key);
     // 지난주에 연결도 안 됐고 기록도 없으면 첫 주 — 정산 없음(첫 주 한도)
     const linkedBefore = child ? seoulTime(child.linkedAt).date <= win.end : false;
     if (!linkedBefore && logs.length === 0) return null;
-    const r = weeklyRate(todos, logs, win.dates);
+    const r = weeklyRate(todos, logs, dates);
     const settled = { child: key, weekStart, rate: r.rate, bonusCap: computeBonusCap(r.rate, this.rules), approved: r.approved, expected: r.expected, settledAt: Date.now() };
     this.storage.insertSettlement(settled);
     return settled;
@@ -506,11 +525,11 @@ export class FamilyService {
     const card = this.cardOfKey(nickKey(nick), now); // 부모 플레이어도 아이와 같은 조건 (#298)
     if (!card) return { ok: true };
     const expMin = Math.ceil(expeditionSec / 60);
+    // 시간이 조금이라도 남아 있으면 출발 (#303). 원정 중에 끝나면 그 자리에서 나가고 모은 것은 그대로
     if (canStartExpedition(card, expMin, this.rules)) return { ok: true };
-    const need = expeditionNeedMin(expMin, this.rules);
     if (card.noPlayToday) return { ok: false, message: '오늘은 게임 없는 날이에요' };
-    if (card.minutesUntilBlocked < need && card.minutesUntilBlocked <= card.remainingMin) return { ok: false, message: `오늘은 마을에서 놀자 — 게임 시간이 ${card.minutesUntilBlocked}분 뒤에 끝나요 (원정은 ${need}분 필요)` };
-    return { ok: false, message: `오늘은 마을에서 놀자 — 남은 시간 ${card.remainingMin}분 (원정은 ${need}분 필요)` };
+    if (card.minutesUntilBlocked <= 0) return { ok: false, message: '지금은 게임 시간이 아니에요' };
+    return { ok: false, message: '오늘 게임 시간을 다 썼어요' };
   }
 
   /** 제한이 켜져 있고 지금 내보내야 하면, 접속 중인 아이에게 timeUp (세션이 연결을 닫는다) */

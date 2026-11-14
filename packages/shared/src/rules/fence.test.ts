@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { type MoveResult, moveBody, tryStepUp } from '../physics/aabb';
-import { BLOCKS, RECIPES } from './data';
+import { BLOCKS, RECIPES, TOOLS } from './data';
+import { breakSeconds } from './tools';
 import { FENCE_E, FENCE_HEIGHT, FENCE_ICON_BOXES, FENCE_N, FENCE_W, fenceBoxes, fenceFoot, fenceLinks, fenceLinksAt, fenceNeighborOf, gateBoxes, gateFoot, ladderBoxes, trapBoxes, trapFoot, trapSlice } from './fence';
 import { itemForPlacing } from './items';
 import { FINE_RES, fineSolidQuery, raycastFine, standTop } from './stairs';
@@ -266,6 +267,11 @@ describe('사다리 (#299, 아빠 2026-11-13)', () => {
     expect(seen.size).toBe(4);
     expect(BLOCKS.find('ladder@w')?.ladder?.facing).toBe(3);
     expect(RECIPES.require('ladder')).toMatchObject({ in: { stick: 7 }, out: { ladder: 3 } });
+    // 맨손으로도 금방(0.4초), 도끼면 더 빨리 부서진다
+    const axe = TOOLS.axes.get('iron_axe') ?? null;
+    expect(breakSeconds(base, null)).toBeCloseTo(0.4, 5);
+    expect(axe).not.toBeNull();
+    expect(breakSeconds(base, axe)!).toBeLessThan(0.4);
   });
 
   it('모양은 벽 쪽 가장자리의 1/16 판', () => {

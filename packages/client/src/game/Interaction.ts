@@ -530,9 +530,9 @@ export class Interaction {
       }
       return;
     }
-    // 사다리 (#299): 단단한 블록의 옆면에만 붙인다 (내가 선 칸에도 놓을 수 있다 — 타고 오르며 위로 이어 붙인다)
+    // 사다리 (#299): 꽉 찬 블록의 옆면에만 붙인다 — 문·유리·계단·울타리는 안 된다 (#300). 내가 선 칸에도 놓을 수 있다(타고 오르며 위로 이어 붙인다)
     if (def.ladder) {
-      if (t.ny !== 0 || !this.registry.get(t.id).solid) {
+      if (t.ny !== 0 || !this.registry.isOpaque(t.id)) {
         this.events.onHint?.('🪜 사다리는 블록 옆면에 붙여요');
         return;
       }

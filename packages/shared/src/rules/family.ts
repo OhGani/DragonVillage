@@ -367,12 +367,20 @@ export function statusAfterCheck(todo: Todo): TodoStatus {
   return todo.needsApproval ? 'checked' : 'approved';
 }
 
-/** 원정 출발 조건 (M5-4): min(남은 시간, 차단까지 남은 분) ≥ 원정 길이 + 여유. 시간은 항상 마을에서 끝난다 */
-export function canStartExpedition(card: Pick<TodayCard, 'remainingMin' | 'minutesUntilBlocked' | 'noPlayToday'>, expeditionMin: number, rules: FamilyRules): boolean {
-  if (card.noPlayToday) return false;
-  return Math.min(card.remainingMin, card.minutesUntilBlocked) >= expeditionMin + rules.expeditionStartMarginMinutes;
+/**
+ * 원정 출발 조건. 처음(M5-4)엔 min(남은 시간, 차단까지 남은 분) ≥ 원정 길이 + 여유 여야 했다 — 시간이 항상 마을에서 끝나게.
+ * 2026-11-14 아빠 "시간이 적게 남아 있어도 원정 갈 수 있게" (#303): 이제 **시간이 조금이라도 남아 있으면** 출발한다.
+ * 원정 중에 시간이 끝나면 그 자리에서 나가고, 모은 것은 그대로 남는다(#154 끊김과 같은 처리). 오늘 게임 없음·시간 다 씀·차단 시간대만 막는다
+ */
+export function canStartExpedition(card: Pick<TodayCard, 'remainingMin' | 'minutesUntilBlocked' | 'noPlayToday'>, _expeditionMin: number, _rules: FamilyRules): boolean {
+  return !card.noPlayToday && card.remainingMin > 0 && card.minutesUntilBlocked > 0;
 }
-/** 원정에 필요한 분 (길이 + 여유) */
+/** 원정 중에 시간이 끝나나 (#303): 남은 시간·차단까지 남은 분이 원정 길이보다 짧다 — 출발 카드에 미리 알려 준다 */
+export function expeditionCutShort(card: Pick<TodayCard, 'remainingMin' | 'minutesUntilBlocked'>, expeditionMin: number): number | null {
+  const left = Math.min(card.remainingMin, card.minutesUntilBlocked);
+  return left < expeditionMin ? left : null;
+}
+/** 원정에 필요한 분 (길이 + 여유) — 지금은 출발을 막는 데 쓰지 않는다 (#303) */
 export function expeditionNeedMin(expeditionMin: number, rules: FamilyRules): number {
   return expeditionMin + rules.expeditionStartMarginMinutes;
 }

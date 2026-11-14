@@ -179,6 +179,52 @@ describe('할 일·승인·시간 (M5-3)', () => {
   });
 });
 
+describe('제한을 다시 켠 주의 보너스 (#302, 아빠 2026-11-14 "승인해 줘도 게임 시간이 안 늘어남")', () => {
+  const day = (d: number, h = 10) => Date.UTC(2026, 8, d, h - 9, 0); // 2026-09-d h시 KST
+  it('꺼 둔 동안 안 한 할 일로 한도가 0 이 되지 않는다: 켠 주는 첫 주처럼 5분, 다음 주 정산은 켠 날부터만 센다', () => {
+    const storage = new Storage(':memory:');
+    const accounts = new AccountService(storage);
+    // 9/7(월)에 연결, 매일 할 일 하나. 제한은 꺼져 있고 9/14~9/20 주에는 아무것도 안 했다
+    const off = new FamilyService(storage, accounts);
+    const p = off.signup('dad@example.com', 'secret1', 1000);
+    if (!p.ok) throw new Error();
+    const fid = p.parent.familyId;
+    accounts.claim(A, '쁘뚜', day(7));
+    accounts.setPin(A, '1111');
+    off.linkChild(p.parent.familyCode, '쁘뚜', '1111', day(7));
+    const todo = off.addTodo(fid, '쁘뚜', '수학 숙제', 'daily', true, day(7))!;
+    // 제한이 꺼진 채로 이번 주(9/21~) 카드를 보면: 지난주 0% → 한도 0 (정산 줄도 그렇게 적힌다)
+    expect(off.todayCard('쁘뚜', day(23))).toMatchObject({ bonusCap: 0, lastWeekRate: 0 });
+    expect(off.enforceSince).toBeNull();
+
+    // 9/25(금)에 제한을 켰다 — 서버가 다시 뜬다
+    const on = new FamilyService(storage, accounts, undefined, { enforceTime: true, now: day(25) });
+    expect(on.enforceSince).toBe('2026-09-25');
+    // 켠 주: 옛 0% 정산을 안 보고 첫 주 한도 5분. 다 하고 승인받으면 +5분
+    expect(on.todayCard('쁘뚜', day(26))).toMatchObject({ baseMin: 30, bonusCap: 5, bonusMin: 0, remainingMin: 30, lastWeekRate: null });
+    expect(on.checkTodo('쁘뚜', todo.id, day(26)).ok).toBe(true);
+    expect(on.decideTodo(fid, todo.id, '2026-09-26', true, day(26))).toBe(true);
+    expect(on.todayCard('쁘뚜', day(26))).toMatchObject({ bonusMin: 5, remainingMin: 35 });
+    // 서버를 또 껐다 켜도 켠 날은 그대로
+    expect(new FamilyService(storage, accounts, undefined, { enforceTime: true, now: day(27) }).enforceSince).toBe('2026-09-25');
+    // 다음 주(9/28~): 지난주 중 켠 날부터(금·토·일)만 센다 — 토요일 하나만 했으니 1/3 → 한도 0 … 이 아니라 월~목은 안 센다는 것만 확인
+    const next = on.settlementFor('쁘뚜', '2026-09-29')!;
+    expect(next).toMatchObject({ approved: 1, expected: 3 });
+    // 금·일도 했다면 100% → 5분 (다른 아이로 확인)
+    const B2 = 'c'.repeat(32);
+    accounts.claim(B2, '동생', day(7));
+    accounts.setPin(B2, '3333');
+    on.linkChild(p.parent.familyCode, '동생', '3333', day(7));
+    const t2 = on.addTodo(fid, '동생', '책 읽기', 'daily', false, day(7))!;
+    for (const d of [25, 26, 27]) expect(on.checkTodo('동생', t2.id, day(d)).ok).toBe(true);
+    expect(on.settlementFor('동생', '2026-09-29')).toMatchObject({ approved: 3, expected: 3, rate: 1, bonusCap: 5 });
+
+    // 제한을 끄면 잊는다 → 다음에 켜는 날이 새 시작
+    expect(new FamilyService(storage, accounts).enforceSince).toBeNull();
+    expect(new FamilyService(storage, accounts, undefined, { enforceTime: true, now: Date.UTC(2026, 9, 14, 3, 0) }).enforceSince).toBe('2026-10-14');
+  });
+});
+
 describe('시간 조정·오늘 게임 없음·PIN 초기화·제한 판정 (M5-4)', () => {
   const SAT = Date.UTC(2026, 8, 19, 1, 20); // 토 10:20 KST, 기본 30분
   function withChildEnforced(enforce: boolean) {
@@ -219,12 +265,10 @@ describe('시간 조정·오늘 게임 없음·PIN 초기화·제한 판정 (M5-
     family.attach('쁘뚜', l);
     expect(family.timeBlock('쁘뚜', SAT)).toBeNull();
     expect(family.timeBlock('오가니', SAT)).toBeNull(); // 아이 아님
-    // 원정 10분 + 여유 3 = 13분 필요. 남은 30분 → ok. 조정 −20 → 10분 → 안 됨
+    // 원정 (#303): 시간이 조금이라도 남아 있으면 출발한다 — 남은 30분도, 조정 −20 으로 10분만 남아도
     expect(family.expeditionCheck('쁘뚜', 600, SAT)).toEqual({ ok: true });
     family.adjustTime(fid, '쁘뚜', -20, '숙제 안 함', SAT);
-    const c = family.expeditionCheck('쁘뚜', 600, SAT);
-    expect(c.ok).toBe(false);
-    if (!c.ok) expect(c.message).toMatch(/남은 시간 10분/);
+    expect(family.expeditionCheck('쁘뚜', 600, SAT)).toEqual({ ok: true });
     // 차단 시간대(월 15:30) → blocked
     const MON = Date.UTC(2026, 8, 21, 6, 30);
     expect(family.timeBlock('쁘뚜', MON)).toMatchObject({ reason: 'blocked', message: /16:00/ });
@@ -237,7 +281,7 @@ describe('시간 조정·오늘 게임 없음·PIN 초기화·제한 판정 (M5-
     // 시간 다 씀 → over
     family.addUsage('쁘뚜', 10 * 60, SAT);
     expect(family.timeBlock('쁘뚜', SAT)).toMatchObject({ reason: 'over' });
-    expect(family.expeditionCheck('쁘뚜', 600, SAT).ok).toBe(false);
+    expect(family.expeditionCheck('쁘뚜', 600, SAT)).toEqual({ ok: false, message: '오늘 게임 시간을 다 썼어요' });
     family.detach('쁘뚜', l);
   });
 
@@ -271,21 +315,22 @@ describe('시간 조정·오늘 게임 없음·PIN 초기화·제한 판정 (M5-
     // 아이에게 +10분 조정 → 아빠 분량도 같이
     family.adjustTime(fid, '쁘뚜', 10, '심부름', SAT);
     expect(family.todayCard('오가니', SAT)!.remainingMin).toBe(28);
-    // 원정은 남은 시간이 충분할 때만
+    // 원정은 시간이 조금이라도 남아 있으면 (#303) — 8분만 남아도 간다
     expect(family.expeditionCheck('오가니', 600, SAT)).toEqual({ ok: true });
     family.addUsage('오가니', 20 * 60, SAT);
-    expect(family.expeditionCheck('오가니', 600, SAT)).toMatchObject({ ok: false });
+    expect(family.todayCard('오가니', SAT)!.remainingMin).toBe(8);
+    expect(family.expeditionCheck('오가니', 600, SAT)).toEqual({ ok: true });
     // 다 쓰면 입장 거절, 접속 중이면 내보낸다
     const got: ServerJson[] = [];
     family.attach('오가니', (m) => got.push(m));
     family.addUsage('오가니', 8 * 60, SAT);
     expect(family.timeBlock('오가니', SAT)).toMatchObject({ reason: 'over' });
     expect(family.timeBlock('쁘뚜', SAT)).toBeNull(); // 아이는 아직 남았다
-    // 같은 시간대: 토요일 08:00(9시 전)·22:30 에는 못 들어온다, 21:30 은 된다 (밤 10시부터 닫힘)
+    // 같은 시간대: 일요일 08:00(9시 전)·23:30 에는 못 들어온다, 22:30 은 된다 (밤 11시부터 닫힘)
     const SUN = SAT + 86_400_000;
     expect(family.timeBlock('오가니', Date.UTC(2026, 8, 19, 23, 0))).toMatchObject({ reason: 'blocked' }); // 일 08:00
-    expect(family.timeBlock('오가니', Date.UTC(2026, 8, 20, 12, 30))).toBeNull(); // 일 21:30
-    expect(family.timeBlock('오가니', Date.UTC(2026, 8, 20, 13, 30))).toMatchObject({ reason: 'blocked' }); // 일 22:30
+    expect(family.timeBlock('오가니', Date.UTC(2026, 8, 20, 13, 30))).toBeNull(); // 일 22:30
+    expect(family.timeBlock('오가니', Date.UTC(2026, 8, 20, 14, 30))).toMatchObject({ reason: 'blocked' }); // 일 23:30
     // 아이가 '오늘 게임 없음' 이면 아빠도 — 접속 중이면 바로 timeUp
     got.length = 0;
     family.setNoPlay(fid, '쁘뚜', true, SUN);
