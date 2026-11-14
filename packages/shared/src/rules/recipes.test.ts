@@ -31,6 +31,13 @@ describe('parseRecipes', () => {
     // 나무 블록 8종 (아빠 2026-11-10, #288): 가방 2×2 에 원목 4개 → 나무 3개
     for (const [log, wood] of [['log', 'wood'], ['spruce_log', 'spruce_wood'], ['birch_log', 'birch_wood'], ['jungle_log', 'jungle_wood'], ['acacia_log', 'acacia_wood'], ['dark_oak_log', 'dark_oak_wood'], ['cherry_log', 'cherry_wood'], ['mangrove_log', 'mangrove_wood']])
       expect(RECIPES.require(wood!)).toMatchObject({ station: 'inventory', pattern: ['ll', 'll'], in: { [log!]: 4 }, out: { [wood!]: 3 } });
+    // 나무 블록 → 판자 (#304, 아빠 2026-11-14): 나무 1개 → 그 나무 판자 4 (원목과 같은 값). 가방 2×2 격자에 나무 하나만 놓아도 그 레시피가 잡힌다
+    for (const [wood, planks] of [['wood', 'planks'], ['spruce_wood', 'spruce_planks'], ['birch_wood', 'birch_planks'], ['jungle_wood', 'jungle_planks'], ['acacia_wood', 'acacia_planks'], ['dark_oak_wood', 'dark_oak_planks'], ['cherry_wood', 'cherry_planks'], ['mangrove_wood', 'mangrove_planks']]) {
+      const r = RECIPES.require(`${planks}_from_wood`);
+      expect(r).toMatchObject({ station: 'inventory', in: { [wood!]: 1 }, out: { [planks!]: 4 } });
+      expect(matchGrid(RECIPES.forStation('inventory'), [null, { item: wood!, count: 1 }, null, null], 2)?.id).toBe(r.id);
+      expect(matchGrid(RECIPES.forStation('inventory'), [{ item: wood!.replace(/wood$/, 'log'), count: 1 }, null, null, null], 2)?.out).toEqual({ [planks!]: 4 }); // 원목 → 판자도 그대로
+    }
   });
 
   it('잘못된 값이면 한국어 DataError', () => {
