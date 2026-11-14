@@ -204,6 +204,11 @@ describe('주간 정산 (M5-5)', () => {
     const room: Todo = { id: 3, title: '방 정리', repeat: 'once', needsApproval: true, active: true };
     const dates = lastWeekWindow('2026-09-21').dates; // 9/14(월)~9/20(일)
     expect(weeklyRate([], [], dates)).toEqual({ approved: 0, expected: 0, rate: 1 });
+    // 게임을 아예 안 한 날 (#305): 그날 예정된 할 일은 다 한 것으로
+    const daily = { id: 1, title: '이 닦기', repeat: 'daily' as const, needsApproval: false, active: true };
+    expect(weeklyRate([daily], [], dates)).toMatchObject({ approved: 0, expected: 7, rate: 0 });
+    expect(weeklyRate([daily], [], dates, new Set(dates))).toMatchObject({ approved: 7, expected: 7, rate: 1 });
+    expect(weeklyRate([daily], [{ todoId: 1, date: dates[0]!, status: 'approved' }], dates, new Set(dates.slice(3)))).toMatchObject({ approved: 5, expected: 7 });
     // 이 닦기 7 + 수학 5 + 방 정리(수요일 승인 → 월·화·수 3일 예정) = 15 예정
     const logs = [
       ...dates.map((d) => ({ todoId: 1, date: d, status: 'approved' as const })),

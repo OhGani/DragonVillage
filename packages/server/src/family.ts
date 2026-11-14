@@ -435,7 +435,10 @@ export class FamilyService {
     // 지난주에 연결도 안 됐고 기록도 없으면 첫 주 — 정산 없음(첫 주 한도)
     const linkedBefore = child ? seoulTime(child.linkedAt).date <= win.end : false;
     if (!linkedBefore && logs.length === 0) return null;
-    const r = weeklyRate(todos, logs, dates);
+    // 게임을 아예 안 한 날 (#305): 쓴 시간도 없고 할 일 기록(체크·승인·거절)도 없는 날 — 그날 할 일은 다 한 것으로 센다
+    const used = new Map(this.storage.listLedger(key, win.start).map((l) => [l.date, l.usedSec]));
+    const idle = new Set(dates.filter((d) => (used.get(d) ?? 0) <= 0 && !logs.some((l) => l.date === d)));
+    const r = weeklyRate(todos, logs, dates, idle);
     const settled = { child: key, weekStart, rate: r.rate, bonusCap: computeBonusCap(r.rate, this.rules), approved: r.approved, expected: r.expected, settledAt: Date.now() };
     this.storage.insertSettlement(settled);
     return settled;

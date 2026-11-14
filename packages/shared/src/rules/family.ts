@@ -149,9 +149,11 @@ export function lastWeekWindow(thisWeekStart: string): { start: string; end: str
 
 /**
  * 한 주 달성률: 승인된 할 일 수 / 예정된 할 일 수. 예정은 그날 카드에 떴을 것들(매일·요일·승인 전 '한 번').
- * 할 일이 0개면 100%. 지워진 할 일은 기록도 같이 지워져 계산에 안 든다
+ * 할 일이 0개면 100%. 지워진 할 일은 기록도 같이 지워져 계산에 안 든다.
+ * idleDates = 게임을 아예 안 한 날 (#305, 아빠 2026-11-14 "게임을 아예 안 한 날은 승인 모두 된 걸로"): 그날 예정된 할 일은 전부 승인된 것으로 센다 —
+ * 게임에 안 들어오면 체크할 수도 없는데 그걸 '안 한 날'로 벌주지 않는다
  */
-export function weeklyRate(todos: readonly Todo[], logs: readonly TodoLog[], dates: readonly string[]): { approved: number; expected: number; rate: number } {
+export function weeklyRate(todos: readonly Todo[], logs: readonly TodoLog[], dates: readonly string[], idleDates?: ReadonlySet<string>): { approved: number; expected: number; rate: number } {
   let approved = 0,
     expected = 0;
   for (const date of dates) {
@@ -160,7 +162,7 @@ export function weeklyRate(todos: readonly Todo[], logs: readonly TodoLog[], dat
       const doneBefore = t.repeat === 'once' && logs.some((l) => l.todoId === t.id && l.status === 'approved' && l.date < date);
       if (!todoDueOn(t, wd, doneBefore, date)) continue;
       expected++;
-      if (logs.some((l) => l.todoId === t.id && l.date === date && l.status === 'approved')) approved++;
+      if (idleDates?.has(date) || logs.some((l) => l.todoId === t.id && l.date === date && l.status === 'approved')) approved++;
     }
   }
   return { approved, expected, rate: expected === 0 ? 1 : approved / expected };

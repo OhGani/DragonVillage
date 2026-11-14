@@ -193,6 +193,7 @@ describe('제한을 다시 켠 주의 보너스 (#302, 아빠 2026-11-14 "승인
     accounts.setPin(A, '1111');
     off.linkChild(p.parent.familyCode, '쁘뚜', '1111', day(7));
     const todo = off.addTodo(fid, '쁘뚜', '수학 숙제', 'daily', true, day(7))!;
+    for (let d = 14; d <= 20; d++) off.addUsage('쁘뚜', 30 * 60, day(d)); // 제한이 없으니 매일 놀았다
     // 제한이 꺼진 채로 이번 주(9/21~) 카드를 보면: 지난주 0% → 한도 0 (정산 줄도 그렇게 적힌다)
     expect(off.todayCard('쁘뚜', day(23))).toMatchObject({ bonusCap: 0, lastWeekRate: 0 });
     expect(off.enforceSince).toBeNull();
@@ -207,7 +208,9 @@ describe('제한을 다시 켠 주의 보너스 (#302, 아빠 2026-11-14 "승인
     expect(on.todayCard('쁘뚜', day(26))).toMatchObject({ bonusMin: 5, remainingMin: 35 });
     // 서버를 또 껐다 켜도 켠 날은 그대로
     expect(new FamilyService(storage, accounts, undefined, { enforceTime: true, now: day(27) }).enforceSince).toBe('2026-09-25');
-    // 다음 주(9/28~): 지난주 중 켠 날부터(금·토·일)만 센다 — 토요일 하나만 했으니 1/3 → 한도 0 … 이 아니라 월~목은 안 센다는 것만 확인
+    // 다음 주(9/28~): 지난주 중 켠 날부터(금·토·일)만 센다 — 금·일은 들어왔지만 안 했고 토요일만 했다 → 1/3. 월~목은 안 센다
+    on.addUsage('쁘뚜', 5 * 60, day(25));
+    on.addUsage('쁘뚜', 5 * 60, day(27));
     const next = on.settlementFor('쁘뚜', '2026-09-29')!;
     expect(next).toMatchObject({ approved: 1, expected: 3 });
     // 금·일도 했다면 100% → 5분 (다른 아이로 확인)
@@ -366,9 +369,10 @@ describe('주간 정산 (M5-5)', () => {
     expect(family.settleAll(MON_0905)).toBe(0);
     let card = family.todayCard('쁘뚜', MON_0905)!;
     expect(card).toMatchObject({ bonusCap: 5, lastWeekRate: null, weekMessage: null });
-    // 이 주에 매일 할 일 하나: 7일 중 6일 승인 (86% → 4분 구간)
+    // 이 주에 매일 할 일 하나: 7일 중 6일 승인 (86% → 4분 구간). 일요일은 게임은 했는데 할 일은 안 했다
     const teeth = family.addTodo(fid, '쁘뚜', '이 닦기', 'daily', false, MON_0905)!;
     for (let i = 0; i < 6; i++) expect(family.checkTodo('쁘뚜', teeth.id, MON_0905 + i * 86_400_000).ok).toBe(true);
+    family.addUsage('쁘뚜', 10 * 60, MON_0905 + 6 * 86_400_000);
     // 다음 주 월요일: 정산 1건, 한도 4, 문구
     expect(family.settleAll(NEXT_MON)).toBe(1);
     expect(family.settleAll(NEXT_MON)).toBe(0); // 두 번 안 만든다
@@ -381,9 +385,40 @@ describe('주간 정산 (M5-5)', () => {
     expect(family.decideTodo(fid, teeth.id, '2026-09-20', true, NEXT_MON)).toBe(true);
     expect(family.todayCard('쁘뚜', NEXT_MON)!.bonusCap).toBe(4);
     // 서버가 꺼져 있다가 수요일에 켜져도 이번 주 정산이 만들어진다 (그 다음 주 기준)
-    const WED_AFTER = Date.UTC(2026, 8, 30, 3, 0); // 9/30 수 (주 시작 9/28, 지난주 9/21~27: 할 일 7 예정 0 승인 → 0%)
+    const WED_AFTER = Date.UTC(2026, 8, 30, 3, 0); // 9/30 수 (주 시작 9/28, 지난주 9/21~27: 매일 들어왔지만 할 일 7 예정 0 승인 → 0%)
+    for (let d = 0; d < 7; d++) family.addUsage('쁘뚜', 5 * 60, NEXT_MON + d * 86_400_000);
     expect(family.settleAll(WED_AFTER)).toBe(1);
     expect(family.todayCard('쁘뚜', WED_AFTER)!).toMatchObject({ bonusCap: 0, weekMessage: '이번 주는 기본 시간만. 다음 주에 다시 열려.' });
     expect(family.childrenStatus(fid, WED_AFTER)[0]!.settlements).toHaveLength(2);
+  });
+
+  it('게임을 아예 안 한 날은 할 일을 다 한 것으로 센다 (#305): 쓴 시간도 기록도 없는 날. 들어와서 안 한 날은 그대로 안 한 날', () => {
+    const storage = new Storage(':memory:');
+    const accounts = new AccountService(storage);
+    const family = new FamilyService(storage, accounts);
+    const p = family.signup('dad@example.com', 'secret1', MON_0905);
+    if (!p.ok) throw new Error();
+    const fid = p.parent.familyId;
+    accounts.claim(A, '쁘뚜', MON_0905);
+    accounts.setPin(A, '1111');
+    family.linkChild(p.parent.familyCode, '쁘뚜', '1111', MON_0905);
+    const teeth = family.addTodo(fid, '쁘뚜', '이 닦기', 'daily', false, MON_0905)!;
+    const math = family.addTodo(fid, '쁘뚜', '수학', 'daily', true, MON_0905)!;
+    const at = (i: number) => MON_0905 + i * 86_400_000;
+    // 월: 들어와서 둘 다 함(수학은 승인까지). 화: 들어왔지만 아무것도 안 함. 수: 이만 닦고 수학은 체크만(승인 안 됨). 목~일: 게임을 아예 안 함
+    family.addUsage('쁘뚜', 10 * 60, at(0));
+    family.checkTodo('쁘뚜', teeth.id, at(0));
+    family.checkTodo('쁘뚜', math.id, at(0));
+    family.decideTodo(fid, math.id, '2026-09-14', true, at(0));
+    family.addUsage('쁘뚜', 10 * 60, at(1));
+    family.checkTodo('쁘뚜', teeth.id, at(2)); // 쓴 시간이 1분이 안 돼도 기록이 있으면 '한 날'
+    family.checkTodo('쁘뚜', math.id, at(2));
+    // 예정 14개: 월 2 + 화 0 + 수 1 + 목~일 8(안 한 날 = 다 한 것) = 11
+    const s = family.settlementFor('쁘뚜', '2026-09-21')!;
+    expect(s).toMatchObject({ approved: 11, expected: 14 });
+    expect(s.rate).toBeCloseTo(11 / 14);
+    expect(s.bonusCap).toBe(4); // 75% 이상
+    // 한 주를 통째로 안 했으면 100% — 다음 주도 5분이 열린다
+    expect(family.settlementFor('쁘뚜', '2026-09-28')).toMatchObject({ approved: 14, expected: 14, rate: 1, bonusCap: 5 });
   });
 });
