@@ -53,7 +53,7 @@ export interface Parent {
   email: string;
 }
 
-function hashPassword(pw: string): string {
+export function hashPassword(pw: string): string {
   const salt = randomBytes(16);
   return `${salt.toString('hex')}:${scryptSync(pw, salt, 32).toString('hex')}`;
 }

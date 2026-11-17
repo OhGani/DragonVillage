@@ -72,6 +72,7 @@ curl -s localhost:5173/health
 - **코드 반영**: 새 서버에서 `bash ~/dragon-village/tools/linux/update.sh` (git pull → 빌드 → 접속자 0 이면 다시 켜기, `--now` 면 바로). 서버 로그 `pm2 logs dragoncraft`, 상태 `pm2 status`.
 - **시간 제한**: 2026-11-13 부터 켜져 있다(#298). 끄려면 `tools/linux/ecosystem.config.cjs` 의 `DV_ENFORCE_TIME` 줄 앞에 `//` 를 붙이고 `bash ~/dragon-village/tools/linux/update.sh` (설정도 다시 읽는다).
 - **시간대**: VM 시계는 UTC 라 pm2 설정에 `TZ: 'Asia/Seoul'` 을 넣었다 — 로그·백업 파일 날짜가 한국 시간. 할 일·게임 시간 계산은 원래 서울 고정이라 상관없다.
+- **부모 페이지 비밀번호를 잊었을 때** (#310): 맥에서 `ssh -t -i ~/oracle-key/ssh-key-2026-11-05.key ubuntu@168.110.0.197 'bash ~/dragon-village/tools/linux/reset-password.sh'` — 부모 계정 이메일 목록을 보여 주고, 바꿀 이메일과 새 비밀번호(두 번)를 묻는다. `-t` 가 있어야 물어볼 수 있다. 게임 서버는 켜 둔 채로 된다. 여러 번 틀려 걸린 10분 로그인 잠김은 서버 메모리에 있어서 `update.sh --now` 로 다시 켜야 바로 풀린다.
 - **백업**: 서버가 매일 `data/backup-YYYY-MM-DD.sqlite`(7개)·매주 `data/backup-weekly`(8개)를 만든다. 같은 VM 안이라 VM 이 사라지면 같이 사라지니, 가끔 `scp` 로 아빠 PC 에 받아 둔다(나중에 Oracle 오브젝트 스토리지 자동 복사).
 - **되돌리기**: 새 서버에 문제가 있으면 IDC 에서 `Enable-ScheduledTask -TaskName DragonCraftServer` — 5분 안에 옛 서버가 다시 뜬다(옮긴 뒤 새 서버에서 생긴 진행은 빠진다).
 - **IDC 해지 전에**: 개발(Claude Code)도 이 PC 에서 하고 있으니, 아빠 PC 에 Node 22 + pnpm + 저장소를 준비하고 옮긴다.
