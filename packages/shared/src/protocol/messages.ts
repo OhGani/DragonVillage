@@ -12,6 +12,7 @@ import type { DragonInfo, NestDragonInfo, NestSlotInfo, RidingInfo } from '../ru
 import type { GiftNotice } from '../rules/gifts';
 import type { TodayCard } from '../rules/family';
 import type { MobEntry } from '../rules/mobs';
+import type { WeatherFall, WeatherKind } from '../rules/weather';
 import { ByteReader, ByteWriter } from './bytes';
 
 /** 바뀌면 옛 클라에 '새로고침해 주세요'. 2: 몹 체력 2바이트 (#254 — 거대 고릴라 400·거대 워든 500·엔더 드래곤 300 이 255 로 잘렸다) */
@@ -631,6 +632,10 @@ export type ServerJson =
   | { t: 'tables'; list: { x: number; y: number; z: number; items: (string | null)[]; fire?: boolean }[] }
   /** 끈 (#297): 지금 매인 동물 전부. by = 끄는 사람 번호, post = 묶인 울타리 칸 */
   | { t: 'leash'; list: { id: number; by: number | null; post: [number, number, number] | null }[] }
+  /** 날씨 (2026-11-17): 들어올 때·세계를 옮길 때·바뀔 때 그 세계 사람들에게. fall = 이곳에 내리는 것 (rain·snow·dry·none). quiet = 알림 없이 (들어올 때), slept = 모두 자서 갰다 */
+  | { t: 'weather'; kind: WeatherKind; fall: WeatherFall; quiet?: boolean; slept?: boolean }
+  /** 번개가 떨어졌다 (뇌우): 그 세계 모두에게. (x, y, z) = 맞은 블록 위 칸 바닥 가운데 */
+  | { t: 'lightning'; x: number; y: number; z: number }
   /** 마을 방어전 상태 1Hz (M7-5). null = 끝났다/없다 */
   | { t: 'raid'; raid: RaidStateInfo | null }
   /** 누가 빔을 쐈다 (같은 세계 모두, 본인 포함) (M6-5). from 은 드래곤 입 근처, dir 은 단위 벡터 */
@@ -667,7 +672,7 @@ export type ServerJson =
   | { t: 'orbGone'; id: number; by: number }
   /** 몹 사건 (M7-2): 생김·맞음·죽음·폭발 */
   /** 몹 사건. wake·summon 은 보스(M7-4) */
-  | { t: 'mob'; ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk' | 'stare' | 'teleport' | 'heal' | 'zombify' | 'cure' | 'cured' | 'gift' | 'hiss' | 'screech' | 'wild'; id: number; mob: string; x: number; y: number; z: number; dmg?: number; item?: string; to?: number }
+  | { t: 'mob'; ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk' | 'stare' | 'teleport' | 'heal' | 'zombify' | 'cure' | 'cured' | 'gift' | 'hiss' | 'screech' | 'wild' | 'struck'; id: number; mob: string; x: number; y: number; z: number; dmg?: number; item?: string; to?: number }
   /** resume 성공: 이 토큰을 저장하고 다시 join 하면 그 계정으로 들어간다 */
   | { t: 'resumed'; token: string }
   | { t: 'pinSet' }

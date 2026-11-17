@@ -230,7 +230,9 @@ import {
   rollCatch,
   WATER_BOTTLE,
   effectiveBuys, enchantLevelOf, meleeBonus, knockbackFactor, canEnchant, countBookshelves, encodeEnchanted, hash3, anvilCombine, MINECART, CART_SEAT_Y, railShapeFor, CURE_ITEM } from '@dragon-village/shared';
-import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS, TRADES, ENCHANTS, FISHING } from '@dragon-village/shared/data';
+import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS, TRADES, ENCHANTS, FISHING, WEATHER } from '@dragon-village/shared/data';
+import { fallOf, hasWeather, type WeatherKind } from '@dragon-village/shared';
+import { SLEEP_CLEARS_MS, WeatherClock } from './weather';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
 import { RAID_GOAL, RaidSystem } from './raid';
@@ -463,6 +465,9 @@ export class VillageRoom {
   expedition: Expedition | null = null;
   private expeditionDisposeAt = 0;
   private lastTimerAt = 0;
+  /** 날씨 (2026-11-17): 마을 시계는 처음 틱에 생긴다. 원정 시계는 원정과 함께 생기고 없어진다. 날씨 없는 곳(동굴·네더·엔드)은 null */
+  private villageWeather: WeatherClock | null = null;
+  private expeditionWeather: WeatherClock | null = null;
   private readonly expeditions: ExpeditionRegistry;
   private readonly recipes: RecipeRegistry;
   private readonly potions: PotionRegistry;
@@ -1539,7 +1544,7 @@ export class VillageRoom {
       return false;
     }
     if (!force && now - plantedAt < (cur.growMinutes ?? 0) * 60_000) return false;
-    if (cur.seed && !cur.plantOn && !force && !this.hasWaterNear(x, y - 1, z)) return false; // 마른 밭의 작물은 안 자란다 (#199, 뼛가루는 예외). 영혼 모래 작물은 물이 필요 없다 (#206)
+    if (cur.seed && !cur.plantOn && !force && !this.hasWaterNear(x, y - 1, z) && !this.rainsOn('village', x, y, z)) return false; // 마른 밭의 작물은 안 자란다 (#199, 뼛가루는 예외). 영혼 모래 작물은 물이 필요 없다 (#206)
     if (cur.growsWhenOpen && !this.openAbove(x, y, z)) return false; // 위가 막혔거나 물속이면 그대로 흙 (#171, #289)
     this.world.setBlock(x, y, z, next.num);
     this.markDirtyBlock(x, y, z);
@@ -1926,6 +1931,7 @@ export class VillageRoom {
     this.sendJson(player, { t: 'tables', list: this.villageTables() }); // 식탁 위 음식 (2026-11-06)
     this.sendJson(player, { t: 'leash', list: this.animals.leashes() }); // 끈에 매인 동물 (#297)
     this.sendDemand(player, Date.now()); // 가게 값 (#230)
+    this.sendWeather(player, 'village', Date.now()); // 날씨 (2026-11-17)
     if (player.riding) this.broadcastNest(); // 둥지에서 그 드래곤이 빠진다
     this.savePlayer(player);
     if (savedInv === null || gifts.length) this.storage?.saveInventory(token, this.info.code, inv); // 키트·선물은 한 번만 — 바로 저장해 둔다
@@ -2137,6 +2143,9 @@ export class VillageRoom {
         return e.ended;
       },
       elapsedSec: (now) => e.elapsedSec(now),
+      stormy: () => this.expeditionWeather?.storming ?? false, // 뇌우엔 낮에도 몹 (날씨)
+      raining: () => this.expeditionWeather?.raining ?? false,
+      rainHurts: WEATHER.rainHurts,
     };
     return new MobSystem(arena, this.registry, MOBS, this.mobHooks('expedition'), e.def.generator === 'ancient_castle' ? { aggroRange: 14 } : {}); // 고대성은 방마다 따로 덤비게 (옆 방 몹이 벽 너머로 몰려오지 않게)
   }
@@ -2560,7 +2569,7 @@ export class VillageRoom {
     if (!world.inBounds(x, y, z) || this.registry.get(world.getBlock(x, y, z)).fluid !== 'water') return 'NOT_WATER';
     const n = (p.fishN = (p.fishN ?? 0) + 1);
     const seed = (Math.floor(now / 1000) * 31 + p.idx * 7919) | 0;
-    const biteAt = now + fishWaitMs(FISHING, seed, n);
+    const biteAt = now + this.fishWait(p.world, x, y, z, fishWaitMs(FISHING, seed, n));
     p.fishing = { x, y, z, world: p.world, place: p.world === 'village' ? 'village' : (this.expedition?.def.id ?? 'village'), n, seed, biteAt, biteUntil: biteAt + FISHING.biteMs, told: false };
     this.sendJson(p, { t: 'fish', ev: 'cast', x, y, z });
     return null;
@@ -2611,7 +2620,7 @@ export class VillageRoom {
       } else if (now > f.biteUntil + FISH_GRACE_MS) {
         // 놓쳤다 — 다음 입질을 기다린다
         f.n = p.fishN = (p.fishN ?? 0) + 1;
-        f.biteAt = now + fishWaitMs(FISHING, f.seed, f.n);
+        f.biteAt = now + this.fishWait(f.world, f.x, f.y, f.z, fishWaitMs(FISHING, f.seed, f.n));
         f.biteUntil = f.biteAt + FISHING.biteMs;
         f.told = false;
         this.sendJson(p, { t: 'fish', ev: 'miss' });
@@ -3780,6 +3789,8 @@ export class VillageRoom {
       this.expedition = e;
       this.stats.expeditions++;
       this.lastTimerAt = 0;
+      const fall = fallOf(WEATHER, def.id);
+      this.expeditionWeather = hasWeather(fall) ? new WeatherClock(WEATHER, WEATHER.expedition, fall, e.seed ^ 0x5eed, now) : null; // 원정은 맑음으로 시작
       this.log(`마을 ${this.info.code}: 원정 "${def.name}" 시작 (시드 ${e.seed}, 세계 생성 ${e.genMs.toFixed(0)}ms), ${p.nick} 출발`);
     }
     this.moveToExpedition(p, e, now);
@@ -3832,6 +3843,7 @@ export class VillageRoom {
     };
     p.fallPeak = null; // 포탈을 지나는 건 떨어진 게 아니다
     this.sendJson(p, { t: 'worldEnter', kind: 'expedition', expedition: info, spawn: me, players: others, chunkCount: e.modifiedCount });
+    this.sendWeather(p, 'expedition', now);
     this.sendJson(p, { t: 'orbs', list: this.orbsIn('expedition') });
     this.sendClouds(p, 'expedition', now);
     for (const c of e.modifiedChunks()) {
@@ -3919,6 +3931,7 @@ export class VillageRoom {
     this.broadcastJson({ t: 'playerJoined', player: me }, idx, 'village');
     p.fallPeak = null;
     this.sendJson(p, { t: 'worldEnter', kind: 'village', expedition: null, spawn: me, players: others, chunkCount: this.modifiedCount });
+    this.sendWeather(p, 'village', now);
     this.sendJson(p, { t: 'orbs', list: this.orbsIn('village') });
     this.sendJson(p, { t: 'tables', list: this.villageTables() }); // 식탁 위 음식 (2026-11-06)
     this.sendJson(p, { t: 'leash', list: this.animals.leashes() }); // 끈에 매인 동물 (#297)
@@ -3951,8 +3964,126 @@ export class VillageRoom {
     for (const [id, o] of this.orbs) if (o.world === 'expedition') this.orbs.delete(id); // 원정 구슬은 섬과 함께 사라진다
     this.log(`마을 ${this.info.code}: 원정 "${this.expedition.def.name}" 폐기`);
     this.expedition = null;
+    this.expeditionWeather = null;
     this.expPlaced.clear();
     this.expeditionDisposeAt = 0;
+  }
+
+  // ---------------------------------------------------------------- 날씨 (2026-11-17)
+
+  private weatherOf(world: WorldKind): WeatherClock | null {
+    return world === 'village' ? this.villageWeather : this.expeditionWeather;
+  }
+
+  /** 이 세계 날씨를 한 사람에게 (들어올 때·세계를 옮길 때 — 알림 없이) */
+  private sendWeather(p: RoomPlayer, world: WorldKind, now: number): void {
+    if (world === 'village') this.ensureVillageWeather(now);
+    const w = this.weatherOf(world);
+    this.sendJson(p, w ? w.message(true) : { t: 'weather', kind: 'clear', fall: 'none', quiet: true });
+  }
+
+  private ensureVillageWeather(now: number): void {
+    if (this.villageWeather) return;
+    const fall = fallOf(WEATHER, 'village');
+    if (hasWeather(fall)) this.villageWeather = new WeatherClock(WEATHER, WEATHER.village, fall, (this.info.seed ^ Math.floor(now / 60_000)) | 0, now);
+  }
+
+  /** 지금 날씨 (부모 페이지 🛠 카드) */
+  weatherNow(): { kind: WeatherKind; untilMs: number } | null {
+    const w = this.villageWeather;
+    return w ? { kind: w.kind, untilMs: Math.max(0, w.until - Date.now()) } : null;
+  }
+
+  /** 마을 날씨를 바꾼다 (부모 페이지 🛠 카드·테스트): minutes 동안. 그 뒤엔 원래대로 돈다 */
+  setWeather(kind: WeatherKind, minutes: number, world: WorldKind = 'village', now = Date.now()): boolean {
+    if (world === 'village') this.ensureVillageWeather(now);
+    const w = this.weatherOf(world);
+    if (!w) return false;
+    w.set(kind, Math.max(1, minutes) * 60_000, now);
+    this.broadcastJson(w.message(), -1, world);
+    this.log(`마을 ${this.info.code}: ${world === 'village' ? '마을' : '원정'} 날씨 → ${kind} (${minutes}분, 손으로)`);
+    return true;
+  }
+
+  /** (x, y, z) 칸 위로 하늘이 트였나 — 단단한 블록·물·용암이 없다 */
+  private skyOpenAt(world: WorldKind, x: number, y: number, z: number): boolean {
+    const w = world === 'village' ? this.world : this.expedition?.world;
+    if (!w) return false;
+    for (let by = Math.max(0, y + 1); by < w.sizeY; by++) {
+      if (!w.inBounds(x, by, z)) continue;
+      const d = this.registry.get(w.getBlock(x, by, z));
+      if (d.solid || d.fluid) return false;
+    }
+    return true;
+  }
+
+  /** (x, y, z) 칸이 비를 맞나 (작물·찌·몹) */
+  private rainsOn(world: WorldKind, x: number, y: number, z: number): boolean {
+    return (this.weatherOf(world)?.raining ?? false) && this.skyOpenAt(world, x, y, z);
+  }
+
+  /** 비 맞는 물에서는 입질이 빨리 온다 (weather.json fishWait) */
+  private fishWait(world: WorldKind, x: number, y: number, z: number, ms: number): number {
+    return this.rainsOn(world, x, y, z) ? Math.round(ms * WEATHER.fishWait) : ms;
+  }
+
+  private tickWeather(now: number): void {
+    this.ensureVillageWeather(now);
+    for (const world of ['village', 'expedition'] as const) {
+      const w = this.weatherOf(world);
+      if (!w) continue;
+      if (w.step(now)) {
+        this.broadcastJson(w.message(), -1, world);
+        this.log(`마을 ${this.info.code}: ${world === 'village' ? '마을' : '원정'} 날씨 → ${w.kind}`);
+      }
+      // 비 오는 중에 모두 누워 자면 갠다 (마인크래프트)
+      const inside = this.playersIn(world);
+      if (w.kind !== 'clear' && inside.length > 0 && inside.every((q) => q.sleeping)) {
+        if (!w.sleptSince) w.sleptSince = now;
+        else if (now - w.sleptSince >= SLEEP_CLEARS_MS) {
+          w.clear(now);
+          this.broadcastJson({ ...w.message(), slept: true }, -1, world);
+          this.log(`마을 ${this.info.code}: 모두 자서 ${world === 'village' ? '마을' : '원정'} 날씨 갬`);
+        }
+      } else w.sleptSince = 0;
+      if (inside.length && w.boltDue(now)) this.lightning(world, w, now);
+    }
+  }
+
+  /**
+   * 번개 (뇌우): 이 세계 사람 하나를 골라 lightning.range 칸 안, 하늘이 트인 가장 높은 블록 위에 떨어진다.
+   * radius 칸 안의 사람은 damage 피해(갑옷은 통한다), 몹은 피해 또는 변신(크리퍼 → 충전된 크리퍼, 주민 → 마녀).
+   * 마을 동물·펫은 다치지 않는다 (초5에게 펫이 번개로 죽는 건 억울하다)
+   */
+  private lightning(world: WorldKind, w: WeatherClock, now: number): void {
+    const inside = this.playersIn(world);
+    const vw = world === 'village' ? this.world : this.expedition?.world;
+    if (!inside.length || !vw) return;
+    const n = w.bolts;
+    const seed = (this.info.seed ^ 0x7ab0) | 0;
+    const who = inside[Math.floor(hash3(n, 1, 41, seed) * inside.length)]!;
+    const L = WEATHER.lightning;
+    const a = hash3(n, 2, 41, seed) * Math.PI * 2,
+      r = Math.sqrt(hash3(n, 3, 41, seed)) * L.range;
+    const x = Math.floor(who.pos.x + Math.cos(a) * r),
+      z = Math.floor(who.pos.z + Math.sin(a) * r);
+    let top = -1;
+    for (let by = vw.sizeY - 1; by >= 0; by--) {
+      if (!vw.inBounds(x, by, z)) continue;
+      const d = this.registry.get(vw.getBlock(x, by, z));
+      if (d.solid || d.fluid) {
+        top = by;
+        break;
+      }
+    }
+    if (top < 0) return; // 땅 밖
+    const at = { x: x + 0.5, y: top + 1, z: z + 0.5 };
+    this.broadcastJson({ t: 'lightning', ...at }, -1, world);
+    for (const q of inside) {
+      if (Math.hypot(q.pos.x - at.x, q.pos.z - at.z) <= L.radius && Math.abs(q.pos.y - at.y) <= L.radius + 1) this.hurt(q, L.damage, 'lightning', now);
+    }
+    if (world === 'expedition') this.mobSys?.strike(at, L.radius, L.damage, now);
+    else for (const s of [this.raid?.mobs ?? null, this.guardMobs]) s?.strike(at, L.radius, L.damage, now);
   }
 
   private tickExpedition(now: number): void {
@@ -4035,6 +4166,7 @@ export class VillageRoom {
     this.tickCampfireBurn(now);
     this.tickFishing(now);
     this.tickClouds(now);
+    this.tickWeather(now);
     if (this.lastFlush === 0) this.lastFlush = now;
     if (now - this.lastFlush >= FLUSH_MS) this.flush(now);
   }

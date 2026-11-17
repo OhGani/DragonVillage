@@ -3,6 +3,7 @@ export * from './rules/trees';
 export * from './rules/food';
 export * from './rules/campfire';
 export * from './rules/fishing';
+export * from './rules/weather';
 export * from './rules/trades';
 export * from './rules/enchants';
 export * from './rules/potions';

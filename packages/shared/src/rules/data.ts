@@ -21,6 +21,7 @@ import starterKitJson from '../../../../data/starter-kit.json';
 import toolsJson from '../../../../data/tools.json';
 import foodJson from '../../../../data/food.json';
 import fishingJson from '../../../../data/fishing.json';
+import weatherJson from '../../../../data/weather.json';
 import tradesJson from '../../../../data/trades.json';
 import enchantsJson from '../../../../data/enchants.json';
 import xpJson from '../../../../data/xp.json';
@@ -46,6 +47,7 @@ import { parseStarterKit } from './starterKit';
 import { parseTools } from './tools';
 import { parseFood } from './food';
 import { parseFishing } from './fishing';
+import { parseWeather } from './weather';
 import { parseTrades } from './trades';
 import { parseEnchants } from './enchants';
 import { parseXp } from './xp';
@@ -78,6 +80,8 @@ export const TOOLS = parseTools(toolsJson);
 export const FOOD = parseFood(foodJson);
 /** 낚시 (2026-11-06) */
 export const FISHING = parseFishing(fishingJson);
+/** 날씨 (2026-11-17) */
+export const WEATHER = parseWeather(weatherJson);
 /** 주민 거래 (#225) */
 export const TRADES = parseTrades(tradesJson);
 /** 인챈트 (#231) */

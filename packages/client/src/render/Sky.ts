@@ -54,13 +54,14 @@ export class Sky {
     this.mesh.position.copy(cameraPos);
   }
 
-  /** 낮 1 → 밤 0.22 (원정 낮밤, M3). 색을 어둡게 하고 밤에는 살짝 푸르게 */
-  setBrightness(v: number): void {
+  /** 낮 1 → 밤 0.22 (원정 낮밤, M3). 색을 어둡게 하고 밤에는 살짝 푸르게. overcast 0~1 = 비구름(날씨, 2026-11-17) — 잿빛으로 */
+  setBrightness(v: number, overcast = 0): void {
     const u = this.material.uniforms;
     const night = 1 - v;
-    (u.uZenith.value as THREE.Color).setHex(0x4f7fe8).multiplyScalar(v).lerp(new THREE.Color(0x0a1230), night * 0.6);
-    (u.uHorizon.value as THREE.Color).copy(SKY_COLOR).multiplyScalar(v).lerp(new THREE.Color(0x141c3a), night * 0.6);
-    (u.uFog.value as THREE.Color).copy(FOG_COLOR).multiplyScalar(Math.max(0.35, v));
+    const grey = new THREE.Color(0xc8ccd4).multiplyScalar(v); // 셰이더가 색을 그대로 내보내서 밝은 회색이어야 잿빛으로 보인다
+    (u.uZenith.value as THREE.Color).setHex(0x4f7fe8).multiplyScalar(v).lerp(new THREE.Color(0x0a1230), night * 0.6).lerp(grey, overcast * 0.85);
+    (u.uHorizon.value as THREE.Color).copy(SKY_COLOR).multiplyScalar(v).lerp(new THREE.Color(0x141c3a), night * 0.6).lerp(grey, overcast * 0.7);
+    (u.uFog.value as THREE.Color).copy(FOG_COLOR).multiplyScalar(Math.max(0.35, v)).lerp(grey, overcast * 0.6);
     (u.uVoid.value as THREE.Color).setHex(0x2b3a5c).multiplyScalar(v);
     this.material.uniforms.uSunDir.value.set(0.45, 0.72 * (0.3 + 0.7 * v) - 0.2 * night, 0.3).normalize();
   }

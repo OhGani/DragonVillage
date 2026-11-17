@@ -96,9 +96,11 @@ import {
   ladderBoxes,
   CRYSTAL_SHOT_RANGE,
   countOf, parseEnchanted, countBookshelves, CART_SEAT_Y, CURE_ITEM, MOB_STATE, type SepBody, FISHING_ROD } from '@dragon-village/shared';
-import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP, TRADES, ENCHANTS, FISHING } from '@dragon-village/shared/data';
+import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP, TRADES, ENCHANTS, FISHING, WEATHER } from '@dragon-village/shared/data';
+import { weatherSkyLight, weatherToast, type WeatherFall, type WeatherKind } from '@dragon-village/shared';
+import { WeatherView } from '../render/WeatherView';
 import * as THREE from 'three';
-import { beam as beamSound, bell, ding, explosion as explosionSound, fireworkLaunch, fireworkPop, hit as hitSound, hurt as hurtSound, levelUp, lose, roar, splash as splashSound } from '../audio/sound';
+import { beam as beamSound, bell, ding, explosion as explosionSound, fireworkLaunch, fireworkPop, hit as hitSound, hurt as hurtSound, levelUp, lose, rainLevel, roar, splash as splashSound, thunder } from '../audio/sound';
 import { FishView } from '../render/FishView';
 import { TableView } from '../render/TableView';
 import { wildFigureMesh } from '../render/MobView';
@@ -219,9 +221,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const materials = createChunkMaterials(atlas.texture);
   const pool = new MesherPool(blockInfo);
   const renderDistance = isTouch ? 5 : 8;
-  const applyFog = () => {
+  /** 안개 — 비·눈이 오면 가까이 (날씨, mul 1 → 0.65) */
+  const applyFog = (mul = 1) => {
     const d = renderDistance * CHUNK_SIZE;
-    materials.setFog(d * 0.55, d * 0.98);
+    materials.setFog(d * 0.55 * mul, d * 0.98 * mul);
     camera.far = d * 1.3 + 50;
     camera.updateProjectionMatrix();
   };
@@ -367,6 +370,28 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   const orbView = new OrbView(scene);
   /** 블록 부스러기 (캐는 중 톡톡, 부서지면 와르르) */
   const particles = new Particles(scene);
+  // 날씨 (2026-11-17): 서버가 정한 날씨를 그린다 — 비·눈 줄기, 흐린 하늘, 번개, 빗소리
+  const weatherView = new WeatherView(scene, isTouch ? 520 : 1100);
+  let weatherKind: WeatherKind = 'clear';
+  let weatherFall: WeatherFall = 'none';
+  /** 하늘이 흐린 정도 0~1 (천천히 따라간다) */
+  let weatherAmt = 0;
+  /** 마지막 비·뇌우의 하늘 배율 (갤 때 거기서 1 로 돌아간다) */
+  let weatherMul = 1;
+  let flashUntil = 0;
+  let fogMul = 1;
+  /** 기둥 꼭대기 — 빗방울이 여기서 멈춘다 */
+  const columnTop = (x: number, z: number): number => {
+    const w = ctx.world;
+    if (!w.inBounds(x, 0, z)) return -Infinity;
+    for (let y = w.sizeY - 1; y >= 0; y--) {
+      const id = w.getBlock(x, y, z);
+      if (id === AIR_ID) continue;
+      const d = registry.get(id);
+      if (d.solid || d.fluid) return y + 1;
+    }
+    return -Infinity;
+  };
   // 모닥불 연기 (#290)
   const CAMPFIRE_NUM = registry.numOf(CAMPFIRE);
   let smokeAcc = 0,
@@ -762,7 +787,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     };
     return c;
   };
-  const applyServerBlock = (x: number, y: number, z: number, id: string) => (ctx as WorldCtx & { applyServerBlock: (x: number, y: number, z: number, id: string) => void }).applyServerBlock(x, y, z, id);
+  const applyServerBlock = (x: number, y: number, z: number, id: string) => {
+    weatherView.columnChanged(x, z); // 지붕이 생기거나 없어지면 비가 따라간다
+    (ctx as WorldCtx & { applyServerBlock: (x: number, y: number, z: number, id: string) => void }).applyServerBlock(x, y, z, id);
+  };
 
   const disposeWorld = (c: WorldCtx) => {
     c.chunks.dispose();
@@ -791,11 +819,15 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   };
   /** 낮밤 (원정 경과에 따라). 마을은 항상 낮 */
   let skyLevel = 1;
-  const applySky = (v: number) => {
-    if (Math.abs(v - skyLevel) < 0.002) return;
+  let skyOvercast = 0;
+  /** 낮밤 바탕 (원정 경과). 날씨 배율은 매 프레임 곱한다 */
+  let baseSky = 1;
+  const applySky = (v: number, overcast = 0) => {
+    if (Math.abs(v - skyLevel) < 0.002 && Math.abs(overcast - skyOvercast) < 0.01) return;
     skyLevel = v;
+    skyOvercast = overcast;
     materials.setSkyLight(v);
-    sky.setBrightness(v);
+    sky.setBrightness(v, overcast);
     renderer.setClearColor(SKY_COLOR.clone().multiplyScalar(v), 1);
   };
 
@@ -824,10 +856,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     hud.hideAction();
     orbView.clear(); // 그 세계의 구슬은 서버가 곧 보내 준다
     mobView.clear();
+    weatherView.reset(); // 날씨는 서버가 worldEnter 바로 뒤에 보내 준다
     if (w.kind === 'expedition' && w.expedition) {
       hud.toast(`${w.expedition.name}에 도착했어요! 가운데 포탈로 돌아오면 모은 것을 가져가요`, 5000);
     } else {
-      applySky(1);
+      baseSky = 1;
       hud.setTimer(null, null);
       hud.toast('마을로 돌아왔어요', 3000);
     }
@@ -1054,6 +1087,24 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     },
     onGuard: (m) => {
       if (m.idx !== myIdx) remote.setGuarding(m.idx, m.on);
+    },
+    onWeather: (m) => {
+      weatherKind = m.kind;
+      weatherFall = m.fall;
+      weatherView.set(m.kind, m.fall, m.quiet);
+      if (m.quiet) weatherAmt = m.kind !== 'clear' && m.fall !== 'none' ? 1 : 0;
+      if (m.slept) hud.toast('😴 푹 자고 나니 날이 갰어요', 3000);
+      else if (!m.quiet) {
+        const t = weatherToast(m.kind, m.fall);
+        if (t) hud.toast(t, 3500);
+      }
+    },
+    onLightning: (m) => {
+      const t = performance.now();
+      weatherView.bolt(m.x, m.y, m.z, t);
+      flashUntil = t + 160;
+      const d = Math.hypot(m.x - ctx.player.pos.x, m.z - ctx.player.pos.z);
+      thunder(Math.max(0, Math.min(1, 1 - d / 60)));
     },
     onFirework: (m) => {
       fireworks.launch(m.x, m.y, m.z, m.seed); // 폭죽 (#211): 모두 같은 색·모양
@@ -1307,6 +1358,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       }
       if (m.cause === 'blocked') hud.toast('🛡️ 방패로 막았어요', 1200);
       if (m.cause === 'tnt') hud.toast('💥 TNT 가 터졌어요!', 1500);
+      if (m.cause === 'lightning' && m.hp < hp) hud.toast('⚡ 번개에 맞았어요!', 1500);
       if (m.cause === 'eat') hud.toast(`😋 냠냠! 하트 ${((m.hp - hp) / 2).toFixed(1).replace('.0', '')}개 회복`, 1500); // 먹기 (#186)
       if (m.cause === 'potion' && m.hp > hp) hud.toast(`❤️ 물약! 하트 ${((m.hp - hp) / 2).toFixed(1).replace('.0', '')}개 회복`, 1500); // #245
       if (m.cause === 'fireproof') hud.toast('🔥 화염 저항 — 불덩이가 안 아파요', 1200);
@@ -1375,6 +1427,12 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         roar();
         hud.toast('👁️ 엔더맨과 눈이 마주쳤어요! 화났어요 — 순간이동해서 쫓아와요', 2500);
       } else if (m.ev === 'zombify') roar(); // 주민이 좀비 주민이 됐다 (#244) — 글은 서버 알림으로
+      else if (m.ev === 'struck') {
+        // 번개 맞은 몹 (날씨, 2026-11-17)
+        roar();
+        if (m.mob === 'charged_creeper') hud.toast('⚡ 번개 맞은 크리퍼가 충전됐어요! 더 세게 터져요 — 조심', 2500);
+        else if (m.mob === 'witch') hud.toast('⚡ 번개 맞은 주민이 마녀가 됐어요!', 2500);
+      }
       else if (m.ev === 'cure') ding();
       else if (m.ev === 'cured') levelUp();
     },
@@ -2189,6 +2247,20 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     }
     particles.update(dt);
     fireworks.update(dt);
+    {
+      // 날씨 (2026-11-17): 하늘을 흐리게·어둡게, 번쩍, 비·눈, 안개, 빗소리
+      const wet = weatherKind !== 'clear' && weatherFall !== 'none';
+      if (wet) weatherMul = weatherSkyLight(WEATHER, weatherKind, weatherFall);
+      weatherAmt += Math.sign((wet ? 1 : 0) - weatherAmt) * Math.min(Math.abs((wet ? 1 : 0) - weatherAmt), dt * 0.35);
+      const flash = now < flashUntil ? 0.5 : 0;
+      applySky(Math.min(1, baseSky * (1 - (1 - weatherMul) * weatherAmt) + flash), weatherAmt * (weatherKind === 'thunder' ? 1 : 0.8));
+      weatherView.update(dt, camera, columnTop, skyLevel, now);
+      const lvl = weatherView.level;
+      const fm = 1 - 0.35 * lvl;
+      if (Math.abs(fm - fogMul) > 0.02) applyFog((fogMul = fm));
+      const head = ctx.light.skyAt(Math.floor(player.pos.x), Math.floor(player.pos.y + 1.6), Math.floor(player.pos.z));
+      rainLevel(weatherFall === 'rain' ? lvl * (head >= 15 ? 1 : 0.35) : 0);
+    }
     hud.setProgress(drawProgress > 0 ? drawProgress : interaction.progress); // 활 당김도 같은 고리로 (#119)
     {
       // 나침반 점: 마을에선 광장, 원정지에선 포탈 방향 (#103 — 마을이 넓어져 길을 잃지 않게). 보스가 살아 있으면 보스 (#127)
@@ -2234,7 +2306,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       const remaining = Math.max(0, e.durationSec - el);
       const phase: ExpeditionPhase = phaseAt(e, el);
       hud.setTimer(remaining, phase);
-      applySky(Math.max(NIGHT_SKY, skyLightAt(e, el)));
+      baseSky = Math.max(NIGHT_SKY, skyLightAt(e, el));
       if (!warned3 && remaining <= 180 && remaining > 60) {
         warned3 = true;
         hud.toast('3분 남았어요! 포탈로 돌아가요', 5000);

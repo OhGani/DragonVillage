@@ -129,7 +129,7 @@ export async function handleFamilyHttp(req: IncomingMessage, res: ServerResponse
     if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
     if (!extras) return json(res, 404, { error: 'NO_OPS' }), true;
     const home = extras.rooms.get(extras.homeCode());
-    return json(res, 200, { ...extras.ops.status(), village: home ? { code: home.info.code, name: home.info.name, players: home.playerCount } : null }), true;
+    return json(res, 200, { ...extras.ops.status(), village: home ? { code: home.info.code, name: home.info.name, players: home.playerCount, weather: home.weatherNow() } : null }), true;
   }
   if (req.method !== 'POST') return json(res, 405, { error: 'METHOD' }), true;
   const body = await readBody(req);
@@ -225,6 +225,18 @@ export async function handleFamilyHttp(req: IncomingMessage, res: ServerResponse
       extras.onCodeChanged(r.code);
       extras.ops.note(`마을 코드 바꿈 → ${r.code} (부모 페이지)`);
       return json(res, 200, { ok: true, code: r.code }), true;
+    }
+    case 'weather': {
+      // 마을 날씨 바꾸기 (2026-11-17, 🛠 카드): 확인하려고 비를 기다리지 않게. minutes 뒤엔 원래대로 돈다
+      if (!parent) return json(res, 401, { error: 'NOT_LOGGED_IN' }), true;
+      if (!extras) return json(res, 404, { error: 'NO_OPS' }), true;
+      const kind = String(body.kind ?? '');
+      if (kind !== 'clear' && kind !== 'rain' && kind !== 'thunder') return json(res, 400, { error: 'BAD_WEATHER', message: '맑음·비·뇌우 중 하나예요' }), true;
+      const minutes = Math.max(1, Math.min(60, Math.round(Number(body.minutes) || 5)));
+      const home = extras.rooms.get(extras.homeCode());
+      if (!home || !home.setWeather(kind, minutes)) return json(res, 404, { error: 'NO_VILLAGE', message: '마을이 아직 안 열렸어요 — 누가 한 번 들어온 뒤에 해 주세요' }), true;
+      extras.ops.note(`마을 날씨 → ${kind} ${minutes}분 (부모 페이지)`);
+      return json(res, 200, { ok: true, weather: home.weatherNow() }), true;
     }
     default:
       return json(res, 404, { error: 'NO_ACTION' }), true;

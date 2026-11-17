@@ -1,0 +1,47 @@
+{
+  "_comment": "날씨 (마인크래프트처럼): 맑음 → 비(추운 곳은 눈) → 맑음… 비 중 thunderChance 만큼은 뇌우(번개). 시간은 분, [가장 짧게, 가장 길게]",
+  "village": {
+    "_comment": "우리 마을. 맑음이 15~40분 가다가 비가 5~10분",
+    "clearMinutes": [15, 40],
+    "rainMinutes": [5, 10],
+    "thunderChance": 0.25
+  },
+  "expedition": {
+    "_comment": "원정지. 15분 원정이라 더 자주 바뀐다. 원정은 언제나 맑음으로 시작",
+    "clearMinutes": [3, 10],
+    "rainMinutes": [2, 5],
+    "thunderChance": 0.3
+  },
+  "places": {
+    "_comment": "곳마다 내리는 것: rain 비 · snow 눈 · dry 하늘만 흐림(사막) · none 날씨 없음(동굴·네더·엔드). 안 적은 곳은 rain",
+    "village": "rain",
+    "grass_island": "rain",
+    "cave": "none",
+    "desert": "dry",
+    "snowfield": "snow",
+    "nether": "none",
+    "the_end": "none",
+    "dark_forest": "rain",
+    "jungle": "rain",
+    "deep_dark": "none",
+    "swamp": "rain",
+    "ocean_monument": "rain",
+    "ancient_castle": "none"
+  },
+  "skyLight": {
+    "_comment": "하늘 밝기 (맑음 = 1). 마인크래프트: 비 12/15, 뇌우 10/15",
+    "rain": 0.8,
+    "thunder": 0.67
+  },
+  "lightning": {
+    "_comment": "뇌우일 때 everySeconds 마다 누군가의 range 칸 안 하늘이 트인 곳에 번개. radius 칸 안이면 damage 피해. 크리퍼는 충전된 크리퍼, 주민은 마녀가 된다",
+    "everySeconds": [10, 30],
+    "range": 40,
+    "radius": 3,
+    "damage": 5
+  },
+  "fishWait": 0.75,
+  "_fishWait": "비 맞는 물에서 낚시하면 기다리는 시간에 곱한다 (0.75 = 4분의 3)",
+  "rainHurts": ["enderman", "snow_golem", "blaze"],
+  "_rainHurts": "비를 맞으면 1초마다 1씩 다치는 몹 (엔더맨은 순간이동해서 피한다)"
+}

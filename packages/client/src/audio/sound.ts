@@ -197,3 +197,55 @@ export function splash(): void {
   o.stop(t + 0.25);
   tone(1500 + rnd() * 300, t + 0.03, 0.06, 0.04);
 }
+
+/** 천둥 (날씨, 2026-11-17): 가까우면 "콰광", 멀면 낮게 "우르릉". near 0(멀다)~1(바로 옆) */
+export function thunder(near = 0.5): void {
+  const c = audio();
+  if (!c) return;
+  const t = c.currentTime;
+  const len = 2.4;
+  const buf = c.createBuffer(1, Math.floor(c.sampleRate * len), c.sampleRate);
+  const d = buf.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < d.length; i++) {
+    last = last * 0.96 + (rnd() * 2 - 1) * 0.04; // 낮은 소리만 남게 한 번 거른다
+    const k = i / d.length;
+    d[i] = last * 8 * (k < 0.04 ? k / 0.04 : (1 - k) ** 1.6) * (0.7 + 0.3 * Math.sin(k * 40));
+  }
+  const src = c.createBufferSource();
+  const lp = c.createBiquadFilter();
+  const g = c.createGain();
+  src.buffer = buf;
+  lp.type = 'lowpass';
+  lp.frequency.value = 220 + 900 * near;
+  g.gain.value = 0.25 + 0.35 * near;
+  src.connect(lp).connect(g).connect(c.destination);
+  src.start(t);
+  if (near > 0.6) tone(48, t, 0.5, 0.12, 'sawtooth'); // 바로 옆이면 쾅
+}
+
+/** 빗소리 (날씨): 계속 도는 쏴아 소리. level 0 이면 조용히 */
+let rainSrc: AudioBufferSourceNode | null = null;
+let rainGain: GainNode | null = null;
+export function rainLevel(level: number): void {
+  if (level <= 0.001 && !rainGain) return;
+  const c = audio();
+  if (!c) return;
+  if (!rainGain) {
+    const buf = c.createBuffer(1, c.sampleRate * 2, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = rnd() * 2 - 1;
+    rainSrc = c.createBufferSource();
+    rainSrc.buffer = buf;
+    rainSrc.loop = true;
+    const bp = c.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 1800;
+    bp.Q.value = 0.6;
+    rainGain = c.createGain();
+    rainGain.gain.value = 0;
+    rainSrc.connect(bp).connect(rainGain).connect(c.destination);
+    rainSrc.start();
+  }
+  rainGain.gain.setTargetAtTime(Math.max(0, Math.min(1, level)) * 0.07, c.currentTime, 0.4);
+}

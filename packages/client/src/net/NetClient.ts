@@ -6,6 +6,8 @@
  */
 import {
   type ApprovalItem,
+  type WeatherFall,
+  type WeatherKind,
   type BlockBatchMsg,
   type BlockChangedMsg,
   type BlockChangeRejectedMsg,
@@ -217,7 +219,11 @@ export interface NetEvents {
   onOrbGone(id: number, by: number): void;
   /** 원정 몹 상태 (20Hz, M7-2) */
   onMobs(list: MobEntry[]): void;
-  onMobEvent(m: { ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk' | 'stare' | 'teleport' | 'heal' | 'zombify' | 'cure' | 'cured' | 'gift' | 'hiss' | 'screech' | 'wild'; id: number; mob: string; x: number; y: number; z: number; dmg?: number; item?: string; to?: number }): void;
+  onMobEvent(m: { ev: 'spawn' | 'hit' | 'die' | 'explode' | 'wake' | 'summon' | 'eat' | 'love' | 'tame' | 'sit' | 'free' | 'follow' | 'grow' | 'shear' | 'egg' | 'milk' | 'stare' | 'teleport' | 'heal' | 'zombify' | 'cure' | 'cured' | 'gift' | 'hiss' | 'screech' | 'wild' | 'struck'; id: number; mob: string; x: number; y: number; z: number; dmg?: number; item?: string; to?: number }): void;
+  /** 날씨 (2026-11-17): 들어올 때·바뀔 때 */
+  onWeather(m: { kind: WeatherKind; fall: WeatherFall; quiet?: boolean; slept?: boolean }): void;
+  /** 번개가 떨어졌다 */
+  onLightning(m: { x: number; y: number; z: number }): void;
   onDismount(idx: number): void;
 }
 
@@ -703,6 +709,8 @@ export class NetClient {
     else if (msg.t === 'orbs') ev.onOrbs(msg.list);
     else if (msg.t === 'orbGone') ev.onOrbGone(msg.id, msg.by);
     else if (msg.t === 'mob') ev.onMobEvent(msg);
+    else if (msg.t === 'weather') ev.onWeather(msg);
+    else if (msg.t === 'lightning') ev.onLightning(msg);
     else if (msg.t === 'dismount') ev.onDismount(msg.idx);
     else if (msg.t === 'held') ev.onHeld(msg.idx, msg.item);
     else if (msg.t === 'equip') ev.onEquip(msg);

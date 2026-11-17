@@ -94,6 +94,12 @@ export interface MobArena {
   readonly safe?: { x: number; y: number; z: number } | null;
   readonly ended: boolean;
   elapsedSec(now: number): number;
+  /** 뇌우인가 (날씨, 2026-11-17): 낮에도 밤처럼 몹이 나온다 */
+  stormy?(): boolean;
+  /** 비가 오는가 (날씨): rainHurts 몹이 하늘이 트인 곳에서 다친다 */
+  raining?(): boolean;
+  /** 비를 맞으면 다치는 몹 (weather.json rainHurts) */
+  rainHurts?: ReadonlySet<string>;
 }
 
 export interface MobSystemOptions {
@@ -215,6 +221,8 @@ export class MobSystem {
   /** 다음에 크리킹을 살펴볼 때 (2026-11-07) */
   private nextCreakingAt = 0;
   private lastStepAt = 0;
+  /** 비 피해를 마지막으로 준 때 (날씨) */
+  private lastRainAt = 0;
   private turn = 0;
   private readonly lastHitAt = new Map<number, number>();
   /** 독에 걸린 사람: 끝나는 시각·다음 아픈 시각 */
@@ -515,9 +523,50 @@ export class MobSystem {
     return null;
   }
 
-  /** 밤인가 (항상 어두운 무대는 언제나) */
+  /** 밤인가 (항상 어두운 무대는 언제나). 뇌우면 낮에도 밤처럼 (날씨, 2026-11-17 — 마인크래프트: 뇌우엔 시간과 관계없이 몹이 생긴다) */
   isNight(now: number): boolean {
-    return this.e.nightStartsAt <= 0 || this.e.elapsedSec(now) >= this.e.nightStartsAt;
+    return this.e.nightStartsAt <= 0 || this.e.elapsedSec(now) >= this.e.nightStartsAt || (this.e.stormy?.() ?? false);
+  }
+
+  /**
+   * 번개 (날씨, 2026-11-17): at 에서 radius 칸 안의 몹. 크리퍼 → 충전된 크리퍼, 주민 → 마녀 (마인크래프트), 나머지는 damage 피해.
+   * 고치는 중인 좀비 주민·잠든 보스는 그대로. 맞은 수를 돌려준다
+   */
+  strike(at: { x: number; y: number; z: number }, radius: number, damage: number, now: number): number {
+    let n = 0;
+    for (const m of [...this.mobs.values()]) {
+      if (m.cureAt !== undefined || this.sleepingBoss(m)) continue;
+      if (Math.hypot(m.x - at.x, m.z - at.z) > radius || Math.abs(m.y + mobSize(m.kind).h * 0.5 - at.y) > radius + 2) continue;
+      n++;
+      const to: MobKind | null = m.kind === 'creeper' ? 'charged_creeper' : m.kind === 'villager' ? 'witch' : null;
+      if (to) {
+        m.kind = to;
+        m.hp = this.defs.get(to).hp;
+        m.state = MOB_STATE.walk;
+        m.busyUntil = 0;
+        m.wanderTo = null;
+        m.home = undefined;
+        m.lastAttackAt = now;
+        this.hooks.json({ t: 'mob', ev: 'struck', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z });
+        continue;
+      }
+      if (damage > 0) this.damage(m, damage, -1, now);
+    }
+    return n;
+  }
+
+  /** 비 (날씨): rainHurts 몹(엔더맨·눈 골렘·블레이즈)이 하늘이 트인 곳에 있으면 1초마다 1. 엔더맨은 순간이동해 피한다 */
+  private tickRain(now: number): void {
+    if (!this.e.rainHurts?.size || !(this.e.raining?.() ?? false) || now - this.lastRainAt < 1000) return;
+    this.lastRainAt = now;
+    for (const m of [...this.mobs.values()]) {
+      if (!this.e.rainHurts.has(m.kind) || !this.skyOpen(m.x, m.y, m.z)) continue;
+      this.damage(m, 1, -1, now);
+      if (m.kind === 'enderman' && this.mobs.has(m.id)) {
+        const a = hash3(m.id, Math.floor(now / 1000), 13, this.e.seed) * Math.PI * 2;
+        this.teleportTo(m, m.x + Math.cos(a) * ENDER_AWAY, m.z + Math.sin(a) * ENDER_AWAY, m.y, now);
+      }
+    }
   }
 
   /** 보스·주민(순한 것)을 빼고 몇 마리 — 밤 스폰 상한(MOB_MAX)에 세는 수. 사막 마을 주민 8이 상한을 다 차지해 밤 몹이 하나도 안 나오던 것 (#244 에서 고침) */
@@ -739,6 +788,7 @@ export class MobSystem {
     this.refillWild(players, now);
     this.tickPoison(players, now);
     this.tickMobPotions(now);
+    this.tickRain(now);
     if (this.mobs.size === 0 && this.companions.size === 0) return;
     if (now - this.lastStepAt >= STEP_MS) {
       const dt = Math.min(0.5, (now - (this.lastStepAt || now - STEP_MS)) / 1000);
