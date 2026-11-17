@@ -121,14 +121,18 @@ const K_FULL = 0,
   K_GATE_X = 3, // 닫힌 울타리문, 문짝이 동서로
   K_GATE_Z = 4,
   K_TRAP = 5, // 다락문 (#296): K_TRAP + slice (바닥·천장·열림 넷) — 열려 있어도 얇은 판에 부딪힌다
-  K_LADDER = 11; // 사다리 (#299): K_LADDER + 붙은 벽 방향 — 부딪히지 않고(지나간다) 조준만 벽 쪽 한 겹에
+  K_LADDER = 11, // 사다리 (#299): K_LADDER + 붙은 벽 방향 — 부딪히지 않고(지나간다) 조준만 벽 쪽 한 겹에
+  K_LAYER = 15, // 눈 층 (2026-11-17): 지나가고, 조준은 맨 아래 한 겹
+  K_ROD = 16; // 피뢰침 (2026-11-17): 가운데 기둥(조각 2×2)에 부딪히고 조준된다
+/** 피뢰침 기둥 조각 — 칸 가운데 넷 */
+const rodFoot = (sx: number, sz: number): boolean => sx >= 1 && sx <= 2 && sz >= 1 && sz <= 2;
 const kindTables = new WeakMap<object, Uint8Array>();
 function kindTable(registry: BlockRegistry): Uint8Array {
   const hit = kindTables.get(registry);
   if (hit) return hit;
   const defs = (registry as { defs?: readonly BlockDef[] }).defs ?? []; // 시험용 가짜 레지스트리에는 defs 가 없다 → 전부 보통 블록
   const t = new Uint8Array(defs.length);
-  for (const d of defs) t[d.num] = d.ladder ? K_LADDER + d.ladder.facing : d.trap ? K_TRAP + trapSlice(d.trap.facing, d.trap.top, d.trap.open) : d.fence ? K_FENCE : d.gate ? (d.gate.open ? K_FULL : (d.gate.facing & 1) === 0 ? K_GATE_X : K_GATE_Z) : (d.slab && d.slab.kind !== 2) || d.stairs ? K_PARTS : K_FULL;
+  for (const d of defs) t[d.num] = d.shape === 'layer' ? K_LAYER : d.shape === 'rod' ? K_ROD : d.ladder ? K_LADDER + d.ladder.facing : d.trap ? K_TRAP + trapSlice(d.trap.facing, d.trap.top, d.trap.open) : d.fence ? K_FENCE : d.gate ? (d.gate.open ? K_FULL : (d.gate.facing & 1) === 0 ? K_GATE_X : K_GATE_Z) : (d.slab && d.slab.kind !== 2) || d.stairs ? K_PARTS : K_FULL;
   kindTables.set(registry, t);
   return t;
 }
@@ -149,7 +153,8 @@ export function fineSolidQuery(registry: BlockRegistry, getBlock: (x: number, y:
       z = hz >> 2;
     const id = getBlock(x, y, z);
     const k = kinds[id] ?? K_FULL;
-    if (k >= K_LADDER) return false;
+    if (k === K_ROD) return rodFoot(hx & SUB, hz & SUB);
+    if (k >= K_LADDER) return false; // 사다리·눈 층은 지나간다
     if (k >= K_TRAP) return trapFoot(k - K_TRAP, hx & SUB, hy & SUB, hz & SUB);
     if (k >= K_FENCE) return foot(k, x, y, z, hx & SUB, hz & SUB);
     if (k === K_PARTS) {
@@ -202,6 +207,8 @@ export function raycastFine(
         const mask = partMask(registry.get(id), stairAt, x, y, z);
         return ((mask >> (((hx & SUB) >> 1) | (((hz & SUB) >> 1) << 1) | (((hy & SUB) >> 1) << 2))) & 1) === 1 ? id : 0;
       }
+      if (k === K_LAYER) return (hy & SUB) === 0 ? id : 0;
+      if (k === K_ROD) return rodFoot(hx & SUB, hz & SUB) ? id : 0;
       if (k >= K_LADDER) return trapFoot(2 + (k - K_LADDER), hx & SUB, hy & SUB, hz & SUB) ? id : 0; // 벽 쪽 한 겹 (열린 다락문과 같은 조각)
       if (k >= K_TRAP) return trapFoot(k - K_TRAP, hx & SUB, hy & SUB, hz & SUB) ? id : 0;
       const inFoot = k === K_FENCE ? fenceFoot(fenceLinksAt(registry, getBlock, x, y, z), hx & SUB, hz & SUB) : gateFoot(k === K_GATE_X ? 0 : 1, hx & SUB, hz & SUB);

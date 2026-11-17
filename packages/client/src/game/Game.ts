@@ -94,6 +94,7 @@ import {
   gateBoxes,
   trapBoxes,
   ladderBoxes,
+  type Box16,
   CRYSTAL_SHOT_RANGE,
   countOf, parseEnchanted, countBookshelves, CART_SEAT_Y, CURE_ITEM, MOB_STATE, type SepBody, FISHING_ROD } from '@dragon-village/shared';
 import { BLOCKS, BUILDINGS, COMBAT, DRAGONS, PET_NAMES, VILLAGER_TALK, EXPEDITIONS, FAMILY_RULES, ITEM_NAMES, MOBS, PHRASES, POTIONS, RAIDS, RECIPES, TOOLS, FOOD, XP, TRADES, ENCHANTS, FISHING, WEATHER } from '@dragon-village/shared/data';
@@ -1105,6 +1106,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       flashUntil = t + 160;
       const d = Math.hypot(m.x - ctx.player.pos.x, m.z - ctx.player.pos.z);
       thunder(Math.max(0, Math.min(1, 1 - d / 60)));
+      if (m.rod && d < 48) hud.toast('⚡ 피뢰침이 번개를 받았어요!', 1800); // 피뢰침 (2026-11-17)
     },
     onFirework: (m) => {
       fireworks.launch(m.x, m.y, m.z, m.seed); // 폭죽 (#211): 모두 같은 색·모양
@@ -2219,6 +2221,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
           box = { key: `f${links}`, boxes: fenceBoxes(links) };
         } else if (hd.gate) box = { key: `g${hd.gate.facing}${hd.gate.open ? 'o' : 'c'}`, boxes: gateBoxes(hd.gate.facing, hd.gate.open) };
         else if (hd.ladder) box = { key: `l${hd.ladder.facing}`, boxes: ladderBoxes(hd.ladder.facing) }; // 사다리 (#299)
+        else if (hd.box) box = { key: `b${hd.shape}`, boxes: hd.box.map((b) => [...b] as Box16) }; // 눈 층·피뢰침 (2026-11-17)
         else if (hd.trap) box = { key: `t${hd.trap.facing}${hd.trap.top ? 't' : 'b'}${hd.trap.open ? 'o' : 'c'}`, boxes: trapBoxes(hd.trap.facing, hd.trap.top, hd.trap.open) }; // 다락문 (#296)
         highlight.setTarget(ht.x, ht.y, ht.z, partMask(hd, (sx, sy, sz) => (w.inBounds(sx, sy, sz) ? registry.get(w.getBlock(sx, sy, sz)).stairs : null), ht.x, ht.y, ht.z), box);
       }

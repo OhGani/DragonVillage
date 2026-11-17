@@ -2892,6 +2892,44 @@
       "_note": "사다리 (#299): 막대기 7 → 사다리 3 (마인크래프트와 같음)"
     },
     {
+      "id": "lightning_rod",
+      "name": "피뢰침",
+      "station": "crafting_table",
+      "pattern": [
+        "i",
+        "i",
+        "i"
+      ],
+      "key": {
+        "i": "iron_ingot"
+      },
+      "in": {
+        "iron_ingot": 3
+      },
+      "out": {
+        "lightning_rod": 1
+      },
+      "_note": "피뢰침 (2026-11-17): 마인크래프트는 구리 주괴 3개인데 우리 게임엔 구리가 아직 없어서 철 주괴 3개 (세로 한 줄)"
+    },
+    {
+      "id": "snow_layer",
+      "name": "눈 층",
+      "station": "crafting_table",
+      "pattern": [
+        "sss"
+      ],
+      "key": {
+        "s": "snow_block"
+      },
+      "in": {
+        "snow_block": 3
+      },
+      "out": {
+        "snow_layer": 6
+      },
+      "_note": "눈 층 (2026-11-17): 눈 블록 3 → 눈 층 6 (마인크래프트와 같음)"
+    },
+    {
       "id": "sign",
       "name": "표지판",
       "station": "crafting_table",

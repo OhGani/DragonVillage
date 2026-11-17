@@ -502,12 +502,14 @@ export class Interaction {
       this.placeSlab(t, this.registry.get(this.selectedBlock));
       return;
     }
-    const x = t.x + t.nx,
-      y = t.y + t.ny,
-      z = t.z + t.nz;
+    // 눈 층 (2026-11-17)을 탭하면 그 칸에 바로 놓는다 (마인크래프트: 덮어쓴다). 눈 층 위에 눈 층은 안 된다
+    const over = tdef.replaceable && this.registry.get(this.selectedBlock).num !== t.id;
+    const x = over ? t.x : t.x + t.nx,
+      y = over ? t.y : t.y + t.ny,
+      z = over ? t.z : t.z + t.nz;
     if (!this.world.inBounds(x, y, z)) return;
     const cur = this.world.getBlock(x, y, z);
-    if (cur !== AIR_ID && !this.registry.isFluid(cur)) return; // 공기·액체 자리에만 놓는다 (횃불 위에 덮어쓰지 않게)
+    if (cur !== AIR_ID && !this.registry.isFluid(cur) && !this.registry.get(cur).replaceable) return; // 공기·액체·눈 층 자리에만 놓는다 (횃불 위에 덮어쓰지 않게)
     const def = this.registry.get(this.selectedBlock);
     if (def.shape === 'door' && this.registry.isDoor(def.num)) {
       this.placeDoor(x, y, z, def, cur);

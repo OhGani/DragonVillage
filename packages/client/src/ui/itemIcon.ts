@@ -1,6 +1,6 @@
 import type { BlockRegistry } from '@dragon-village/shared';
 import { DRAGONS } from '@dragon-village/shared/data';
-import { dragonOfEgg, FENCE_ICON_BOXES, gateBoxes, potionFromItemId, trapBoxes } from '@dragon-village/shared';
+import { type Box16, dragonOfEgg, FENCE_ICON_BOXES, gateBoxes, potionFromItemId, trapBoxes } from '@dragon-village/shared';
 
 /** 물약 변형(potion.healing.long, splash_potion.x …)은 기본 물약 그림을 쓴다 (#175·유리병 자동 색칠) */
 function potionSpriteId(id: string, atlas: IconSource): string {
@@ -382,7 +382,9 @@ export function itemIcon(id: string, size: number, registry: BlockRegistry, atla
   } else if (def && def.textures && !dragonOfEgg(id)) {
     // 드래곤 알 16종은 블록이지만(#249) 아이콘은 아래 drawItem 의 드래곤 색 타원 그대로
     const missing = atlas.images.get('missing')!;
-    if (def.shape === 'fence' || def.shape === 'fence_gate' || def.shape === 'trapdoor') {
+    if (def.box) {
+      canvas = renderBoxesIcon(def.box.map((b) => [...b] as Box16), atlas.images.get(def.textures[0]) ?? missing, atlas.images.get(def.textures[1]) ?? missing, size); // 눈 층·피뢰침 (2026-11-17): 모양 그대로
+    } else if (def.shape === 'fence' || def.shape === 'fence_gate' || def.shape === 'trapdoor') {
       // 울타리·울타리문 (#295): 기둥과 가로대 모양 그대로. 다락문 (#296): 바닥에 누운 얇은 판
       canvas = renderBoxesIcon(def.shape === 'fence' ? FENCE_ICON_BOXES : def.shape === 'trapdoor' ? trapBoxes(0, false, false) : gateBoxes(0, false), atlas.images.get(def.textures[0]) ?? missing, atlas.images.get(def.textures[1]) ?? missing, size);
     } else {

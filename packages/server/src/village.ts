@@ -468,6 +468,9 @@ export class VillageRoom {
   /** 날씨 (2026-11-17): 마을 시계는 처음 틱에 생긴다. 원정 시계는 원정과 함께 생기고 없어진다. 날씨 없는 곳(동굴·네더·엔드)은 null */
   private villageWeather: WeatherClock | null = null;
   private expeditionWeather: WeatherClock | null = null;
+  private lastSnowVillage = 0;
+  private lastSnowExp = 0;
+  private snowN = 0;
   private readonly expeditions: ExpeditionRegistry;
   private readonly recipes: RecipeRegistry;
   private readonly potions: PotionRegistry;
@@ -1887,6 +1890,7 @@ export class VillageRoom {
    */
   join(token: string, nick: string, color: number, send: Send, kick?: (why: string) => void): JoinResult | null {
     for (const p of [...this.players.values()]) if (p.token === token) this.leave(p.idx, '같은 계정이 다른 곳에서 들어왔어요');
+    const villageWasEmpty = this.playersIn('village').length === 0; // 날씨는 아무도 없는 마을에 처음 들어올 때만 새로 뽑는다
     const idx = this.freeIdx();
     if (idx < 0) return null;
     const saved = this.storage?.getPlayer(token);
@@ -1931,7 +1935,8 @@ export class VillageRoom {
     this.sendJson(player, { t: 'tables', list: this.villageTables() }); // 식탁 위 음식 (2026-11-06)
     this.sendJson(player, { t: 'leash', list: this.animals.leashes() }); // 끈에 매인 동물 (#297)
     this.sendDemand(player, Date.now()); // 가게 값 (#230)
-    this.sendWeather(player, 'village', Date.now()); // 날씨 (2026-11-17)
+    if (villageWasEmpty) this.rollWeather(Date.now()); // 들어오면 날씨 랜덤 (아빠 2026-11-17)
+    this.sendWeather(player, 'village', Date.now(), villageWasEmpty); // 날씨 (2026-11-17)
     if (player.riding) this.broadcastNest(); // 둥지에서 그 드래곤이 빠진다
     this.savePlayer(player);
     if (savedInv === null || gifts.length) this.storage?.saveInventory(token, this.info.code, inv); // 키트·선물은 한 번만 — 바로 저장해 둔다
@@ -3345,6 +3350,7 @@ export class VillageRoom {
       const [wx, wz] = DOOR_DIR[def.ladder.facing]!;
       if (!world.inBounds(x + wx, y, z + wz) || !this.registry.isOpaque(world.getBlock(x + wx, y, z + wz))) return REJECT.INVALID;
     }
+    if (def.shape === 'layer' && !this.snowCanSit(world, x, y - 1, z)) return REJECT.INVALID; // 눈 층은 꽉 찬 블록·나뭇잎 위에만
     if (def.rail) {
       // 철도 (#237): 고체 블록 위에만
       const below = world.inBounds(x, y - 1, z) ? this.registry.get(world.getBlock(x, y - 1, z)) : null;
@@ -3355,7 +3361,8 @@ export class VillageRoom {
     // 반 블록 (#292): 합친 한 칸은 같은 반 블록이 하나 놓인 자리에만 (빈 자리에 한 번에 둘은 못 놓는다). 그 밖에는 공기·액체 자리만
     const slabMerge = def.slab !== null && def.slab.kind === SLAB_DOUBLE && cur.slab !== null && cur.slab.base === def.slab.base && cur.slab.kind !== SLAB_DOUBLE;
     if (def.slab && def.slab.kind === SLAB_DOUBLE && !slabMerge) return REJECT.INVALID;
-    if (cur.num !== AIR_ID && !cur.fluid && !slabMerge) return REJECT.OCCUPIED; // 횃불·꽃 같은 비고체 블록도 덮어쓰지 않는다(아이템이 사라지니까)
+    const overSnow = cur.replaceable && cur.num !== def.num; // 눈 층은 덮어쓴다 (2026-11-17, 마인크래프트)
+    if (cur.num !== AIR_ID && !cur.fluid && !slabMerge && !overSnow) return REJECT.OCCUPIED; // 횃불·꽃 같은 비고체 블록도 덮어쓰지 않는다(아이템이 사라지니까)
     if (def.solid) for (const other of this.playersIn(p.world)) if (bodyOverlapsBlock(other.pos, PLAYER_SIZE, x, y, z)) return REJECT.OCCUPIED;
     if (def.bed) {
       // 침대는 두 칸 (#188): 머리 칸도 공기여야 하고 누가 서 있으면 안 된다
@@ -3975,11 +3982,18 @@ export class VillageRoom {
     return world === 'village' ? this.villageWeather : this.expeditionWeather;
   }
 
-  /** 이 세계 날씨를 한 사람에게 (들어올 때·세계를 옮길 때 — 알림 없이) */
-  private sendWeather(p: RoomPlayer, world: WorldKind, now: number): void {
+  /** 이 세계 날씨를 한 사람에게 (들어올 때·세계를 옮길 때 — 알림 없이. loud 면 비·뇌우일 때 알림도) */
+  private sendWeather(p: RoomPlayer, world: WorldKind, now: number, loud = false): void {
     if (world === 'village') this.ensureVillageWeather(now);
     const w = this.weatherOf(world);
-    this.sendJson(p, w ? w.message(true) : { t: 'weather', kind: 'clear', fall: 'none', quiet: true });
+    this.sendJson(p, w ? w.message(!(loud && w.kind !== 'clear')) : { t: 'weather', kind: 'clear', fall: 'none', quiet: true });
+  }
+
+  /** 마을 날씨 새로 뽑기 (아무도 없는 마을에 처음 들어올 때, weather.json village.joinWeights). 원정 시드(seedFn)와 따로 — 원정 순서를 흐트러뜨리지 않게 */
+  private rollWeather(now: number): void {
+    this.ensureVillageWeather(now);
+    const w = this.villageWeather;
+    if (w?.reroll(randomInt(0, 0x7fffffff), now)) this.log(`마을 ${this.info.code}: 들어와서 날씨 새로 뽑음 → ${w.kind}`);
   }
 
   private ensureVillageWeather(now: number): void {
@@ -3988,10 +4002,11 @@ export class VillageRoom {
     if (hasWeather(fall)) this.villageWeather = new WeatherClock(WEATHER, WEATHER.village, fall, (this.info.seed ^ Math.floor(now / 60_000)) | 0, now);
   }
 
-  /** 지금 날씨 (부모 페이지 🛠 카드) */
-  weatherNow(): { kind: WeatherKind; untilMs: number } | null {
-    const w = this.villageWeather;
-    return w ? { kind: w.kind, untilMs: Math.max(0, w.until - Date.now()) } : null;
+  /** 지금 날씨 (부모 페이지 🛠 카드). 원정은 날씨 있는 원정지가 열려 있을 때만, place = 원정지 이름 */
+  weatherNow(world: WorldKind = 'village'): { kind: WeatherKind; untilMs: number; fall: string; place: string } | null {
+    const w = this.weatherOf(world);
+    if (!w || (world === 'expedition' && (!this.expedition || this.expedition.ended))) return null;
+    return { kind: w.kind, untilMs: Math.max(0, w.until - Date.now()), fall: w.fall, place: world === 'village' ? '마을' : this.expedition!.def.name };
   }
 
   /** 마을 날씨를 바꾼다 (부모 페이지 🛠 카드·테스트): minutes 동안. 그 뒤엔 원래대로 돈다 */
@@ -4047,6 +4062,7 @@ export class VillageRoom {
         }
       } else w.sleptSince = 0;
       if (inside.length && w.boltDue(now)) this.lightning(world, w, now);
+      this.tickSnow(world, w, now);
     }
   }
 
@@ -4077,6 +4093,12 @@ export class VillageRoom {
       }
     }
     if (top < 0) return; // 땅 밖
+    // 피뢰침 (2026-11-17): rodRange 칸 안에 하늘이 트인 피뢰침이 있으면 가장 가까운 것에 떨어지고, 아무도 안 다친다
+    const rod = this.nearestRod(world, x + 0.5, z + 0.5);
+    if (rod) {
+      this.broadcastJson({ t: 'lightning', x: rod.x + 0.5, y: rod.y + 1, z: rod.z + 0.5, rod: true }, -1, world);
+      return;
+    }
     const at = { x: x + 0.5, y: top + 1, z: z + 0.5 };
     this.broadcastJson({ t: 'lightning', ...at }, -1, world);
     for (const q of inside) {
@@ -4084,6 +4106,91 @@ export class VillageRoom {
     }
     if (world === 'expedition') this.mobSys?.strike(at, L.radius, L.damage, now);
     else for (const s of [this.raid?.mobs ?? null, this.guardMobs]) s?.strike(at, L.radius, L.damage, now);
+  }
+
+  /** 이 세계의 피뢰침 가운데 (x, z) 에서 rodRange 칸 안, 하늘이 트인 가장 가까운 것. 피뢰침은 사람이 놓은 것뿐이라 바뀐 청크만 본다 */
+  private nearestRod(world: WorldKind, x: number, z: number): { x: number; y: number; z: number } | null {
+    const vw = world === 'village' ? this.world : this.expedition?.world;
+    const rodNum = this.registry.find('lightning_rod')?.num;
+    if (!vw || rodNum === undefined) return null;
+    const coords = world === 'village' ? [...this.modified.values()] : (this.expedition?.modifiedChunks() ?? []);
+    const R = WEATHER.lightning.rodRange;
+    let best: { x: number; y: number; z: number } | null = null,
+      bestD = Infinity;
+    for (const c of coords) {
+      if (Math.max(Math.abs(c.cx * 16 + 8 - x), Math.abs(c.cz * 16 + 8 - z)) > R + 12) continue;
+      const chunk = vw.getChunk(c.cx, c.cy, c.cz);
+      if (!chunk) continue;
+      const pi = chunk.palette.indexOf(rodNum);
+      if (pi < 0) continue;
+      for (let i = 0; i < chunk.data.length; i++) {
+        if (chunk.data[i] !== pi) continue;
+        const rx = c.cx * 16 + (i & 15),
+          ry = c.cy * 16 + (i >> 8),
+          rz = c.cz * 16 + ((i >> 4) & 15);
+        const d = Math.hypot(rx + 0.5 - x, rz + 0.5 - z);
+        if (d > R || d >= bestD || !this.skyOpenAt(world, rx, ry, rz)) continue;
+        best = { x: rx, y: ry, z: rz };
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
+  /** 눈 층이 앉을 수 있는 블록인가: 꽉 찬 불투명 블록·나뭇잎 (얼음·눈 층·반 블록·울타리 위는 안 된다) */
+  private snowCanSit(w: VoxelWorld, x: number, y: number, z: number): boolean {
+    if (!w.inBounds(x, y, z)) return false;
+    const id = w.getBlock(x, y, z);
+    const d = this.registry.get(id);
+    return d.id !== 'ice' && (this.registry.isOpaque(id) || d.id.endsWith('leaves'));
+  }
+
+  /**
+   * 눈 쌓임 (2026-11-17, 마인크래프트): 눈이 오는 세계(설원)에서 1초에 snow.layersPerSecond 칸, 사람 둘레 snow.range 칸 안의
+   * 하늘이 트인 땅 위에 눈 층. 한 겹만 (자바 에디션처럼)
+   */
+  private tickSnow(world: WorldKind, w: WeatherClock, now: number): void {
+    if (w.fall !== 'snow' || w.kind === 'clear') return;
+    const S = WEATHER.snow;
+    if (S.layersPerSecond <= 0) return;
+    const gap = 1000 / S.layersPerSecond;
+    const last = world === 'village' ? this.lastSnowVillage : this.lastSnowExp;
+    if (now - last < gap) return;
+    const n = Math.min(8, Math.floor((now - last) / gap)); // 늦게 불렸으면 몇 칸 한꺼번에 (최대 8)
+    if (world === 'village') this.lastSnowVillage = last === 0 ? now : last + n * gap;
+    else this.lastSnowExp = last === 0 ? now : last + n * gap;
+    const inside = this.playersIn(world);
+    const vw = world === 'village' ? this.world : this.expedition?.world;
+    if (!inside.length || !vw) return;
+    const layer = this.registry.find('snow_layer');
+    if (!layer) return;
+    const seed = (this.info.seed ^ 0x5a0f) | 0;
+    for (let k = 0; k < n; k++) {
+      const t = ++this.snowN;
+      const who = inside[Math.floor(hash3(t, 1, 43, seed) * inside.length)]!;
+      const x = Math.floor(who.pos.x + (hash3(t, 2, 43, seed) * 2 - 1) * S.range),
+        z = Math.floor(who.pos.z + (hash3(t, 3, 43, seed) * 2 - 1) * S.range);
+      if (!vw.inBounds(x, 0, z)) continue;
+      let y = vw.sizeY - 1;
+      while (y >= 0 && vw.getBlock(x, y, z) === AIR_ID) y--;
+      if (y < 0 || y + 1 >= vw.sizeY || !this.snowCanSit(vw, x, y, z)) continue;
+      if (world === 'village' && this.isProtected(x, y + 1, z)) continue; // 마을 건물 자리는 그대로
+      this.setWorldBlock(world, x, y + 1, z, layer.id);
+    }
+  }
+
+  /** 서버가 블록을 바꾼다 (눈 층): 저장 표시 + 그 세계 모두에게 (틱 끝에 한 번에) */
+  private setWorldBlock(world: WorldKind, x: number, y: number, z: number, id: string): void {
+    if (world === 'village') {
+      if (!this.world.setBlock(x, y, z, this.registry.numOf(id)).changed) return;
+      this.markDirtyBlock(x, y, z);
+      this.batch.push({ x, y, z, id });
+    } else if (this.expedition) {
+      const e = this.expedition;
+      if (!e.world.setBlock(x, y, z, this.registry.numOf(id)).changed) return;
+      e.markModified(x, y, z);
+      e.batch.push({ x, y, z, id });
+    }
   }
 
   private tickExpedition(now: number): void {

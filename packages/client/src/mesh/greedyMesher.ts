@@ -115,7 +115,7 @@ const TRAP_SHAPES: readonly (readonly Box16[])[] = Array.from({ length: 16 }, (_
 /** 사다리 판 (#299): 붙은 벽 방향 넷 */
 const LADDER_SHAPES: readonly (readonly Box16[])[] = Array.from({ length: 4 }, (_, f) => ladderBoxes(f));
 /** 상자 모양으로 그리는 블록인가 (울타리·울타리문·다락문·사다리) */
-const boxy = (bi: MeshBlockInfo): boolean => bi.fence === true || !!bi.gate || (bi.trap !== null && bi.trap !== undefined) || (bi.ladder !== null && bi.ladder !== undefined);
+const boxy = (bi: MeshBlockInfo): boolean => !!bi.box || bi.fence === true || !!bi.gate || (bi.trap !== null && bi.trap !== undefined) || (bi.ladder !== null && bi.ladder !== undefined);
 
 class GeomBuilder {
   positions: Float32Array;
@@ -722,8 +722,10 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
         for (let x = 0; x < N; x++) {
           const bi = info[padded[paddedIndex(x, y, z)]];
           if (bi === undefined || !boxy(bi)) continue;
-          const boxes = bi.ladder !== null && bi.ladder !== undefined ? LADDER_SHAPES[bi.ladder]! : bi.trap !== null && bi.trap !== undefined ? TRAP_SHAPES[bi.trap]! : bi.gate ? GATE_SHAPES[bi.gate[0] * 2 + bi.gate[1]]! : FENCE_SHAPES[fenceLinkBits((dx, dz) => neighbor(x + dx, y, z + dz))]!;
+          const boxes = bi.box ? bi.box : bi.ladder !== null && bi.ladder !== undefined ? LADDER_SHAPES[bi.ladder]! : bi.trap !== null && bi.trap !== undefined ? TRAP_SHAPES[bi.trap]! : bi.gate ? GATE_SHAPES[bi.gate[0] * 2 + bi.gate[1]]! : FENCE_SHAPES[fenceLinkBits((dx, dz) => neighbor(x + dx, y, z + dz))]!;
           const lt = lightOfCell(x, y, z);
+          const under = info[padded[paddedIndex(x, y - 1, z)]];
+          const floorHidden = under !== undefined && under.opaque && under.fluidKind === 0; // 눈 층 밑면은 아래 블록 윗면과 겹친다 — 그리지 않는다
           for (const b of boxes) {
             mn[0] = x + b[0] / 16;
             mn[1] = y + b[1] / 16;
@@ -731,7 +733,7 @@ export function greedyMesh(padded: Uint16Array, info: readonly MeshBlockInfo[], 
             mx[0] = x + b[3] / 16;
             mx[1] = y + b[4] / 16;
             mx[2] = z + b[5] / 16;
-            for (let f = 0; f < 6; f++) boxFace(opaque, f, mn, mx, bi.tex[f]!, lt);
+            for (let f = 0; f < 6; f++) if (!(f === 3 && b[1] === 0 && floorHidden && bi.box)) boxFace(opaque, f, mn, mx, bi.tex[f]!, lt);
           }
         }
   };

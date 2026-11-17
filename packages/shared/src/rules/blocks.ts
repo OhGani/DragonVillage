@@ -5,6 +5,14 @@
 import { RAIL_DIRS, type RailDir } from './rails';
 import { z } from 'zod';
 
+/** 눈 층 (2026-11-17): 바닥에 깔린 2/16 판 */
+export const LAYER_BOX = [0, 0, 0, 16, 2, 16] as const;
+/** 피뢰침 (2026-11-17, 마인크래프트 모양): 2/16 막대 + 4/16 머리 */
+export const ROD_BOXES = [
+  [7, 0, 7, 9, 12, 9],
+  [6, 12, 6, 10, 16, 10],
+] as const;
+
 export const AIR_ID = 0;
 
 const NAME_RE = /^[a-z0-9_]+$/;
@@ -192,6 +200,10 @@ export interface BlockDef {
   readonly trap: TrapInfo | null;
   /** 사다리 (#299): 붙은 벽의 방향. 사다리가 아니면 null */
   readonly ladder: LadderInfo | null;
+  /** 정해진 모양 상자들 (16 눈금, 2026-11-17): 눈 층(shape 'layer' — 바닥 2/16 판)·피뢰침(shape 'rod' — 가는 막대 + 머리). 아니면 null */
+  readonly box: readonly (readonly [number, number, number, number, number, number])[] | null;
+  /** 놓을 때 덮어쓰는 블록 (눈 층 — 마인크래프트처럼 그 칸에 바로 놓인다, 드롭 없음) */
+  readonly replaceable: boolean;
 }
 
 /**
@@ -690,6 +702,8 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       gate: null,
       trap: null,
       ladder: null,
+      box: null,
+      replaceable: false,
     };
   });
 
@@ -919,6 +933,12 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
     if (src.shape !== 'ladder' || !src.textures) continue;
     Object.assign(src, { solid: false, transparent: true, lightFilter: 0, ladder: { base: src.num, facing: 0 } });
     for (let facing = 1; facing < 4; facing++) defs.push({ ...src, num: defs.length, id: `${src.id}@${DOOR_FACING[facing]}`, internal: true, drops: src.drops ?? src.id, ladder: { base: src.num, facing } });
+  }
+
+  // 눈 층·피뢰침 (2026-11-17): 정해진 모양 상자. 눈 층은 지나가고(발이 살짝 묻힌다) 놓을 때 덮어쓴다. 피뢰침은 가운데 기둥에만 부딪힌다
+  for (const src of defs) {
+    if (src.shape === 'layer') Object.assign(src, { solid: false, transparent: true, lightFilter: 0, box: [LAYER_BOX], replaceable: true });
+    else if (src.shape === 'rod') Object.assign(src, { solid: false, transparent: true, lightFilter: 0, box: ROD_BOXES });
   }
 
   if (defs.length > 65535) problems.push(`블록이 너무 많아요 (최대 65535개)`);

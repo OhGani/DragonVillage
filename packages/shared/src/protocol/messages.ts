@@ -635,7 +635,7 @@ export type ServerJson =
   /** 날씨 (2026-11-17): 들어올 때·세계를 옮길 때·바뀔 때 그 세계 사람들에게. fall = 이곳에 내리는 것 (rain·snow·dry·none). quiet = 알림 없이 (들어올 때), slept = 모두 자서 갰다 */
   | { t: 'weather'; kind: WeatherKind; fall: WeatherFall; quiet?: boolean; slept?: boolean }
   /** 번개가 떨어졌다 (뇌우): 그 세계 모두에게. (x, y, z) = 맞은 블록 위 칸 바닥 가운데 */
-  | { t: 'lightning'; x: number; y: number; z: number }
+  | { t: 'lightning'; x: number; y: number; z: number; rod?: boolean }
   /** 마을 방어전 상태 1Hz (M7-5). null = 끝났다/없다 */
   | { t: 'raid'; raid: RaidStateInfo | null }
   /** 누가 빔을 쐈다 (같은 세계 모두, 본인 포함) (M6-5). from 은 드래곤 입 근처, dir 은 단위 벡터 */

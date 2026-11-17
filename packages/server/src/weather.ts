@@ -3,7 +3,7 @@
  * 언제 바뀌고 번개가 언제 치는지는 시드·차례로 정한다 (shared/rules/weather.ts). 방(VillageRoom)이 매 틱 step 을 부르고
  * 바뀌면 그 세계에 { t: 'weather' } 를 보낸다.
  */
-import { firstClearMs, isRaining, isStorming, lightningGapMs, nextWeather, type WeatherCycle, type WeatherFall, type WeatherKind, type WeatherRules } from '@dragon-village/shared';
+import { firstClearMs, isRaining, isStorming, joinWeather, lightningGapMs, nextWeather, type WeatherCycle, type WeatherFall, type WeatherKind, type WeatherRules } from '@dragon-village/shared';
 
 /** 모두 잠든 지 이만큼 지나면 비가 그친다 (마인크래프트: 비 오는 중에 자고 일어나면 갠다) */
 export const SLEEP_CLEARS_MS = 3000;
@@ -43,6 +43,14 @@ export class WeatherClock {
     this.until = now + ms;
     this.sleptSince = 0;
     if (kind === 'thunder') this.nextBoltAt = now + lightningGapMs(this.rules, this.seed, ++this.boltN);
+  }
+
+  /** 들어올 때 새로 뽑기 (joinWeights). 뽑았으면 true */
+  reroll(seed: number, now: number): boolean {
+    const w = joinWeather(this.cycle, seed);
+    if (!w) return false;
+    this.set(w.kind, w.ms, now);
+    return true;
   }
 
   /** 맑게 — 다음 맑음 길이만큼 */

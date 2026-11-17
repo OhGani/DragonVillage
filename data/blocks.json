@@ -2597,6 +2597,27 @@
       "lightEmit": 0,
       "texture": "cracked_stone_bricks",
       "_note": "고대성 — 무너져 가는 벽 (2026-11-06)"
+    },
+    {
+      "id": "snow_layer",
+      "name": "눈 층",
+      "hardness": 0.1,
+      "tool": "shovel",
+      "lightEmit": 0,
+      "shape": "layer",
+      "texture": "snow",
+      "drops": "snowball",
+      "_note": "눈 층 (2026-11-17, 날씨): 설원에 눈이 오면 땅 위에 얇게 쌓여요. 밟고 지나갈 수 있고, 그 칸에 블록을 놓으면 덮어써요. 부수면 눈덩이"
+    },
+    {
+      "id": "lightning_rod",
+      "name": "피뢰침",
+      "hardness": 3,
+      "tool": "pickaxe",
+      "lightEmit": 0,
+      "shape": "rod",
+      "texture": "lightning_rod",
+      "_note": "피뢰침 (2026-11-17, 날씨): 뇌우 때 둘레(weather.json lightning.rodRange)에 떨어질 번개를 자기에게 끌어와요. 주변 사람·몹은 번개를 안 맞아요. 하늘이 트여 있어야 해요"
     }
   ]
 }

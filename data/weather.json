@@ -4,7 +4,9 @@
     "_comment": "우리 마을. 맑음이 15~40분 가다가 비가 5~10분",
     "clearMinutes": [15, 40],
     "rainMinutes": [5, 10],
-    "thunderChance": 0.25
+    "thunderChance": 0.25,
+    "joinWeights": { "clear": 50, "rain": 35, "thunder": 15 },
+    "_joinWeights": "아무도 없는 마을에 처음 들어올 때 날씨를 새로 뽑는다 — 이 비율로 (맑음 50 : 비 35 : 뇌우 15). 친구가 뒤따라 들어올 땐 안 바뀐다"
   },
   "expedition": {
     "_comment": "원정지. 15분 원정이라 더 자주 바뀐다. 원정은 언제나 맑음으로 시작",
@@ -38,7 +40,14 @@
     "everySeconds": [10, 30],
     "range": 40,
     "radius": 3,
-    "damage": 5
+    "damage": 5,
+    "rodRange": 128,
+    "_rodRange": "피뢰침이 이 칸 안에 떨어질 번개를 자기에게 끌어온다 (마인크래프트 128). 피뢰침에 떨어진 번개는 아무도 안 다친다"
+  },
+  "snow": {
+    "_comment": "눈이 오는 곳(설원)에서 사람 둘레 range 칸 안 땅 위에 1초에 layersPerSecond 칸씩 눈 층이 쌓인다",
+    "layersPerSecond": 4,
+    "range": 24
   },
   "fishWait": 0.75,
   "_fishWait": "비 맞는 물에서 낚시하면 기다리는 시간에 곱한다 (0.75 = 4분의 3)",

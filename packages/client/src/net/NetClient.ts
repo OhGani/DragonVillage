@@ -223,7 +223,7 @@ export interface NetEvents {
   /** 날씨 (2026-11-17): 들어올 때·바뀔 때 */
   onWeather(m: { kind: WeatherKind; fall: WeatherFall; quiet?: boolean; slept?: boolean }): void;
   /** 번개가 떨어졌다 */
-  onLightning(m: { x: number; y: number; z: number }): void;
+  onLightning(m: { x: number; y: number; z: number; rod?: boolean }): void;
   onDismount(idx: number): void;
 }
 

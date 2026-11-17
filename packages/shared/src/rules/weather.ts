@@ -20,6 +20,7 @@ const Cycle = z
     clearMinutes: Range,
     rainMinutes: Range,
     thunderChance: z.number().min(0, '0 이상이어야 해요').max(1, '1까지예요'),
+    joinWeights: z.object({ clear: z.number().min(0), rain: z.number().min(0), thunder: z.number().min(0) }).optional(),
   })
   .loose();
 const WeatherFile = z
@@ -34,8 +35,16 @@ const WeatherFile = z
         range: z.number().min(4, '4칸 이상이어야 해요').max(96, '96칸까지예요'),
         radius: z.number().min(0.5).max(8, '8칸까지예요'),
         damage: z.number().min(0).max(40, '40까지예요'),
+        rodRange: z.number().min(0).max(256, '256칸까지예요').optional(),
       })
       .loose(),
+    snow: z
+      .object({
+        layersPerSecond: z.number().min(0).max(40, '40까지예요'),
+        range: z.number().min(4, '4칸 이상이어야 해요').max(64, '64칸까지예요'),
+      })
+      .loose()
+      .optional(),
     fishWait: z.number().min(0.1, '0.1 이상이어야 해요').max(1, '1까지예요'),
     rainHurts: z.array(z.string()),
   })
@@ -45,6 +54,8 @@ export interface WeatherCycle {
   readonly clearMs: readonly [number, number];
   readonly rainMs: readonly [number, number];
   readonly thunderChance: number;
+  /** 아무도 없는 곳에 처음 들어올 때 날씨를 뽑는 비율 (없으면 안 뽑고 그대로) */
+  readonly joinWeights: { readonly clear: number; readonly rain: number; readonly thunder: number } | null;
 }
 export interface WeatherRules {
   readonly village: WeatherCycle;
@@ -52,7 +63,9 @@ export interface WeatherRules {
   /** 곳(village 또는 원정지 id) → 내리는 것. 없으면 rain */
   readonly places: ReadonlyMap<string, WeatherFall>;
   readonly skyLight: { readonly rain: number; readonly thunder: number };
-  readonly lightning: { readonly everyMs: readonly [number, number]; readonly range: number; readonly radius: number; readonly damage: number };
+  readonly lightning: { readonly everyMs: readonly [number, number]; readonly range: number; readonly radius: number; readonly damage: number; readonly rodRange: number };
+  /** 눈 쌓임 (2026-11-17): 1초에 몇 칸·사람 둘레 몇 칸 */
+  readonly snow: { readonly layersPerSecond: number; readonly range: number };
   readonly fishWait: number;
   readonly rainHurts: ReadonlySet<string>;
 }
@@ -81,13 +94,15 @@ export function parseWeather(raw: unknown, fileName = 'data/weather.json'): Weat
     clearMs: [c.clearMinutes[0] * 60_000, c.clearMinutes[1] * 60_000],
     rainMs: [c.rainMinutes[0] * 60_000, c.rainMinutes[1] * 60_000],
     thunderChance: c.thunderChance,
+    joinWeights: c.joinWeights && c.joinWeights.clear + c.joinWeights.rain + c.joinWeights.thunder > 0 ? { ...c.joinWeights } : null,
   });
   return {
     village: cycle(d.village),
     expedition: cycle(d.expedition),
     places,
     skyLight: { rain: d.skyLight.rain, thunder: d.skyLight.thunder },
-    lightning: { everyMs: [d.lightning.everySeconds[0] * 1000, d.lightning.everySeconds[1] * 1000], range: d.lightning.range, radius: d.lightning.radius, damage: d.lightning.damage },
+    lightning: { everyMs: [d.lightning.everySeconds[0] * 1000, d.lightning.everySeconds[1] * 1000], range: d.lightning.range, radius: d.lightning.radius, damage: d.lightning.damage, rodRange: d.lightning.rodRange ?? 128 },
+    snow: { layersPerSecond: d.snow?.layersPerSecond ?? 4, range: d.snow?.range ?? 24 },
     fishWait: d.fishWait,
     rainHurts: new Set(d.rainHurts),
   };
@@ -103,6 +118,19 @@ export function nextWeather(cycle: WeatherCycle, cur: WeatherKind, seed: number,
   const pick = (r: readonly [number, number], salt: number) => Math.round(r[0] + hash3(n, salt, 31, seed) * (r[1] - r[0]));
   if (cur !== 'clear') return { kind: 'clear', ms: pick(cycle.clearMs, 1) };
   return { kind: hash3(n, 2, 31, seed) < cycle.thunderChance ? 'thunder' : 'rain', ms: pick(cycle.rainMs, 3) };
+}
+
+/**
+ * 들어올 때 새로 뽑는 날씨 (아빠 2026-11-17 "게임 접속하면 날씨 랜덤하게 변경"): joinWeights 비율로 맑음·비·뇌우, 길이는 그 날씨의 범위에서.
+ * joinWeights 가 없으면 null
+ */
+export function joinWeather(cycle: WeatherCycle, seed: number): { kind: WeatherKind; ms: number } | null {
+  const w = cycle.joinWeights;
+  if (!w) return null;
+  let r = hash3(9, 4, 31, seed) * (w.clear + w.rain + w.thunder);
+  const kind: WeatherKind = (r -= w.clear) < 0 ? 'clear' : (r -= w.rain) < 0 ? 'rain' : 'thunder';
+  const range = kind === 'clear' ? cycle.clearMs : cycle.rainMs;
+  return { kind, ms: Math.round(range[0] + hash3(9, 5, 31, seed) * (range[1] - range[0])) };
 }
 
 /** 처음 맑음이 가는 시간 (마을은 처음부터 맑음, 원정도 맑음으로 시작) */

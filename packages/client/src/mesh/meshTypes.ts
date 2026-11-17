@@ -47,6 +47,8 @@ export interface MeshBlockInfo {
   trap?: number | null;
   /** 사다리(#299): 붙은 벽의 방향 0~3 (벽 쪽 1/16 판). 아니면 null */
   ladder?: number | null;
+  /** 정해진 모양 상자 (눈 층·피뢰침, 2026-11-17). 아니면 null */
+  box?: readonly (readonly number[])[] | null;
   /** 철도(#237): 바닥에 누운 판 한 장. RAIL_DIRS 번호(0 ns 1 ew 2 ne 3 nw 4 se 5 sw), 철도가 아니면 null */
   rail: number | null;
   /** 이어지는 그림(유리, 2026-11-09): 면 둘레 이웃 8비트 → 레이어 표 (connected.ts). 아니면 null */

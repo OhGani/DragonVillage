@@ -99,7 +99,13 @@
         <button class="plain small" data-weather="rain">🌧️ 비 5분</button>
         <button class="plain small" data-weather="thunder">⛈️ 뇌우 5분</button>
       </div>
-      <div class="muted" style="margin-top:4px">확인용이에요. 5분 뒤에는 원래대로 저절로 바뀌어요.</div>
+      <div class="row" style="margin-top:10px"><b>원정 날씨</b> <span id="opsExpWeather" class="muted"></span></div>
+      <div class="row" style="margin-top:6px" id="opsExpButtons">
+        <button class="plain small" data-weather="clear" data-world="expedition">☀️ 맑게</button>
+        <button class="plain small" data-weather="rain" data-world="expedition">🌧️ 비·눈 5분</button>
+        <button class="plain small" data-weather="thunder" data-world="expedition">⛈️ 뇌우 5분</button>
+      </div>
+      <div class="muted" style="margin-top:4px">확인용이에요. 5분 뒤에는 원래대로 저절로 바뀌어요. 원정 날씨는 원정이 열려 있을 때만 (설원은 비 대신 눈이 쌓여요).</div>
       <div id="opsErr" class="err"></div>
       <h2 style="margin-top:12px">최근 접속 기록</h2>
       <ul id="opsAccess" class="muted" style="font-size:13px; max-height: 220px; overflow:auto"></ul>
@@ -347,6 +353,9 @@
       $('#opsStatus').textContent = `서버 켜진 시각 ${o.startedAt}` + (o.village ? ` · 마을 "${o.village.name}" 지금 ${o.village.players}명` : '');
       $('#opsCode').textContent = o.village ? o.village.code : '------';
       const w = o.village && o.village.weather;
+      const ew = o.village && o.village.expeditionWeather;
+      $('#opsExpWeather').textContent = ew ? `${ew.place} · ${{ clear: '☀️ 맑음', rain: ew.fall === 'snow' ? '🌨️ 눈' : '🌧️ 비', thunder: '⛈️ 뇌우' }[ew.kind] || ew.kind} · ${Math.max(1, Math.round(ew.untilMs / 60000))}분 뒤 바뀜` : '(날씨 있는 원정이 없음)';
+      $('#opsExpButtons').hidden = !ew;
       $('#opsWeather').textContent = w ? `${{ clear: '☀️ 맑음', rain: '🌧️ 비', thunder: '⛈️ 뇌우' }[w.kind] || w.kind} · ${Math.max(1, Math.round(w.untilMs / 60000))}분 뒤 바뀜` : '(아직 아무도 안 들어옴)';
       const ul = $('#opsAccess');
       ul.innerHTML = '';
@@ -356,7 +365,7 @@
   }
   for (const b of document.querySelectorAll('[data-weather]')) b.onclick = async () => {
     $('#opsErr').textContent = '';
-    try { await api('weather', { kind: b.dataset.weather, minutes: 5 }); refreshOps(); }
+    try { await api('weather', { kind: b.dataset.weather, minutes: 5, world: b.dataset.world || 'village' }); refreshOps(); }
     catch (e) { $('#opsErr').textContent = e.message; }
   };
   $('#opsChangeCode').onclick = async () => {
