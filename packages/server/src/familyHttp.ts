@@ -236,8 +236,8 @@ export async function handleFamilyHttp(req: IncomingMessage, res: ServerResponse
       const home = extras.rooms.get(extras.homeCode());
       const where = body.world === 'expedition' ? 'expedition' : 'village';
       if (where === 'expedition' && !home?.weatherNow('expedition')) return json(res, 404, { error: 'NO_EXPEDITION', message: '날씨가 있는 원정이 지금 없어요 (동굴·네더·엔드는 날씨가 없어요)' }), true;
-      if (!home || !home.setWeather(kind, minutes, where)) return json(res, 404, { error: 'NO_VILLAGE', message: '마을이 아직 안 열렸어요 — 누가 한 번 들어온 뒤에 해 주세요' }), true;
-      extras.ops.note(`${where === 'village' ? '마을' : '원정'} 날씨 → ${kind} ${minutes}분 (부모 페이지)`);
+      if (!home || !home.setWeather(kind, minutes, where, Date.now(), body.snow === true)) return json(res, 404, { error: 'NO_VILLAGE', message: '마을이 아직 안 열렸어요 — 누가 한 번 들어온 뒤에 해 주세요' }), true;
+      extras.ops.note(`${where === 'village' ? '마을' : '원정'} 날씨 → ${kind}${body.snow === true ? '(눈)' : ''} ${minutes}분 (부모 페이지)`);
       return json(res, 200, { ok: true, weather: home.weatherNow() }), true;
     }
     default:

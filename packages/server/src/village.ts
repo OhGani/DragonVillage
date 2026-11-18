@@ -440,6 +440,11 @@ export interface RoomOptions {
   gifts?: readonly GiftDef[];
   /** 원정 시드 (테스트에서 고정) */
   seedFn?: () => number;
+  /**
+   * 처음 날씨를 뽑는 시드 (마을에 처음 들어올 때·원정 시작, #308·2026-11-18). null 이면 안 뽑고 맑음으로 시작.
+   * 없으면: 진짜 서버(seedFn 없음)는 무작위, 시험 룸(seedFn 고정)은 null — 시험이 날씨 운에 따라 갈리지 않게
+   */
+  weatherRoll?: (() => number) | null;
 }
 
 /** 제작대·화로·양조기를 이 거리(칸) 안에서 찾는다 */
@@ -469,6 +474,9 @@ export class VillageRoom {
   private villageWeather: WeatherClock | null = null;
   private expeditionWeather: WeatherClock | null = null;
   private lastSnowVillage = 0;
+  /** 녹일 마을 눈 층 (null = 아직 안 훑음, [] = 다 녹음) */
+  private meltList: [number, number, number][] | null = null;
+  private lastMeltAt = 0;
   private lastSnowExp = 0;
   private snowN = 0;
   private readonly expeditions: ExpeditionRegistry;
@@ -478,6 +486,7 @@ export class VillageRoom {
   private readonly starterKit: StarterKit | null;
   private readonly gifts: readonly GiftDef[];
   private readonly seedFn: () => number;
+  private readonly weatherRoll: (() => number) | null;
   /** 통계 */
   stats = { blockChanges: 0, rejected: 0, flushes: 0, chunksSaved: 0, expeditions: 0 };
 
@@ -495,6 +504,7 @@ export class VillageRoom {
     this.starterKit = opts.starterKit === undefined ? STARTER_KIT : opts.starterKit;
     this.gifts = opts.gifts ?? GIFTS;
     this.seedFn = opts.seedFn ?? (() => randomInt(1, 2 ** 31 - 1));
+    this.weatherRoll = opts.weatherRoll !== undefined ? opts.weatherRoll : opts.seedFn ? null : () => randomInt(0, 0x7fffffff);
     const gen = generateVillage(registry, info.seed);
     this.world = gen.world;
     this.spawn = gen.spawn;
@@ -3797,7 +3807,8 @@ export class VillageRoom {
       this.stats.expeditions++;
       this.lastTimerAt = 0;
       const fall = fallOf(WEATHER, def.id);
-      this.expeditionWeather = hasWeather(fall) ? new WeatherClock(WEATHER, WEATHER.expedition, fall, e.seed ^ 0x5eed, now) : null; // 원정은 맑음으로 시작
+      this.expeditionWeather = hasWeather(fall) ? new WeatherClock(WEATHER, WEATHER.expedition, fall, e.seed ^ 0x5eed, now) : null;
+      if (this.weatherRoll) this.expeditionWeather?.reroll(this.weatherRoll(), now); // 시작 날씨도 뽑는다 (아빠 2026-11-18 "원정에서도 날씨") — 맑음으로만 시작하면 15분 안에 거의 못 본다
       this.log(`마을 ${this.info.code}: 원정 "${def.name}" 시작 (시드 ${e.seed}, 세계 생성 ${e.genMs.toFixed(0)}ms), ${p.nick} 출발`);
     }
     this.moveToExpedition(p, e, now);
@@ -3850,7 +3861,7 @@ export class VillageRoom {
     };
     p.fallPeak = null; // 포탈을 지나는 건 떨어진 게 아니다
     this.sendJson(p, { t: 'worldEnter', kind: 'expedition', expedition: info, spawn: me, players: others, chunkCount: e.modifiedCount });
-    this.sendWeather(p, 'expedition', now);
+    this.sendWeather(p, 'expedition', now, true); // 비·눈·뇌우면 도착하자마자 알림
     this.sendJson(p, { t: 'orbs', list: this.orbsIn('expedition') });
     this.sendClouds(p, 'expedition', now);
     for (const c of e.modifiedChunks()) {
@@ -3993,7 +4004,7 @@ export class VillageRoom {
   private rollWeather(now: number): void {
     this.ensureVillageWeather(now);
     const w = this.villageWeather;
-    if (w?.reroll(randomInt(0, 0x7fffffff), now)) this.log(`마을 ${this.info.code}: 들어와서 날씨 새로 뽑음 → ${w.kind}`);
+    if (w && this.weatherRoll && w.reroll(this.weatherRoll(), now)) this.log(`마을 ${this.info.code}: 들어와서 날씨 새로 뽑음 → ${w.kind}`);
   }
 
   private ensureVillageWeather(now: number): void {
@@ -4010,11 +4021,11 @@ export class VillageRoom {
   }
 
   /** 마을 날씨를 바꾼다 (부모 페이지 🛠 카드·테스트): minutes 동안. 그 뒤엔 원래대로 돈다 */
-  setWeather(kind: WeatherKind, minutes: number, world: WorldKind = 'village', now = Date.now()): boolean {
+  setWeather(kind: WeatherKind, minutes: number, world: WorldKind = 'village', now = Date.now(), snow = false): boolean {
     if (world === 'village') this.ensureVillageWeather(now);
     const w = this.weatherOf(world);
     if (!w) return false;
-    w.set(kind, Math.max(1, minutes) * 60_000, now);
+    w.set(kind, Math.max(1, minutes) * 60_000, now, snow && kind !== 'clear' ? 'snow' : w.baseFall); // 🌨️ 눈 버튼 (2026-11-18): 그 동안은 비 대신 눈
     this.broadcastJson(w.message(), -1, world);
     this.log(`마을 ${this.info.code}: ${world === 'village' ? '마을' : '원정'} 날씨 → ${kind} (${minutes}분, 손으로)`);
     return true;
@@ -4150,7 +4161,12 @@ export class VillageRoom {
    * 하늘이 트인 땅 위에 눈 층. 한 겹만 (자바 에디션처럼)
    */
   private tickSnow(world: WorldKind, w: WeatherClock, now: number): void {
-    if (w.fall !== 'snow' || w.kind === 'clear') return;
+    const snowing = w.fall === 'snow' && w.kind !== 'clear';
+    if (world === 'village') {
+      if (snowing) this.meltList = null; // 그치면 다시 찾아 녹인다
+      else this.tickMelt(now);
+    }
+    if (!snowing) return;
     const S = WEATHER.snow;
     if (S.layersPerSecond <= 0) return;
     const gap = 1000 / S.layersPerSecond;
@@ -4176,6 +4192,45 @@ export class VillageRoom {
       if (y < 0 || y + 1 >= vw.sizeY || !this.snowCanSit(vw, x, y, z)) continue;
       if (world === 'village' && this.isProtected(x, y + 1, z)) continue; // 마을 건물 자리는 그대로
       this.setWorldBlock(world, x, y + 1, z, layer.id);
+    }
+  }
+
+  /**
+   * 마을 눈 녹기 (2026-11-18): 눈이 그치면 하늘이 트인 눈 층을 1초에 snow.meltPerSecond 개씩 없앤다 (드롭 없음).
+   * 눈 층은 바뀐 청크에만 있으니 거기만 한 번 훑어 목록을 만든다 — 서버를 다시 켠 뒤 남은 눈도 이렇게 녹는다. 원정지 눈은 안 녹는다
+   */
+  private tickMelt(now: number): void {
+    const rate = WEATHER.snow.meltPerSecond;
+    if (rate <= 0 || (this.meltList && this.meltList.length === 0)) return;
+    if (!this.meltList) {
+      const snowNum = this.registry.find('snow_layer')?.num;
+      const list: [number, number, number][] = [];
+      if (snowNum !== undefined)
+        for (const c of this.modified.values()) {
+          const chunk = this.world.getChunk(c.cx, c.cy, c.cz);
+          const pi = chunk ? chunk.palette.indexOf(snowNum) : -1;
+          if (!chunk || pi < 0) continue;
+          for (let i = 0; i < chunk.data.length; i++) {
+            if (chunk.data[i] !== pi) continue;
+            const x = c.cx * 16 + (i & 15),
+              y = c.cy * 16 + (i >> 8),
+              z = c.cz * 16 + ((i >> 4) & 15);
+            if (this.skyOpenAt('village', x, y, z)) list.push([x, y, z]); // 지붕 밑에 손으로 놓은 눈 층은 그대로
+          }
+        }
+      list.sort((a, b) => hash3(a[0], a[1], a[2], 91) - hash3(b[0], b[1], b[2], 91)); // 군데군데 녹게 섞는다
+      this.meltList = list;
+      this.lastMeltAt = now;
+      return;
+    }
+    const gap = 1000 / rate;
+    let n = Math.min(32, Math.floor((now - this.lastMeltAt) / gap));
+    if (n <= 0) return;
+    this.lastMeltAt += n * gap;
+    const snowNum = this.registry.find('snow_layer')?.num;
+    while (n-- > 0 && this.meltList.length) {
+      const [x, y, z] = this.meltList.pop()!;
+      if (this.world.getBlock(x, y, z) === snowNum) this.setWorldBlock('village', x, y, z, 'air');
     }
   }
 

@@ -6,13 +6,17 @@
     "rainMinutes": [5, 10],
     "thunderChance": 0.25,
     "joinWeights": { "clear": 50, "rain": 35, "thunder": 15 },
-    "_joinWeights": "아무도 없는 마을에 처음 들어올 때 날씨를 새로 뽑는다 — 이 비율로 (맑음 50 : 비 35 : 뇌우 15). 친구가 뒤따라 들어올 땐 안 바뀐다"
+    "_joinWeights": "아무도 없는 마을에 처음 들어올 때 날씨를 새로 뽑는다 — 이 비율로 (맑음 50 : 비 35 : 뇌우 15). 친구가 뒤따라 들어올 땐 안 바뀐다",
+    "snowChance": 0.3,
+    "_snowChance": "마을에 비가 올 때 이만큼은 비 대신 눈 (0.3 = 열 번에 세 번). 눈이 그치면 쌓인 눈은 천천히 녹는다"
   },
   "expedition": {
-    "_comment": "원정지. 15분 원정이라 더 자주 바뀐다. 원정은 언제나 맑음으로 시작",
+    "_comment": "원정지. 15분 원정이라 더 자주 바뀐다",
     "clearMinutes": [3, 10],
     "rainMinutes": [2, 5],
-    "thunderChance": 0.3
+    "thunderChance": 0.3,
+    "joinWeights": { "clear": 40, "rain": 40, "thunder": 20 },
+    "_joinWeights": "원정을 시작할 때 날씨를 뽑는 비율 (맑음 40 : 비 40 : 뇌우 20). 설원은 비 대신 눈, 사막은 흐림만"
   },
   "places": {
     "_comment": "곳마다 내리는 것: rain 비 · snow 눈 · dry 하늘만 흐림(사막) · none 날씨 없음(동굴·네더·엔드). 안 적은 곳은 rain",
@@ -47,7 +51,9 @@
   "snow": {
     "_comment": "눈이 오는 곳(설원)에서 사람 둘레 range 칸 안 땅 위에 1초에 layersPerSecond 칸씩 눈 층이 쌓인다",
     "layersPerSecond": 4,
-    "range": 24
+    "range": 24,
+    "meltPerSecond": 6,
+    "_meltPerSecond": "마을에서 눈이 그치면 쌓인 눈 층이 1초에 이만큼씩 녹아 없어진다 (원정지 눈은 안 녹는다)"
   },
   "fishWait": 0.75,
   "_fishWait": "비 맞는 물에서 낚시하면 기다리는 시간에 곱한다 (0.75 = 4분의 3)",

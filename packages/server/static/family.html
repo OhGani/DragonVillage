@@ -97,6 +97,7 @@
       <div class="row" style="margin-top:6px">
         <button class="plain small" data-weather="clear">☀️ 맑게</button>
         <button class="plain small" data-weather="rain">🌧️ 비 5분</button>
+        <button class="plain small" data-weather="rain" data-snow="1">🌨️ 눈 5분</button>
         <button class="plain small" data-weather="thunder">⛈️ 뇌우 5분</button>
       </div>
       <div class="row" style="margin-top:10px"><b>원정 날씨</b> <span id="opsExpWeather" class="muted"></span></div>
@@ -105,7 +106,7 @@
         <button class="plain small" data-weather="rain" data-world="expedition">🌧️ 비·눈 5분</button>
         <button class="plain small" data-weather="thunder" data-world="expedition">⛈️ 뇌우 5분</button>
       </div>
-      <div class="muted" style="margin-top:4px">확인용이에요. 5분 뒤에는 원래대로 저절로 바뀌어요. 원정 날씨는 원정이 열려 있을 때만 (설원은 비 대신 눈이 쌓여요).</div>
+      <div class="muted" style="margin-top:4px">확인용이에요. 5분 뒤에는 원래대로 저절로 바뀌어요. 마을 눈은 그치면 천천히 녹아요. 원정 날씨는 원정이 열려 있을 때만 (설원은 비 대신 눈이 쌓여요).</div>
       <div id="opsErr" class="err"></div>
       <h2 style="margin-top:12px">최근 접속 기록</h2>
       <ul id="opsAccess" class="muted" style="font-size:13px; max-height: 220px; overflow:auto"></ul>
@@ -356,7 +357,7 @@
       const ew = o.village && o.village.expeditionWeather;
       $('#opsExpWeather').textContent = ew ? `${ew.place} · ${{ clear: '☀️ 맑음', rain: ew.fall === 'snow' ? '🌨️ 눈' : '🌧️ 비', thunder: '⛈️ 뇌우' }[ew.kind] || ew.kind} · ${Math.max(1, Math.round(ew.untilMs / 60000))}분 뒤 바뀜` : '(날씨 있는 원정이 없음)';
       $('#opsExpButtons').hidden = !ew;
-      $('#opsWeather').textContent = w ? `${{ clear: '☀️ 맑음', rain: '🌧️ 비', thunder: '⛈️ 뇌우' }[w.kind] || w.kind} · ${Math.max(1, Math.round(w.untilMs / 60000))}분 뒤 바뀜` : '(아직 아무도 안 들어옴)';
+      $('#opsWeather').textContent = w ? `${{ clear: '☀️ 맑음', rain: w.fall === 'snow' ? '🌨️ 눈' : '🌧️ 비', thunder: '⛈️ 뇌우' }[w.kind] || w.kind} · ${Math.max(1, Math.round(w.untilMs / 60000))}분 뒤 바뀜` : '(아직 아무도 안 들어옴)';
       const ul = $('#opsAccess');
       ul.innerHTML = '';
       for (const line of [...o.access].reverse()) { const li = document.createElement('li'); li.textContent = line; ul.appendChild(li); }
@@ -365,7 +366,7 @@
   }
   for (const b of document.querySelectorAll('[data-weather]')) b.onclick = async () => {
     $('#opsErr').textContent = '';
-    try { await api('weather', { kind: b.dataset.weather, minutes: 5, world: b.dataset.world || 'village' }); refreshOps(); }
+    try { await api('weather', { kind: b.dataset.weather, minutes: 5, world: b.dataset.world || 'village', snow: b.dataset.snow === '1' }); refreshOps(); }
     catch (e) { $('#opsErr').textContent = e.message; }
   };
   $('#opsChangeCode').onclick = async () => {

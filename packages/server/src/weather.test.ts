@@ -8,15 +8,16 @@ import { SLEEP_CLEARS_MS, WeatherClock } from './weather';
 
 const INFO = { code: '123456', name: '테스트 마을', seed: DEFAULT_VILLAGE_SEED, genVersion: VILLAGE_GEN_VERSION };
 const T0 = 97_000_000;
-const makeRoom = () => new VillageRoom({ ...INFO }, BLOCKS, new Storage(':memory:'), () => {}, { seedFn: () => 5, starterKit: null, gifts: [] });
+const makeRoom = (weatherRoll: (() => number) | null = null) => new VillageRoom({ ...INFO }, BLOCKS, new Storage(':memory:'), () => {}, { seedFn: () => 5, starterKit: null, gifts: [], weatherRoll });
 const inbox = () => {
   const json: { t: string; [k: string]: unknown }[] = [];
   return { json, send: (d: Uint8Array | string) => (typeof d === 'string' ? json.push(JSON.parse(d)) : 0) };
 };
 
 describe('날씨 (2026-11-17, 나무위키 마인크래프트/날씨)', () => {
-  it('들어오면 지금 날씨를 조용히 받고, 바뀌면 마을 사람 모두에게 알린다', () => {
-    const room = makeRoom();
+  it('들어오면 지금 날씨를 받고(비·뇌우면 알림), 바뀌면 마을 사람 모두에게 알린다', () => {
+    let k = 0;
+    const room = makeRoom(() => ++k * 7919);
     const a = inbox();
     room.join('a'.repeat(32), '아빠', 0, a.send);
     const first = a.json.find((m) => m.t === 'weather')!;
@@ -36,7 +37,7 @@ describe('날씨 (2026-11-17, 나무위키 마인크래프트/날씨)', () => {
       expect(w.until - T0).toBeGreaterThanOrEqual(w.kind === 'clear' ? WEATHER.village.clearMs[0] : WEATHER.village.rainMs[0]);
     }
     expect([...seen].sort()).toEqual(['clear', 'rain', 'thunder']);
-    const room = makeRoom();
+    const room = makeRoom(() => 12345);
     const a = inbox(),
       b = inbox();
     room.join('a'.repeat(32), '아빠', 0, a.send);
@@ -205,5 +206,75 @@ describe('눈 층·피뢰침 (2026-11-17)', () => {
     a.json.length = 0;
     for (let i = 0; i < 10; i++) inner.lightning('village', inner.villageWeather!, T0 + 40_000 + i * 1000);
     expect(a.json.filter((m) => m.t === 'lightning' && m.rod)).toHaveLength(0);
+  });
+});
+
+describe('마을 눈·원정 시작 날씨 (2026-11-18)', () => {
+  it('마을 비는 snowChance 만큼 눈으로 오고, 맑아지면 쌓인 눈이 녹는다', () => {
+    const seen = new Set<string>();
+    for (let s = 1; s <= 60; s++) {
+      const w = new WeatherClock(WEATHER, WEATHER.village, 'rain', s, T0);
+      w.step(w.until);
+      if (w.kind !== 'clear') seen.add(w.fall);
+    }
+    expect([...seen].sort()).toEqual(['rain', 'snow']);
+    const exp = new WeatherClock(WEATHER, WEATHER.expedition, 'rain', 3, T0);
+    for (let i = 0; i < 30; i++) exp.step(exp.until);
+    expect(exp.fall).toBe('rain'); // 원정지는 snowChance 가 없다
+    const none = new WeatherClock(WEATHER, WEATHER.village, 'none', 3, T0);
+    none.set('rain', 60_000, T0, 'snow');
+    expect(none.fall).toBe('none'); // 날씨 없는 곳은 눈도 없다
+
+    const room = makeRoom();
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    room.onMove(ra.idx, { x: 120.5, y: GROUND_Y + 1, z: 120.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    expect(room.setWeather('rain', 5, 'village', T0, true)).toBe(true);
+    expect(a.json.at(-1)).toEqual({ t: 'weather', kind: 'rain', fall: 'snow' });
+    const SNOW = BLOCKS.numOf('snow_layer');
+    const count = () => {
+      let n = 0;
+      for (let z = 90; z <= 150; z++) for (let x = 90; x <= 150; x++) for (let y = GROUND_Y; y < GROUND_Y + 30; y++) if (room.world.getBlock(x, y, z) === SNOW) n++;
+      return n;
+    };
+    for (let t = 0; t <= 30_000; t += 250) room.tick(T0 + t);
+    const piled = count();
+    expect(piled).toBeGreaterThan(40);
+    room.setWeather('clear', 30, 'village', T0 + 30_000);
+    for (let t = 30_000; t <= 30_000 + 2_000; t += 250) room.tick(T0 + t);
+    expect(count()).toBeLessThan(piled); // 녹기 시작
+    for (let t = 32_000; t <= 32_000 + Math.ceil(piled / WEATHER.snow.meltPerSecond + 3) * 1000; t += 250) room.tick(T0 + t);
+    expect(count()).toBe(0);
+  });
+
+  it('원정은 시작할 때 날씨를 뽑고, 도착한 사람은 비·뇌우면 알림까지 받는다', () => {
+    // 원정 시작 날씨 뽑기 자체는 시계로 (섬 생성이 느려서 방은 둘만)
+    const rolled = new Set<string>();
+    for (let i = 0; i < 40; i++) {
+      const w = new WeatherClock(WEATHER, WEATHER.expedition, 'rain', 1, T0);
+      w.reroll(i * 104729, T0);
+      rolled.add(w.kind);
+    }
+    expect([...rolled].sort()).toEqual(['clear', 'rain', 'thunder']);
+    const kinds = new Set<string>();
+    for (const roll of [11, 4242]) {
+      const room = makeRoom(() => roll);
+      const a = inbox();
+      const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+      expect(room.startExpedition(ra.idx, 'grass_island', T0)).toBeNull();
+      const w = room.weatherNow('expedition')!;
+      expect(w.place).toBe('초원 섬');
+      kinds.add(w.kind);
+      const msg = a.json.filter((m) => m.t === 'weather').at(-1)!;
+      expect(msg).toMatchObject({ kind: w.kind, fall: 'rain' });
+      expect(msg.quiet === true).toBe(w.kind === 'clear');
+    }
+    expect(kinds.size).toBeGreaterThan(0);
+    // 시험 룸 기본(weatherRoll 없음)은 맑음으로 시작 — 다른 시험이 날씨 운에 갈리지 않게
+    const plain = makeRoom();
+    const pa = inbox();
+    const pr = plain.join('p'.repeat(32), '아빠', 0, pa.send)!;
+    plain.startExpedition(pr.idx, 'grass_island', T0);
+    expect(plain.weatherNow('expedition')?.kind).toBe('clear');
   });
 });
