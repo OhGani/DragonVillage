@@ -26,6 +26,10 @@ describe('부모 비밀번호 다시 정하기 (2026-11-17)', () => {
       expect(family.login('dad@example.com', 'oldpass1', 2000)).toMatchObject({ ok: false, reason: 'BAD_LOGIN' });
       expect(family.login('dad@example.com', 'newpass1', 3000).ok).toBe(true);
       expect(family.login('mom@example.com', 'mompass1', 3000).ok).toBe(true); // 다른 사람은 그대로
+      // 폰 키보드가 붙인 앞뒤 공백은 봐준다 (2026-11-19). 다른 글자는 안 된다
+      expect(family.login(' Dad@Example.com ', 'newpass1 ', 4000).ok).toBe(true);
+      expect(family.login('dad@example.com', ' newpass1', 4000).ok).toBe(true);
+      expect(family.login('dad@example.com', 'Newpass1', 4000).ok).toBe(false);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

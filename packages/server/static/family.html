@@ -47,9 +47,13 @@
   <section id="auth" class="card" hidden>
     <div class="muted">부모만 이메일로 가입해요. 아이는 게임 안에서 가족 코드 + 자기 PIN 으로 연결해요.</div>
     <label>이메일</label>
-    <input id="email" type="email" autocomplete="email" placeholder="dad@example.com" />
+    <input id="email" type="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="dad@example.com" />
     <label>비밀번호 (6글자 이상)</label>
-    <input id="pw" type="password" autocomplete="current-password" />
+    <div class="row" style="flex-wrap: nowrap">
+      <input id="pw" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" style="flex: 1" />
+      <button id="pwShow" type="button" class="plain small" aria-label="비밀번호 보기">👁 보기</button>
+    </div>
+    <div class="muted" style="font-size: 13px">폰에서 안 되면 👁 로 친 글자를 확인해 보세요 — 저장된 옛 비밀번호가 자동으로 들어가거나, 키보드가 한글·대문자일 때가 많아요.</div>
     <div class="row">
       <button id="login">로그인</button>
       <button id="signup" class="plain">처음이에요 (가입)</button>
@@ -394,6 +398,13 @@
   $('#signup').onclick = () => submit('signup');
   $('#logout').onclick = async () => { await api('logout', {}); showAuth(); };
   $('#pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit('login'); });
+  // 비밀번호 보기 (2026-11-19, 아빠 "폰에서는 실패해서 PC에서는 되네"): 폰에서 실제로 무엇이 들어갔는지 볼 수 있게
+  $('#pwShow').onclick = () => {
+    const pw = $('#pw');
+    const show = pw.type === 'password';
+    pw.type = show ? 'text' : 'password';
+    $('#pwShow').textContent = show ? '🙈 숨기기' : '👁 보기';
+  };
   $('#ppLink').onclick = async () => {
     $('#ppErr').textContent = '';
     try { await act('linkParent', { nick: $('#ppNick').value, pin: $('#ppPin').value }); $('#ppNick').value = ''; $('#ppPin').value = ''; }

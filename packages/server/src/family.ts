@@ -152,7 +152,9 @@ export class FamilyService {
     const recent = (this.fails.get(email) ?? []).filter((t) => now - t < LOGIN_LOCK_MS);
     if (recent.length >= LOGIN_MAX_TRIES) return { ok: false, reason: 'LOCKED' };
     const row = this.storage.getParentByEmail(email);
-    if (!row || !verifyPassword(password, row.pwHash)) {
+    // 폰 키보드·자동 채우기가 앞뒤에 공백을 붙여도 된다 (2026-11-19 — 서버에서 정한 비밀번호(reset-password.sh)는 앞뒤 공백이 없다)
+    const ok = !!row && (verifyPassword(password, row.pwHash) || (password.trim() !== password && verifyPassword(password.trim(), row.pwHash)));
+    if (!row || !ok) {
       recent.push(now);
       this.fails.set(email, recent);
       return { ok: false, reason: 'BAD_LOGIN' };
