@@ -29,6 +29,8 @@ export class TalkSheet {
     private readonly iconOf: (item: string, size: number) => HTMLCanvasElement | null,
     /** 닫힐 때 (게임 입력을 다시 켜기 위해) */
     private readonly onClose: (mobId: number | null) => void = () => {},
+    /** ⚔️ 결투하기 (2026-11-19, 마을 주민) */
+    private readonly onDuel: (mobId: number) => void = () => {},
   ) {
     this.sheet = document.createElement('div');
     this.sheet.className = 'chat-panel talk-sheet';
@@ -57,8 +59,8 @@ export class TalkSheet {
     return !this.sheet.hidden;
   }
 
-  /** 주민 이름·대화로 연다. trades 를 주면 맨 아래 🛒 거래하기 버튼 (#225) */
-  show(mobId: number, name: string, talk: TalkDef, trades: TradeRules | null = null, emeralds = 0): void {
+  /** 주민 이름·대화로 연다. trades 를 주면 맨 아래 🛒 거래하기 버튼 (#225), canDuel 이면 ⚔️ 결투하기 (2026-11-19) */
+  show(mobId: number, name: string, talk: TalkDef, trades: TradeRules | null = null, emeralds = 0, canDuel = false): void {
     this.mobId = mobId;
     this.name = name;
     this.trades = trades;
@@ -73,6 +75,17 @@ export class TalkSheet {
       b.className = 'chat-phrase';
       b.textContent = r.text;
       b.addEventListener('click', () => this.answer(r));
+      this.list.appendChild(b);
+    }
+    if (canDuel) {
+      const b = document.createElement('button');
+      b.className = 'chat-phrase talk-trade-btn';
+      b.textContent = '⚔️ 결투하기';
+      b.addEventListener('click', () => {
+        const id = this.mobId;
+        this.hide();
+        if (id !== null) this.onDuel(id);
+      });
       this.list.appendChild(b);
     }
     if (trades) {

@@ -212,6 +212,18 @@ const START_ERROR_KO: Record<string, string> = {
 /** 잘못된 마을 코드 시도: 연결당 이 횟수를 넘으면 끊는다 */
 const MAX_BAD_CODES = 5;
 
+/** 주민 결투 오류 (2026-11-19) */
+const DUEL_ERROR_KO: Record<string, string> = {
+  NOT_IN_VILLAGE: '마을 주민하고만 결투해요',
+  NO_MOB: '그 주민이 안 보여요',
+  NOT_VILLAGER: '주민하고만 결투해요',
+  TOO_FAR: '주민 가까이 가서 해요',
+  DUEL_BUSY: '그 주민은 지금 다른 친구와 결투 중이에요',
+  DUEL_TIRED: '그 주민은 숨을 고르는 중이에요 — 1분 뒤에 다시',
+  ALREADY_DUEL: '이미 결투 중이에요',
+  RIDING: '내려서 결투해요',
+};
+
 export class Session {
   token: string | null = null;
   nick: string | null = null;
@@ -489,6 +501,14 @@ export class Session {
         if (!Number.isInteger(msg.id)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
         const err = this.room.useMob(this.idx, msg.id, typeof msg.slot === 'number' ? msg.slot : undefined);
         if (err && err !== 'COOLDOWN') return this.error(err, USE_ERROR_KO[err] ?? '지금은 할 수 없어요');
+        return;
+      }
+      case 'duel': {
+        // 주민과 결투 (2026-11-19)
+        if (!this.room) return;
+        if (!Number.isInteger(msg.id)) return this.error('BAD_MESSAGE', '알 수 없는 메시지예요');
+        const err = this.room.startDuel(this.idx, msg.id);
+        if (err) return this.error(err, DUEL_ERROR_KO[err] ?? '지금은 결투할 수 없어요');
         return;
       }
       case 'talking': {

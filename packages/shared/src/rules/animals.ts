@@ -92,6 +92,29 @@ export const SADDLE = 'saddle';
 export const BLACKSMITH_NAME = '대장장이';
 
 /**
+ * 주민과 결투 (아빠 2026-11-19 "마을 주민을 결투 할수 있게 해줘"): 대화 시트의 ⚔️ 결투하기로 시작하는 친선 경기.
+ * 주민이 나를 쫓아와 때리고, 나는 평소처럼 때린다(이때만 철 골렘이 안 온다). 주민 체력(20)이 0이 되면 내가 이기고(에메랄드·경험치),
+ * 내 하트가 DUEL_LOSE_HP 이하가 될 만큼 맞으면 진다 — 주민도 나도 죽지 않는다. 멀어지거나 시간이 다 되면 무승부.
+ */
+export const DUEL_MS = 90_000;
+/** 주민 한 대 (대장장이는 DUEL_DAMAGE_SMITH) */
+export const DUEL_DAMAGE = 2;
+export const DUEL_DAMAGE_SMITH = 3;
+export const DUEL_ATTACK_MS = 1200;
+export const DUEL_REACH = 1.8;
+/** 쫓아오는 빠르기 (칸/초) */
+export const DUEL_SPEED = 3.2;
+/** 이만큼 넘게 멀어지면 무승부 */
+export const DUEL_RANGE = 16;
+/** 내 체력이 이 아래로 떨어질 한 대면 진다 (하트 2칸 = 4) */
+export const DUEL_LOSE_HP = 4;
+/** 같은 주민과 다시 결투하려면 */
+export const DUEL_COOLDOWN_MS = 60_000;
+/** 이기면 */
+export const DUEL_PRIZE = { item: 'emerald', count: 1, xp: 5 } as const;
+export type DuelResult = 'win' | 'lose' | 'draw';
+
+/**
  * 말마다 다른 달리기·점프 (#219, 아들 14차 8번 "말마다 속도·점프 다르게"): 번호로 정해져 누가 봐도 같다.
  * speed 8~11.5 칸/초(사람 달리기의 1.4~2배), jump 는 사람 점프의 1.0~1.45배. stars 는 1~5 (보여 주기용)
  */

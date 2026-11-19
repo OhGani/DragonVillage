@@ -490,6 +490,8 @@ export type ClientJson =
   | { t: 'trade'; id: number; kind: 'buy' | 'sell'; item: string }
   /** 주민 대화·가게 열림/닫힘 (#233): 열려 있는 동안 주민이 서서 나를 본다 */
   | { t: 'talking'; id: number; on: boolean }
+  /** 주민과 결투 시작 (2026-11-19, 대화 시트 ⚔️) */
+  | { t: 'duel'; id: number }
   /** 손에 든 먹을 것 먹기 (#186): slot = 손에 든 칸. 서버가 하나 빼고 체력을 올린다 */
   | { t: 'eat'; slot: number }
   /** 물약 마시기 (#245): slot 의 마시는 물약 하나 → 효과, 빈 병은 돌아온다 */
@@ -634,6 +636,8 @@ export type ServerJson =
   | { t: 'leash'; list: { id: number; by: number | null; post: [number, number, number] | null }[] }
   /** 날씨 (2026-11-17): 들어올 때·세계를 옮길 때·바뀔 때 그 세계 사람들에게. fall = 이곳에 내리는 것 (rain·snow·dry·none). quiet = 알림 없이 (들어올 때), slept = 모두 자서 갰다 */
   | { t: 'weather'; kind: WeatherKind; fall: WeatherFall; quiet?: boolean; slept?: boolean }
+  /** 주민 결투 (2026-11-19, 그 사람에게만): on = 시작, 끝나면 on false + result (win 이김 · lose 짐 · draw 멀어짐·시간 다 됨) */
+  | { t: 'duel'; id: number; on: boolean; result?: 'win' | 'lose' | 'draw' }
   /** 번개가 떨어졌다 (뇌우): 그 세계 모두에게. (x, y, z) = 맞은 블록 위 칸 바닥 가운데 */
   | { t: 'lightning'; x: number; y: number; z: number; rod?: boolean }
   /** 마을 방어전 상태 1Hz (M7-5). null = 끝났다/없다 */

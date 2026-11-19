@@ -4,8 +4,8 @@
 
 ## 1. 지금 어디까지 왔나
 
-- **코드**: 전부 GitHub `OhGani/DragonVillage` 의 `main` 에 있다. 마지막 커밋 `21438ee` (#312). 안 올린 변경은 없다.
-- **라이브**: Oracle 서버 http://168.110.0.197:5173 도 `21438ee` 로 반영돼 있다 (2026-11-19 08:48 다시 켬, `/health` 정상).
+- **코드**: 전부 GitHub `OhGani/DragonVillage` 의 `main` 에 있다. 기록한 마지막 작업은 #314 (주민 결투). 정확한 마지막 커밋은 `git log -1`.
+- **라이브**: Oracle 서버 http://168.110.0.197:5173 — 2026-11-19 08:48 에 #312 까지 반영. #313·#314 는 푸시 뒤 `update.sh` 를 돌려야 올라간다. 서버에 무엇이 올라갔는지는 서버에서 `cd ~/dragon-village && git log -1`.
 - **시간 제한**: 켜져 있다 (#298, 평일·주말 모두 밤 11시에 닫힘, 부모 플레이어도 아이와 같은 분량).
 - 이 맥에서는 Claude Code 가 git worktree(`.claude/worktrees/git-update-256e3a`, 브랜치 `claude/git-update-256e3a`)에서 작업하고 `git push origin HEAD:main` 으로 올렸다. 새 PC 는 `main` 에서 바로 하면 된다.
 
@@ -20,6 +20,8 @@
 | 310 | 부모 비밀번호 다시 정하는 명령 | `tools/linux/reset-password.sh`, `server/src/resetPassword.ts` |
 | 311 | 마을 비의 30% 는 눈(그치면 녹음), 원정도 시작할 때 날씨 뽑기, 부모 페이지 🌨️ 눈 버튼 | `snowChance`, `VillageRoom.tickMelt`, `RoomOptions.weatherRoll` |
 | 312 | 부모 페이지 폰 로그인 — 👁 비밀번호 보기, 자동 대문자 끔, 앞뒤 공백 봐줌 | `server/static/family.html`, `FamilyService.login` |
+| 313 | 날씨 10분마다 (마을·원정) | `data/weather.json` |
+| 314 | 마을 주민과 결투 — 대화 시트 ⚔️, 이기면 에메랄드 1, 둘 다 안 죽음 | `shared/rules/animals.ts DUEL_*`, `server/src/animals.ts startDuel`, `client/ui/talk.ts` |
 
 자세한 이유는 `docs/DECISIONS.md` 의 같은 번호 줄.
 
@@ -66,6 +68,7 @@ ssh -t -i ~/oracle-key/ssh-key-2026-11-05.key ubuntu@168.110.0.197 'bash ~/drago
 - [ ] 피뢰침을 놓고 ⛈️ 뇌우 → 번개가 피뢰침에 떨어지고 "⚡ 피뢰침이 번개를 받았어요!"
 - [ ] 설원 원정에서 눈 층이 쌓임, 원정이 비·뇌우로 시작할 때 도착 알림
 - [ ] 원정 밤에 탈것을 탄 몹, 방어전 둘째 파도부터 파괴수 기수 (#306)
+- [ ] 마을 주민 탭 → ⚔️ 결투하기 → 이기면 에메랄드, 지면 하트 2칸에서 멈춤 (#314)
 
 ## 5. 다음에 할 만한 것
 

@@ -319,7 +319,10 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       if (id !== null) net.sendTalking(id, false); // 주민이 다시 걷는다 (#233)
       if (started && !hud.overlayVisible && !hud.resultVisible && !anyPanelOpen()) resume();
     },
+    (id) => net.sendDuel(id), // ⚔️ 결투하기 (2026-11-19)
   );
+  /** 지금 결투 중인 주민 (2026-11-19). 이 주민은 탭·휘두르기로 때린다 (대화가 아니라) */
+  let duelWith: number | null = null;
   const openTalk = (id: number) => {
     if (!started || disconnected || hud.resultVisible || anyPanelOpen()) return;
     const name = pets.get(id)?.name ?? VILLAGER_TALK.nameOf(id); // 서버가 준 이름(대장장이) 아니면 번호로
@@ -330,7 +333,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     kbm.enabled = false;
     if (kbm.locked) document.exitPointerLock();
     const job = TRADES.jobFor(id, pets.get(id)?.name ?? null); // 직업별 가게 (#229)
-    talk.show(id, job ? `${name} · ${job.name}` : name, def, TRADES.forVillager(job?.id ?? null, ctx.expedition?.id ?? null), countOf(inv, TRADES.currency)); // 주민은 누구나 가게도 한다 (#225), 원정지엔 그곳 물건이 더 (#228)
+    talk.show(id, job ? `${name} · ${job.name}` : name, def, TRADES.forVillager(job?.id ?? null, ctx.expedition?.id ?? null), countOf(inv, TRADES.currency), ctx.kind === 'village' && duelWith === null); // 주민은 누구나 가게도 한다 (#225), 원정지엔 그곳 물건이 더 (#228), 마을 주민은 결투도 (2026-11-19)
     net.sendTalking(id, true); // 주민이 서서 나를 본다 (#233)
   };
   const petNamer = new PetNamePicker(
@@ -858,6 +861,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     orbView.clear(); // 그 세계의 구슬은 서버가 곧 보내 준다
     mobView.clear();
     weatherView.reset(); // 날씨는 서버가 worldEnter 바로 뒤에 보내 준다
+    duelWith = null; // 결투는 마을을 떠나면 끝 (서버가 무승부로)
     if (w.kind === 'expedition' && w.expedition) {
       hud.toast(`${w.expedition.name}에 도착했어요! 가운데 포탈로 돌아오면 모은 것을 가져가요`, 5000);
     } else {
@@ -1099,6 +1103,23 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         const t = weatherToast(m.kind, m.fall);
         if (t) hud.toast(t, 3500);
       }
+    },
+    onDuel: (m) => {
+      // 주민 결투 (2026-11-19)
+      if (m.on) {
+        duelWith = m.id;
+        roar();
+        hud.toast('⚔️ 결투 시작! 주민 체력을 0으로 만들면 이겨요 · 내 하트가 2칸이 되면 져요', 3500);
+        return;
+      }
+      if (duelWith === m.id) duelWith = null;
+      if (m.result === 'win') {
+        levelUp();
+        hud.toast('🏆 이겼어요! 주민이 에메랄드 1개를 줬어요', 3000);
+      } else if (m.result === 'lose') {
+        lose();
+        hud.toast('🏳️ 졌어요… 주민이 손을 내밀며 웃어요. 1분 뒤에 다시 도전!', 3000);
+      } else hud.toast('🤝 결투가 끝났어요 (멀어졌거나 시간이 다 됐어요)', 2500);
     },
     onLightning: (m) => {
       const t = performance.now();
@@ -2042,15 +2063,26 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     // 검·도끼·곡괭이를 들고 탭 = 휘두르기 (아빠 2026-10-07, #141): 조준 안 해도 앞 범위 안의 몹을 때리고, 블록이면 한 번 캔다(톡톡 치면 깨진다), 아무것도 없으면 허공에
     const heldTool = toolOf(TOOLS, hud.selectedItem);
     const heldPotion = hud.selectedItem ? potionFromItemId(hud.selectedItem) : null; // 물약 (#245): 탭 = 마시기·던지기, 때리기 아님
-    const isVillager = (id: number | null) => id !== null && MOB_KIND_OF[mobView.figureOf(id)?.kind ?? -1] === 'villager';
+    const isVillager = (id: number | null) => id !== null && id !== duelWith && MOB_KIND_OF[mobView.figureOf(id)?.kind ?? -1] === 'villager'; // 결투 중인 주민은 때린다 (2026-11-19)
     const aimedVillager = isVillager(aimedMob); // 원정(사막 마을) 주민도 때리지 않고 말을 건다 (#228)
     // 좀비 주민 (#244): 황금 사과를 들고 탭하면 때리기가 아니라 먹이기
     const aimedCurable = aimedMob !== null && MOB_KIND_OF[mobView.figureOf(aimedMob)?.kind ?? -1] === 'zombie_villager' && hud.selectedItem === CURE_ITEM;
     const aimedCalmable = aimedMob !== null && ctx.kind === 'expedition' && hud.selectedItem !== null && (calmFoods(MOBS.get(MOB_KIND_OF[mobView.figureOf(aimedMob)?.kind ?? -1] ?? 'zombie')).includes(hud.selectedItem) || (hud.selectedItem === 'shears' && MOB_KIND_OF[mobView.figureOf(aimedMob)?.kind ?? -1] === 'bison')); // 들소는 가위로 털 깎기 // 코뿔소에게 밀·아나콘다에게 생 닭고기 (2026-11-06)
     let swingMob: number | null = null;
     if (inp.secondaryTap && heldTool !== null && !bow && !guarding && !anyPanelOpen()) {
-      swingMob = aimedMob !== null && aimedMob < ANIMAL_ID_BASE && !aimedVillager ? aimedMob : aimedMob === null ? mobView.nearestInCone(player.eye, player.lookDir, meleeReach, SWING_CONE_COS, true) : null;
+      swingMob = aimedMob !== null && (aimedMob < ANIMAL_ID_BASE || aimedMob === duelWith) && !aimedVillager ? aimedMob : aimedMob === null ? mobView.nearestInCone(player.eye, player.lookDir, meleeReach, SWING_CONE_COS, true) : null;
       if (isVillager(swingMob)) swingMob = null;
+      if (swingMob === null && aimedMob === null && duelWith !== null) {
+        // 결투 상대가 앞쪽 원뿔 안에 있으면 그 주민을 (동물이라 nearestInCone 에 안 잡힌다)
+        const at = mobView.positionOf(duelWith);
+        if (at) {
+          const dx = at.x - player.eye.x,
+            dy = at.y + 1 - player.eye.y,
+            dz = at.z - player.eye.z;
+          const d = Math.hypot(dx, dy, dz);
+          if (d <= meleeReach + 0.6 && (dx * player.lookDir.x + dy * player.lookDir.y + dz * player.lookDir.z) / (d || 1) >= SWING_CONE_COS) swingMob = duelWith;
+        }
+      }
       if (swingMob === null && aimedMob === null) {
         const tdef = interaction.target ? registry.get(interaction.target.id) : null;
         const pathing = ((heldTool.kind === 'shovel' && tdef?.id === 'grass') || (heldTool.kind === 'hoe' && tdef !== null && TILLABLE.has(tdef.id))) && interaction.target!.ny > 0; // 삽으로 잔디 길·괭이로 밭은 캐기가 아니다 (#191·#193)
@@ -2058,7 +2090,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         hand.swing();
       }
     }
-    const tapAttack = inp.secondaryTap && !aimedVillager && !aimedCurable && !aimedCalmable && heldPotion === null && ((aimedMob !== null && aimedMob < ANIMAL_ID_BASE) || swingMob !== null);
+    const tapAttack = inp.secondaryTap && !aimedVillager && !aimedCurable && !aimedCalmable && heldPotion === null && ((aimedMob !== null && (aimedMob < ANIMAL_ID_BASE || aimedMob === duelWith)) || swingMob !== null);
     if (bow && !guarding) {
       // 활·쇠뇌 (#119, 아빠): 누르고 있으면 시위를 당기고, 놓으면 쏜다. 짧게 탭하면 약한 화살
       if (inp.primary) {
@@ -2134,7 +2166,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       net.sendEat(hud.selectedIndex);
       hand.swing();
     }
-    if (aimedMob !== null && inp.secondaryTap && heldPotion === null && ((aimedMob >= ANIMAL_ID_BASE && ctx.kind === 'village') || ((aimedVillager || aimedCurable || aimedCalmable) && ctx.kind === 'expedition'))) {
+    if (aimedMob !== null && aimedMob !== duelWith && inp.secondaryTap && heldPotion === null && ((aimedMob >= ANIMAL_ID_BASE && ctx.kind === 'village') || ((aimedVillager || aimedCurable || aimedCalmable) && ctx.kind === 'expedition'))) {
       const fk = mobView.figureOf(aimedMob);
       if (fk && MOB_KIND_OF[fk.kind] === 'villager' && (!hud.selectedItem || !MOBS.get('villager').food.includes(hud.selectedItem))) {
         // 주민에게 탭 = 대화 시트 (#172). 빵을 들었을 땐 바로 먹이기(서버) 대신 대화에서 "응, 먹어!" 로 준다

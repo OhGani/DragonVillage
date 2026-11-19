@@ -11,6 +11,15 @@ import {
   animalSpotCandidate,
   BABY_MS,
   BLACKSMITH_NAME,
+  DUEL_ATTACK_MS,
+  DUEL_COOLDOWN_MS,
+  DUEL_DAMAGE,
+  DUEL_DAMAGE_SMITH,
+  DUEL_MS,
+  DUEL_RANGE,
+  DUEL_REACH,
+  DUEL_SPEED,
+  type DuelResult,
   type BlockRegistry,
   BREED_COOLDOWN_MS,
   BREED_RANGE,
@@ -133,6 +142,10 @@ export interface AnimalHooks {
   log(msg: string): void;
   /** 우민에게 잡혀간 주민 수 (#169): 돌아올 때까지 다시 안 채운다 */
   kidnapped?(): number;
+  /** 결투 중인 주민이 사람을 때린다 (2026-11-19): 'ok' 맞음 · 'lose' 이 한 대면 하트 2칸 아래라 진다(안 다친다) · 'gone' 그 사람이 없다 */
+  duelStrike?(idx: number, damage: number, now: number): 'ok' | 'lose' | 'gone';
+  /** 결투가 끝났다 — 이기면 상을 주고, 그 사람에게 알린다 */
+  duelEnded?(idx: number, mobId: number, result: DuelResult, at: { x: number; y: number; z: number }, now: number): void;
 }
 
 /** 대화 창이 열린 뒤 이만큼은 서 있는다 (닫힘 메시지를 못 받아도 풀린다) */
@@ -167,6 +180,10 @@ interface Animal extends AnimalRow {
   ridden: number | null;
   /** 끈 (#297): 끌고 있는 사람의 토큰. 저장 안 함 — 그 사람이 마을을 떠나면 풀리고 끈은 가방으로 */
   leashBy: string | null;
+  /** 결투 (2026-11-19): 상대 플레이어·끝나는 시각·다음에 때릴 시각. 저장 안 함 */
+  duel: { idx: number; until: number; nextAttackAt: number } | null;
+  /** 다시 결투할 수 있는 시각 */
+  duelReadyAt: number;
   dirty: boolean;
 }
 
@@ -210,7 +227,7 @@ export class AnimalSystem {
 
   private wrap(r: AnimalRow): Animal {
     const def = this.defs.get(r.kind);
-    return { ...r, hp: animalMaxHp(def.hp, r.kind, r.owner !== null), yaw: 0, target: null, pauseUntil: 0, busyUntil: 0, busyWith: -1, stuck: 0, stuckX: 0, stuckZ: 0, turn: 0, loveUntil: 0, breedCooldownUntil: 0, tameAttempts: 0, shearCount: 0, away: false, ridden: null, leashBy: null, dirty: false };
+    return { ...r, hp: animalMaxHp(def.hp, r.kind, r.owner !== null), yaw: 0, target: null, pauseUntil: 0, busyUntil: 0, busyWith: -1, stuck: 0, stuckX: 0, stuckZ: 0, turn: 0, loveUntil: 0, breedCooldownUntil: 0, tameAttempts: 0, shearCount: 0, away: false, ridden: null, leashBy: null, duel: null, duelReadyAt: 0, dirty: false };
   }
 
   /** 발 높이 (그 자리 근처 층). 못 서면 null */
@@ -462,7 +479,8 @@ export class AnimalSystem {
       this.hooks.json({ t: 'mob', ev: 'grow', id: ANIMAL_ID_BASE + a.id, mob: a.kind, x: a.x, y: a.y, z: a.z });
     }
     if (a.sitting) return;
-    if (a.busyUntil > now) {
+    const duelGoal = a.duel ? this.duelStep(a, players, now) : null;
+    if (a.busyUntil > now && !duelGoal) {
       // 말 걸거나 거래 중 (#233, 아빠 "주민이 멈춰 있게"): 서서 그 사람을 본다
       const p = players.find((v) => v.idx === a.busyWith);
       if (p) {
@@ -485,9 +503,9 @@ export class AnimalSystem {
       }
     }
     // 끈 (#297): 끄는 사람을 따라간다 — 가까우면 서 있고, 너무 벌어지면 풀린다. 울타리에 묶였으면 그 둘레에서만
-    let goal: { x: number; z: number; stop: number } | null = null;
+    let goal: { x: number; z: number; stop: number } | null = duelGoal;
     let pull = 0;
-    if (a.leashBy !== null) {
+    if (a.leashBy !== null && !duelGoal) {
       const holder = players.find((p) => p.token === a.leashBy);
       const d = holder ? Math.hypot(holder.x - a.x, holder.z - a.z) : Infinity;
       if (!holder || d > LEASH_SNAP) {
@@ -546,7 +564,7 @@ export class AnimalSystem {
         }
       }
     }
-    let speed = def.speed;
+    let speed = duelGoal ? DUEL_SPEED : def.speed;
     if (pull > 0) speed = pull > LEASH_PULL_FAR ? Math.max(speed, LEASH_PULL_SPEED) : Math.max(speed, 2.6); // 끌려올 땐 걷는 사람을 따라잡을 만큼
     if (!goal && a.kind === 'cat' && a.owner === null && !this.leashed(a)) {
       // 길들이지 않은 고양이 (2026-11-06): 사람이 CAT_SHY_R 안에 오면 CAT_FLEE 칸 떨어지게 달아난다 (대구·연어를 들었으면 위에서 따라온다)
@@ -673,14 +691,78 @@ export class AnimalSystem {
   hit(p: AnimalViewer, mobId: number, damage: number, now: number, reach = HIT_REACH): string | null {
     const a = this.find(mobId);
     if (!a) return 'NO_MOB';
-    if (a.kind === 'villager') return 'VILLAGER'; // 주민은 때릴 수 없다 (#168)
+    if (a.kind === 'villager' && a.duel?.idx !== p.idx) return 'VILLAGER'; // 주민은 때릴 수 없다 (#168) — 나와 결투 중인 주민만 (2026-11-19)
     if (a.owner !== null) return 'PET';
     if (Math.hypot(a.x - p.x, a.y + mobSize(a.kind).h * 0.5 - p.eyeY, a.z - p.z) > reach + 0.6) return 'TOO_FAR';
     const last = this.lastHitAt.get(p.idx) ?? 0;
     if (now - last < HIT_COOLDOWN_MS) return 'COOLDOWN';
     this.lastHitAt.set(p.idx, now);
-    this.wound(a, damage, p.idx, p, now);
+    if (a.duel) this.duelHit(a, damage, now);
+    else this.wound(a, damage, p.idx, p, now);
     return null;
+  }
+
+  // ---------------------------------------------------------------- 결투 (2026-11-19)
+
+  /** 결투 시작 (대화 시트 ⚔️). 오류: NO_MOB · NOT_VILLAGER · TOO_FAR · DUEL_BUSY(다른 사람과) · DUEL_TIRED(쉬는 중) · ALREADY_DUEL(나는 이미) */
+  startDuel(p: AnimalViewer, mobId: number, now: number): string | null {
+    const a = this.find(mobId);
+    if (!a || a.away) return 'NO_MOB';
+    if (a.kind !== 'villager') return 'NOT_VILLAGER';
+    if (Math.hypot(a.x - p.x, a.z - p.z) > 6) return 'TOO_FAR';
+    if (a.duel) return a.duel.idx === p.idx ? null : 'DUEL_BUSY';
+    if (now < a.duelReadyAt) return 'DUEL_TIRED';
+    for (const b of this.animals.values()) if (b.duel?.idx === p.idx) return 'ALREADY_DUEL';
+    a.duel = { idx: p.idx, until: now + DUEL_MS, nextAttackAt: now + 1500 }; // 1.5초 준비
+    a.hp = animalMaxHp(this.defs.get(a.kind).hp, a.kind, false);
+    a.busyUntil = 0;
+    a.target = null;
+    this.hooks.log(`결투 시작: ${p.idx}번 ↔ ${a.name ?? '주민'} #${a.id}`);
+    return null;
+  }
+
+  /** 이 사람이 결투 중인 주민 (없으면 null) */
+  duelOf(idx: number): number | null {
+    for (const a of this.animals.values()) if (a.duel?.idx === idx) return ANIMAL_ID_BASE + a.id;
+    return null;
+  }
+
+  private duelHit(a: Animal, damage: number, now: number): void {
+    const dmg = Math.max(1, Math.floor(damage));
+    a.hp = Math.max(0, a.hp - dmg);
+    this.hooks.json({ t: 'mob', ev: 'hit', id: ANIMAL_ID_BASE + a.id, mob: a.kind, x: a.x, y: a.y, z: a.z, dmg });
+    if (a.hp <= 0) this.endDuel(a, 'win', now);
+  }
+
+  private endDuel(a: Animal, result: DuelResult, now: number): void {
+    const d = a.duel;
+    if (!d) return;
+    a.duel = null;
+    a.hp = animalMaxHp(this.defs.get(a.kind).hp, a.kind, false); // 주민은 다치지 않는다 — 다시 멀쩡
+    a.duelReadyAt = now + DUEL_COOLDOWN_MS;
+    a.target = null;
+    a.pauseUntil = now + 2000;
+    this.hooks.duelEnded?.(d.idx, ANIMAL_ID_BASE + a.id, result, { x: a.x, y: a.y + 1, z: a.z }, now);
+  }
+
+  /** 결투 한 걸음: 끝날 조건을 보고, 아니면 상대 쪽으로 갈 곳을 돌려준다 (가까우면 때린다) */
+  private duelStep(a: Animal, players: AnimalViewer[], now: number): { x: number; z: number; stop: number } | null {
+    const d = a.duel!;
+    const p = players.find((v) => v.idx === d.idx);
+    const dist = p ? Math.hypot(p.x - a.x, p.z - a.z) : Infinity;
+    if (!p || now > d.until || dist > DUEL_RANGE) {
+      this.endDuel(a, 'draw', now);
+      return null;
+    }
+    if (dist <= DUEL_REACH && Math.abs(p.y - a.y) < 2 && now >= d.nextAttackAt) {
+      d.nextAttackAt = now + DUEL_ATTACK_MS;
+      const r = this.hooks.duelStrike?.(p.idx, a.name === BLACKSMITH_NAME ? DUEL_DAMAGE_SMITH : DUEL_DAMAGE, now) ?? 'gone';
+      if (r !== 'ok') {
+        this.endDuel(a, r === 'lose' ? 'lose' : 'draw', now);
+        return null;
+      }
+    }
+    return { x: p.x, z: p.z, stop: 1.2 };
   }
 
   /** TNT 폭발 (#247): radius 안의 야생 동물(주민·펫·탈것 빼고)이 멀수록 적게 다친다. byIdx 가 잡은 것으로 보상. 맞은 수 */

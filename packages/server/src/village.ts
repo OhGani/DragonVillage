@@ -231,7 +231,7 @@ import {
   WATER_BOTTLE,
   effectiveBuys, enchantLevelOf, meleeBonus, knockbackFactor, canEnchant, countBookshelves, encodeEnchanted, hash3, anvilCombine, MINECART, CART_SEAT_Y, railShapeFor, CURE_ITEM } from '@dragon-village/shared';
 import { BUILDINGS, COMBAT, DRAGONS, PET_NAMES, EXPEDITIONS, GIFTS, MOBS, PHRASES, POTIONS, RECIPES, STARTER_KIT, TOOLS, FOOD, XP, ITEM_NAMES, RAIDS, TRADES, ENCHANTS, FISHING, WEATHER } from '@dragon-village/shared/data';
-import { fallOf, hasWeather, type WeatherKind } from '@dragon-village/shared';
+import { DUEL_LOSE_HP, DUEL_PRIZE, fallOf, hasWeather, type WeatherKind } from '@dragon-village/shared';
 import { SLEEP_CLEARS_MS, WeatherClock } from './weather';
 import { randomInt } from 'node:crypto';
 import { Expedition } from './expedition';
@@ -521,6 +521,26 @@ export class VillageRoom {
       players: () => this.playersIn('village').map((p) => ({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held: p.held })),
       json: (obj) => this.broadcastJson(obj, -1, 'village'),
       kidnapped: () => this.storage?.kidnapped(this.info.code) ?? 0,
+      duelStrike: (idx, damage, now) => {
+        // 결투 (2026-11-19): 이 한 대로 하트 2칸 아래가 되면 진다 — 맞지 않는다
+        const p = this.players.get(idx);
+        if (!p || p.world !== 'village' || p.hp <= 0) return 'gone';
+        if (p.hp - damage < DUEL_LOSE_HP) return 'lose';
+        this.hurt(p, damage, 'duel', now);
+        return 'ok';
+      },
+      duelEnded: (idx, mobId, result, at, now) => {
+        const p = this.players.get(idx);
+        if (!p) return;
+        this.sendJson(p, { t: 'duel', id: mobId, on: false, result });
+        if (result === 'win') {
+          const changed = new Set<number>();
+          this.giveTo(p, DUEL_PRIZE.item, DUEL_PRIZE.count, changed);
+          this.sendInv(p, changed);
+          this.addXp(p, DUEL_PRIZE.xp, XP_SOURCE.mob, at.x, at.y, at.z, now);
+        }
+        this.log(`마을 ${this.info.code}: ${p.nick} 주민 결투 ${result === 'win' ? '이김' : result === 'lose' ? '짐' : '무승부'}`);
+      },
       reward: (idx, drops, xp, at, now) => {
         const p = this.players.get(idx);
         if (!p) return;
@@ -2491,6 +2511,17 @@ export class VillageRoom {
    * 주민 거래 (#225, 아들 14차 4번): 마을 주민 6칸 안에서. buy = 에메랄드를 내고 산다, sell = 물건을 주고 에메랄드를 받는다.
    * 오류: NOT_IN_VILLAGE · NO_MOB · NOT_VILLAGER · TOO_FAR · NO_TRADE · NO_EMERALD · NOT_ENOUGH · BAG_FULL
    */
+  /** 주민과 결투 시작 (2026-11-19). 마을 주민만. 오류는 AnimalSystem.startDuel + NOT_IN_VILLAGE · RIDING */
+  startDuel(idx: number, mobId: number, now = Date.now()): string | null {
+    const p = this.players.get(idx);
+    if (!p || p.world !== 'village') return 'NOT_IN_VILLAGE';
+    if (p.riding) return 'RIDING';
+    const err = this.animals.startDuel({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held: p.held }, mobId, now);
+    if (err) return err;
+    this.sendJson(p, { t: 'duel', id: mobId, on: true });
+    return null;
+  }
+
   /** 대화·가게 창 열림/닫힘 (#233): 주민이 서서 나를 본다. 거래할 때마다 다시 연장 */
   setTalking(idx: number, mobId: number, on: boolean, now = Date.now()): void {
     const p = this.players.get(idx);

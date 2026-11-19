@@ -224,6 +224,8 @@ export interface NetEvents {
   onWeather(m: { kind: WeatherKind; fall: WeatherFall; quiet?: boolean; slept?: boolean }): void;
   /** 번개가 떨어졌다 */
   onLightning(m: { x: number; y: number; z: number; rod?: boolean }): void;
+  /** 주민 결투 시작·끝 (2026-11-19) */
+  onDuel(m: { id: number; on: boolean; result?: 'win' | 'lose' | 'draw' }): void;
   onDismount(idx: number): void;
 }
 
@@ -489,6 +491,10 @@ export class NetClient {
   sendTalking(id: number, on: boolean): void {
     this.sendJson({ t: 'talking', id, on });
   }
+  /** 주민과 결투 (2026-11-19) */
+  sendDuel(id: number): void {
+    this.sendJson({ t: 'duel', id });
+  }
   /** 활·쇠뇌로 쏘기 (M8-2) */
   sendShoot(id: number, slot: number, charge = 0): void {
     this.sendJson({ t: 'shoot', id, slot, charge: Math.round(charge) });
@@ -711,6 +717,7 @@ export class NetClient {
     else if (msg.t === 'mob') ev.onMobEvent(msg);
     else if (msg.t === 'weather') ev.onWeather(msg);
     else if (msg.t === 'lightning') ev.onLightning(msg);
+    else if (msg.t === 'duel') ev.onDuel(msg);
     else if (msg.t === 'dismount') ev.onDismount(msg.idx);
     else if (msg.t === 'held') ev.onHeld(msg.idx, msg.item);
     else if (msg.t === 'equip') ev.onEquip(msg);

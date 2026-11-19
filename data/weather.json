@@ -1,9 +1,9 @@
 {
   "_comment": "날씨 (마인크래프트처럼): 맑음 → 비(추운 곳은 눈) → 맑음… 비 중 thunderChance 만큼은 뇌우(번개). 시간은 분, [가장 짧게, 가장 길게]",
   "village": {
-    "_comment": "우리 마을. 맑음이 15~40분 가다가 비가 5~10분",
-    "clearMinutes": [15, 40],
-    "rainMinutes": [5, 10],
+    "_comment": "우리 마을. 10분마다 바뀐다 — 맑음 10분 → 비(또는 눈·뇌우) 10분 → 맑음 10분… (아빠 2026-11-19 \"날씨는 10분에 한번씩\")",
+    "clearMinutes": [10, 10],
+    "rainMinutes": [10, 10],
     "thunderChance": 0.25,
     "joinWeights": { "clear": 50, "rain": 35, "thunder": 15 },
     "_joinWeights": "아무도 없는 마을에 처음 들어올 때 날씨를 새로 뽑는다 — 이 비율로 (맑음 50 : 비 35 : 뇌우 15). 친구가 뒤따라 들어올 땐 안 바뀐다",
@@ -11,9 +11,9 @@
     "_snowChance": "마을에 비가 올 때 이만큼은 비 대신 눈 (0.3 = 열 번에 세 번). 눈이 그치면 쌓인 눈은 천천히 녹는다"
   },
   "expedition": {
-    "_comment": "원정지. 15분 원정이라 더 자주 바뀐다",
-    "clearMinutes": [3, 10],
-    "rainMinutes": [2, 5],
+    "_comment": "원정지도 10분마다 바뀐다 (시작 날씨는 아래 joinWeights 로 뽑는다)",
+    "clearMinutes": [10, 10],
+    "rainMinutes": [10, 10],
     "thunderChance": 0.3,
     "joinWeights": { "clear": 40, "rain": 40, "thunder": 20 },
     "_joinWeights": "원정을 시작할 때 날씨를 뽑는 비율 (맑음 40 : 비 40 : 뇌우 20). 설원은 비 대신 눈, 사막은 흐림만"
