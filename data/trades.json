@@ -26,9 +26,11 @@
     ]
   },
   "jobs": {
-    "_comment": "직업 id → 이름과 가게. 주민 번호로 하나씩 정해진다",
+    "_comment": "직업 id → 이름과 가게. 주민 번호로 하나씩 정해진다. duelWeapon·duelDamage = ⚔️ 결투할 때 드는 무기와 한 대 피해 (2 = 하트 1칸, 2026-11-19)",
     "farmer": {
       "name": "농부",
+      "duelWeapon": "stone_hoe",
+      "duelDamage": 2,
       "buy": [
         {
           "item": "bread",
@@ -123,6 +125,8 @@
     },
     "librarian": {
       "name": "사서",
+      "duelWeapon": "book",
+      "duelDamage": 1,
       "buy": [
         {
           "item": "book",
@@ -191,6 +195,8 @@
     },
     "toolsmith": {
       "name": "도구장이",
+      "duelWeapon": "iron_axe",
+      "duelDamage": 3,
       "buy": [
         {
           "item": "iron_pickaxe",
@@ -233,6 +239,8 @@
     },
     "weaponsmith": {
       "name": "무기장이",
+      "duelWeapon": "iron_sword",
+      "duelDamage": 3,
       "_note": "대장간 앞 대장장이는 늘 무기장이",
       "buy": [
         {
@@ -277,6 +285,8 @@
     },
     "cleric": {
       "name": "성직자",
+      "duelWeapon": "blaze_rod",
+      "duelDamage": 2,
       "buy": [
         {
           "item": "ender_pearl",
@@ -315,6 +325,8 @@
     },
     "shepherd": {
       "name": "양치기",
+      "duelWeapon": "shears",
+      "duelDamage": 2,
       "buy": [
         {
           "item": "wool",
@@ -347,6 +359,8 @@
     },
     "butcher": {
       "name": "정육점",
+      "duelWeapon": "stone_axe",
+      "duelDamage": 3,
       "buy": [
         {
           "item": "cooked_beef",

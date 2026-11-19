@@ -21,7 +21,8 @@ describe('날씨 (2026-11-17, 나무위키 마인크래프트/날씨)', () => {
     const a = inbox();
     room.join('a'.repeat(32), '아빠', 0, a.send);
     const first = a.json.find((m) => m.t === 'weather')!;
-    expect(first).toMatchObject({ kind: room.weatherNow()!.kind, fall: 'rain' });
+    expect(first).toMatchObject({ kind: room.weatherNow()!.kind });
+    expect(first.kind === 'clear' ? ['rain'] : ['rain', 'snow']).toContain(first.fall); // 마을 비는 30% 눈 (#311) — 시계에 따라 다르다
     expect(first.quiet === true).toBe(first.kind === 'clear'); // 비·뇌우로 뽑혔으면 알림도
     expect(room.setWeather('thunder', 5, 'village', T0)).toBe(true);
     expect(a.json.at(-1)).toEqual({ t: 'weather', kind: 'thunder', fall: 'rain' });

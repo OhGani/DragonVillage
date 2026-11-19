@@ -16,7 +16,15 @@ const RawTrade = z
   })
   .loose();
 const Lists = z.object({ _comment: z.string().optional(), buy: z.array(RawTrade).optional(), sell: z.array(RawTrade).optional() }).loose();
-const RawJob = z.object({ name: z.string().min(1, '직업 이름이 비었어요').max(6, '직업 이름은 6글자까지'), buy: z.array(RawTrade).optional(), sell: z.array(RawTrade).optional() }).loose();
+const RawJob = z
+  .object({
+    name: z.string().min(1, '직업 이름이 비었어요').max(6, '직업 이름은 6글자까지'),
+    buy: z.array(RawTrade).optional(),
+    sell: z.array(RawTrade).optional(),
+    duelWeapon: z.string().regex(/^[a-z0-9_.]+$/, '영문 소문자·숫자·밑줄(_)만').optional(),
+    duelDamage: z.number().min(1, '1 이상이어야 해요').max(10, '10까지예요').optional(),
+  })
+  .loose();
 const RawDemand = z
   .object({
     everyBuys: z.number().int().min(1, '1 이상이어야 해요').optional(),
@@ -52,6 +60,10 @@ export interface JobDef extends TradeLists {
   readonly id: string;
   /** 한국어 이름 (농부·사서…) */
   readonly name: string;
+  /** ⚔️ 결투 때 드는 무기 (2026-11-19). 없으면 맨손 */
+  readonly duelWeapon: string | null;
+  /** 결투 한 대 피해. 없으면 DUEL_DAMAGE */
+  readonly duelDamage: number | null;
 }
 /** 사면 비싸지는 규칙 (#230): 같은 물건을 everyBuys 번 살 때마다 step 씩, 원래 값의 maxTimes 배까지. restockMinutes 마다 산 횟수 -1 */
 export interface DemandRules {
@@ -151,7 +163,7 @@ export function parseTrades(raw: unknown, fileName = 'data/trades.json'): TradeR
     if (typeof j === 'string') continue; // _comment
     check(`jobs.${id}.buy`, j.buy);
     check(`jobs.${id}.sell`, j.sell);
-    jobs.set(id, { id, name: j.name, buy: mk('buy', j.buy), sell: mk('sell', j.sell) });
+    jobs.set(id, { id, name: j.name, buy: mk('buy', j.buy), sell: mk('sell', j.sell), duelWeapon: j.duelWeapon ?? null, duelDamage: j.duelDamage ?? null });
   }
   const places = new Map<string, TradeLists>();
   for (const [place, pt] of Object.entries(result.data.places ?? {})) {

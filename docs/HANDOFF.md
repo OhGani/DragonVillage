@@ -4,8 +4,8 @@
 
 ## 1. 지금 어디까지 왔나
 
-- **코드**: 전부 GitHub `OhGani/DragonVillage` 의 `main` 에 있다. 기록한 마지막 작업은 #314 (주민 결투). 정확한 마지막 커밋은 `git log -1`.
-- **라이브**: Oracle 서버 http://168.110.0.197:5173 — 2026-11-19 08:48 에 #312 까지 반영. #313·#314 는 푸시 뒤 `update.sh` 를 돌려야 올라간다. 서버에 무엇이 올라갔는지는 서버에서 `cd ~/dragon-village && git log -1`.
+- **코드**: 전부 GitHub `OhGani/DragonVillage` 의 `main` 에 있다. 기록한 마지막 작업은 #315 (결투 주민의 직업 무기). 정확한 마지막 커밋은 `git log -1`.
+- **라이브**: Oracle 서버 http://168.110.0.197:5173 — 2026-11-19 08:48 에 #312 까지 반영. #313~#315 는 푸시 뒤 `update.sh` 를 돌려야 올라간다. 서버에 무엇이 올라갔는지는 서버에서 `cd ~/dragon-village && git log -1`.
 - **시간 제한**: 켜져 있다 (#298, 평일·주말 모두 밤 11시에 닫힘, 부모 플레이어도 아이와 같은 분량).
 - 이 맥에서는 Claude Code 가 git worktree(`.claude/worktrees/git-update-256e3a`, 브랜치 `claude/git-update-256e3a`)에서 작업하고 `git push origin HEAD:main` 으로 올렸다. 새 PC 는 `main` 에서 바로 하면 된다.
 
@@ -22,6 +22,7 @@
 | 312 | 부모 페이지 폰 로그인 — 👁 비밀번호 보기, 자동 대문자 끔, 앞뒤 공백 봐줌 | `server/static/family.html`, `FamilyService.login` |
 | 313 | 날씨 10분마다 (마을·원정) | `data/weather.json` |
 | 314 | 마을 주민과 결투 — 대화 시트 ⚔️, 이기면 에메랄드 1, 둘 다 안 죽음 | `shared/rules/animals.ts DUEL_*`, `server/src/animals.ts startDuel`, `client/ui/talk.ts` |
+| 315 | 결투 주민이 직업 무기를 들고 휘두름 (농부 괭이·무기장이 검…) | `data/trades.json duelWeapon/duelDamage`, `client/render/MobView.ts setWeapon` |
 
 자세한 이유는 `docs/DECISIONS.md` 의 같은 번호 줄.
 

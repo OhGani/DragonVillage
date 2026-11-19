@@ -80,6 +80,7 @@ import {
   WOOL_REGROW_MS,
   explosionDamage,
 } from '@dragon-village/shared';
+import { TRADES } from '@dragon-village/shared/data';
 
 export interface AnimalRow {
   id: number;
@@ -717,8 +718,15 @@ export class AnimalSystem {
     a.hp = animalMaxHp(this.defs.get(a.kind).hp, a.kind, false);
     a.busyUntil = 0;
     a.target = null;
-    this.hooks.log(`결투 시작: ${p.idx}번 ↔ ${a.name ?? '주민'} #${a.id}`);
+    const weapon = this.duelJob(a)?.duelWeapon ?? null;
+    if (weapon) this.hooks.json({ t: 'mob', ev: 'arm', id: ANIMAL_ID_BASE + a.id, mob: a.kind, x: a.x, y: a.y, z: a.z, item: weapon }); // 직업 무기를 꺼내 든다 (모두에게)
+    this.hooks.log(`결투 시작: ${p.idx}번 ↔ ${a.name ?? '주민'} #${a.id}${weapon ? ` (${weapon})` : ''}`);
     return null;
+  }
+
+  /** 이 주민의 직업 (trades.json jobs — 클라와 같은 번호 규칙). 결투 무기·피해가 여기에 */
+  private duelJob(a: Animal) {
+    return TRADES.jobFor(ANIMAL_ID_BASE + a.id, a.name);
   }
 
   /** 이 사람이 결투 중인 주민 (없으면 null) */
@@ -742,6 +750,7 @@ export class AnimalSystem {
     a.duelReadyAt = now + DUEL_COOLDOWN_MS;
     a.target = null;
     a.pauseUntil = now + 2000;
+    this.hooks.json({ t: 'mob', ev: 'arm', id: ANIMAL_ID_BASE + a.id, mob: a.kind, x: a.x, y: a.y, z: a.z }); // 무기를 넣는다
     this.hooks.duelEnded?.(d.idx, ANIMAL_ID_BASE + a.id, result, { x: a.x, y: a.y + 1, z: a.z }, now);
   }
 
@@ -756,7 +765,9 @@ export class AnimalSystem {
     }
     if (dist <= DUEL_REACH && Math.abs(p.y - a.y) < 2 && now >= d.nextAttackAt) {
       d.nextAttackAt = now + DUEL_ATTACK_MS;
-      const r = this.hooks.duelStrike?.(p.idx, a.name === BLACKSMITH_NAME ? DUEL_DAMAGE_SMITH : DUEL_DAMAGE, now) ?? 'gone';
+      this.hooks.json({ t: 'mob', ev: 'swing', id: ANIMAL_ID_BASE + a.id, mob: a.kind, x: a.x, y: a.y, z: a.z }); // 무기를 휘두른다
+      const dmg = this.duelJob(a)?.duelDamage ?? (a.name === BLACKSMITH_NAME ? DUEL_DAMAGE_SMITH : DUEL_DAMAGE); // 직업 무기마다 (trades.json duelDamage)
+      const r = this.hooks.duelStrike?.(p.idx, dmg, now) ?? 'gone';
       if (r !== 'ok') {
         this.endDuel(a, r === 'lose' ? 'lose' : 'draw', now);
         return null;

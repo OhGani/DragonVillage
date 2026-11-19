@@ -478,6 +478,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
   );
   tableSheet.cooks = CAMPFIRE_COOKS;
   remote.iconOf = (id) => iconOf(id, 32); // 다른 사람 손에 든 것 (#96)
+  mobView.iconOf = (id) => iconOf(id, 32); // 결투 중 주민 무기 (2026-11-19)
   let sentHeld: string | null | undefined; // 서버에 마지막으로 알린 손 아이템
 
   // ---- 가방 (M4): 서버가 진실. welcome 으로 받고 InvSlots 로 고친다 ----
@@ -1450,7 +1451,11 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
         roar();
         hud.toast('👁️ 엔더맨과 눈이 마주쳤어요! 화났어요 — 순간이동해서 쫓아와요', 2500);
       } else if (m.ev === 'zombify') roar(); // 주민이 좀비 주민이 됐다 (#244) — 글은 서버 알림으로
-      else if (m.ev === 'struck') {
+      else if (m.ev === 'arm') mobView.setWeapon(m.id, m.item ?? null); // 결투 무기를 꺼내 들거나 넣는다 (2026-11-19)
+      else if (m.ev === 'swing') {
+        mobView.swingArm(m.id);
+        if (m.id === duelWith) hitSound();
+      } else if (m.ev === 'struck') {
         // 번개 맞은 몹 (날씨, 2026-11-17)
         roar();
         if (m.mob === 'charged_creeper') hud.toast('⚡ 번개 맞은 크리퍼가 충전됐어요! 더 세게 터져요 — 조심', 2500);

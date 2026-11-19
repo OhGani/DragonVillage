@@ -537,8 +537,52 @@ export class MobView {
   /** 잔류형 물약 구름 (#246): 바닥에 그 색 조각들이 천천히 돈다. radius 는 서버가 줄일 때마다 다시 오고, 그 사이엔 30초에 1칸씩 줄어든 것으로 그린다. at·until 은 update 의 시계 — at < 0 이면 다음 update 에서 맞춘다 */
   private readonly clouds = new Map<number, { group: THREE.Group; parts: THREE.Mesh[]; x: number; y: number; z: number; radius: number; at: number; until: number; leftMs: number; seed: number }>();
 
+  /** 아이템 그림 (결투 무기, 2026-11-19) — Game 이 넣어 준다 */
+  iconOf: ((item: string) => HTMLCanvasElement | null) | null = null;
+
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
+  }
+
+  /**
+   * 결투 무기 (2026-11-19): 주민 오른손에 직업 무기 그림(판)을 붙이고 팔을 앞으로 든다. null 이면 넣는다.
+   * 다른 사람 인형이 손에 든 것(#96)과 같은 방식 — 팔과 함께 움직인다
+   */
+  setWeapon(id: number, item: string | null): void {
+    const f = this.figures.get(id);
+    const arm = f?.armR;
+    if (!f || !arm) return;
+    const old = arm.userData.weapon as THREE.Mesh | undefined;
+    if (old) {
+      arm.remove(old);
+      old.geometry.dispose();
+      const mat = old.material as THREE.MeshBasicMaterial;
+      mat.map?.dispose();
+      mat.dispose();
+      delete arm.userData.weapon;
+    }
+    if (!item) {
+      arm.rotation.x = (arm.userData.restX as number | undefined) ?? arm.rotation.x;
+      return;
+    }
+    const canvas = this.iconOf?.(item);
+    if (!canvas) return;
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.NearestFilter;
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.2, side: THREE.DoubleSide }));
+    mesh.position.set(1.5 * VOXEL, -12 * VOXEL, -5 * VOXEL); // 손끝 앞쪽 — 사람 손(#96)보다 크게, 앞에서도 옆에서도 보이게 비스듬히
+    mesh.rotation.set(-0.2, 0.8, 0);
+    if (arm.userData.restX === undefined) arm.userData.restX = arm.rotation.x;
+    arm.userData.weapon = mesh;
+    arm.userData.swingT = 0;
+    arm.add(mesh);
+  }
+
+  /** 결투 중 주민이 한 대 휘두른다 (2026-11-19) */
+  swingArm(id: number): void {
+    const arm = this.figures.get(id)?.armR;
+    if (arm?.userData.weapon) arm.userData.swingT = 1;
   }
 
   get count(): number {
@@ -1307,6 +1351,13 @@ export class MobView {
         const k0 = (f.body.userData.slimeScale as number | undefined) ?? (f.body.userData.slimeScale = f.scaleV.x);
         const sq = (1 - hop) * 0.12 * (speed > 0.3 ? 1 : 0);
         f.scaleV.set(k0 * (1 + sq), k0 * (1 - sq), k0 * (1 + sq));
+      }
+      // 결투 무기를 든 주민 (2026-11-19): 팔을 앞으로 들고, 휘두를 때 위에서 아래로 내려친다
+      if (f.armR?.userData.weapon) {
+        const arm = f.armR;
+        const t = (arm.userData.swingT as number) ?? 0;
+        arm.userData.swingT = Math.max(0, t - dt * 3.5);
+        arm.rotation.x = -0.7 - Math.sin(t * Math.PI) * 1.4;
       }
       // 크리퍼 부풀기: 하얘지며 커진다
       if (f.state === MOB_STATE.fuse) {
