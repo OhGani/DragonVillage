@@ -2072,7 +2072,8 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     const aimedVillager = isVillager(aimedMob); // 원정(사막 마을) 주민도 때리지 않고 말을 건다 (#228)
     // 좀비 주민 (#244): 황금 사과를 들고 탭하면 때리기가 아니라 먹이기
     const aimedCurable = aimedMob !== null && MOB_KIND_OF[mobView.figureOf(aimedMob)?.kind ?? -1] === 'zombie_villager' && hud.selectedItem === CURE_ITEM;
-    const aimedCalmable = aimedMob !== null && ctx.kind === 'expedition' && hud.selectedItem !== null && (calmFoods(MOBS.get(MOB_KIND_OF[mobView.figureOf(aimedMob)?.kind ?? -1] ?? 'zombie')).includes(hud.selectedItem) || (hud.selectedItem === 'shears' && MOB_KIND_OF[mobView.figureOf(aimedMob)?.kind ?? -1] === 'bison')); // 들소는 가위로 털 깎기 // 코뿔소에게 밀·아나콘다에게 생 닭고기 (2026-11-06)
+    const aimedKind = aimedMob !== null && aimedMob < ANIMAL_ID_BASE ? (MOB_KIND_OF[mobView.figureOf(aimedMob)?.kind ?? -1] ?? null) : null; // 원정 몹만 (따라온 펫은 아니다)
+    const aimedCalmable = aimedKind !== null && ctx.kind === 'expedition' && hud.selectedItem !== null && (calmFoods(MOBS.get(aimedKind)).includes(hud.selectedItem) || MOBS.get(aimedKind).tameWith.includes(hud.selectedItem) || (hud.selectedItem === 'shears' && aimedKind === 'bison')); // 들소는 가위로 털 깎기 // 코뿔소에게 밀·아나콘다에게 생 닭고기 (2026-11-06) // 원숭이에게 바나나·회색곰에게 연어 = 길들이기 (아들 15차, 2026-11-20)
     let swingMob: number | null = null;
     if (inp.secondaryTap && heldTool !== null && !bow && !guarding && !anyPanelOpen()) {
       swingMob = aimedMob !== null && (aimedMob < ANIMAL_ID_BASE || aimedMob === duelWith) && !aimedVillager ? aimedMob : aimedMob === null ? mobView.nearestInCone(player.eye, player.lookDir, meleeReach, SWING_CONE_COS, true) : null;

@@ -36,6 +36,7 @@ import {
   type VoxelWorld,
   ANGRY_MS,
   CALM_MS,
+  tameRoll,
   CREAKING_SPAWN_R,
   SHELL_MUL,
   SILVERFISH_CALL,
@@ -1146,6 +1147,13 @@ export class MobSystem {
     return n;
   }
 
+  /** 펫이 무는 세기: 정해 준 값(골렘) → 길들인 사냥 동물은 제 힘(회색곰 6, 원숭이 0 = 안 묾, 2026-11-20) → 고양이 0 → 강아지 등 PET_DAMAGE */
+  private biteOf(c: Companion): number {
+    if (c.damage !== undefined) return c.damage;
+    if (isWild(c.kind)) return this.defs.get(c.kind).damage;
+    return c.kind === 'cat' ? 0 : PET_DAMAGE;
+  }
+
   private stepCompanions(players: MobTarget[], dt: number, now: number): void {
     for (const c of this.companions.values()) {
       const owner = c.owner >= 0 ? players.find((p) => p.idx === c.owner) : undefined;
@@ -1155,7 +1163,7 @@ export class MobSystem {
       // 주인 근처(또는 내 근처) 가장 가까운 몹 — 잠든 보스는 건드리지 않는다
       let prey: MobState | null = null;
       let best = guard ? GUARD_AGGRO : PET_AGGRO;
-      if (c.kind !== 'cat') // 고양이는 안 문다 — 대신 크리퍼가 무서워한다 (2026-11-06)
+      if (this.biteOf(c) > 0) // 고양이는 안 문다 — 대신 크리퍼가 무서워한다 (2026-11-06). 길들인 원숭이도 안 문다
       for (const m of this.mobs.values()) {
         if (this.sleepingBoss(m)) continue;
         if (m.cureAt !== undefined || m.kind === 'villager') continue; // 주민·돌아오는 중인 좀비 주민은 안 문다 (#244)
@@ -1187,7 +1195,7 @@ export class MobSystem {
       if (prey && Math.hypot(prey.x - c.x, prey.z - c.z) <= reach + 0.4 && now >= c.nextBiteAt) {
         c.nextBiteAt = now + (guard ? 1200 : PET_BITE_MS);
         const pd = Math.hypot(prey.x - c.x, prey.z - c.z) || 1;
-        this.damage(prey, c.damage ?? PET_DAMAGE, c.owner, now, { x: (prey.x - c.x) / pd, z: (prey.z - c.z) / pd }); // owner -1 이면 보상은 아무에게도
+        this.damage(prey, this.biteOf(c), c.owner, now, { x: (prey.x - c.x) / pd, z: (prey.z - c.z) / pd }); // owner -1 이면 보상은 아무에게도
       }
     }
   }
@@ -1433,6 +1441,32 @@ export class MobSystem {
     m.state = MOB_STATE.walk;
     this.hooks.json({ t: 'mob', ev: 'eat', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z });
     return null;
+  }
+
+  /**
+   * 사냥 동물 길들이기 (아들 15차 2026-11-20 "원숭이 바나나, 회색곰 연어로 길들이기"): tameWith 를 들고 탭 → 하나 먹고 tameRoll(1/3).
+   * 길들여지면 원정 몹 목록에서 빠진다 — 부른 쪽이 마을 펫으로 만들어 동행 펫(addCompanion)으로 붙인다. 못 길들여도 먹었으니 CALM_MS 동안 순하다.
+   * 오류: NO_MOB · NOT_FOOD · TOO_FAR. 아이템은 부른 쪽이 뺀다
+   */
+  tame(p: MobTarget, mobId: number, item: string, now: number): { tamed: boolean; kind: MobKind; x: number; y: number; z: number } | string {
+    const m = this.mobs.get(mobId);
+    if (!m) return 'NO_MOB';
+    const def = this.defs.get(m.kind);
+    if (!def.tameWith.includes(item)) return 'NOT_FOOD';
+    if (Math.hypot(m.x - p.x, m.y + mobSize(m.kind).h * 0.5 - p.eyeY, m.z - p.z) > HIT_REACH + 1.5) return 'TOO_FAR';
+    m.tameTries = (m.tameTries ?? 0) + 1;
+    const at = { kind: m.kind, x: m.x, y: m.y, z: m.z };
+    if (tameRoll(this.e.seed, m.id, m.tameTries)) {
+      this.mobs.delete(m.id);
+      this.hooks.json({ t: 'mob', ev: 'tame', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z });
+      return { tamed: true, ...at };
+    }
+    m.calmUntil = now + CALM_MS;
+    m.angryUntil = 0;
+    m.huntIdx = undefined;
+    m.state = MOB_STATE.walk;
+    this.hooks.json({ t: 'mob', ev: 'eat', id: m.id, mob: m.kind, x: m.x, y: m.y, z: m.z });
+    return { tamed: false, ...at };
   }
 
   /** 들소 털 깎기 (2026-11-06): 가위를 들고 탭 → 들소 모피 1~2, BISON_FUR_REGROW_MS 뒤 다시. 오류: NO_MOB · NO_WOOL · TOO_FAR */

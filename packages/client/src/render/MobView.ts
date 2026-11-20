@@ -1323,7 +1323,7 @@ export class MobView {
       if (stalkEyes) {
         // 호랑이 (2026-11-06): 나에게 4~14칸에서 다가오는 동안은 거의 투명, 붉은 눈만
         const d = this.viewer ? Math.hypot(this.viewer.x - c.x, this.viewer.z - c.z) : 99;
-        const stalking = speed > 0.3 && d > 4 && d < 14;
+        const stalking = speed > 0.3 && d > 4 && d < 14 && (f.state & ANIMAL_FLAG.tamed) === 0; // 길들인 호랑이(펫, 2026-11-20)는 숨지 않는다
         f.material.transparent = stalking;
         f.material.opacity = stalking ? 0.12 : 1;
         f.material.depthWrite = !stalking;

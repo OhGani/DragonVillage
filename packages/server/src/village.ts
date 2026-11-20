@@ -2366,6 +2366,26 @@ export class VillageRoom {
         this.sendJson(p, { t: 'error', code: 'SHORN', message: '✂️ 들소 털을 깎았어요 — 들소 모피가 가방에 (5분 뒤 다시 자라요). 모피 4개 → 갈색 양털' });
         return null;
       }
+      if (held && MOBS.get(m.kind).tameWith.includes(held)) {
+        // 원숭이에게 바나나·회색곰에게 연어 (아들 15차 2026-11-20): 3번에 1번꼴로 내 펫 → 원정에선 따라다니고, 돌아가면 마을로 같이 간다
+        const r = this.mobSys!.tame({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE }, mobId, held, now);
+        if (typeof r === 'string') return r;
+        const changed = new Set<number>();
+        take(p.inv, held, 1, changed);
+        this.sendInv(p, changed);
+        const name = MOBS.get(r.kind).name;
+        if (!r.tamed) {
+          this.sendJson(p, { t: 'error', code: 'TAME_TRY', message: `${name}가 ${itemName(held, this.registry, ITEM_NAMES)}을(를) 먹었어요 — 한 번 더 줘 봐요!` });
+          return null;
+        }
+        const pet = this.animals.adoptAway(p.token, r.kind, now);
+        this.mobSys!.addCompanion({ id: pet.id, kind: r.kind, owner: p.idx, name: null, x: r.x, y: r.y, z: r.z });
+        this.mobSys!.broadcastState();
+        this.broadcastCompanions();
+        this.sendJson(p, { t: 'error', code: 'TAMED', message: `🐾 ${name}가 길들여졌어요! 졸졸 따라오고, 마을로 돌아갈 때 같이 가요` });
+        this.log(`마을 ${this.info.code}: ${p.nick} 원정에서 ${name} 길들임`);
+        return null;
+      }
       if (held && calmFoods(MOBS.get(m.kind)).includes(held)) {
         // 코뿔소에게 밀, 아나콘다에게 생 닭고기 (2026-11-06): 5분 동안 먼저 안 덤빈다
         const err = this.mobSys!.calm({ idx: p.idx, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE }, mobId, held, now);

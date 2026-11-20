@@ -127,6 +127,95 @@ describe('마을 동물 (M8-1)', () => {
     expect(room.animals.entries(T0 + 5000).some((m) => m.id === ANIMAL_ID_BASE + near.id)).toBe(true);
   });
 
+  it('원정 사냥 동물 길들이기 (아들 15차 2026-11-20): 회색곰에게 연어 → 1/3 로 내 펫(동행, 몹을 세게 묾), 못 길들이면 먹고 순해짐. 돌아가면 마을로 같이 가고 저장된다', () => {
+    const storage = new Storage(':memory:');
+    const room = makeRoom(storage);
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 44.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    expect(room.startExpedition(ra.idx, 'grass_island', T0)).toBeNull();
+    room.tick(T0); // 원정 몹 무대는 첫 틱에 생긴다
+    const sys = room.mobSys!;
+    give(p.inv, 'salmon', 20);
+    give(p.inv, 'wheat', 1);
+    const slotOf = (item: string) => p.inv.findIndex((s) => s?.item === item);
+    const bear = sys.spawnKind('grizzly', p.pos.x + 2, p.pos.y, p.pos.z);
+    expect(room.useMob(ra.idx, bear.id, slotOf('wheat'), T0)).toBe('NO_MOB'); // 밀은 곰이 안 먹는다
+    let tries = 0;
+    a.clear();
+    while (sys.mobs.has(bear.id) && tries < 20) {
+      expect(room.useMob(ra.idx, bear.id, slotOf('salmon'), T0 + tries)).toBeNull();
+      tries++;
+      if (sys.mobs.has(bear.id)) expect(bear.calmUntil ?? 0).toBeGreaterThan(T0); // 못 길들여도 먹고 순해진다
+    }
+    expect(sys.mobs.has(bear.id)).toBe(false);
+    expect(countOf(p.inv, 'salmon')).toBe(20 - tries); // 하나씩 먹었다
+    expect(a.json.some((m) => m.t === 'error' && m.code === 'TAMED')).toBe(true);
+    const pet = [...room.animals.animals.values()].find((x) => x.kind === 'grizzly' && x.owner === p.token)!;
+    expect(pet.away).toBe(true);
+    expect(sys.companions.get(ANIMAL_ID_BASE + pet.id)?.kind).toBe('grizzly');
+    expect(a.json.filter((m) => m.t === 'companions').at(-1)).toMatchObject({ list: [{ id: ANIMAL_ID_BASE + pet.id, owner: ra.idx }] });
+    // 곰 펫은 제 힘(6)으로 문다
+    const zombie = sys.spawnKind('zombie', p.pos.x + 2.5, p.pos.y, p.pos.z);
+    const hp0 = zombie.hp;
+    for (let t = T0 + 100; t <= T0 + 3000 && zombie.hp === hp0; t += 100) room.tick(t);
+    expect(hp0 - zombie.hp).toBeGreaterThanOrEqual(6);
+    // 돌아가면 마을 옆에 오고, 다시 켜도 내 곰
+    expect(room.returnHome(ra.idx, T0 + 5000, true)).toBeNull();
+    expect(pet.away).toBe(false);
+    expect(Math.hypot(pet.x - p.pos.x, pet.z - p.pos.z)).toBeLessThan(3);
+    expect(room.animals.entries(T0 + 5000).some((m) => m.id === ANIMAL_ID_BASE + pet.id)).toBe(true);
+    room.flush(T0 + 6000);
+    const again = makeRoom(storage);
+    expect(again.animals.animals.get(pet.id)).toMatchObject({ kind: 'grizzly', owner: p.token });
+  });
+
+  it('호랑이는 고기 네 가지 아무거나로 길들인다 (아빠 2026-11-20) — 펫이 되면 제 힘(5)으로 문다', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 44.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    expect(room.startExpedition(ra.idx, 'grass_island', T0)).toBeNull();
+    room.tick(T0);
+    const sys = room.mobSys!;
+    const meats = ['beef', 'porkchop', 'chicken', 'mutton'];
+    for (const m of meats) give(p.inv, m, 10);
+    const tiger = sys.spawnKind('tiger', p.pos.x + 2, p.pos.y, p.pos.z);
+    for (let i = 0; i < 40 && sys.mobs.has(tiger.id); i++) expect(room.useMob(ra.idx, tiger.id, p.inv.findIndex((s) => s?.item === meats[i % 4]), T0 + i)).toBeNull();
+    expect(sys.mobs.has(tiger.id)).toBe(false);
+    expect([...room.animals.animals.values()].some((x) => x.kind === 'tiger' && x.owner === p.token && x.away)).toBe(true);
+    const zombie = sys.spawnKind('zombie', p.pos.x + 2.5, p.pos.y, p.pos.z);
+    const hp0 = zombie.hp;
+    for (let t = T0 + 100; t <= T0 + 3000 && zombie.hp === hp0; t += 100) room.tick(t);
+    expect(hp0 - zombie.hp).toBeGreaterThanOrEqual(5);
+  });
+
+  it('길들인 원숭이는 따라오기만 하고 몹을 안 문다 (2026-11-20)', () => {
+    const room = makeRoom(new Storage(':memory:'));
+    const a = inbox();
+    const ra = room.join('a'.repeat(32), '아빠', 0, a.send)!;
+    const p = room.players.get(ra.idx)!;
+    room.onMove(ra.idx, { x: 64.5, y: GROUND_Y + 1, z: 44.5, yaw: 0, pitch: 0, flags: FLAG_GROUND }, T0);
+    expect(room.startExpedition(ra.idx, 'grass_island', T0)).toBeNull();
+    room.tick(T0); // 원정 몹 무대는 첫 틱에 생긴다
+    const sys = room.mobSys!;
+    give(p.inv, 'banana', 30);
+    const monkey = sys.spawnKind('capuchin', p.pos.x + 1.5, p.pos.y, p.pos.z);
+    for (let i = 0; i < 30 && sys.mobs.has(monkey.id); i++) {
+      monkey.x = p.pos.x + 1.5; // 달아나지 않게 붙잡아 둔다
+      monkey.z = p.pos.z;
+      expect(room.useMob(ra.idx, monkey.id, p.inv.findIndex((s) => s?.item === 'banana'), T0 + i)).toBeNull();
+    }
+    expect(sys.mobs.has(monkey.id)).toBe(false);
+    expect(sys.companions.size).toBe(1);
+    const zombie = sys.spawnKind('zombie', p.pos.x + 2.5, p.pos.y, p.pos.z);
+    const hp0 = zombie.hp;
+    for (let t = T0 + 100; t <= T0 + 3000; t += 100) room.tick(t);
+    expect(zombie.hp).toBe(hp0);
+  });
+
   it('산책은 집 24칸 안에서, 마을 사람에게 MobsState 로 간다(id 는 100000 부터, 방어전 몹과 한 목록)', () => {
     const storage = new Storage(':memory:');
     const room = makeRoom(storage);

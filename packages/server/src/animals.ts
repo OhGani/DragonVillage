@@ -1216,6 +1216,19 @@ export class AnimalSystem {
     return out;
   }
 
+  /**
+   * 원정에서 길들인 사냥 동물 (아들 15차 2026-11-20, 원숭이·회색곰): 이 사람의 펫으로 마을 목록에 넣되 지금은 원정에 가 있다(away) —
+   * 주인이 돌아오면 bringBack 이 옆에 둔다. 그 전에 서버가 다시 켜지면(away 는 저장 안 함) 광장 남쪽에 있다. 원정 동행 펫으로 붙일 정보를 돌려준다
+   */
+  adoptAway(token: string, kind: MobKind, now: number): { id: number; kind: number; kindName: MobKind; name: string | null } {
+    const x = 64.5,
+      z = 72.5;
+    const y = this.groundAt(x, z, GROUND_Y + 4) ?? GROUND_Y + 1;
+    const a = this.add({ kind, x, y, z, bornAt: now, adultAt: null, owner: token, sitting: false, homeX: x, homeZ: z, woolAt: 0, eggs: 0, lastEggAt: now, name: null }, now);
+    a.away = true;
+    return { id: ANIMAL_ID_BASE + a.id, kind: MOB_KIND_NUM[kind], kindName: kind, name: null };
+  }
+
   /** 원정에서 돌아온 사람의 펫을 그 사람 옆에 둔다 (#145). 돌아온 수 */
   bringBack(token: string, x: number, y: number, z: number): number {
     let n = 0;

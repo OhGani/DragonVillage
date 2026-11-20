@@ -335,6 +335,8 @@ const RawFighter = z
     speed: z.number().optional(),
     xp: z.number().optional(),
     drops: z.array(z.tuple([z.string(), z.tuple([z.number(), z.number()]), z.number()]).rest(z.unknown())).optional(),
+    /** 사냥 동물만 (아들 15차 2026-11-20): 이걸 들고 탭하면 1/3 로 길들여져 내 펫이 된다 (원숭이 = 바나나, 회색곰 = 연어) */
+    tameWith: z.union([z.string(), z.array(z.string())]).optional(),
   })
   .loose();
 const MobFile = z
@@ -458,7 +460,7 @@ export function parseMobs(raw: unknown, xpByMob: ReadonlyMap<string, readonly [n
       xp: xpRange ? xpRange[0] : (src?.xp ?? 5),
       passive: false,
       food: [],
-      tameWith: [],
+      tameWith: isWild(kind) && src?.tameWith !== undefined ? (Array.isArray(src.tameWith) ? src.tameWith : [src.tameWith]) : [],
     };
   }
   return new MobRegistry(defs);
@@ -654,6 +656,8 @@ export interface MobState {
   calmUntil?: number;
   /** 들소 털을 깎은 뒤 다시 자라는 시각 (2026-11-06) */
   shornUntil?: number;
+  /** 길들이기 시도 횟수 (사냥 동물 tameWith, 2026-11-20) — tameRoll 의 번호 */
+  tameTries?: number;
   /** 처음 본 시각 (벡스가 사라질 때를 센다, 2026-11-07) */
   bornAt?: number;
   /** 원정 곳곳에 처음부터 서 있던 몹 (2026-11-07) — 밤 몹 수(MOB_MAX)엔 안 센다 */
@@ -798,6 +802,14 @@ export function moveMob(m: { x: number; y: number; z: number; kind: MobKind }, n
 }
 
 /**
+ * 나는 몹(hover)이 사람과 두는 가로 거리 (2026-11-20): 손 닿는 거리의 절반 + 발보다 1.5칸 넘게 높은 만큼의 0.8배.
+ * 팬텀은 꼭대기(10칸)에서 8칸 옆, 내려오면 1.1칸 앞. 가스트는 6칸 위에서 10.6칸 옆이라 그대로 쏜다(사거리 14)
+ */
+export function hoverRing(def: Pick<MobDef, 'reach'>, above: number): number {
+  return def.reach * 0.5 + Math.max(0, above - 1.5) * 0.8;
+}
+
+/**
  * 몹 한 걸음 (dt 초). target 은 가장 가까운 사람의 발 위치. groundAt 으로 땅을 따라간다(한 칸 오르기까지).
  * 돌려주는 event: 'attack'(좀비가 물었다) · 'explode'(크리퍼가 터졌다) · null
  */
@@ -818,7 +830,21 @@ export function stepMob(m: MobState, def: MobDef, target: { x: number; y: number
     const wantY = target.y + hover;
     const rate = def.swoop ? 4 : 2;
     m.y += Math.max(-rate * dt, Math.min(rate * dt, wantY - m.y));
-    if (Math.hypot(dx, target.y - m.y, dz) <= def.reach && mobSees(solidAt, m, target)) {
+    const inReach = Math.hypot(dx, target.y - m.y, dz) <= def.reach && mobSees(solidAt, m, target);
+    // 머리 바로 위로 오지 않는다 (아빠 2026-11-20 "몹이 머리 위로 가 있어서 공격하기 어려워"): 높이 떠 있을수록 옆으로 떨어져 맴돌고(hoverRing),
+    // 내려오면 앞쪽 손 닿는 거리까지 온다. 그보다 안쪽(사람이 밑으로 걸어 들어옴)이면 쏘는 중에도 옆으로 물러난다
+    const ring = hoverRing(def, m.y - target.y);
+    if (dist < ring - 0.3) {
+      const away = dist > 0.01 ? { x: -dx / dist, z: -dz / dist } : { x: Math.sin(m.id), z: Math.cos(m.id) }; // 딱 위면 번호로 정한 쪽으로
+      const step = Math.min(ring - dist, def.speed * 0.6 * dt);
+      m.x += away.x * step;
+      m.z += away.z * step;
+    } else if (dist > ring && !inReach) {
+      const step = Math.min(dist - ring, def.speed * dt);
+      m.x += (dx / dist) * step;
+      m.z += (dz / dist) * step;
+    }
+    if (inReach) {
       m.state = MOB_STATE.attack;
       if (now - m.lastAttackAt >= def.attackEveryMs) {
         m.lastAttackAt = now;
@@ -827,11 +853,6 @@ export function stepMob(m: MobState, def: MobDef, target: { x: number; y: number
       return null;
     }
     m.state = MOB_STATE.walk;
-    if (dist > 0.01) {
-      const step = Math.min(dist, def.speed * dt);
-      m.x += (dx / dist) * step;
-      m.z += (dz / dist) * step;
-    }
     return null;
   }
   if (def.fuseMs > 0) {

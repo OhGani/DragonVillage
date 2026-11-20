@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import bossesJson from '../../../../data/bosses.json';
 import { MOBS } from './data';
-import { BOSS_KIND, MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, isBoss, isLookingAt, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob, bossMinionKind, bossMinionKinds, KING_KINDS, MOB_KINDS, MOB_KIND_OF, MOB_KIND_NUM, isZombieKind, zombieVillagerRoll, CURE_MS, bodyInWall, bodyR, clearSight, type SolidAt, JOCKEYS, RAIDER_KINDS, isRangedMob, jockeyFor } from './mobs';
+import { BOSS_KIND, MOB_MAX, MOB_STATE, type MobKind, type MobState, beamHitsMob, explosionDamage, hitDamage, isBoss, isLookingAt, mobSize, pickKind, pickSpawn, rollDrops, spawnKinds, stepMob, bossMinionKind, bossMinionKinds, KING_KINDS, MOB_KINDS, MOB_KIND_OF, MOB_KIND_NUM, isZombieKind, zombieVillagerRoll, CURE_MS, bodyInWall, bodyR, clearSight, type SolidAt, JOCKEYS, RAIDER_KINDS, isRangedMob, jockeyFor, hoverRing } from './mobs';
 
 const flat = () => 41; // 어디나 발 높이 41
 
@@ -85,6 +85,24 @@ describe('원정 밤의 몹 (M7-2)', () => {
     const d1 = rollDrops(MOBS.get('zombie'), 7, 3);
     expect(rollDrops(MOBS.get('zombie'), 7, 3)).toEqual(d1);
     for (const d of d1) expect(d.count).toBeGreaterThan(0);
+  });
+
+  it('나는 몹은 머리 바로 위에 안 머문다 (2026-11-20): 높이 뜨면 옆으로 맴돌고, 내려오면 앞에서 문다 — 그때 손이 닿는다', () => {
+    const target = { x: 100, y: 41, z: 100 };
+    for (const kind of ['phantom', 'vex', 'ender_dragon', 'ghast'] as MobKind[]) {
+      const def = MOBS.get(kind);
+      const m = { ...mob(kind, 100, 100), y: 41 + (def.hover ?? 0) }; // 딱 머리 위에서 시작
+      let attacks = 0;
+      let overhead = 0;
+      for (let t = 0; t < 24_000; t += 100) {
+        if (stepMob(m, def, target, 0.1, t, flat) === 'attack') attacks++;
+        const flatD = Math.hypot(m.x - target.x, m.z - target.z);
+        if (t > 3000 && m.y - target.y > 2.5 && flatD < 1) overhead++; // 머리 위 2.5칸 넘게, 가로 1칸 안 = 올려다봐야 하는 자리
+      }
+      expect(overhead, kind).toBe(0);
+      expect(attacks, kind).toBeGreaterThan(0); // 여전히 공격한다 (가스트는 멀리서 쏜다)
+    }
+    expect(hoverRing(MOBS.get('ghast'), 6)).toBeLessThan(Math.sqrt(MOBS.get('ghast').reach ** 2 - 36)); // 가스트는 맴도는 자리에서 쏠 수 있다
   });
 });
 
