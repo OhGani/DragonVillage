@@ -11,9 +11,10 @@ import { Storage } from './storage';
 describe('부모 비밀번호 다시 정하기 (2026-11-17)', () => {
   it('서버가 켜진 채로 바꿔도 새 비밀번호로 로그인되고, 옛 비밀번호는 안 된다', () => {
     const dir = mkdtempSync(join(tmpdir(), 'dv-reset-'));
+    let storage: Storage | undefined;
     try {
       const path = join(dir, 'dragoncraft.sqlite');
-      const storage = new Storage(path);
+      storage = new Storage(path);
       const family = new FamilyService(storage, new AccountService(storage));
       expect(family.signup('Dad@Example.com', 'oldpass1', 1000).ok).toBe(true);
       family.signup('mom@example.com', 'mompass1', 1000);
@@ -31,6 +32,7 @@ describe('부모 비밀번호 다시 정하기 (2026-11-17)', () => {
       expect(family.login('dad@example.com', ' newpass1', 4000).ok).toBe(true);
       expect(family.login('dad@example.com', 'Newpass1', 4000).ok).toBe(false);
     } finally {
+      storage?.close(); // 윈도우는 열린 sqlite 파일을 못 지운다
       rmSync(dir, { recursive: true, force: true });
     }
   });

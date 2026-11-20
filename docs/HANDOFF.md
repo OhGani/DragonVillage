@@ -39,6 +39,7 @@ cd dragon-village
 - 맥에서 네이티브 빌드가 실패하면 `npm_config_python=/usr/bin/python3 corepack pnpm install` (맥 기본 python3 3.7 은 node-gyp 가 못 쓴다).
 - **검증 순서**(푸시 전): `corepack pnpm -r typecheck` → `corepack pnpm lint` → `corepack pnpm test`(781개) → `corepack pnpm --filter @dragon-village/client build`.
 - 브라우저 시험: `.claude/launch.json` 의 `server-test`(5175, 데이터 `.test-data/`) + `dev-test`(5176, 콘솔 `window.__dv`). 켜기 전에 `.test-data/running.lock` 이 남아 있으면 지운다. 라이브 데이터는 건드리지 않는다.
+- **윈도우 PC** (2026-11-20 준비): `winget install OpenJS.NodeJS.22`. `corepack enable` 은 관리자 권한이 없으면 EPERM 이라 그냥 `corepack pnpm …` 으로 친다. better-sqlite3 는 VS 2022 Build Tools 로 빌드된다. 열린 sqlite 파일은 못 지우니 테스트는 `storage.close()` 뒤에 `rmSync`.
 - **prettier 를 파일에 그대로 돌리지 말 것** — 저장소에 prettier 설정이 없어서 기본값으로 파일 전체를 다시 쓴다 (2026-11-17 `village.ts` 가 통째로 바뀐 적 있음).
 
 ## 3. 서버 (Oracle Cloud)
