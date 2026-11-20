@@ -1,3 +1,5 @@
+import { BOWL, dishOf } from '@dragon-village/shared';
+
 /**
  * 식탁 창 (아빠 2026-11-06 "식탁 위에 올린 음식 다시 가방에 넣거나 먹을 수 있음"): 액자 넷 — 음식마다 😋 먹기 · 🎒 가방에.
  * 채팅 시트와 같은 생김새(chat-panel). 먹을 것을 들고 식탁을 탭하면 창 없이 바로 올라간다
@@ -65,7 +67,7 @@ export class TableSheet {
     this.at = { x, y, z };
     this.fire = fire;
     this.title.textContent = fire ? '🔥 모닥불' : '🍽️ 식탁';
-    this.hint.textContent = fire ? '날고기·생선·감자를 손에 들고 모닥불을 탭하면 30초 뒤 익어요 (4개까지)' : '먹을 것을 손에 들고 식탁을 탭하면 올라가요 (4개까지)';
+    this.hint.textContent = fire ? '날고기·생선·감자를 손에 들고 모닥불을 탭하면 30초 뒤 익어요 (4개까지)' : '먹을 것·그릇을 손에 들고 식탁을 탭하면 올라가요 (4개까지). 빈 그릇이 있으면 음식이 그릇에 담겨요';
     this.render(items);
     this.sheet.hidden = false;
   }
@@ -78,7 +80,9 @@ export class TableSheet {
   private render(items: readonly (string | null)[]): void {
     this.list.replaceChildren();
     const at = this.at!;
-    items.forEach((id, i) => {
+    items.forEach((slot, i) => {
+      const dish = dishOf(slot); // 그릇 (2026-11-20): 'bowl' = 빈 그릇, 'bowl:<음식>' = 담긴 것
+      const id = dish.food ?? (dish.bowl ? BOWL : null);
       const row = document.createElement('div');
       row.style.display = 'flex';
       row.style.alignItems = 'center';
@@ -99,17 +103,19 @@ export class TableSheet {
         row.appendChild(img);
       }
       const name = document.createElement('span');
-      name.textContent = this.fire && this.cooks.has(id) ? `${this.nameOf(id)} — 굽는 중` : this.nameOf(id);
+      name.textContent = this.fire && this.cooks.has(id) ? `${this.nameOf(id)} — 굽는 중` : !dish.food ? '🥣 빈 그릇' : dish.bowl ? `🥣 ${this.nameOf(id)}` : this.nameOf(id);
       name.style.flex = '1';
-      const eat = document.createElement('button');
-      eat.className = 'chat-phrase';
-      eat.textContent = '😋 먹기';
-      eat.addEventListener('click', () => this.onEat(at, i));
       const take = document.createElement('button');
       take.className = 'chat-phrase';
       take.textContent = '🎒 가방에';
       take.addEventListener('click', () => this.onTake(at, i));
-      row.append(name, eat, take);
+      if (dish.food) {
+        const eat = document.createElement('button');
+        eat.className = 'chat-phrase';
+        eat.textContent = '😋 먹기';
+        eat.addEventListener('click', () => this.onEat(at, i));
+        row.append(name, eat, take);
+      } else row.append(name, take);
       this.list.appendChild(row);
     });
   }

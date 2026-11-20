@@ -45,3 +45,21 @@ export function foodOf(food: FoodRules, item: string | null | undefined): FoodDe
 
 /** 식탁 (아빠 2026-11-06): 위에 올릴 수 있는 음식 수. 칸마다 하나씩 */
 export const TABLE_SLOTS = 4;
+
+/**
+ * 식탁 위 그릇 (아빠 2026-11-20 "그릇에 음식을 담을 수 있게"): 식탁 한 자리에 빈 그릇(`bowl`)을 놓을 수 있고,
+ * 먹을 것을 들고 탭하면 빈 그릇이 있으면 거기 담긴다 — 그 자리는 `bowl:<음식>`. 먹거나 음식만 가방에 넣으면 빈 그릇이 남는다
+ */
+export const BOWL = 'bowl';
+const IN_BOWL = 'bowl:';
+/** 식탁 한 자리 → 음식·그릇 (빈 자리면 둘 다 없음) */
+export function dishOf(slot: string | null | undefined): { food: string | null; bowl: boolean } {
+  if (!slot) return { food: null, bowl: false };
+  if (slot === BOWL) return { food: null, bowl: true };
+  if (slot.startsWith(IN_BOWL)) return { food: slot.slice(IN_BOWL.length), bowl: true };
+  return { food: slot, bowl: false };
+}
+/** 그릇에 담긴 음식의 자리 값 */
+export function inBowl(food: string): string {
+  return IN_BOWL + food;
+}

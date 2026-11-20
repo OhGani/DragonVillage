@@ -13,6 +13,30 @@ export const ROD_BOXES = [
   [6, 12, 6, 10, 16, 10],
 ] as const;
 
+/**
+ * 의자 (아빠 2026-11-20 "의자를 식탁과 같이 쓸 수 있게, 의자에 앉아서 음식을 먹을 수 있어"): 다리 넷 + 앉는 판(높이 6~8/16) + 등받이.
+ * 이 모양은 북쪽(-z)을 보고 앉는 의자 — 등받이가 남쪽. 다른 방향은 chairBoxes 가 돌린다
+ */
+const CHAIR_NORTH = [
+  [2, 0, 2, 4, 6, 4],
+  [12, 0, 2, 14, 6, 4],
+  [2, 0, 12, 4, 6, 14],
+  [12, 0, 12, 14, 6, 14],
+  [2, 6, 2, 14, 8, 14],
+  [2, 8, 12, 14, 16, 14],
+] as const;
+/** 의자에 앉은 사람의 엉덩이 높이 (칸 바닥에서) */
+export const CHAIR_SEAT = 8 / 16;
+/** facing(앉은 사람이 보는 쪽, DOOR_FACING 번호) 의자의 상자들 — 북쪽 모양을 위에서 보아 시계 방향으로 facing 번 돌린다 */
+export function chairBoxes(facing: number): [number, number, number, number, number, number][] {
+  return CHAIR_NORTH.map((b) => {
+    const [, y0, , , y1] = b;
+    let [x0, , z0, x1, , z1] = b as unknown as [number, number, number, number, number, number];
+    for (let i = 0; i < (facing & 3); i++) [x0, z0, x1, z1] = [16 - z1, x0, 16 - z0, x1]; // (x, z) → (16 - z, x)
+    return [x0, y0, z0, x1, y1, z1];
+  });
+}
+
 export const AIR_ID = 0;
 
 const NAME_RE = /^[a-z0-9_]+$/;
@@ -204,6 +228,14 @@ export interface BlockDef {
   readonly box: readonly (readonly [number, number, number, number, number, number])[] | null;
   /** 놓을 때 덮어쓰는 블록 (눈 층 — 마인크래프트처럼 그 칸에 바로 놓인다, 드롭 없음) */
   readonly replaceable: boolean;
+  /** 의자 (2026-11-20): 앉는 사람이 보는 방향. 의자가 아니면 null */
+  readonly chair: ChairInfo | null;
+}
+
+/** 의자 (2026-11-20). facing = 앉은 사람이 보는 쪽(DOOR_FACING 번호). JSON 의 의자 = 북쪽을 보는 것, 나머지 셋은 코드가 만든다 */
+export interface ChairInfo {
+  readonly base: number;
+  readonly facing: number;
 }
 
 /**
@@ -380,6 +412,8 @@ export class BlockRegistry {
   private readonly traps = new Map<number, number[]>();
   /** 사다리 변형 (#299): 사다리 번호 → [facing] 번호 */
   private readonly ladders = new Map<number, number[]>();
+  /** 의자 변형 (2026-11-20): 의자 번호 → [facing] 번호 */
+  private readonly chairs = new Map<number, number[]>();
 
   constructor(readonly defs: readonly BlockDef[]) {
     for (const d of defs) {
@@ -403,6 +437,11 @@ export class BlockRegistry {
         let sArr = this.stairs.get(d.stairs.base);
         if (!sArr) this.stairs.set(d.stairs.base, (sArr = []));
         sArr[d.stairs.facing + (d.stairs.top ? 4 : 0)] = d.num;
+      }
+      if (d.chair) {
+        let cArr = this.chairs.get(d.chair.base);
+        if (!cArr) this.chairs.set(d.chair.base, (cArr = []));
+        cArr[d.chair.facing] = d.num;
       }
       if (d.ladder) {
         let dArr = this.ladders.get(d.ladder.base);
@@ -509,6 +548,11 @@ export class BlockRegistry {
   /** 사다리 변형 (#299): 사다리 번호(JSON 것) + 붙은 벽의 방향 → 블록 번호 */
   ladderVariant(base: number, facing: number): number {
     return this.ladders.get(base)?.[facing & 3] ?? base;
+  }
+
+  /** 의자 변형 (2026-11-20): 의자 번호(JSON 것) + 앉은 사람이 보는 방향 → 블록 번호 */
+  chairVariant(base: number, facing: number): number {
+    return this.chairs.get(base)?.[facing & 3] ?? base;
   }
 
   /** 다락문 변형 (#296): 다락문 번호(JSON 것) + 방향 + 위(천장 쪽) + 열림 → 블록 번호 */
@@ -704,6 +748,7 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
       ladder: null,
       box: null,
       replaceable: false,
+      chair: null,
     };
   });
 
@@ -939,6 +984,13 @@ export function parseBlocks(raw: unknown, fileName = 'data/blocks.json'): BlockR
   for (const src of defs) {
     if (src.shape === 'layer') Object.assign(src, { solid: false, transparent: true, lightFilter: 0, box: [LAYER_BOX], replaceable: true });
     else if (src.shape === 'rod') Object.assign(src, { solid: false, transparent: true, lightFilter: 0, box: ROD_BOXES });
+  }
+
+  // 의자 (2026-11-20): 정해진 모양 상자(box)로 그리고 외곽선도 그 모양. 부딪히기는 앉는 판 높이까지 + 등받이 줄(stairs.ts K_SEAT)
+  for (const src of [...defs]) {
+    if (src.shape !== 'chair' || !src.textures) continue;
+    Object.assign(src, { transparent: true, lightFilter: 0, box: chairBoxes(0), chair: { base: src.num, facing: 0 } });
+    for (let facing = 1; facing < 4; facing++) defs.push({ ...src, num: defs.length, id: `${src.id}@${DOOR_FACING[facing]}`, internal: true, drops: src.drops ?? src.id, box: chairBoxes(facing), chair: { base: src.num, facing } });
   }
 
   if (defs.length > 65535) problems.push(`블록이 너무 많아요 (최대 65535개)`);

@@ -31,6 +31,8 @@ const EYE_STAND = 1.62;
 const EYE_SNEAK = 1.27;
 /** 침대에 누웠을 때 눈 높이 (#204): 베개 위 */
 const EYE_SLEEP = 0.3;
+/** 의자에 앉았을 때 눈 높이 (2026-11-20): 엉덩이(앉는 판) 위로 서 있는 눈 높이에서 다리 길이를 뺀 만큼 */
+const EYE_SEAT = 0.95;
 const WALK = 4.317;
 const SPRINT = 5.612;
 const SNEAK = 1.31;
@@ -86,6 +88,8 @@ export class Player {
   sneaking = false;
   /** 침대에 누움 (#204): 안 움직이고 눈이 낮다. Game 이 서버 응답으로 켜고 끈다 */
   sleeping = false;
+  /** 의자에 앉음 (2026-11-20): sleeping 과 같이 서 있되 눈은 앉은 높이 */
+  seated = false;
   /** 🛡️ 막는 중 (#118): 걸음이 guardSlow 배 */
   guarding = false;
   guardSlow = 0.5;
@@ -293,7 +297,7 @@ export class Player {
       this.vel.x = this.vel.y = this.vel.z = 0;
       this.onGround = true;
       this.horizontalSpeed = 0;
-      this.eyeHeight += (EYE_SLEEP - this.eyeHeight) * Math.min(1, 22 * dt);
+      this.eyeHeight += ((this.seated ? EYE_SEAT : EYE_SLEEP) - this.eyeHeight) * Math.min(1, 22 * dt);
       this.accumulator = 0;
       return;
     }

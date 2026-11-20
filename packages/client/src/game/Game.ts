@@ -35,6 +35,7 @@ import {
   FLAG_SPRINT,
   FLAG_WATER,
   foodOf,
+  BOWL,
   CAMPFIRE,
   campfireCooks,
   generateExpedition,
@@ -751,13 +752,16 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       onSleepBed: (x, y, z) => {
         if (!mySleep && !myRiding) net.sendSleep({ x, y, z }); // 침대 빈손 탭 → 눕기 (#204)
       },
+      onSitChair: (x, y, z) => {
+        if (!mySleep && !myRiding) net.sendSleep({ x, y, z }); // 의자 탭 → 앉기 (2026-11-20). 서버가 의자를 보고 seat 로 답한다
+      },
       onHint: (text) => hud.toast(text, 2000),
       onUseTable: (bx, by, bz) => {
         // 식탁 (2026-11-06): 먹을 것을 들었으면 바로 올리고, 아니면 식탁 창 (먹기·가방에).
         // 모닥불 (#290): 구울 수 있는 날것을 들었으면 올리고, 아니면 모닥불 창
         if (anyPanelOpen() || !started || disconnected) return;
         const fire = registry.get(ctx.world.getBlock(bx, by, bz)).shape === 'campfire';
-        if (hud.selectedItem && (fire ? CAMPFIRE_COOKS.has(hud.selectedItem) : foodOf(FOOD, hud.selectedItem))) {
+        if (hud.selectedItem && (fire ? CAMPFIRE_COOKS.has(hud.selectedItem) : foodOf(FOOD, hud.selectedItem) || hud.selectedItem === BOWL)) { // 그릇도 올린다 (2026-11-20)
           net.sendTable('put', bx, by, bz, hud.selectedIndex);
           return;
         }
@@ -1142,7 +1146,18 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
       // 내가 누웠다/일어났다 (#204): 두 칸 가운데서 머리 쪽으로 반 칸, 침대 윗면 높이. 움직이면 일어난다
       mySleep = m.at;
       ctx.player.sleeping = m.at !== null;
-      if (m.at) {
+      ctx.player.seated = m.at?.seat === true;
+      if (m.at?.seat) {
+        // 의자에 앉았다 (2026-11-20): 칸 가운데·앉는 판 높이, 의자가 보는 쪽을 본다. 앉아서도 먹고 식탁을 탭할 수 있다
+        const [sdx, sdz] = DOOR_DIR[m.at.facing]!;
+        ctx.player.pos.x = m.at.x;
+        ctx.player.pos.y = m.at.y;
+        ctx.player.pos.z = m.at.z;
+        ctx.player.vel.x = ctx.player.vel.y = ctx.player.vel.z = 0;
+        ctx.player.yaw = Math.atan2(-sdx, -sdz);
+        ctx.player.pitch = -0.3; // 식탁 위가 보이게 살짝 아래
+        hud.toast(`🪑 의자에 앉았어요 — 식탁을 탭하면 먹을 수 있어요 · ${isTouch ? '스틱을 밀면' : 'WASD 나 점프로'} 일어나요`, 4000);
+      } else if (m.at) {
         if (hp < 20) hud.toast('💤 누워 있으면 하트가 4배 빨리 차요', 2500); // #216
         const [sdx, sdz] = DOOR_DIR[m.at.facing]!;
         ctx.player.pos.x = m.at.x + sdx * 0.5;
@@ -2026,6 +2041,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     if (mySleep && (Math.abs(inp.moveX) > 0.2 || Math.abs(inp.moveZ) > 0.2 || inp.jump)) {
       mySleep = null;
       player.sleeping = false;
+      player.seated = false;
       net.sendSleep(null);
     }
     if (inp.toggleDebug) debugVisible = !debugVisible;
@@ -2050,7 +2066,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     aimedMobNow = aimedMob;
     if (aimedMob !== null && pets.get(aimedMob)?.mine) lastAimedPet = { id: aimedMob, at: now }; // (#179)
     interaction.suppressPrimary = aimedMob !== null || bow !== null || mySleep !== null; // 활을 들면 꾹 누르기는 당기기 (#119). 누워서는 못 캔다 (#204)
-    interaction.suppressSecondary = aimedMob !== null || mySleep !== null;
+    interaction.suppressSecondary = aimedMob !== null || (mySleep !== null && !mySleep.seat); // 의자에 앉아서는 탭(식탁·먹기)이 된다 (2026-11-20)
     // 🛡️ 막기 (#118): 방패를 끼고 버튼(X)을 누르는 동안 — 한 번 톡 눌러도 GUARD_TAP_MS 는 막는다(아들 13차). 폰은 두 번 톡톡 = 계속. 서버엔 바뀔 때 + 5초마다
     if (inp.guard && !guardHeldPrev) guardTapUntil = now + GUARD_TAP_MS;
     guardHeldPrev = inp.guard;
@@ -2167,7 +2183,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     // 당근·감자처럼 먹을 것이자 씨앗인 것은 농지를 겨눴을 땐 심기만 한다 (#212 — 전엔 심으면서 하나를 더 먹었다)
     const planting = interaction.target !== null && interaction.selectedBlock > 0 && registry.get(interaction.target.id).id === 'farmland';
     const aimedShape = interaction.target !== null ? registry.get(interaction.target.id).shape : null;
-    const aimingTable = aimedShape === 'table' || aimedShape === 'campfire'; // 식탁·모닥불을 탭하면 먹지 않고 올린다
+    const aimingTable = aimedShape === 'table' || aimedShape === 'campfire' || (aimedShape === 'chair' && mySleep === null); // 식탁·모닥불을 탭하면 먹지 않고 올린다. 의자를 탭하면 먼저 앉는다 (2026-11-20)
     if (heldFood && !planting && !aimingTable && inp.secondaryTap && aimedMob === null && !guarding && !anyPanelOpen() && started && !disconnected) {
       net.sendEat(hud.selectedIndex);
       hand.swing();
@@ -2241,6 +2257,7 @@ export async function createGame(root: HTMLElement, opts: GameOptions): Promise<
     orbView.update(dt);
     mobView.viewer = { x: ctx.player.pos.x, z: ctx.player.pos.z }; // 호랑이 몰래 다가오기 (2026-11-06)
     mobView.update(dt);
+    tableView.face(camera.position); // 식탁 위 입체 음식은 나를 본다 (2026-11-20)
     if (stamina) refreshStamina();
 
     // 이 프레임에 바뀐 블록들의 빛을 한 번에 다시 계산 → 빛이 바뀐 청크도 다시 메싱

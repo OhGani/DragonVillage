@@ -365,12 +365,13 @@ export function decodeServerBinary(bytes: Uint8Array): ServerBinary | null {
 
 // ---------------------------------------------------------------- JSON (로비)
 
-/** 침대에 누운 자리 (#204): 두 칸 가운데(x·z)·침대 윗면(y)·머리 방향 */
+/** 침대에 누운 자리 (#204): 두 칸 가운데(x·z)·침대 윗면(y)·머리 방향. seat = 의자에 앉음 (2026-11-20): 칸 가운데·앉는 판 높이·보는 방향 */
 export interface SleepInfo {
   x: number;
   y: number;
   z: number;
   facing: number;
+  seat?: boolean;
 }
 export interface PlayerInfo {
   idx: number;

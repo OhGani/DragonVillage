@@ -413,6 +413,14 @@ export class RemotePlayers {
           c.yaw = d.yaw;
         }
       }
+      if (f.sleeping?.seat) {
+        // 의자에 앉음 (2026-11-20): 앉는 판 위, 의자가 보는 쪽
+        const [sdx, sdz] = DOOR_DIR[f.sleeping.facing]!;
+        c.x = f.sleeping.x;
+        c.y = f.sleeping.y;
+        c.z = f.sleeping.z;
+        c.yaw = Math.atan2(-sdx, -sdz);
+      }
       f.group.position.set(c.x, c.y, c.z);
       f.body.rotation.y = c.yaw;
       f.head.rotation.x = -t.pitch * 0.6;
@@ -428,7 +436,7 @@ export class RemotePlayers {
       f.armR.rotation.x = swing;
       // 타면 앉는다 (#192, 아들 2026-10-19 "탈 때 서 있지 말고 앉게"): 다리를 앞으로 접고 팔은 고삐 잡듯 조금 앞으로,
       // 엉덩이가 탈것 등(발 높이)에 오도록 몸 부위를 다리 길이만큼 내린다. 탈것 메시는 body 의 자식이라 그대로 둔다
-      const sit = riding && (f.mount !== null || f.riding?.back === true); // 낙타 뒷자리도 앉는다
+      const sit = (riding && (f.mount !== null || f.riding?.back === true)) || f.sleeping?.seat === true; // 낙타 뒷자리도 앉는다. 의자도 (2026-11-20)
       if (sit) {
         f.legL.rotation.x = f.legR.rotation.x = SIT_LEG;
         f.armR.rotation.x = SIT_ARM;
@@ -444,7 +452,7 @@ export class RemotePlayers {
       const sneak = (t.flags & FLAG_SNEAK) !== 0;
       f.body.scale.y = sneak ? 0.85 : 1;
       f.label.position.y = (sneak ? FIGURE_H * 0.85 : FIGURE_H) - drop + 0.3;
-      if (f.sleeping) {
+      if (f.sleeping && !f.sleeping.seat) {
         // 침대에 누움 (#204): 발은 발치 끝, 머리는 머리판 쪽, 등을 대고(x 로 90° 눕힘) 팔다리는 곧게
         const [sdx, sdz] = DOOR_DIR[f.sleeping.facing]!;
         c.x = f.sleeping.x;

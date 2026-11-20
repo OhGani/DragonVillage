@@ -100,7 +100,8 @@ export function partMask(d: Pick<BlockDef, 'slab' | 'stairs'>, stairAt: (x: numb
 export function standTop(registry: BlockRegistry, getBlock: (x: number, y: number, z: number) => number, bx: number, by: number, bz: number, x: number, z: number): number {
   const d = registry.get(getBlock(bx, by, bz));
   if (d.fence || (d.gate && !d.gate.open)) return by + FENCE_HEIGHT;
-  if (d.trap) return by + (d.trap.top ? 1 : 0.25); // 닫힌 다락문 (#296): 바닥 판은 ¼칸, 천장 판은 칸 꼭대기
+  if (d.trap) return by + (d.trap.top ? 1 : 0.25);
+  if (d.chair) return by + 0.5; // 의자 (2026-11-20): 앉는 판 높이 // 닫힌 다락문 (#296): 바닥 판은 ¼칸, 천장 판은 칸 꼭대기
   if (!d.slab && !d.stairs) return by + 1;
   const mask = partMask(d, (sx, sy, sz) => registry.get(getBlock(sx, sy, sz)).stairs, bx, by, bz);
   const q = (x - bx >= 0.5 ? 1 : 0) + (z - bz >= 0.5 ? 2 : 0);
@@ -123,7 +124,13 @@ const K_FULL = 0,
   K_TRAP = 5, // 다락문 (#296): K_TRAP + slice (바닥·천장·열림 넷) — 열려 있어도 얇은 판에 부딪힌다
   K_LADDER = 11, // 사다리 (#299): K_LADDER + 붙은 벽 방향 — 부딪히지 않고(지나간다) 조준만 벽 쪽 한 겹에
   K_LAYER = 15, // 눈 층 (2026-11-17): 지나가고, 조준은 맨 아래 한 겹
-  K_ROD = 16; // 피뢰침 (2026-11-17): 가운데 기둥(조각 2×2)에 부딪히고 조준된다
+  K_ROD = 16, // 피뢰침 (2026-11-17): 가운데 기둥(조각 2×2)에 부딪히고 조준된다
+  K_SEAT = 17; // 의자 (2026-11-20): K_SEAT + facing — 아래 반(앉는 판까지) + 등받이 줄은 위까지 부딪힌다. 조준은 칸 전체
+/** 의자 조각: 아래 반이거나 등받이 쪽 한 줄(facing 반대편 가장자리) */
+const seatFoot = (facing: number, sx: number, sy: number, sz: number): boolean => {
+  if (sy < 2) return true;
+  return facing === 0 ? sz === SUB : facing === 1 ? sx === 0 : facing === 2 ? sz === 0 : sx === SUB;
+};
 /** 피뢰침 기둥 조각 — 칸 가운데 넷 */
 const rodFoot = (sx: number, sz: number): boolean => sx >= 1 && sx <= 2 && sz >= 1 && sz <= 2;
 const kindTables = new WeakMap<object, Uint8Array>();
@@ -132,7 +139,7 @@ function kindTable(registry: BlockRegistry): Uint8Array {
   if (hit) return hit;
   const defs = (registry as { defs?: readonly BlockDef[] }).defs ?? []; // 시험용 가짜 레지스트리에는 defs 가 없다 → 전부 보통 블록
   const t = new Uint8Array(defs.length);
-  for (const d of defs) t[d.num] = d.shape === 'layer' ? K_LAYER : d.shape === 'rod' ? K_ROD : d.ladder ? K_LADDER + d.ladder.facing : d.trap ? K_TRAP + trapSlice(d.trap.facing, d.trap.top, d.trap.open) : d.fence ? K_FENCE : d.gate ? (d.gate.open ? K_FULL : (d.gate.facing & 1) === 0 ? K_GATE_X : K_GATE_Z) : (d.slab && d.slab.kind !== 2) || d.stairs ? K_PARTS : K_FULL;
+  for (const d of defs) t[d.num] = d.chair ? K_SEAT + d.chair.facing : d.shape === 'layer' ? K_LAYER : d.shape === 'rod' ? K_ROD : d.ladder ? K_LADDER + d.ladder.facing : d.trap ? K_TRAP + trapSlice(d.trap.facing, d.trap.top, d.trap.open) : d.fence ? K_FENCE : d.gate ? (d.gate.open ? K_FULL : (d.gate.facing & 1) === 0 ? K_GATE_X : K_GATE_Z) : (d.slab && d.slab.kind !== 2) || d.stairs ? K_PARTS : K_FULL;
   kindTables.set(registry, t);
   return t;
 }
@@ -153,6 +160,7 @@ export function fineSolidQuery(registry: BlockRegistry, getBlock: (x: number, y:
       z = hz >> 2;
     const id = getBlock(x, y, z);
     const k = kinds[id] ?? K_FULL;
+    if (k >= K_SEAT) return seatFoot(k - K_SEAT, hx & SUB, hy & SUB, hz & SUB);
     if (k === K_ROD) return rodFoot(hx & SUB, hz & SUB);
     if (k >= K_LADDER) return false; // 사다리·눈 층은 지나간다
     if (k >= K_TRAP) return trapFoot(k - K_TRAP, hx & SUB, hy & SUB, hz & SUB);
@@ -207,6 +215,7 @@ export function raycastFine(
         const mask = partMask(registry.get(id), stairAt, x, y, z);
         return ((mask >> (((hx & SUB) >> 1) | (((hz & SUB) >> 1) << 1) | (((hy & SUB) >> 1) << 2))) & 1) === 1 ? id : 0;
       }
+      if (k >= K_SEAT) return id; // 의자는 칸 어디를 눌러도 (앉기 쉽게)
       if (k === K_LAYER) return (hy & SUB) === 0 ? id : 0;
       if (k === K_ROD) return rodFoot(hx & SUB, hz & SUB) ? id : 0;
       if (k >= K_LADDER) return trapFoot(2 + (k - K_LADDER), hx & SUB, hy & SUB, hz & SUB) ? id : 0; // 벽 쪽 한 겹 (열린 다락문과 같은 조각)

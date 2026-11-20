@@ -67,6 +67,8 @@ export interface InteractionEvents {
   onUseTable?(x: number, y: number, z: number): void;
   /** 침대를 빈손으로 탭 → 눕기 (#204) */
   onSleepBed?(x: number, y: number, z: number): void;
+  /** 의자에 앉기 (2026-11-20): 블록이 아닌 것(빈손·음식·도구)을 들고 의자를 탭 */
+  onSitChair?(x: number, y: number, z: number): void;
   /** 보트를 들고 물을 탭 → 띄우기 (#209) */
   onPlaceBoat?(x: number, y: number, z: number): void;
   /** 수레 (#237): 수레를 들고 철도를 탭 */
@@ -492,6 +494,11 @@ export class Interaction {
       this.events.onSwing();
       return;
     }
+    // 의자를 탭하면 앉는다 (2026-11-20) — 블록을 들고 있을 때만 평소처럼 놓는다 (음식을 들고 앉아 먹을 수 있게)
+    if (tdef.chair && this.selectedBlock <= 0) {
+      this.events.onSitChair?.(t.x, t.y, t.z);
+      return;
+    }
     // 침대를 빈손으로 탭하면 눕는다 (#204). 뭔가 들고 있으면 평소처럼 놓는다
     if (tdef.bed && this.selectedBlock <= 0 && !this.heldItem) {
       this.events.onSleepBed?.(t.x, t.y, t.z);
@@ -581,6 +588,19 @@ export class Interaction {
     if (def.trap) blockNum = this.registry.trapVariant(def.trap.base, facingOf(this.player.lookDir.x, this.player.lookDir.z), t.ny < 0 || (t.ny === 0 && this.hitUpperHalf(t)), false);
     // 울타리문 (#295): 문짝이 내가 보는 방향과 직각으로 걸린다 (열면 보던 쪽으로 젖혀진다)
     if (def.gate) blockNum = this.registry.gateVariant(def.gate.base, facingOf(this.player.lookDir.x, this.player.lookDir.z), false);
+    // 의자 (2026-11-20): 옆에 식탁이 있으면 식탁을 보고, 없으면 나를 본다 (앉으면 놓은 사람 쪽을 본다)
+    if (def.chair) {
+      const look = this.player.lookDir;
+      let facing = facingOf(-look.x, -look.z);
+      for (let f = 0; f < 4; f++) {
+        const [dx, dz] = DOOR_DIR[f]!;
+        if (this.world.inBounds(x + dx, y, z + dz) && this.registry.get(this.world.getBlock(x + dx, y, z + dz)).shape === 'table') {
+          facing = f;
+          break;
+        }
+      }
+      blockNum = this.registry.chairVariant(def.chair.base, facing);
+    }
     // 계단 (#291): 높은 쪽이 내가 보는 방향 — 그대로 걸어 올라간다. 블록 아랫면이나 옆면의 위쪽 반을 탭하면 뒤집어서(천장 쪽이 꽉 찬 계단)
     if (def.stairs) {
       const look = this.player.lookDir;

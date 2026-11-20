@@ -242,6 +242,28 @@
       "_note": "아빠 2026-11-06 — 판자 셋 윗판, 막대기 넷 다리"
     },
     {
+      "id": "chair",
+      "name": "의자",
+      "station": "crafting_table",
+      "pattern": [
+        "p  ",
+        "ppp",
+        "s s"
+      ],
+      "key": {
+        "p": "planks",
+        "s": "stick"
+      },
+      "in": {
+        "planks": 4,
+        "stick": 2
+      },
+      "out": {
+        "chair": 2
+      },
+      "_note": "아빠 2026-11-20 — 등받이·앉는 판은 판자, 다리는 막대기. 한 번에 둘 (식탁 양쪽에)"
+    },
+    {
       "id": "campfire",
       "name": "모닥불 (참나무)",
       "station": "crafting_table",

@@ -61,7 +61,7 @@ export const CROSSBOW_TUNE = {
 };
 
 /** 아이콘 캔버스(정사각, 16 또는 그 배수)를 16×16 격자로 읽어 픽셀마다 상자 하나. y 는 위가 15 */
-function iconVoxels(icon: HTMLCanvasElement): Voxel[] {
+export function iconVoxels(icon: HTMLCanvasElement): Voxel[] {
   const ctx = icon.getContext('2d');
   if (!ctx) return [];
   const w = icon.width,

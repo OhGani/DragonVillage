@@ -23,6 +23,10 @@ import {
   CAT_GIFT_SLEEP_MS,
   KING_KINDS,
   TABLE_SLOTS,
+  BOWL,
+  dishOf,
+  inBowl,
+  CHAIR_SEAT,
   calmFoods,
   bodyOverlapsBlock,
   BONE_MEAL,
@@ -1094,7 +1098,9 @@ export class VillageRoom {
 
   /**
    * 식탁 쓰기 (2026-11-06): put = 손에 든 칸(slot)의 먹을 것 하나를 빈 자리에, take = i 번째를 가방에, eat = i 번째를 먹는다(하트가 찰 때).
-   * 오류: NO_TABLE · TOO_FAR · NOT_EDIBLE · TABLE_FULL · EMPTY · BAG_FULL · HP_FULL · DEAD
+   * 그릇 (2026-11-20): 그릇을 들고 put → 빈 자리에 빈 그릇. 먹을 것을 put 하면 빈 그릇이 있으면 거기 담긴다(`bowl:<음식>`).
+   * 담긴 것을 먹거나 가방에 넣으면 빈 그릇이 남고, 빈 그릇을 take 하면 그릇이 가방으로. 모닥불엔 그릇을 못 놓는다
+   * 오류: NO_TABLE · TOO_FAR · NOT_EDIBLE · NOT_COOKABLE · TABLE_FULL · EMPTY · BAG_FULL · HP_FULL · DEAD
    */
   useTable(idx: number, act: 'put' | 'take' | 'eat', x: number, y: number, z: number, slot: number | undefined, i: number | undefined, now = Date.now()): string | null {
     const p = this.players.get(idx);
@@ -1109,25 +1115,28 @@ export class VillageRoom {
     const changed = new Set<number>();
     if (act === 'put') {
       const held = slot !== undefined && slot >= 0 && slot < p.inv.length ? (p.inv[slot]?.item ?? null) : null;
-      if (!held || !foodOf(FOOD, held)) return 'NOT_EDIBLE';
+      const bowl = held === BOWL && !fire;
+      if (!held || (!bowl && !foodOf(FOOD, held))) return 'NOT_EDIBLE';
       if (fire && !COOKS.has(held)) return 'NOT_COOKABLE';
-      const free = items.indexOf(null);
-      if (free < 0) return 'TABLE_FULL';
+      const emptyBowl = bowl || fire ? -1 : items.indexOf(BOWL); // 먹을 것은 빈 그릇부터 채운다
+      const at = emptyBowl >= 0 ? emptyBowl : items.indexOf(null);
+      if (at < 0) return 'TABLE_FULL';
       if (!takeFromSlot(p.inv, slot!, 1, changed)) return 'NOT_EDIBLE';
-      items[free] = held;
+      items[at] = emptyBowl >= 0 ? inBowl(held) : held;
       this.sendInv(p, changed);
       this.saveTable(p, c, items, now);
-      if (fire) this.watchCampfire(p.world, c, now, free);
+      if (fire) this.watchCampfire(p.world, c, now, at);
       return null;
     }
     if (i === undefined || i < 0 || i >= TABLE_SLOTS || !items[i]) return 'EMPTY';
-    const item = items[i]!;
+    const dish = dishOf(items[i]);
     if (act === 'take') {
+      const item = dish.food ?? BOWL; // 담긴 음식만 가방에 — 그릇은 남는다. 빈 그릇이면 그릇을
       if (!fits(p.inv, [{ item, count: 1 }])) return 'BAG_FULL';
       this.giveTo(p, item, 1, changed);
       this.sendInv(p, changed);
     } else {
-      const food = foodOf(FOOD, item);
+      const food = foodOf(FOOD, dish.food);
       if (!food) return 'NOT_EDIBLE';
       if (p.hp <= 0) return 'DEAD';
       if (p.hp >= HP_MAX) return 'HP_FULL';
@@ -1135,7 +1144,7 @@ export class VillageRoom {
       p.lastRegenAt = now;
       this.sendJson(p, { t: 'health', hp: p.hp, max: HP_MAX, cause: 'eat' });
     }
-    items[i] = null;
+    items[i] = dish.bowl && dish.food ? BOWL : null;
     this.saveTable(p, c, items, now);
     return null;
   }
@@ -2823,8 +2832,10 @@ export class VillageRoom {
     if (!p) return 'NOT_IN_VILLAGE';
     if (!at) {
       if (p.sleeping) {
+        const seat = p.sleeping.seat === true;
         p.sleeping = null;
         this.broadcastJson({ t: 'sleep', idx, at: null }, -1, p.world);
+        if (seat) return null; // 의자에서 일어남 — 고양이 선물은 침대에서만
         // 고양이 선물 (2026-11-06): 충분히 자고 일어나면 곁의 내 고양이가 선물을 줄 수 있다
         if (p.world === 'village' && now - (p.sleptAt ?? now) >= CAT_GIFT_SLEEP_MS) this.animals.catGift({ idx: p.idx, token: p.token, x: p.pos.x, y: p.pos.y, z: p.pos.z, eyeY: p.pos.y + EYE, held: p.held }, now);
       }
@@ -2834,6 +2845,7 @@ export class VillageRoom {
     const world = this.worldOf(p);
     if (!world.inBounds(at.x, at.y, at.z)) return 'NO_BED';
     const def = this.registry.get(world.getBlock(at.x, at.y, at.z));
+    if (def.chair) return this.sit(p, at, def.chair.facing);
     if (!def.bed) return 'NO_BED';
     const [dx, dz] = DOOR_DIR[def.bed.facing]!;
     const fx = def.bed.head ? at.x - dx : at.x,
@@ -2848,6 +2860,25 @@ export class VillageRoom {
     p.pos.z = spot.z;
     p.fallPeak = null;
     this.broadcastJson({ t: 'sleep', idx, at: spot }, -1, p.world);
+    return null;
+  }
+
+  /**
+   * 의자에 앉기 (아빠 2026-11-20 "의자에 앉아서 음식을 먹을 수 있어"): 침대 눕기와 같은 sleep 메시지(seat), 칸 가운데·앉는 판 높이·의자가 보는 쪽.
+   * 침대와 달리 하트가 빨리 차지 않고, 팬텀 잠 시계·비 그치기·고양이 선물에도 안 센다. 앉아서도 탭(먹기·식탁)은 된다
+   */
+  private sit(p: RoomPlayer, at: { x: number; y: number; z: number }, facing: number): string | null {
+    const [fdx, fdz] = DOOR_DIR[facing]!;
+    // 등받이(칸 가장자리 ¼ 줄)에 몸이 걸리지 않게 앞으로 0.1 (몸 폭 0.6)
+    const spot: SleepInfo = { x: at.x + 0.5 + fdx * 0.1, y: at.y + CHAIR_SEAT, z: at.z + 0.5 + fdz * 0.1, facing, seat: true };
+    if (Math.hypot(p.pos.x - spot.x, p.pos.z - spot.z) > 6 || Math.abs(p.pos.y - at.y) > 3) return 'TOO_FAR';
+    for (const o of this.players.values()) if (o !== p && o.world === p.world && o.sleeping && Math.abs(o.sleeping.x - spot.x) < 0.01 && Math.abs(o.sleeping.z - spot.z) < 0.01 && Math.abs(o.sleeping.y - spot.y) < 0.01) return 'OCCUPIED';
+    p.sleeping = spot;
+    p.pos.x = spot.x;
+    p.pos.y = spot.y;
+    p.pos.z = spot.z;
+    p.fallPeak = null;
+    this.broadcastJson({ t: 'sleep', idx: p.idx, at: spot }, -1, p.world);
     return null;
   }
 
@@ -3296,7 +3327,7 @@ export class VillageRoom {
   /** 틱마다: 맞은 지 3초 지나면 1초에 1 회복. 침대에 누워 있으면 4배 (#216) */
   private tickHealth(now: number): void {
     for (const p of this.players.values()) {
-      const g = regenAt(p.hp, p.lastHurtAt, p.lastRegenAt, now, p.sleeping !== null);
+      const g = regenAt(p.hp, p.lastHurtAt, p.lastRegenAt, now, p.sleeping !== null && !p.sleeping.seat); // 의자는 빨리 안 찬다
       if (g > 0) {
         p.hp = Math.min(HP_MAX, p.hp + g);
         p.lastRegenAt = now;
@@ -3385,7 +3416,7 @@ export class VillageRoom {
       return hoeOf(TOOLS, heldForTill) ? null : REJECT.TOOL;
     }
     // 놓기: 액체는 플레이어가 놓는 고인 액체 8/8 만(자연 원천·흐름은 못 놓는다), 그 외 내부 블록 불가, 자리는 공기·액체만, 누가 서 있으면 안 됨
-    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch && !def.bed && !def.rail && !def.stairs && !def.slab && !def.gate && !def.trap && !def.ladder) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82), 계단 변형도 (#291), 반 블록 변형도 (#292)
+    if (def.fluid ? def.fluidVolume !== FLUID_FULL : def.internal && !def.door && !def.torch && !def.bed && !def.rail && !def.stairs && !def.slab && !def.gate && !def.trap && !def.ladder && !def.chair) return REJECT.INVALID; // 벽 횃불 변형은 놓을 수 있다 (#82), 계단 변형도 (#291), 반 블록 변형도 (#292)
     if (def.bed && def.bed.head) return REJECT.INVALID; // 침대는 발 쪽만 놓는다(머리 칸은 서버가 채운다, #188)
     if (def.door && (def.door.upper || def.door.open)) return REJECT.INVALID; // 문은 아래·닫힘 변형만 놓는다(윗칸은 서버가 채운다)
     if (def.gate && def.gate.open) return REJECT.INVALID; // 울타리문은 닫힌 것만 놓는다 (#295)
@@ -3555,6 +3586,9 @@ export class VillageRoom {
         cz = (req.z + bedOther.z) / 2 + 0.5;
       for (const o of [...this.players.values()]) if (o.sleeping && o.world === p.world && Math.abs(o.sleeping.x - cx) < 0.01 && Math.abs(o.sleeping.z - cz) < 0.01) this.sleep(o.idx, null);
     }
+    // 의자가 부서지면 앉은 사람은 일어난다 (2026-11-20)
+    if (prev.chair && num === AIR_ID)
+      for (const o of [...this.players.values()]) if (o.sleeping?.seat && o.world === p.world && Math.floor(o.sleeping.x) === req.x && Math.floor(o.sleeping.z) === req.z && Math.abs(o.sleeping.y - (req.y + CHAIR_SEAT)) < 0.01) this.sleep(o.idx, null);
     const isToggle = (def.door !== null && prev.door !== null) || (def.gate !== null && prev.gate !== null) || (def.trap !== null && prev.trap !== null); // 문·울타리문(#295)·다락문(#296) 열고 닫기
     // 농사 (#165): 심으면 자라기 시작, 부수면(또는 다른 블록이 되면) 기록을 지운다
     if (p.world === 'village') {
@@ -3620,7 +3654,11 @@ export class VillageRoom {
       }
       if (prev.shape === 'table' || prev.shape === 'campfire') {
         // 식탁·모닥불(#290)을 부수면 올린 음식은 부순 사람 가방으로 (2026-11-06)
-        for (const item of this.tableItems(p, req)) if (item) this.giveTo(p, item, 1, changed);
+        for (const slot of this.tableItems(p, req)) {
+          const d = dishOf(slot); // 그릇에 담긴 것은 그릇과 음식 둘 다 (2026-11-20)
+          if (d.food) this.giveTo(p, d.food, 1, changed);
+          if (d.bowl) this.giveTo(p, BOWL, 1, changed);
+        }
         this.deleteStoredChest(p, req);
         this.broadcastJson({ t: 'table', x: req.x, y: req.y, z: req.z, items: Array.from({ length: TABLE_SLOTS }, () => null) }, -1, p.world);
       }
@@ -4115,7 +4153,7 @@ export class VillageRoom {
       }
       // 비 오는 중에 모두 누워 자면 갠다 (마인크래프트)
       const inside = this.playersIn(world);
-      if (w.kind !== 'clear' && inside.length > 0 && inside.every((q) => q.sleeping)) {
+      if (w.kind !== 'clear' && inside.length > 0 && inside.every((q) => q.sleeping && !q.sleeping.seat)) {
         if (!w.sleptSince) w.sleptSince = now;
         else if (now - w.sleptSince >= SLEEP_CLEARS_MS) {
           w.clear(now);
