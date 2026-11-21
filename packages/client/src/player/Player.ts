@@ -22,7 +22,7 @@ import {
   RIDE_SEAT_Y,
   tryStepUp,
   type Vec3,
-  type VoxelWorld, CART_SEAT_Y, advanceCart, type CartState, pushOutOf, type SepBody, FINE_RES, fineSolidQuery, type SolidQuery, LADDER_DOWN, LADDER_UP } from '@dragon-village/shared';
+  type VoxelWorld, CART_SEAT_Y, advanceCart, type CartState, pushOutOf, type SepBody, FINE_RES, fineSolidQuery, type SolidQuery, LADDER_DOWN, LADDER_UP, bodyIntersects } from '@dragon-village/shared';
 import type * as THREE from 'three';
 import type { InputState } from '../input/InputState';
 
@@ -31,6 +31,12 @@ const EYE_STAND = 1.62;
 const EYE_SNEAK = 1.27;
 /** 침대에 누웠을 때 눈 높이 (#204): 베개 위 */
 const EYE_SLEEP = 0.3;
+/**
+ * 탈것 숙이기 (아빠 2026-11-21 "드래곤 등 탈것 타고 2칸짜리 문에 들어갈 수 있게"): 탄 몸 상자는 탈것 높이만큼 길어서(말 3칸·낙타 3.7칸) 2칸 문에 막힌다.
+ * 막히면 이 높이(탈것 바닥에서)로 숙여 지나가고, 숙인 동안 눈은 천장 아래(바닥에서 RIDE_DUCK_EYE)로 내린다
+ */
+const RIDE_DUCK_H = 1.85;
+const RIDE_DUCK_EYE = 1.6;
 /** 의자에 앉았을 때 눈 높이 (2026-11-20): 엉덩이(앉는 판) 위로 서 있는 눈 높이에서 다리 길이를 뺀 만큼 */
 const EYE_SEAT = 0.95;
 const WALK = 4.317;
@@ -88,6 +94,8 @@ export class Player {
   sneaking = false;
   /** 침대에 누움 (#204): 안 움직이고 눈이 낮다. Game 이 서버 응답으로 켜고 끈다 */
   sleeping = false;
+  /** 탈것을 타고 낮은 곳(2칸 문)을 숙여 지나는 중 — 몸 상자가 RIDE_DUCK_H, 눈이 내려간다 */
+  ducking = false;
   /** 의자에 앉음 (2026-11-20): sleeping 과 같이 서 있되 눈은 앉은 높이 */
   seated = false;
   /** 🛡️ 막는 중 (#118): 걸음이 guardSlow 배 */
@@ -432,15 +440,42 @@ export class Player {
     // 탈것 (#178): 몸 상자를 탈것 등 높이만큼 아래로 늘려서 움직인다 — 말·드래곤이 바닥 밑으로 안 들어간다. 자리가 땅에 박혀 있으면 이번 걸음은 보통 몸으로
     let seat = this.seatY;
     if (seat > 0) seat = this.freeSeat(pos, seat);
-    const size: BodySize = seat > 0.01 ? { w: PLAYER_SIZE.w, h: PLAYER_SIZE.h + seat } : PLAYER_SIZE;
+    const full: BodySize = seat > 0.01 ? { w: PLAYER_SIZE.w, h: PLAYER_SIZE.h + seat } : PLAYER_SIZE;
     if (seat <= 0.01) seat = 0;
     pos.y -= seat;
     const px = pos.x,
       py = pos.y,
       pz = pos.z;
     const vx0 = vel.x,
+      vy0 = vel.y,
       vz0 = vel.z;
+    // 탈것 숙이기: 이미 낮은 곳 아래면(긴 몸이 천장에 걸침) 숙인 몸으로 움직인다
+    const duck: BodySize = { w: PLAYER_SIZE.w, h: Math.min(full.h, RIDE_DUCK_H) };
+    let size = seat > 0 && bodyIntersects(this.fineSolid, pos, full, FINE_RES) ? duck : full;
     moveBody(this.fineSolid, pos, size, vel, h, this.moveOut, FINE_RES);
+    if (size === full && seat > 0 && (this.moveOut.hitX || this.moveOut.hitZ)) {
+      // 막혔으면 숙인 몸으로 다시 — 더 멀리 가면(2칸 문으로 들어가면) 그쪽을 쓴다
+      const p = this.probePos,
+        v = this.probeVel;
+      p.x = px;
+      p.y = py;
+      p.z = pz;
+      v.x = vx0;
+      v.y = vy0;
+      v.z = vz0;
+      moveBody(this.fineSolid, p, duck, v, h, this.probeOut, FINE_RES);
+      if (Math.hypot(p.x - px, p.z - pz) > Math.hypot(pos.x - px, pos.z - pz) + 0.001) {
+        pos.x = p.x;
+        pos.y = p.y;
+        pos.z = p.z;
+        vel.x = v.x;
+        vel.y = v.y;
+        vel.z = v.z;
+        Object.assign(this.moveOut, this.probeOut);
+        size = duck;
+      }
+    }
+    this.ducking = size === duck && seat > 0 && bodyIntersects(this.fineSolid, pos, full, FINE_RES);
     this.onGround = this.moveOut.onGround;
 
     // 한 칸 턱 자동 오르기 (앞으로 걷다 막혔을 때). 물속에서는 바닥을 딛지 않아도(헤엄) 둑을 밀면 올라선다
@@ -501,7 +536,7 @@ export class Player {
     }
     if (pos.y < -24) this.respawn();
 
-    const targetEye = this.sneaking ? EYE_SNEAK : EYE_STAND;
+    const targetEye = this.ducking ? RIDE_DUCK_EYE - this.seatY : this.sneaking ? EYE_SNEAK : EYE_STAND; // 숙이면 눈이 문틀 아래로 (발은 탈것 위라 음수도 된다)
     this.eyeHeight += (targetEye - this.eyeHeight) * Math.min(1, 22 * h);
 
     const hs = Math.hypot(vel.x, vel.z);

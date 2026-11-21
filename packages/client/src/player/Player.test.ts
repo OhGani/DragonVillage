@@ -166,3 +166,79 @@ describe('사다리 (#299)', () => {
     expect(q.vel.y).toBeLessThan(-6);
   });
 });
+
+describe('탈것 타고 2칸 문 지나가기 (아빠 2026-11-21)', () => {
+  /** 바닥 y<8, z 20 에 높이 5 벽 — x 10 에만 2칸 문 구멍(y 8·9) */
+  function doorWorld() {
+    const world = {
+      sizeX: 64,
+      sizeY: 32,
+      sizeZ: 64,
+      getBlock: (x: number, y: number, z: number) => (y < 8 ? 1 : z === 20 && y < 13 && !(x === 10 && y < 10) ? 1 : 0),
+    };
+    const registry = { isSolid: (id: number) => id === 1, get: () => ({ fluid: null }) };
+    return { world, registry };
+  }
+  const forward = { ...IDLE, moveZ: 1 }; // -z 로
+
+  for (const mount of ['horse', 'camel', 'pig', null] as const) {
+    it(`${mount ?? 'dragon'}: 숙여서 문을 지나고, 문 안에서는 눈이 문틀 아래, 지나면 다시 탄 높이`, () => {
+      const { world, registry } = doorWorld();
+      const p = new Player(world as never, registry as never, { x: 10.5, y: 8, z: 24.5 });
+      p.riding = true;
+      p.mountKind = mount;
+      p.liftForMount();
+      for (let i = 0; i < 20; i++) p.update(IDLE, 1 / 30);
+      const seat = p.pos.y - 8;
+      let inDoor = false;
+      for (let i = 0; i < 600 && p.pos.z > 17; i++) { // 돼지는 당근 낚싯대 없이 느리다
+        p.update(forward, 1 / 30);
+        if (Math.abs(p.pos.z - 20.5) < 0.2) {
+          inDoor = true;
+          expect(p.ducking).toBe(true);
+          expect(p.eye.y).toBeLessThan(10); // 눈이 문틀(y 10) 아래
+        }
+      }
+      expect(inDoor).toBe(true);
+      expect(p.pos.z).toBeLessThan(18); // 문을 지나 반대편
+      for (let i = 0; i < 30; i++) p.update(IDLE, 1 / 30);
+      expect(p.ducking).toBe(false);
+      expect(p.pos.y - 8).toBeCloseTo(seat, 1); // 다시 탈것 높이
+    });
+  }
+
+  it('문이 아닌 벽은 숙여도 못 지나간다', () => {
+    const { world, registry } = doorWorld();
+    const p = new Player(world as never, registry as never, { x: 14.5, y: 8, z: 24.5 });
+    p.riding = true;
+    p.mountKind = 'horse';
+    p.liftForMount();
+    for (let i = 0; i < 120; i++) p.update(forward, 1 / 30);
+    expect(p.pos.z).toBeGreaterThan(21);
+  });
+});
+
+describe('진짜 문 블록 (아빠 2026-11-21)', () => {
+  it('열린 2칸 문은 드래곤·말을 타고 지나가고, 닫힌 문은 막힌다', async () => {
+    const { BLOCKS } = await import('@dragon-village/shared/data');
+    const door = BLOCKS.numOf('oak_door');
+    const stone = BLOCKS.numOf('stone');
+    const make = (open: boolean) => {
+      const lo = BLOCKS.doorVariant(door, 0, false, open),
+        hi = BLOCKS.doorVariant(door, 0, true, open);
+      return { sizeX: 64, sizeY: 32, sizeZ: 64, getBlock: (x: number, y: number, z: number) => (y < 8 ? stone : z === 20 && y < 13 ? (x === 10 && y === 8 ? lo : x === 10 && y === 9 ? hi : stone) : 0) };
+    };
+    const forward = { ...IDLE, moveZ: 1 };
+    for (const mount of ['horse', null] as const) {
+      for (const open of [true, false]) {
+        const p = new Player(make(open) as never, BLOCKS as never, { x: 10.5, y: 8, z: 24.5 });
+        p.riding = true;
+        p.mountKind = mount;
+        p.liftForMount();
+        for (let i = 0; i < 150; i++) p.update(forward, 1 / 30);
+        if (open) expect(p.pos.z, `${mount} 열린 문`).toBeLessThan(19);
+        else expect(p.pos.z, `${mount} 닫힌 문`).toBeGreaterThan(20.5);
+      }
+    }
+  });
+});
